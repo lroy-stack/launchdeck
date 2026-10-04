@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 2,
+  "id": "example.counter",
+  "name": "Counter Plugin",
+  "version": "0.1.0",
+  "description": "A counter that remembers its value between presses and reports a level, never a number of pads.",
+  "author": "LaunchDeck examples",
+  "abi": 1,
+  "sdk": "0.1.0",
+  "main": "counter.wasm",
+  "actions": [
+    {
+      "id": "counter.increment",
+      "label": "Increment",
+      "description": "Add one step. Fails at the maximum.",
+      "category": "Counter",
+      "keywords": [
+        "add",
+        "plus",
+        "more",
+        "count",
+        "up"
+      ],
+      "appearance": {
+        "label": "Plus",
+        "color": "#2f81f7",
+        "icon": "+"
+      }
+    },
+    {
+      "id": "counter.decrement",
+      "label": "Decrement",
+      "description": "Subtract one step. Fails at zero.",
+      "category": "Counter",
+      "keywords": [
+        "subtract",
+        "minus",
+        "less",
+        "count",
+        "down"
+      ],
+      "appearance": {
+        "label": "Minus",
+        "color": "#f0883e",
+        "icon": "−"
+      }
+    },
+    {
+      "id": "counter.reset",
+      "label": "Reset",
+      "description": "Back to zero.",
+      "category": "Counter",
+      "keywords": [
+        "zero",
+        "clear",
+        "count",
+        "start over"
+      ],
+      "appearance": {
+        "label": "Zero",
+        "color": "#6e7681",
+        "icon": "0"
+      }
+    }
+  ],
+  "events": [
+    {
+      "type": "counter.changed",
+      "description": "The value changed. Payload: value (number), level (zero, low, high or max)."
+    }
+  ],
+  "config": [
+    {
+      "key": "step",
+      "type": "number",
+      "default": 1,
+      "description": "How much one press adds or removes."
+    },
+    {
+      "key": "max",
+      "type": "number",
+      "default": 9,
+      "description": "The largest value."
+    }
+  ],
+  "capabilities": []
+}

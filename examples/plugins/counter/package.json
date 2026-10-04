@@ -1,0 +1,15 @@
+{
+  "name": "example-counter-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "asc --target release"
+  },
+  "dependencies": {
+    "@launchdeck/plugin-sdk": "file:../../../sdk/assemblyscript"
+  },
+  "devDependencies": {
+    "assemblyscript": "0.28.20"
+  }
+}

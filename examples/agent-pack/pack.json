@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "type": "pack",
+  "id": "example.release-watch",
+  "name": "Release watch",
+  "version": "0.1.0",
+  "description": "Watch a release script, answer its approvals from the pads, and start the usual checks.",
+  "requires": { "launchdeck": ">=0.2.0" },
+  "includes": [
+    { "type": "adapter", "id": "example.release-script", "version": "^0.1.0", "transport": "bridge" },
+    { "type": "plugin", "id": "example.release-notes", "version": "^0.1.0" },
+    { "type": "surface", "id": "example.release-board", "version": "^0.1.0" },
+    {
+      "type": "stateMapping",
+      "adapter": "example.release-script",
+      "map": { "building": "running", "awaiting-review": "waiting", "shipped": "completed", "rolled-back": "failed" }
+    },
+    { "type": "workflowTemplate", "id": "smoke-tests", "label": "Smoke tests", "task": "Run the smoke tests against the release candidate" },
+    { "type": "workflowTemplate", "id": "changelog", "label": "Changelog", "task": "Draft the changelog from merged changes" }
+  ]
+}

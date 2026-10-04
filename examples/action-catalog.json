@@ -1,0 +1,1366 @@
+{
+  "actions": [
+    {
+      "action": "startTask",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Demo",
+      "description": "Set a simulated agent to running.",
+      "id": "demo.startTask",
+      "keywords": [
+        "simulated",
+        "task",
+        "sample",
+        "fake"
+      ],
+      "name": "Start task",
+      "params": [
+        {
+          "description": "",
+          "integer": false,
+          "label": "Agent",
+          "monospace": false,
+          "multiline": false,
+          "name": "agent",
+          "options": [
+            {
+              "label": "Alpha",
+              "value": "alpha"
+            },
+            {
+              "label": "Beta",
+              "value": "beta"
+            },
+            {
+              "label": "Gamma",
+              "value": "gamma"
+            }
+          ],
+          "required": true,
+          "type": "enum"
+        }
+      ],
+      "privileged": false,
+      "provider": "demo"
+    },
+    {
+      "action": "stopTask",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Demo",
+      "description": "Set a simulated agent back to idle.",
+      "id": "demo.stopTask",
+      "keywords": [
+        "simulated",
+        "task",
+        "sample",
+        "fake"
+      ],
+      "name": "Stop task",
+      "params": [
+        {
+          "description": "",
+          "integer": false,
+          "label": "Agent",
+          "monospace": false,
+          "multiline": false,
+          "name": "agent",
+          "options": [
+            {
+              "label": "Alpha",
+              "value": "alpha"
+            },
+            {
+              "label": "Beta",
+              "value": "beta"
+            },
+            {
+              "label": "Gamma",
+              "value": "gamma"
+            }
+          ],
+          "required": true,
+          "type": "enum"
+        }
+      ],
+      "privileged": false,
+      "provider": "demo"
+    },
+    {
+      "action": "succeedTask",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Demo",
+      "description": "Mark a simulated agent's task as succeeded.",
+      "id": "demo.succeedTask",
+      "keywords": [
+        "simulated",
+        "task",
+        "sample",
+        "fake"
+      ],
+      "name": "Succeed task",
+      "params": [
+        {
+          "description": "",
+          "integer": false,
+          "label": "Agent",
+          "monospace": false,
+          "multiline": false,
+          "name": "agent",
+          "options": [
+            {
+              "label": "Alpha",
+              "value": "alpha"
+            },
+            {
+              "label": "Beta",
+              "value": "beta"
+            },
+            {
+              "label": "Gamma",
+              "value": "gamma"
+            }
+          ],
+          "required": true,
+          "type": "enum"
+        }
+      ],
+      "privileged": false,
+      "provider": "demo"
+    },
+    {
+      "action": "failTask",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Demo",
+      "description": "Mark a simulated agent's task as failed.",
+      "id": "demo.failTask",
+      "keywords": [
+        "simulated",
+        "task",
+        "sample",
+        "fake"
+      ],
+      "name": "Fail task",
+      "params": [
+        {
+          "description": "",
+          "integer": false,
+          "label": "Agent",
+          "monospace": false,
+          "multiline": false,
+          "name": "agent",
+          "options": [
+            {
+              "label": "Alpha",
+              "value": "alpha"
+            },
+            {
+              "label": "Beta",
+              "value": "beta"
+            },
+            {
+              "label": "Gamma",
+              "value": "gamma"
+            }
+          ],
+          "required": true,
+          "type": "enum"
+        }
+      ],
+      "privileged": false,
+      "provider": "demo"
+    },
+    {
+      "action": "requestApproval",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Demo",
+      "description": "Make a simulated agent ask for approval.",
+      "id": "demo.requestApproval",
+      "keywords": [
+        "simulated",
+        "task",
+        "sample",
+        "fake"
+      ],
+      "name": "Request approval",
+      "params": [
+        {
+          "description": "",
+          "integer": false,
+          "label": "Agent",
+          "monospace": false,
+          "multiline": false,
+          "name": "agent",
+          "options": [
+            {
+              "label": "Alpha",
+              "value": "alpha"
+            },
+            {
+              "label": "Beta",
+              "value": "beta"
+            },
+            {
+              "label": "Gamma",
+              "value": "gamma"
+            }
+          ],
+          "required": true,
+          "type": "enum"
+        }
+      ],
+      "privileged": false,
+      "provider": "demo"
+    },
+    {
+      "action": "approve",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Demo",
+      "description": "Approve simulated agents that are waiting.",
+      "id": "demo.approve",
+      "keywords": [
+        "simulated",
+        "yes",
+        "allow",
+        "sample"
+      ],
+      "name": "Approve",
+      "params": [
+        {
+          "description": "Leave empty for every agent that is waiting.",
+          "integer": false,
+          "label": "Agent",
+          "monospace": false,
+          "multiline": false,
+          "name": "agent",
+          "options": [
+            {
+              "label": "Alpha",
+              "value": "alpha"
+            },
+            {
+              "label": "Beta",
+              "value": "beta"
+            },
+            {
+              "label": "Gamma",
+              "value": "gamma"
+            }
+          ],
+          "required": false,
+          "type": "enum"
+        }
+      ],
+      "privileged": false,
+      "provider": "demo"
+    },
+    {
+      "action": "runScenario",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Demo",
+      "description": "Play a scripted run of three simulated tasks. The approval step waits for you.",
+      "id": "demo.runScenario",
+      "keywords": [
+        "simulated",
+        "scenario",
+        "sample",
+        "play"
+      ],
+      "name": "Run agent demo",
+      "params": [],
+      "privileged": false,
+      "provider": "demo"
+    },
+    {
+      "action": "resetAll",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Demo",
+      "description": "Return every simulated agent to idle.",
+      "id": "demo.resetAll",
+      "keywords": [
+        "clear",
+        "stop",
+        "sample"
+      ],
+      "name": "Reset",
+      "params": [],
+      "privileged": false,
+      "provider": "demo"
+    },
+    {
+      "action": "request",
+      "appearance": {
+        "color": "#14b8a6",
+        "icon": "↗",
+        "label": "Request"
+      },
+      "availability": {
+        "status": "available"
+      },
+      "category": "Advanced",
+      "description": "Sends a request from this computer each time you press the pad. Only use addresses you trust.",
+      "id": "http.request",
+      "keywords": [
+        "webhook",
+        "api",
+        "rest",
+        "post",
+        "get",
+        "call",
+        "deploy",
+        "trigger"
+      ],
+      "name": "HTTP request",
+      "params": [
+        {
+          "default": "GET",
+          "description": "",
+          "integer": false,
+          "label": "Method",
+          "monospace": false,
+          "multiline": false,
+          "name": "method",
+          "options": [
+            {
+              "label": "GET",
+              "value": "GET"
+            },
+            {
+              "label": "POST",
+              "value": "POST"
+            },
+            {
+              "label": "PUT",
+              "value": "PUT"
+            },
+            {
+              "label": "PATCH",
+              "value": "PATCH"
+            },
+            {
+              "label": "DELETE",
+              "value": "DELETE"
+            }
+          ],
+          "required": false,
+          "type": "enum"
+        },
+        {
+          "description": "",
+          "integer": false,
+          "label": "URL",
+          "maxLength": 2048,
+          "monospace": false,
+          "multiline": false,
+          "name": "url",
+          "placeholder": "https://example.com/hook",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "description": "Optional. Sent exactly as written.",
+          "integer": false,
+          "label": "Body",
+          "maxLength": 16384,
+          "monospace": true,
+          "multiline": true,
+          "name": "body",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "privileged": true,
+      "provider": "http"
+    },
+    {
+      "action": "openSurface",
+      "appearance": {
+        "color": "#6366f1",
+        "icon": "↪",
+        "label": "Go to"
+      },
+      "availability": {
+        "status": "available"
+      },
+      "category": "Navigation",
+      "description": "Switch to another surface, optionally on a given page.",
+      "id": "navigation.openSurface",
+      "keywords": [
+        "switch",
+        "go to",
+        "profile",
+        "layout",
+        "change",
+        "launch"
+      ],
+      "name": "Open surface",
+      "params": [
+        {
+          "description": "",
+          "integer": false,
+          "label": "Surface",
+          "monospace": false,
+          "multiline": false,
+          "name": "surfaceId",
+          "required": true,
+          "target": "surface",
+          "type": "reference"
+        },
+        {
+          "description": "Leave empty to open its first page.",
+          "integer": false,
+          "label": "Page",
+          "monospace": false,
+          "multiline": false,
+          "name": "pageId",
+          "required": false,
+          "scope": "surfaceId",
+          "target": "page",
+          "type": "reference"
+        }
+      ],
+      "privileged": false,
+      "provider": "navigation"
+    },
+    {
+      "action": "openPage",
+      "appearance": {
+        "color": "#6366f1",
+        "icon": "▤",
+        "label": "Page"
+      },
+      "availability": {
+        "status": "available"
+      },
+      "category": "Navigation",
+      "description": "Go to another page of the surface you are on.",
+      "id": "navigation.openPage",
+      "keywords": [
+        "next",
+        "previous",
+        "tab",
+        "switch",
+        "folder"
+      ],
+      "name": "Open page",
+      "params": [
+        {
+          "description": "",
+          "integer": false,
+          "label": "Page",
+          "monospace": false,
+          "multiline": false,
+          "name": "pageId",
+          "required": true,
+          "target": "page",
+          "type": "reference"
+        }
+      ],
+      "privileged": false,
+      "provider": "navigation"
+    },
+    {
+      "action": "execute",
+      "appearance": {
+        "color": "#64748b",
+        "icon": "›_",
+        "label": "Shell"
+      },
+      "availability": {
+        "status": "available"
+      },
+      "category": "Advanced",
+      "description": "Runs a command on your computer with your permissions, exactly as written, each time you press the pad.",
+      "id": "shell.execute",
+      "keywords": [
+        "terminal",
+        "script",
+        "bash",
+        "cli",
+        "command",
+        "run",
+        "powershell"
+      ],
+      "name": "Run shell command",
+      "params": [
+        {
+          "description": "",
+          "integer": false,
+          "label": "Command",
+          "maxLength": 4096,
+          "monospace": true,
+          "multiline": true,
+          "name": "command",
+          "placeholder": "git pull",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "privileged": true,
+      "provider": "shell"
+    },
+    {
+      "action": "openUrl",
+      "appearance": {
+        "color": "#2f81f7",
+        "icon": "🔗",
+        "label": "Open link"
+      },
+      "availability": {
+        "status": "available"
+      },
+      "category": "Apps and links",
+      "description": "Open a web page, mail, phone or message link in the default app.",
+      "id": "system.openUrl",
+      "keywords": [
+        "web",
+        "browser",
+        "link",
+        "website",
+        "page",
+        "mail",
+        "bookmark"
+      ],
+      "name": "Open URL",
+      "params": [
+        {
+          "description": "http, https, mailto, tel, sms and facetime links only.",
+          "integer": false,
+          "label": "Link",
+          "maxLength": 2048,
+          "monospace": false,
+          "multiline": false,
+          "name": "url",
+          "placeholder": "https://example.com",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "privileged": false,
+      "provider": "system"
+    },
+    {
+      "action": "launchApplication",
+      "appearance": {
+        "color": "#965af0",
+        "icon": "🚀",
+        "label": "Launch"
+      },
+      "availability": {
+        "status": "available"
+      },
+      "category": "Apps and links",
+      "description": "Start an application by name or path.",
+      "id": "system.launchApplication",
+      "keywords": [
+        "app",
+        "program",
+        "open",
+        "start",
+        "run",
+        "executable"
+      ],
+      "name": "Launch application",
+      "params": [
+        {
+          "description": "",
+          "integer": false,
+          "label": "Application",
+          "maxLength": 512,
+          "monospace": false,
+          "multiline": false,
+          "name": "app",
+          "placeholder": "Visual Studio Code",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "description": "Optional. One argument per line.",
+          "integer": false,
+          "label": "Arguments",
+          "maxLength": 2048,
+          "monospace": true,
+          "multiline": true,
+          "name": "args",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "privileged": false,
+      "provider": "system"
+    },
+    {
+      "action": "keyboardShortcut",
+      "appearance": {
+        "color": "#1eb45a",
+        "icon": "⌨",
+        "label": "Shortcut"
+      },
+      "availability": {
+        "status": "available"
+      },
+      "category": "Keyboard",
+      "description": "Press a key combination as if you typed it.",
+      "id": "system.keyboardShortcut",
+      "keywords": [
+        "keys",
+        "hotkey",
+        "press",
+        "combo",
+        "type",
+        "copy",
+        "paste",
+        "macro"
+      ],
+      "name": "Keyboard shortcut",
+      "params": [
+        {
+          "description": "Join keys with +. mod is Cmd on macOS and Ctrl elsewhere. Also: ctrl, alt, shift, enter, esc, tab, space, arrows, f1 to f12.",
+          "integer": false,
+          "label": "Keys",
+          "maxLength": 120,
+          "monospace": false,
+          "multiline": false,
+          "name": "keys",
+          "placeholder": "mod+shift+p",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "privileged": false,
+      "provider": "system"
+    },
+    {
+      "action": "volumeUp",
+      "appearance": {
+        "color": "#64748b",
+        "icon": "🔊",
+        "label": "Volume up"
+      },
+      "availability": {
+        "status": "available"
+      },
+      "category": "Media",
+      "description": "Press the volume-up media key.",
+      "id": "system.volumeUp",
+      "keywords": [
+        "louder",
+        "sound",
+        "audio"
+      ],
+      "name": "Volume up",
+      "params": [],
+      "privileged": false,
+      "provider": "system"
+    },
+    {
+      "action": "volumeDown",
+      "appearance": {
+        "color": "#64748b",
+        "icon": "🔉",
+        "label": "Volume down"
+      },
+      "availability": {
+        "status": "available"
+      },
+      "category": "Media",
+      "description": "Press the volume-down media key.",
+      "id": "system.volumeDown",
+      "keywords": [
+        "quieter",
+        "sound",
+        "audio"
+      ],
+      "name": "Volume down",
+      "params": [],
+      "privileged": false,
+      "provider": "system"
+    },
+    {
+      "action": "toggleMute",
+      "appearance": {
+        "color": "#64748b",
+        "icon": "🔇",
+        "label": "Mute"
+      },
+      "availability": {
+        "status": "available"
+      },
+      "category": "Media",
+      "description": "Press the mute media key.",
+      "id": "system.toggleMute",
+      "keywords": [
+        "silence",
+        "sound",
+        "audio",
+        "mute"
+      ],
+      "name": "Toggle mute",
+      "params": [],
+      "privileged": false,
+      "provider": "system"
+    },
+    {
+      "action": "playPause",
+      "appearance": {
+        "color": "#64748b",
+        "icon": "⏯",
+        "label": "Play"
+      },
+      "availability": {
+        "status": "available"
+      },
+      "category": "Media",
+      "description": "Press the media play/pause key.",
+      "id": "system.playPause",
+      "keywords": [
+        "music",
+        "song",
+        "player",
+        "resume",
+        "stop"
+      ],
+      "name": "Play / pause",
+      "params": [],
+      "privileged": false,
+      "provider": "system"
+    },
+    {
+      "action": "approve",
+      "appearance": {
+        "color": "#1edc5a",
+        "icon": "✔",
+        "label": "Approve"
+      },
+      "availability": {
+        "cause": "state",
+        "reason": "No session selected.",
+        "status": "unavailable"
+      },
+      "category": "Agent Control",
+      "description": "Approve the focused session's pending request.",
+      "id": "agent-control.approve",
+      "keywords": [
+        "yes",
+        "allow",
+        "accept",
+        "permission",
+        "confirm",
+        "agent"
+      ],
+      "name": "Approve",
+      "params": [],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "reject",
+      "appearance": {
+        "color": "#ff2832",
+        "icon": "✕",
+        "label": "Reject"
+      },
+      "availability": {
+        "cause": "state",
+        "reason": "No session selected.",
+        "status": "unavailable"
+      },
+      "category": "Agent Control",
+      "description": "Reject the focused session's pending request.",
+      "id": "agent-control.reject",
+      "keywords": [
+        "no",
+        "deny",
+        "refuse",
+        "decline",
+        "agent"
+      ],
+      "name": "Reject",
+      "params": [],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "pause",
+      "appearance": {
+        "color": "#ff7814",
+        "icon": "⏸",
+        "label": "Pause"
+      },
+      "availability": {
+        "cause": "state",
+        "reason": "No session selected.",
+        "status": "unavailable"
+      },
+      "category": "Agent Control",
+      "description": "Pause the focused session (if the agent supports it).",
+      "id": "agent-control.pause",
+      "keywords": [
+        "hold",
+        "wait",
+        "agent"
+      ],
+      "name": "Pause",
+      "params": [],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "resume",
+      "appearance": {
+        "color": "#1edc5a",
+        "icon": "▶",
+        "label": "Resume"
+      },
+      "availability": {
+        "cause": "state",
+        "reason": "No session selected.",
+        "status": "unavailable"
+      },
+      "category": "Agent Control",
+      "description": "Resume the focused session.",
+      "id": "agent-control.resume",
+      "keywords": [
+        "unpause",
+        "go",
+        "agent"
+      ],
+      "name": "Resume",
+      "params": [],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "cancel",
+      "appearance": {
+        "color": "#ff2832",
+        "icon": "■",
+        "label": "Stop"
+      },
+      "availability": {
+        "cause": "state",
+        "reason": "No session selected.",
+        "status": "unavailable"
+      },
+      "category": "Agent Control",
+      "description": "Cancel the focused session.",
+      "id": "agent-control.cancel",
+      "keywords": [
+        "stop",
+        "abort",
+        "kill",
+        "end",
+        "agent"
+      ],
+      "name": "Cancel",
+      "params": [],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "retry",
+      "appearance": {
+        "color": "#ffc81e",
+        "icon": "↻",
+        "label": "Retry"
+      },
+      "availability": {
+        "cause": "state",
+        "reason": "No session selected.",
+        "status": "unavailable"
+      },
+      "category": "Agent Control",
+      "description": "Retry a failed or cancelled session.",
+      "id": "agent-control.retry",
+      "keywords": [
+        "again",
+        "rerun",
+        "restart",
+        "agent"
+      ],
+      "name": "Retry",
+      "params": [],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "continue",
+      "appearance": {
+        "color": "#aa50ff",
+        "icon": "⏵⏵",
+        "label": "Continue"
+      },
+      "availability": {
+        "cause": "state",
+        "reason": "No session selected.",
+        "status": "unavailable"
+      },
+      "category": "Agent Control",
+      "description": "Send an instruction to the focused session.",
+      "id": "agent-control.continue",
+      "keywords": [
+        "instruction",
+        "prompt",
+        "message",
+        "send",
+        "tell",
+        "agent"
+      ],
+      "name": "Continue",
+      "params": [
+        {
+          "default": "continue",
+          "description": "",
+          "integer": false,
+          "label": "Instruction",
+          "maxLength": 2000,
+          "monospace": false,
+          "multiline": true,
+          "name": "text",
+          "placeholder": "continue",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "newTask",
+      "appearance": {
+        "color": "#1ed2e6",
+        "icon": "✓",
+        "label": "New task"
+      },
+      "availability": {
+        "status": "available"
+      },
+      "category": "Agent Control",
+      "description": "Start a task on the focused agent, or on the first agent that can.",
+      "id": "agent-control.newTask",
+      "keywords": [
+        "start",
+        "spawn",
+        "prompt",
+        "run",
+        "begin",
+        "agent",
+        "job"
+      ],
+      "name": "New task",
+      "params": [
+        {
+          "description": "",
+          "integer": false,
+          "label": "Task",
+          "maxLength": 2000,
+          "monospace": false,
+          "multiline": true,
+          "name": "task",
+          "placeholder": "Run the test suite and report failures",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "description": "Optional. Where the agent should work.",
+          "integer": false,
+          "label": "Working folder",
+          "maxLength": 512,
+          "monospace": false,
+          "multiline": false,
+          "name": "cwd",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "focusSlot",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Agent Control",
+      "description": "Select the agent track in a slot; the command pads then act on it.",
+      "id": "agent-control.focusSlot",
+      "keywords": [
+        "focus",
+        "choose",
+        "slot",
+        "agent"
+      ],
+      "name": "Select track",
+      "params": [
+        {
+          "description": "0 is the first track, 7 the last.",
+          "integer": true,
+          "label": "Track",
+          "max": 7.0,
+          "min": 0.0,
+          "monospace": false,
+          "multiline": false,
+          "name": "slot",
+          "required": true,
+          "type": "number"
+        }
+      ],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "clearFocus",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Agent Control",
+      "description": "Deselect the focused track.",
+      "id": "agent-control.clearFocus",
+      "keywords": [
+        "unfocus",
+        "none",
+        "agent"
+      ],
+      "name": "Clear selection",
+      "params": [],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "dismissSlot",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Agent Control",
+      "description": "Remove a finished session from a slot.",
+      "id": "agent-control.dismissSlot",
+      "keywords": [
+        "remove",
+        "clear",
+        "close",
+        "slot",
+        "agent"
+      ],
+      "name": "Dismiss track",
+      "params": [
+        {
+          "description": "0 is the first track, 7 the last.",
+          "integer": true,
+          "label": "Track",
+          "max": 7.0,
+          "min": 0.0,
+          "monospace": false,
+          "multiline": false,
+          "name": "slot",
+          "required": true,
+          "type": "number"
+        }
+      ],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "runDemo",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Agent Control",
+      "description": "Start four simulated agents that exercise the whole workflow.",
+      "id": "agent-control.runDemo",
+      "keywords": [
+        "simulated",
+        "sample",
+        "try",
+        "play"
+      ],
+      "name": "Run Agent Demo",
+      "params": [],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "resetDemo",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Agent Control",
+      "description": "Stop the simulated agents and clear their sessions.",
+      "id": "agent-control.resetDemo",
+      "keywords": [
+        "simulated",
+        "sample",
+        "clear",
+        "stop"
+      ],
+      "name": "Reset demo",
+      "params": [],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "openApp",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Agent Control",
+      "description": "Ask the desktop app to show the Agents section.",
+      "id": "agent-control.openApp",
+      "keywords": [
+        "window",
+        "show",
+        "sessions",
+        "logs"
+      ],
+      "name": "Open Agents view",
+      "params": [],
+      "privileged": false,
+      "provider": "agent-control"
+    },
+    {
+      "action": "counter.increment",
+      "appearance": {
+        "color": "#2f81f7",
+        "icon": "+",
+        "label": "Plus"
+      },
+      "availability": {
+        "cause": "provider",
+        "reason": "The plugin is turned off in Plugins.",
+        "status": "unavailable"
+      },
+      "category": "Counter",
+      "description": "Add one step. Fails at the maximum.",
+      "id": "example.counter.counter.increment",
+      "keywords": [
+        "add",
+        "plus",
+        "more",
+        "count",
+        "up"
+      ],
+      "name": "Increment",
+      "params": [],
+      "privileged": false,
+      "provider": "example.counter"
+    },
+    {
+      "action": "counter.decrement",
+      "appearance": {
+        "color": "#f0883e",
+        "icon": "−",
+        "label": "Minus"
+      },
+      "availability": {
+        "cause": "provider",
+        "reason": "The plugin is turned off in Plugins.",
+        "status": "unavailable"
+      },
+      "category": "Counter",
+      "description": "Subtract one step. Fails at zero.",
+      "id": "example.counter.counter.decrement",
+      "keywords": [
+        "subtract",
+        "minus",
+        "less",
+        "count",
+        "down"
+      ],
+      "name": "Decrement",
+      "params": [],
+      "privileged": false,
+      "provider": "example.counter"
+    },
+    {
+      "action": "counter.reset",
+      "appearance": {
+        "color": "#6e7681",
+        "icon": "0",
+        "label": "Zero"
+      },
+      "availability": {
+        "cause": "provider",
+        "reason": "The plugin is turned off in Plugins.",
+        "status": "unavailable"
+      },
+      "category": "Counter",
+      "description": "Back to zero.",
+      "id": "example.counter.counter.reset",
+      "keywords": [
+        "zero",
+        "clear",
+        "count",
+        "start over"
+      ],
+      "name": "Reset",
+      "params": [],
+      "privileged": false,
+      "provider": "example.counter"
+    },
+    {
+      "action": "hello.say",
+      "appearance": {
+        "color": "#1ec45a",
+        "icon": "👋",
+        "label": "Hello"
+      },
+      "availability": {
+        "status": "available"
+      },
+      "category": "Greetings",
+      "description": "Greets someone, publishes hello.completed and returns the greeting.",
+      "id": "example.hello.hello.say",
+      "keywords": [
+        "greet",
+        "welcome",
+        "hi",
+        "example"
+      ],
+      "name": "Say hello",
+      "params": [
+        {
+          "description": "Optional. Leave empty to greet everyone.",
+          "integer": false,
+          "label": "Who to greet",
+          "maxLength": 60,
+          "monospace": false,
+          "multiline": false,
+          "name": "name",
+          "placeholder": "World",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "privileged": false,
+      "provider": "example.hello"
+    },
+    {
+      "action": "ping.send",
+      "availability": {
+        "cause": "provider",
+        "reason": "The plugin could not start: the module imports `wasi_snapshot_preview1::fd_write`, which LaunchDeck does not provide (plugins have no system access)",
+        "status": "unavailable"
+      },
+      "category": "Ping Plugin (C)",
+      "description": "Publishes ping.sent and returns pong.",
+      "id": "example.broken.ping.send",
+      "keywords": [],
+      "name": "Ping",
+      "params": [],
+      "privileged": false,
+      "provider": "example.broken"
+    },
+    {
+      "action": "ping.send",
+      "availability": {
+        "status": "available"
+      },
+      "category": "Ping Plugin (C)",
+      "description": "Publishes ping.sent and returns pong.",
+      "id": "example.ping.ping.send",
+      "keywords": [],
+      "name": "Ping",
+      "params": [],
+      "privileged": false,
+      "provider": "example.ping"
+    }
+  ],
+  "issues": [],
+  "providers": [
+    {
+      "description": "Simulated agent tasks for demos and development. No network, no side effects.",
+      "id": "demo",
+      "kind": "builtin",
+      "name": "Demo",
+      "status": "ready",
+      "version": "0.2.0"
+    },
+    {
+      "description": "Send a web request from this computer.",
+      "id": "http",
+      "kind": "builtin",
+      "name": "HTTP request",
+      "status": "ready",
+      "version": "0.1.0"
+    },
+    {
+      "description": "Move between surfaces and pages.",
+      "id": "navigation",
+      "kind": "builtin",
+      "name": "Navigation",
+      "status": "ready",
+      "version": "0.1.0"
+    },
+    {
+      "description": "Run a command on this computer.",
+      "id": "shell",
+      "kind": "builtin",
+      "name": "Shell command",
+      "status": "ready",
+      "version": "0.1.0"
+    },
+    {
+      "description": "Open links, launch apps, press shortcuts and control media volume.",
+      "id": "system",
+      "kind": "builtin",
+      "name": "System",
+      "status": "ready",
+      "version": "0.2.0"
+    },
+    {
+      "description": "Observe, intervene in and orchestrate agents from any surface. Commands act on the focused track and respect each agent's capabilities.",
+      "id": "agent-control",
+      "kind": "module",
+      "name": "Agent Control",
+      "status": "ready",
+      "version": "0.3.0"
+    },
+    {
+      "description": "A counter that remembers its value between presses and reports a level, never a number of pads.",
+      "id": "example.counter",
+      "kind": "plugin",
+      "name": "Counter Plugin",
+      "reason": "The plugin is turned off in Plugins.",
+      "status": "disabled",
+      "version": "0.1.0"
+    },
+    {
+      "description": "Says hello, tells the deck about it, and shows the smallest complete plugin.",
+      "id": "example.hello",
+      "kind": "plugin",
+      "name": "Hello Plugin",
+      "status": "ready",
+      "version": "0.1.0"
+    },
+    {
+      "description": "The same contract from plain C, with no SDK. Proves the runtime does not depend on a language.",
+      "id": "example.broken",
+      "kind": "plugin",
+      "name": "Ping Plugin (C)",
+      "reason": "The plugin could not start: the module imports `wasi_snapshot_preview1::fd_write`, which LaunchDeck does not provide (plugins have no system access)",
+      "status": "error",
+      "version": "0.1.0"
+    },
+    {
+      "description": "The same contract from plain C, with no SDK. Proves the runtime does not depend on a language.",
+      "id": "example.ping",
+      "kind": "plugin",
+      "name": "Ping Plugin (C)",
+      "status": "ready",
+      "version": "0.1.0"
+    }
+  ]
+}

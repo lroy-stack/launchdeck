@@ -1,0 +1,229 @@
+{
+  "folders": [
+    "<data>/plugins"
+  ],
+  "issues": [
+    {
+      "dir": "<data>/plugins/junk",
+      "error": "invalid manifest: `schemaVersion` is required"
+    }
+  ],
+  "plugins": [
+    {
+      "config": [],
+      "dir": "<data>/plugins/broken",
+      "enabled": true,
+      "plugin": {
+        "actions": [
+          {
+            "description": "Publishes ping.sent and returns pong.",
+            "id": "ping.send",
+            "label": "Ping",
+            "params": [],
+            "privileged": false
+          }
+        ],
+        "description": "The same contract from plain C, with no SDK. Proves the runtime does not depend on a language.",
+        "external": {
+          "abi": 1,
+          "author": "LaunchDeck examples",
+          "error": "the module imports `wasi_snapshot_preview1::fd_write`, which LaunchDeck does not provide (plugins have no system access)",
+          "events": [
+            {
+              "description": "A ping was sent. Payload: from.",
+              "type": "ping.sent"
+            }
+          ],
+          "status": "error"
+        },
+        "id": "example.broken",
+        "kind": "plugin",
+        "name": "Ping Plugin (C)",
+        "permissions": [],
+        "states": [],
+        "version": "0.1.0"
+      }
+    },
+    {
+      "config": [
+        {
+          "default": 1,
+          "description": "How much one press adds or removes.",
+          "isSet": false,
+          "key": "step",
+          "secret": false,
+          "type": "number"
+        },
+        {
+          "default": 9,
+          "description": "The largest value.",
+          "isSet": false,
+          "key": "max",
+          "secret": false,
+          "type": "number"
+        }
+      ],
+      "dir": "<data>/plugins/counter",
+      "enabled": true,
+      "plugin": {
+        "actions": [
+          {
+            "appearance": {
+              "color": "#2f81f7",
+              "icon": "+",
+              "label": "Plus"
+            },
+            "category": "Counter",
+            "description": "Add one step. Fails at the maximum.",
+            "id": "counter.increment",
+            "keywords": [
+              "add",
+              "plus",
+              "more",
+              "count",
+              "up"
+            ],
+            "label": "Increment",
+            "params": [],
+            "privileged": false
+          },
+          {
+            "appearance": {
+              "color": "#f0883e",
+              "icon": "−",
+              "label": "Minus"
+            },
+            "category": "Counter",
+            "description": "Subtract one step. Fails at zero.",
+            "id": "counter.decrement",
+            "keywords": [
+              "subtract",
+              "minus",
+              "less",
+              "count",
+              "down"
+            ],
+            "label": "Decrement",
+            "params": [],
+            "privileged": false
+          },
+          {
+            "appearance": {
+              "color": "#6e7681",
+              "icon": "0",
+              "label": "Zero"
+            },
+            "category": "Counter",
+            "description": "Back to zero.",
+            "id": "counter.reset",
+            "keywords": [
+              "zero",
+              "clear",
+              "count",
+              "start over"
+            ],
+            "label": "Reset",
+            "params": [],
+            "privileged": false
+          }
+        ],
+        "description": "A counter that remembers its value between presses and reports a level, never a number of pads.",
+        "external": {
+          "abi": 1,
+          "author": "LaunchDeck examples",
+          "events": [
+            {
+              "description": "The value changed. Payload: value (number), level (zero, low, high or max).",
+              "type": "counter.changed"
+            }
+          ],
+          "sdk": "0.1.0",
+          "status": "enabled"
+        },
+        "id": "example.counter",
+        "kind": "plugin",
+        "name": "Counter Plugin",
+        "permissions": [],
+        "states": [],
+        "version": "0.1.0"
+      }
+    },
+    {
+      "config": [
+        {
+          "default": "Hello",
+          "description": "The word that starts every greeting.",
+          "isSet": true,
+          "key": "greeting",
+          "secret": false,
+          "type": "string",
+          "value": "Hola"
+        },
+        {
+          "description": "An API token. Stored locally, never shown.",
+          "isSet": true,
+          "key": "token",
+          "secret": true,
+          "type": "string"
+        }
+      ],
+      "dir": "<data>/plugins/hello",
+      "enabled": true,
+      "plugin": {
+        "actions": [
+          {
+            "appearance": {
+              "color": "#1ec45a",
+              "icon": "👋",
+              "label": "Hello"
+            },
+            "category": "Greetings",
+            "description": "Greets someone, publishes hello.completed and returns the greeting.",
+            "id": "hello.say",
+            "keywords": [
+              "greet",
+              "welcome",
+              "hi",
+              "example"
+            ],
+            "label": "Say hello",
+            "params": [
+              {
+                "description": "Optional. Leave empty to greet everyone.",
+                "integer": false,
+                "label": "Who to greet",
+                "maxLength": 60,
+                "monospace": false,
+                "multiline": false,
+                "name": "name",
+                "placeholder": "World",
+                "required": false,
+                "type": "string"
+              }
+            ],
+            "privileged": false
+          }
+        ],
+        "description": "Says hello, tells the deck about it, and shows the smallest complete plugin.",
+        "external": {
+          "abi": 1,
+          "author": "LaunchDeck examples",
+          "events": [
+            {
+              "description": "A greeting was produced. Payload: name, message.",
+              "type": "hello.completed"
+            }
+          ],
+          "sdk": "0.1.0",
+          "status": "enabled"
+        },
+        "id": "example.hello",
+        "kind": "plugin",
+        "name": "Hello Plugin",
+        "permissions": [],
+        "states": [],
+        "version": "0.1.0"
+      }
+    }
+  ]
+}

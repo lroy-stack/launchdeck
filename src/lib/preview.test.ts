@@ -1,0 +1,62 @@
+import { describe, expect, it } from "vitest";
+import { createPreviewTransport } from "./preview";
+import { frameSchema, snapshotSchema, type RuntimeState } from "./schema";
+import { agentsSnapshotSchema } from "./agents";
+
+// The browser preview mirrors the commands of the Rust runtime closely enough
+// to exercise the UI. These tests keep that mirror honest about the contract.
+describe("preview transport", () => {
+  it("serves a snapshot and frame that satisfy the IPC schemas", async () => {
+    const t = await createPreviewTransport();
+    expect(snapshotSchema.safeParse(await t.invoke("get_snapshot")).success).toBe(true);
+    const frame = frameSchema.parse(await t.invoke("virtual_frame"));
+    expect(frame.leds.length).toBeGreaterThan(0);
+  });
+
+  it("switches pages and pushes state to listeners", async () => {
+    const t = await createPreviewTransport();
+    const seen: RuntimeState[] = [];
+    await t.listen("runtime-state", (p) => seen.push(p as RuntimeState));
+    await t.invoke("activate_surface", { surfaceId: "development", pageId: null });
+    await t.invoke("activate_page", { pageId: "git" });
+    expect(seen.at(-1)).toMatchObject({ activeSurfaceId: "development", activePageId: "git" });
+  });
+
+  it("rejects unknown surfaces", async () => {
+    const t = await createPreviewTransport();
+    await expect(t.invoke("activate_surface", { surfaceId: "nope", pageId: null })).rejects.toBeTruthy();
+  });
+
+  it("does not run actions in edit mode", async () => {
+    const t = await createPreviewTransport();
+    const events: string[] = [];
+    await t.listen("runtime-event", (p) => events.push((p as { type: string }).type));
+    await t.invoke("set_mode", { mode: "edit" });
+    await t.invoke("virtual_input", { pos: { kind: "grid", col: 0, row: 0 }, pressed: true });
+    expect(events).toContain("control.pressed");
+    expect(events).not.toContain("action.started");
+  });
+
+  it("serves the agents captured from the Rust runtime, with times moved to now", async () => {
+    const t = await createPreviewTransport();
+    const snap = snapshotSchema.parse(await t.invoke("get_snapshot"));
+    expect(snap.agents.agents.length).toBeGreaterThan(1);
+    const started = snap.agents.sessions.map((s) => s.startedAt ?? 0);
+    expect(Math.max(...started)).toBeGreaterThan(Date.now() - 60_000);
+  });
+
+  it("does not pretend to command agents without a runtime", async () => {
+    const t = await createPreviewTransport();
+    await expect(t.invoke("agents_command", { target: { kind: "focus" }, command: { kind: "approve" } })).rejects.toMatch(/preview/i);
+    await expect(t.invoke("agents_set_access", { agentId: "x", access: "control" })).rejects.toBeTruthy();
+  });
+
+  it("pushes a newer agents snapshot when the selection changes", async () => {
+    const t = await createPreviewTransport();
+    const before = agentsSnapshotSchema.parse(((await t.invoke("get_snapshot")) as { agents: unknown }).agents);
+    const seen: number[] = [];
+    await t.listen("agents-changed", (p) => seen.push(agentsSnapshotSchema.parse(p).rev));
+    await t.invoke("agents_focus", { slot: 2 });
+    expect(seen).toEqual([before.rev + 1]);
+  });
+});

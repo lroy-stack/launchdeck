@@ -1,0 +1,26 @@
+{
+  "session_id": "11111111-2222-3333-4444-555555555555",
+  "transcript_path": "/home/dev/.claude/projects/-home-dev-project/11111111-2222-3333-4444-555555555555.jsonl",
+  "cwd": "/home/dev/project",
+  "scratchpad_dir": "/tmp/claude-1000/-home-dev-project/scratchpad",
+  "permission_mode": "default",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "/home/dev/project/notes.txt",
+    "content": "hi"
+  },
+  "tool_response": {
+    "type": "create",
+    "filePath": "/tmp/ld-hook-test/hello.txt",
+    "content": "hi",
+    "structuredPatch": [],
+    "originalFile": null,
+    "userModified": false
+  },
+  "tool_use_id": "toolu_01HMztu6FzNA9xYkDZ17XLUZ",
+  "duration_ms": 11
+}

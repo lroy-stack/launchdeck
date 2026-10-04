@@ -1,0 +1,43 @@
+[package]
+name = "launchdeck"
+version = "0.2.0"
+description = "LaunchDeck: a programmable physical interface runtime for MIDI grid controllers"
+edition = "2021"
+rust-version = "1.95"
+license = "MIT"
+
+[lib]
+name = "launchdeck_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+log = "0.4"
+midir = "0.11"
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "net", "process", "io-util"] }
+tokio-tungstenite = "0.27"
+getrandom = "0.3"
+futures-util = "0.3"
+open = "5"
+ureq = "3"
+enigo = "0.5"
+# Plugin sandbox. 48 is a Wasmtime LTS line (supported to Aug 2028). Everything the
+# plugin contract does not need stays off: no WASI, no component model, no GC,
+# no async, no threads. Never go below 48.0.4 (RUSTSEC-2026-0315, -0327).
+wasmtime = { version = "48.0.4", default-features = false, features = ["std", "runtime", "cranelift"] }
+
+[dev-dependencies]
+tempfile = "3"
+wat = "1"
+tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread", "time"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

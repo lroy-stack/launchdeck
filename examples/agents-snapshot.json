@@ -1,0 +1,680 @@
+{
+  "adapters": [
+    {
+      "agentIds": [],
+      "description": "Any local process that speaks the Agent Bridge protocol over the localhost WebSocket. Nothing connects unless it registers.",
+      "detail": "The local WebSocket is not served in this session.",
+      "diagnostics": [],
+      "id": "bridge",
+      "kind": "bridge",
+      "limits": [
+        "Agents are monitor-only until you grant control.",
+        "A client must stay connected: when it disconnects its agents go offline.",
+        "LaunchDeck delivers commands; whether the agent honours them is up to the client.",
+        "Local processes are not authenticated, only localhost-bound. Registration is explicit and control is always your decision."
+      ],
+      "name": "Agent Bridge",
+      "state": "disabled"
+    },
+    {
+      "agentIds": [],
+      "description": "Watches Claude Code sessions through its hooks and lets you approve or reject permission requests from the pads. Sessions appear when their first hook fires.",
+      "detail": "Turn on the local hook endpoint in Agents > Adapters.",
+      "diagnostics": [],
+      "id": "claude-code",
+      "kind": "hooks",
+      "limits": [
+        "Hooks observe and can answer permission requests. They cannot pause, resume, cancel, retry or instruct a running session, so those controls stay unavailable.",
+        "You can answer from LaunchDeck only if control was granted before the request arrived; otherwise Claude Code asks you in its own prompt.",
+        "A held request falls back to Claude Code's own prompt after the hold time. Nothing is ever approved on your behalf.",
+        "A turn that ends in an API error is shown as failed; failures inside a tool call are not.",
+        "Sessions that started before the hooks were configured show up at their next event.",
+        "Checked against Claude Code 2.1.289 (2026-10-04)."
+      ],
+      "name": "Claude Code (hooks)",
+      "state": "disabled"
+    },
+    {
+      "agentIds": [],
+      "description": "Watches Codex sessions through its command hooks and lets you approve or reject permission requests from the pads. Needs the small curl relay shown in Setup.",
+      "detail": "Turn on the local hook endpoint in Agents > Adapters.",
+      "diagnostics": [],
+      "id": "codex",
+      "kind": "hooks",
+      "limits": [
+        "Hooks observe and can answer permission requests. They cannot pause, resume, cancel, retry or instruct a running session, so those controls stay unavailable.",
+        "You can answer from LaunchDeck only if control was granted before the request arrived; otherwise Codex asks you in its own prompt.",
+        "A held request falls back to Codex's own prompt after the hold time. Nothing is ever approved on your behalf.",
+        "Written from OpenAI's published hook documentation (2026-10-04) and not yet run against a Codex installation: treat it as untested.",
+        "Codex's app-server protocol would allow real control (start, interrupt, steer); it is not implemented here.",
+        "The relay uses curl and an sh-compatible shell."
+      ],
+      "name": "Codex (hooks)",
+      "state": "disabled"
+    },
+    {
+      "agentIds": [
+        "demo-atlas",
+        "demo-beacon",
+        "demo-cinder",
+        "demo-delta"
+      ],
+      "description": "Four simulated agents that exercise the full workflow: tool use, approval, pause and resume, failure and retry, success.",
+      "detail": null,
+      "diagnostics": [],
+      "id": "demo",
+      "kind": "simulated",
+      "limits": [
+        "Simulated. No real agent runs and nothing leaves this computer.",
+        "Capabilities differ per agent on purpose, to show graceful degradation."
+      ],
+      "name": "Demo agents",
+      "state": "active"
+    }
+  ],
+  "agents": [
+    {
+      "access": "control",
+      "adapterId": "demo",
+      "capabilities": [
+        "spawn",
+        "send_instruction",
+        "pause",
+        "resume",
+        "cancel",
+        "retry",
+        "approve",
+        "reject",
+        "get_status"
+      ],
+      "commands": [
+        {
+          "kind": "spawn",
+          "reason": null,
+          "reasonCode": null,
+          "state": "available"
+        }
+      ],
+      "harness": "simulated",
+      "id": "demo-atlas",
+      "lastSeen": 1791073789830,
+      "name": "Atlas",
+      "online": true,
+      "pendingApprovals": 1,
+      "provider": "demo",
+      "registeredAt": 1791073789673,
+      "sessionIds": [
+        "demo-atlas-run1"
+      ],
+      "status": "approval_required"
+    },
+    {
+      "access": "control",
+      "adapterId": "demo",
+      "capabilities": [
+        "pause",
+        "resume",
+        "cancel",
+        "get_status"
+      ],
+      "commands": [
+        {
+          "kind": "spawn",
+          "reason": "not supported by this agent",
+          "reasonCode": "unsupported",
+          "state": "unavailable"
+        }
+      ],
+      "harness": "simulated",
+      "id": "demo-beacon",
+      "lastSeen": 1791073789928,
+      "name": "Beacon",
+      "online": true,
+      "pendingApprovals": 0,
+      "provider": "demo",
+      "registeredAt": 1791073789673,
+      "sessionIds": [
+        "demo-beacon-run1"
+      ],
+      "status": "running"
+    },
+    {
+      "access": "control",
+      "adapterId": "demo",
+      "capabilities": [
+        "cancel",
+        "retry",
+        "approve",
+        "reject",
+        "get_status"
+      ],
+      "commands": [
+        {
+          "kind": "spawn",
+          "reason": "not supported by this agent",
+          "reasonCode": "unsupported",
+          "state": "unavailable"
+        }
+      ],
+      "harness": "simulated",
+      "id": "demo-cinder",
+      "lastSeen": 1791073789963,
+      "name": "Cinder",
+      "online": true,
+      "pendingApprovals": 0,
+      "provider": "demo",
+      "registeredAt": 1791073789673,
+      "sessionIds": [
+        "demo-cinder-run1"
+      ],
+      "status": "failed"
+    },
+    {
+      "access": "control",
+      "adapterId": "demo",
+      "capabilities": [
+        "spawn",
+        "pause",
+        "resume",
+        "cancel",
+        "get_status"
+      ],
+      "commands": [
+        {
+          "kind": "spawn",
+          "reason": null,
+          "reasonCode": null,
+          "state": "available"
+        }
+      ],
+      "harness": "simulated",
+      "id": "demo-delta",
+      "lastSeen": 1791073789920,
+      "name": "Delta",
+      "online": true,
+      "pendingApprovals": 0,
+      "provider": "demo",
+      "registeredAt": 1791073789673,
+      "sessionIds": [
+        "demo-delta-run1"
+      ],
+      "status": "running"
+    }
+  ],
+  "audit": [
+    {
+      "actor": "agent",
+      "agentId": "demo-atlas",
+      "detail": "demo",
+      "kind": "agent.registered",
+      "sessionId": null,
+      "tool": null,
+      "ts": 1791073789673
+    },
+    {
+      "actor": "agent",
+      "agentId": "demo-beacon",
+      "detail": "demo",
+      "kind": "agent.registered",
+      "sessionId": null,
+      "tool": null,
+      "ts": 1791073789673
+    },
+    {
+      "actor": "agent",
+      "agentId": "demo-cinder",
+      "detail": "demo",
+      "kind": "agent.registered",
+      "sessionId": null,
+      "tool": null,
+      "ts": 1791073789673
+    },
+    {
+      "actor": "agent",
+      "agentId": "demo-delta",
+      "detail": "demo",
+      "kind": "agent.registered",
+      "sessionId": null,
+      "tool": null,
+      "ts": 1791073789673
+    },
+    {
+      "actor": "agent",
+      "agentId": "demo-atlas",
+      "detail": null,
+      "kind": "session.started",
+      "sessionId": "demo-atlas-run1",
+      "tool": null,
+      "ts": 1791073789677
+    },
+    {
+      "actor": "agent",
+      "agentId": "demo-beacon",
+      "detail": null,
+      "kind": "session.started",
+      "sessionId": "demo-beacon-run1",
+      "tool": null,
+      "ts": 1791073789699
+    },
+    {
+      "actor": "agent",
+      "agentId": "demo-cinder",
+      "detail": null,
+      "kind": "session.started",
+      "sessionId": "demo-cinder-run1",
+      "tool": null,
+      "ts": 1791073789720
+    },
+    {
+      "actor": "agent",
+      "agentId": "demo-delta",
+      "detail": null,
+      "kind": "session.started",
+      "sessionId": "demo-delta-run1",
+      "tool": null,
+      "ts": 1791073789739
+    },
+    {
+      "actor": "agent",
+      "agentId": "demo-atlas",
+      "detail": null,
+      "kind": "approval.requested",
+      "sessionId": "demo-atlas-run1",
+      "tool": "Bash",
+      "ts": 1791073789908
+    },
+    {
+      "actor": "agent",
+      "agentId": "demo-cinder",
+      "detail": null,
+      "kind": "session.failed",
+      "sessionId": "demo-cinder-run1",
+      "tool": null,
+      "ts": 1791073789963
+    }
+  ],
+  "focus": 0,
+  "palette": [
+    {
+      "animation": "none",
+      "color": "#123273",
+      "status": "idle"
+    },
+    {
+      "animation": "none",
+      "color": "#ffc81e",
+      "status": "starting"
+    },
+    {
+      "animation": "pulse",
+      "color": "#1edc5a",
+      "status": "running"
+    },
+    {
+      "animation": "pulse",
+      "color": "#1ed2e6",
+      "status": "tool_use"
+    },
+    {
+      "animation": "none",
+      "color": "#aa50ff",
+      "status": "waiting"
+    },
+    {
+      "animation": "flash",
+      "color": "#ffffff",
+      "status": "approval_required"
+    },
+    {
+      "animation": "none",
+      "color": "#ff7814",
+      "status": "paused"
+    },
+    {
+      "animation": "none",
+      "color": "#1edc5a",
+      "status": "completed"
+    },
+    {
+      "animation": "flash",
+      "color": "#ff2832",
+      "status": "failed"
+    },
+    {
+      "animation": "none",
+      "color": "#4d0c0f",
+      "status": "cancelled"
+    },
+    {
+      "animation": "none",
+      "color": "#15161b",
+      "status": "offline"
+    }
+  ],
+  "rev": 37,
+  "sessions": [
+    {
+      "agentId": "demo-delta",
+      "agentName": "Delta",
+      "commands": [
+        {
+          "kind": "approve",
+          "reason": "not supported by this agent",
+          "reasonCode": "unsupported",
+          "state": "unavailable"
+        },
+        {
+          "kind": "reject",
+          "reason": "not supported by this agent",
+          "reasonCode": "unsupported",
+          "state": "unavailable"
+        },
+        {
+          "kind": "pause",
+          "reason": null,
+          "reasonCode": null,
+          "state": "available"
+        },
+        {
+          "kind": "resume",
+          "reason": "not possible in the current state",
+          "reasonCode": "wrong_state",
+          "state": "unavailable"
+        },
+        {
+          "kind": "cancel",
+          "reason": null,
+          "reasonCode": null,
+          "state": "available"
+        },
+        {
+          "kind": "retry",
+          "reason": "not supported by this agent",
+          "reasonCode": "unsupported",
+          "state": "unavailable"
+        },
+        {
+          "kind": "send_instruction",
+          "reason": "not supported by this agent",
+          "reasonCode": "unsupported",
+          "state": "unavailable"
+        }
+      ],
+      "detail": "Scanning files",
+      "error": null,
+      "id": "demo-delta-run1",
+      "lastCommand": null,
+      "pendingApproval": null,
+      "progress": 0.18000000715255737,
+      "slot": 3,
+      "startedAt": 1791073789739,
+      "status": "running",
+      "task": "Index the repository",
+      "updatedAt": 1791073789920
+    },
+    {
+      "agentId": "demo-cinder",
+      "agentName": "Cinder",
+      "commands": [
+        {
+          "kind": "approve",
+          "reason": "nothing is waiting for approval",
+          "reasonCode": "nothing_pending",
+          "state": "unavailable"
+        },
+        {
+          "kind": "reject",
+          "reason": "nothing is waiting for approval",
+          "reasonCode": "nothing_pending",
+          "state": "unavailable"
+        },
+        {
+          "kind": "pause",
+          "reason": "not supported by this agent",
+          "reasonCode": "unsupported",
+          "state": "unavailable"
+        },
+        {
+          "kind": "resume",
+          "reason": "not supported by this agent",
+          "reasonCode": "unsupported",
+          "state": "unavailable"
+        },
+        {
+          "kind": "cancel",
+          "reason": "not possible in the current state",
+          "reasonCode": "wrong_state",
+          "state": "unavailable"
+        },
+        {
+          "kind": "retry",
+          "reason": null,
+          "reasonCode": null,
+          "state": "available"
+        },
+        {
+          "kind": "send_instruction",
+          "reason": "not supported by this agent",
+          "reasonCode": "unsupported",
+          "state": "unavailable"
+        }
+      ],
+      "detail": null,
+      "error": "3 of 42 tests failed",
+      "id": "demo-cinder-run1",
+      "lastCommand": null,
+      "pendingApproval": null,
+      "progress": null,
+      "slot": 2,
+      "startedAt": 1791073789720,
+      "status": "failed",
+      "task": "Migrate the test fixtures",
+      "updatedAt": 1791073789963
+    },
+    {
+      "agentId": "demo-beacon",
+      "agentName": "Beacon",
+      "commands": [
+        {
+          "kind": "approve",
+          "reason": "not supported by this agent",
+          "reasonCode": "unsupported",
+          "state": "unavailable"
+        },
+        {
+          "kind": "reject",
+          "reason": "not supported by this agent",
+          "reasonCode": "unsupported",
+          "state": "unavailable"
+        },
+        {
+          "kind": "pause",
+          "reason": null,
+          "reasonCode": null,
+          "state": "available"
+        },
+        {
+          "kind": "resume",
+          "reason": "not possible in the current state",
+          "reasonCode": "wrong_state",
+          "state": "unavailable"
+        },
+        {
+          "kind": "cancel",
+          "reason": null,
+          "reasonCode": null,
+          "state": "available"
+        },
+        {
+          "kind": "retry",
+          "reason": "not supported by this agent",
+          "reasonCode": "unsupported",
+          "state": "unavailable"
+        },
+        {
+          "kind": "send_instruction",
+          "reason": "not supported by this agent",
+          "reasonCode": "unsupported",
+          "state": "unavailable"
+        }
+      ],
+      "detail": "Writing the summary",
+      "error": null,
+      "id": "demo-beacon-run1",
+      "lastCommand": null,
+      "pendingApproval": null,
+      "progress": null,
+      "slot": 1,
+      "startedAt": 1791073789699,
+      "status": "running",
+      "task": "Summarize the changelog",
+      "updatedAt": 1791073789928
+    },
+    {
+      "agentId": "demo-atlas",
+      "agentName": "Atlas",
+      "commands": [
+        {
+          "kind": "approve",
+          "reason": null,
+          "reasonCode": null,
+          "state": "attention"
+        },
+        {
+          "kind": "reject",
+          "reason": null,
+          "reasonCode": null,
+          "state": "available"
+        },
+        {
+          "kind": "pause",
+          "reason": "not possible in the current state",
+          "reasonCode": "wrong_state",
+          "state": "unavailable"
+        },
+        {
+          "kind": "resume",
+          "reason": "not possible in the current state",
+          "reasonCode": "wrong_state",
+          "state": "unavailable"
+        },
+        {
+          "kind": "cancel",
+          "reason": null,
+          "reasonCode": null,
+          "state": "available"
+        },
+        {
+          "kind": "retry",
+          "reason": "not possible in the current state",
+          "reasonCode": "wrong_state",
+          "state": "unavailable"
+        },
+        {
+          "kind": "send_instruction",
+          "reason": "not possible in the current state",
+          "reasonCode": "wrong_state",
+          "state": "unavailable"
+        }
+      ],
+      "detail": "Edit",
+      "error": null,
+      "id": "demo-atlas-run1",
+      "lastCommand": null,
+      "pendingApproval": {
+        "createdAt": 1791073789908,
+        "id": "demo-atlas-run1-approval",
+        "message": "Apply a schema migration to the local database",
+        "sessionId": "demo-atlas-run1",
+        "tool": "Bash"
+      },
+      "progress": null,
+      "slot": 0,
+      "startedAt": 1791073789677,
+      "status": "approval_required",
+      "task": "Refactor the settings module",
+      "updatedAt": 1791073789908
+    }
+  ],
+  "settings": {
+    "hooksEnabled": false,
+    "hooksHarnesses": {},
+    "hooksHoldSecs": 90,
+    "hooksPort": 47822,
+    "notifications": true
+  },
+  "slots": [
+    {
+      "agentId": "demo-atlas",
+      "focused": true,
+      "index": 0,
+      "label": "Atlas",
+      "sessionId": "demo-atlas-run1",
+      "status": "approval_required"
+    },
+    {
+      "agentId": "demo-beacon",
+      "focused": false,
+      "index": 1,
+      "label": "Beacon",
+      "sessionId": "demo-beacon-run1",
+      "status": "running"
+    },
+    {
+      "agentId": "demo-cinder",
+      "focused": false,
+      "index": 2,
+      "label": "Cinder",
+      "sessionId": "demo-cinder-run1",
+      "status": "failed"
+    },
+    {
+      "agentId": "demo-delta",
+      "focused": false,
+      "index": 3,
+      "label": "Delta",
+      "sessionId": "demo-delta-run1",
+      "status": "running"
+    },
+    {
+      "agentId": null,
+      "focused": false,
+      "index": 4,
+      "label": null,
+      "sessionId": null,
+      "status": null
+    },
+    {
+      "agentId": null,
+      "focused": false,
+      "index": 5,
+      "label": null,
+      "sessionId": null,
+      "status": null
+    },
+    {
+      "agentId": null,
+      "focused": false,
+      "index": 6,
+      "label": null,
+      "sessionId": null,
+      "status": null
+    },
+    {
+      "agentId": null,
+      "focused": false,
+      "index": 7,
+      "label": null,
+      "sessionId": null,
+      "status": null
+    }
+  ],
+  "summary": {
+    "activeSessions": 3,
+    "agentsOnline": 4,
+    "agentsTotal": 4,
+    "failedSessions": 1,
+    "pendingApprovals": 1,
+    "recentCompletions": 0
+  }
+}

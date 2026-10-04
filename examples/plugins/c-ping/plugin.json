@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "example.ping",
+  "name": "Ping Plugin (C)",
+  "version": "0.1.0",
+  "description": "The same contract from plain C, with no SDK. Proves the runtime does not depend on a language.",
+  "author": "LaunchDeck examples",
+  "abi": 1,
+  "main": "ping.wasm",
+  "actions": [
+    { "id": "ping.send", "label": "Ping", "description": "Publishes ping.sent and returns pong." }
+  ],
+  "events": [
+    { "type": "ping.sent", "description": "A ping was sent. Payload: from." }
+  ],
+  "capabilities": []
+}

@@ -1,0 +1,90 @@
+//! External plugins: third-party code in a WebAssembly sandbox.
+//!
+//! The pieces, from the disk upward:
+//!
+//! * [`manifest`] parses and validates `plugin.json`.
+//! * [`discovery`] finds plugin directories and reads them safely.
+//! * [`sandbox`] runs a module with strict limits (the only Wasmtime user).
+//! * [`wasm_plugin`] puts a sandboxed module behind the existing `Plugin`
+//!   trait, so the registry, action engine, event bus and bindings are reused
+//!   unchanged.
+//! * [`host`] owns discovery results, enabled flags, configuration and
+//!   lifecycle, and registers plugins into the shared registry.
+//!
+//! The contract is described in `PLUGIN_SDK_PLAN.md` and `docs/plugin-sdk/`.
+
+pub mod discovery;
+pub mod host;
+pub mod log;
+pub mod manifest;
+pub mod sandbox;
+pub mod wasm_plugin;
+
+#[cfg(test)]
+#[allow(dead_code)]
+mod testkit;
+
+use serde::Serialize;
+
+pub use discovery::Issue;
+pub use host::{HostError, PluginHost, PluginInfo, PluginsOverview, ScanReport};
+pub use log::LogEntry;
+pub use sandbox::Limits;
+
+/// Protocol (ABI) version between host and module.
+pub const ABI_VERSION: u32 = 1;
+/// SDK version this host understands.
+pub const SDK_VERSION: &str = "0.1.0";
+
+/// Environment variable with extra plugin folders (path list), for development.
+pub const PLUGINS_ENV: &str = "LAUNCHDECK_PLUGINS";
+
+/// Where plugins are searched: the `plugins` folder in the app data directory
+/// first, then every folder in the environment variable. Order decides which
+/// copy wins when two folders carry the same plugin id.
+pub fn plugin_roots(
+    app_data: &std::path::Path,
+    extra: Option<std::ffi::OsString>,
+) -> Vec<std::path::PathBuf> {
+    let mut roots = vec![app_data.join("plugins")];
+    if let Some(extra) = extra {
+        roots.extend(std::env::split_paths(&extra).filter(|p| !p.as_os_str().is_empty()));
+    }
+    roots
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PluginStatus {
+    /// Loaded and healthy.
+    Enabled,
+    /// Never loaded, never invoked.
+    Disabled,
+    /// Failed to load, or stopped after a failure. Never invoked.
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct EventInfo {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub description: String,
+}
+
+/// What an external plugin adds to the common plugin manifest.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalInfo {
+    pub status: PluginStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    pub author: String,
+    pub abi: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sdk: Option<String>,
+    pub events: Vec<EventInfo>,
+}
+
+#[cfg(test)]
+mod tests;
