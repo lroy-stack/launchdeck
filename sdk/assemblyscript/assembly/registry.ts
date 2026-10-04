@@ -28,8 +28,19 @@ export class Reply {
   }
 }
 
+// One instance of one of the plugin's states that a control is showing.
+export class Watched {
+  constructor(
+    // The state's id, as declared in plugin.json.
+    public state: string,
+    // What picks the instance (`{"entity": "light.kitchen"}`); empty for a state without arguments.
+    public args: Json,
+  ) {}
+}
+
 export type ActionHandler = (call: Call) => Reply;
 export type InitHandler = (config: Json) => Reply;
+export type RefreshHandler = (watching: Watched[]) => Reply;
 
 export const actionIds: string[] = [];
 export const actionHandlers: ActionHandler[] = [];
@@ -37,4 +48,10 @@ export let initHandler: InitHandler | null = null;
 
 export function setInitHandler(handler: InitHandler): void {
   initHandler = handler;
+}
+
+export let refreshHandler: RefreshHandler | null = null;
+
+export function setRefreshHandler(handler: RefreshHandler): void {
+  refreshHandler = handler;
 }

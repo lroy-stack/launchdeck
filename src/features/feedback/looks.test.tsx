@@ -266,6 +266,21 @@ describe("the looks of a pad", () => {
   });
 });
 
+describe("looks for the pad's own action", () => {
+  it("says that Pending and Failed are shown by the runtime, not by a rule", async () => {
+    const user = userEvent.setup();
+    openPad();
+    await firstRule(user);
+    expect(screen.getByRole("region", { name: "Looks" }).textContent).toContain("a look called Pending shows while this pad’s action is running");
+    for (const name of ["Pending", "Failed"]) {
+      await user.click(looks().getByRole("button", { name: "+ New look" }));
+      await user.type(looks().getByLabelText("Name of the new look"), `${name}{Enter}`);
+    }
+    expect(looks().getByText(/Shown while this pad’s action is running/)).toBeTruthy();
+    expect(looks().getByText(/Shown for a moment when this pad’s action fails/)).toBeTruthy();
+  });
+});
+
 describe("naming the look after the value", () => {
   it("is offered for a state whose value has names, and not for a test without a value", async () => {
     const user = userEvent.setup();

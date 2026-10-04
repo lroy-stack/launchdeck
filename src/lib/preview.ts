@@ -56,6 +56,7 @@ export async function createPreviewTransport() {
     activePageId: first.pages[0]!.id,
     mode: "live",
     controlStates: {},
+    pending: [],
     devices: [
       {
         identity: { id: "virtual-launchpad-x", name: "Virtual Launchpad X", model: "Launchpad X (virtual)", kind: "virtual" },
@@ -297,6 +298,9 @@ export async function createPreviewTransport() {
       case "plugins_set_config":
       case "plugins_reload":
       case "plugins_rescan":
+      case "plugins_set_permission":
+      case "plugins_set_secret":
+      case "plugins_clear_secret":
         throw PLUGINS_IN_PREVIEW;
       case "agents_command":
       case "agents_set_access":

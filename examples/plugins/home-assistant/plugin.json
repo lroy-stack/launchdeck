@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 4,
+  "id": "example.home-assistant",
+  "name": "Home Assistant",
+  "version": "0.1.0",
+  "description": "Turn lights and switches on and off, and show on a pad whether they are on. Talks to your own Home Assistant, and only to it.",
+  "author": "LaunchDeck examples",
+  "abi": 1,
+  "sdk": "0.2.0",
+  "main": "home-assistant.wasm",
+  "capabilities": {
+    "network": {
+      "purpose": "Connect to your Home Assistant instance.",
+      "hosts": [{ "setting": "baseUrl" }]
+    }
+  },
+  "config": [
+    {
+      "key": "baseUrl",
+      "type": "string",
+      "label": "Home Assistant address",
+      "description": "Where your Home Assistant answers, as you would type it in a browser.",
+      "default": "http://homeassistant.local:8123"
+    }
+  ],
+  "secrets": [
+    {
+      "key": "token",
+      "label": "Long-lived access token",
+      "description": "Create one in Home Assistant: your profile, Security, Long-lived access tokens.",
+      "host": { "setting": "baseUrl" }
+    }
+  ],
+  "refresh": { "intervalSeconds": 5 },
+  "actions": [
+    {
+      "id": "toggle",
+      "label": "Toggle",
+      "description": "Turn a light or a switch on if it is off, and off if it is on.",
+      "category": "Home Assistant",
+      "keywords": ["light", "switch", "lamp", "on", "off", "home"],
+      "appearance": { "label": "Light", "color": "#f5c518", "icon": "💡" },
+      "params": [
+        { "name": "entity", "label": "Entity", "description": "The entity id, as Home Assistant shows it.", "type": "string", "required": true, "placeholder": "light.kitchen", "maxLength": 64, "monospace": true }
+      ],
+      "suggests": ["entity"]
+    },
+    {
+      "id": "turn_on",
+      "label": "Turn on",
+      "description": "Turn a light or a switch on.",
+      "category": "Home Assistant",
+      "keywords": ["light", "switch", "lamp", "on", "home"],
+      "appearance": { "label": "On", "color": "#f5c518", "icon": "💡" },
+      "params": [
+        { "name": "entity", "label": "Entity", "description": "The entity id, as Home Assistant shows it.", "type": "string", "required": true, "placeholder": "light.kitchen", "maxLength": 64, "monospace": true }
+      ],
+      "suggests": ["entity"]
+    },
+    {
+      "id": "turn_off",
+      "label": "Turn off",
+      "description": "Turn a light or a switch off.",
+      "category": "Home Assistant",
+      "keywords": ["light", "switch", "lamp", "off", "home"],
+      "appearance": { "label": "Off", "color": "#6e7681", "icon": "💡" },
+      "params": [
+        { "name": "entity", "label": "Entity", "description": "The entity id, as Home Assistant shows it.", "type": "string", "required": true, "placeholder": "light.kitchen", "maxLength": 64, "monospace": true }
+      ],
+      "suggests": ["entity"]
+    }
+  ],
+  "states": [
+    {
+      "id": "entity",
+      "name": "Entity state",
+      "description": "Whether a light or a switch is on, as Home Assistant reports it. Unknown until Home Assistant has answered.",
+      "category": "Home Assistant",
+      "keywords": ["light", "switch", "on", "off", "home"],
+      "type": "enum",
+      "values": [
+        { "value": "on", "label": "On", "role": "ok" },
+        { "value": "off", "label": "Off", "role": "inactive" },
+        { "value": "unavailable", "label": "Unavailable", "role": "warning" }
+      ],
+      "params": [
+        { "name": "entity", "label": "Entity", "type": "string", "required": true, "placeholder": "light.kitchen", "maxLength": 64 }
+      ]
+    }
+  ]
+}

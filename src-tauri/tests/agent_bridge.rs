@@ -43,6 +43,7 @@ async fn start() -> (Arc<Runtime>, u16) {
         serve_external: true,
         demo_pace: 0.05,
         plugin_dirs: vec![],
+        secrets: None,
     })
     .await;
     let st = rt.state();

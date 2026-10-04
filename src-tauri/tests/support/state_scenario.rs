@@ -66,6 +66,7 @@ pub async fn start(options: Options) -> Arc<Runtime> {
         } else {
             vec![]
         },
+        secrets: None,
     })
     .await;
     wait("first frame", || {

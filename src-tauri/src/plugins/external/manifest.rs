@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::capabilities::{Capabilities, HostSpec, Origin, MAX_HOSTS};
 use super::{ABI_VERSION, SDK_VERSION};
 use crate::actions::definition::Appearance;
 use crate::actions::params::{normalize, validate_defs, ParamDef};
@@ -24,10 +25,11 @@ use crate::state::definition::{
 use crate::state::hub::MAX_STATES_PER_PROVIDER;
 
 pub const MANIFEST_FILE: &str = "plugin.json";
-/// The newest manifest schema this host reads. Schemas 1 and 2 are still read:
-/// schema 1 `args` become parameters, and schema 2 plugins simply declare no
-/// states. The module and the protocol (ABI 1) are the same for all three.
-pub const MANIFEST_SCHEMA: u32 = 3;
+/// The newest manifest schema this host reads. Schemas 1 to 3 are still read:
+/// schema 1 `args` become parameters, schema 2 plugins simply declare no
+/// states, and schema 3 plugins ask for no capability. The module and the
+/// protocol (ABI 1) are the same for all four.
+pub const MANIFEST_SCHEMA: u32 = 4;
 const OLDEST_SCHEMA: u32 = 1;
 const MAX_KEYWORDS: usize = 12;
 pub const MAX_MANIFEST_BYTES: usize = 64 * 1024;
@@ -38,6 +40,9 @@ const MAX_EVENTS: usize = 64;
 /// Observables one action may point at as "what a pad for this action usually shows".
 const MAX_SUGGESTS: usize = 8;
 const MAX_CONFIG: usize = 32;
+const MAX_SECRETS: usize = 8;
+/// How often a plugin may ask to be refreshed, in seconds.
+pub const REFRESH_SECONDS: std::ops::RangeInclusive<u32> = 2..=3600;
 const MAX_TEXT: usize = 280;
 
 /// Event type prefixes that belong to LaunchDeck itself. A plugin may not
@@ -260,11 +265,37 @@ pub struct ConfigField {
     pub kind: ConfigType,
     #[serde(default)]
     pub default: Option<Value>,
-    /// Never shown, logged or put in a snapshot. May not have a default.
+    /// Schemas 1 to 3 only: hidden in the interface, but still handed to the
+    /// module. Schema 4 refuses it; a credential goes under `secrets`, which
+    /// the module never receives. May not have a default.
     #[serde(default)]
     pub secret: bool,
     #[serde(default)]
     pub description: String,
+    /// Schema 4. The name a person sees. The key when absent.
+    #[serde(default)]
+    pub label: Option<String>,
+}
+
+/// A credential the plugin needs and never sees (schema 4). The host keeps it
+/// in the credential store and adds it to requests that go to `host`.
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ManifestSecret {
+    pub key: String,
+    pub label: String,
+    #[serde(default)]
+    pub description: String,
+    /// One of the manifest's network hosts: the only origin it is sent to.
+    pub host: HostSpec,
+}
+
+/// How often the host asks the plugin to report the states that are being
+/// shown (schema 4).
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RefreshDecl {
+    pub interval_seconds: u32,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -294,9 +325,16 @@ pub struct ExternalManifest {
     pub states: Vec<ManifestState>,
     #[serde(default)]
     pub config: Vec<ConfigField>,
-    /// Reserved. Must be empty in schema 1; see PLUGIN_SDK_PLAN.md section 6.
+    /// What the plugin asks the host to do for it. An empty array in schemas 1
+    /// to 3; an object in schema 4. See PLUGIN_CAPABILITIES_PLAN.md.
     #[serde(default)]
-    pub capabilities: Vec<String>,
+    pub capabilities: Capabilities,
+    /// Schema 4.
+    #[serde(default)]
+    pub secrets: Vec<ManifestSecret>,
+    /// Schema 4.
+    #[serde(default)]
+    pub refresh: Option<RefreshDecl>,
 }
 
 /// Lowercase dotted id with at least two segments, for example `acme.notes`.
@@ -435,14 +473,140 @@ impl ExternalManifest {
                 self.main
             ));
         }
-        if let Some(cap) = self.capabilities.first() {
-            return Err(ManifestError::UnsupportedCapability(cap.clone()));
-        }
         self.validate_actions()?;
         self.validate_events()?;
         self.validate_states()?;
         self.validate_suggests()?;
-        self.validate_config()
+        self.validate_config()?;
+        self.validate_capabilities()?;
+        self.validate_secrets()?;
+        self.validate_refresh()
+    }
+
+    fn validate_capabilities(&self) -> Result<(), ManifestError> {
+        // The array of schemas 1 to 3 names nothing this host ever provided that way.
+        if let Some(cap) = self.capabilities.legacy.first() {
+            return Err(ManifestError::UnsupportedCapability(cap.clone()));
+        }
+        if self.capabilities.object && self.schema_version < 4 {
+            return invalid("`capabilities` as an object needs \"schemaVersion\": 4");
+        }
+        let Some(net) = &self.capabilities.network else {
+            return Ok(());
+        };
+        if net.purpose.trim().is_empty() || !valid_text(&net.purpose) {
+            return invalid(format!(
+                "network `purpose` must say in 1-{MAX_TEXT} characters why the plugin needs the network"
+            ));
+        }
+        if net.hosts.is_empty() || net.hosts.len() > MAX_HOSTS {
+            return invalid(format!(
+                "network `hosts` must list 1 to {MAX_HOSTS} destinations"
+            ));
+        }
+        let mut seen = HashSet::new();
+        for host in &net.hosts {
+            let key = match host {
+                HostSpec::Origin(text) => {
+                    let origin = Origin::declared(text).map_err(|e| {
+                        ManifestError::Invalid(format!("network host \"{text}\": {e}"))
+                    })?;
+                    origin.as_str().to_string()
+                }
+                HostSpec::Setting { setting } => {
+                    let Some(field) = self.config.iter().find(|c| &c.key == setting) else {
+                        return invalid(format!(
+                            "network host names the setting \"{setting}\", which `config` does not declare"
+                        ));
+                    };
+                    if field.kind != ConfigType::String {
+                        return invalid(format!(
+                            "network host names the setting \"{setting}\", which must be a string (a URL)"
+                        ));
+                    }
+                    if let Some(default) = field.default.as_ref().and_then(Value::as_str) {
+                        Origin::of(default).map_err(|e| {
+                            ManifestError::Invalid(format!("default of setting \"{setting}\": {e}"))
+                        })?;
+                    }
+                    format!("setting:{setting}")
+                }
+            };
+            if !seen.insert(key) {
+                return invalid("a network host is listed twice");
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_secrets(&self) -> Result<(), ManifestError> {
+        if self.secrets.is_empty() {
+            return Ok(());
+        }
+        if self.schema_version < 4 {
+            return invalid("`secrets` needs \"schemaVersion\": 4");
+        }
+        if self.secrets.len() > MAX_SECRETS {
+            return invalid(format!("more than {MAX_SECRETS} secrets"));
+        }
+        let hosts = self
+            .capabilities
+            .network
+            .as_ref()
+            .map(|n| n.hosts.as_slice())
+            .unwrap_or(&[]);
+        let mut seen = HashSet::new();
+        for s in &self.secrets {
+            if !valid_param(&s.key) {
+                return invalid(format!(
+                    "secret key \"{}\" must be a plain identifier",
+                    s.key
+                ));
+            }
+            if !seen.insert(s.key.as_str()) || self.config.iter().any(|c| c.key == s.key) {
+                return invalid(format!(
+                    "\"{}\" is declared twice (secrets and settings share one namespace)",
+                    s.key
+                ));
+            }
+            if !valid_name(&s.label) {
+                return invalid(format!(
+                    "secret \"{}\" needs a label of 1-64 characters",
+                    s.key
+                ));
+            }
+            if !valid_text(&s.description) {
+                return invalid(format!("secret \"{}\" description is too long", s.key));
+            }
+            // A secret is only ever sent somewhere the manifest asks to reach.
+            if !hosts.contains(&s.host) {
+                return invalid(format!(
+                    "secret \"{}\" must name, in `host`, one of the hosts in `capabilities.network.hosts`",
+                    s.key
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_refresh(&self) -> Result<(), ManifestError> {
+        let Some(refresh) = self.refresh else {
+            return Ok(());
+        };
+        if self.schema_version < 4 {
+            return invalid("`refresh` needs \"schemaVersion\": 4");
+        }
+        if !REFRESH_SECONDS.contains(&refresh.interval_seconds) {
+            return invalid(format!(
+                "`refresh.intervalSeconds` must be between {} and {}",
+                REFRESH_SECONDS.start(),
+                REFRESH_SECONDS.end()
+            ));
+        }
+        if self.states.is_empty() {
+            return invalid("`refresh` is for a plugin that declares states");
+        }
+        Ok(())
     }
 
     fn validate_actions(&self) -> Result<(), ManifestError> {
@@ -656,6 +820,21 @@ impl ExternalManifest {
             if !seen.insert(c.key.as_str()) {
                 return invalid(format!("config key \"{}\" is declared twice", c.key));
             }
+            if c.secret && self.schema_version >= 4 {
+                return invalid(format!(
+                    "config key \"{}\" is marked secret; from schema 4 a credential is declared under `secrets`, where the module never receives it",
+                    c.key
+                ));
+            }
+            if c.label.is_some() && self.schema_version < 4 {
+                return invalid(format!(
+                    "config key \"{}\" uses `label`, which needs \"schemaVersion\": 4",
+                    c.key
+                ));
+            }
+            if c.label.as_deref().is_some_and(|l| !valid_name(l)) {
+                return invalid(format!("config key \"{}\" has an invalid label", c.key));
+            }
             if let Some(default) = &c.default {
                 if c.secret {
                     return invalid(format!(
@@ -834,7 +1013,7 @@ mod tests {
     #[test]
     fn schema_version_is_checked_before_anything_else() {
         let mut v = base();
-        v["schemaVersion"] = json!(4);
+        v["schemaVersion"] = json!(5);
         v["someFutureField"] = json!(true);
         assert!(matches!(
             parse(&v),
@@ -1473,7 +1652,7 @@ mod tests {
             Err(ManifestError::IncompatibleSdk { .. })
         ));
         assert!(matches!(
-            v3_with(|v| v["schemaVersion"] = json!(4)),
+            v3_with(|v| v["schemaVersion"] = json!(5)),
             Err(ManifestError::UnsupportedSchema { .. })
         ));
         assert!(matches!(
@@ -1481,5 +1660,180 @@ mod tests {
             Err(ManifestError::UnsupportedCapability(_))
         ));
         assert!(v3_with(|v| v["exec"] = json!("rm")).is_err());
+    }
+
+    // -- schema 4: capabilities, secrets, refresh ---------------------------
+
+    fn v4() -> Value {
+        let mut v = v3();
+        v["schemaVersion"] = json!(4);
+        v["config"] = json!([
+            { "key": "baseUrl", "type": "string", "label": "Server address",
+              "default": "http://homeassistant.local:8123" },
+            { "key": "retries", "type": "number" }
+        ]);
+        v["capabilities"] = json!({ "network": {
+            "purpose": "Connect to your server.",
+            "hosts": ["https://api.example.com", { "setting": "baseUrl" }]
+        }});
+        v["secrets"] =
+            json!([{ "key": "token", "label": "Access token", "host": { "setting": "baseUrl" } }]);
+        v["refresh"] = json!({ "intervalSeconds": 5 });
+        v
+    }
+
+    fn v4_with(edit: impl FnOnce(&mut Value)) -> Result<ExternalManifest, ManifestError> {
+        let mut v = v4();
+        edit(&mut v);
+        parse(&v)
+    }
+
+    #[test]
+    fn a_schema_4_manifest_asks_for_exact_destinations() {
+        let m = parse(&v4()).unwrap();
+        let net = m.capabilities.network.unwrap();
+        assert_eq!(net.purpose, "Connect to your server.");
+        assert_eq!(
+            net.hosts,
+            vec![
+                HostSpec::Origin("https://api.example.com".into()),
+                HostSpec::Setting {
+                    setting: "baseUrl".into()
+                }
+            ]
+        );
+        assert_eq!(m.secrets[0].key, "token");
+        assert_eq!(
+            m.refresh,
+            Some(RefreshDecl {
+                interval_seconds: 5
+            })
+        );
+        assert_eq!(m.config[0].label.as_deref(), Some("Server address"));
+        // A schema 4 manifest that asks for nothing is as good as a schema 3 one.
+        assert!(v4_with(|v| {
+            for key in ["capabilities", "secrets", "refresh"] {
+                v.as_object_mut().unwrap().remove(key);
+            }
+        })
+        .is_ok());
+    }
+
+    #[test]
+    fn capabilities_need_schema_4_and_only_network_exists() {
+        let msg = why(v3_with(|v| {
+            v["capabilities"] = v4()["capabilities"].clone()
+        }));
+        assert!(msg.contains("schemaVersion\": 4"), "{msg}");
+        // The empty array of older manifests is still fine, in any schema.
+        assert!(v3_with(|v| v["capabilities"] = json!([])).is_ok());
+        assert!(matches!(
+            v4_with(|v| v["capabilities"] = json!(["network"])),
+            Err(ManifestError::UnsupportedCapability(_))
+        ));
+        for other in ["filesystem", "shell", "secrets", "system-control"] {
+            assert!(
+                v4_with(|v| v["capabilities"] = json!({ other: {} })).is_err(),
+                "{other}"
+            );
+        }
+    }
+
+    #[test]
+    fn network_hosts_are_explicit_origins_never_patterns() {
+        let hosts = |h: Value| {
+            why(v4_with(|v| {
+                v["capabilities"]["network"]["hosts"] = h;
+                v["secrets"] = json!([]);
+            }))
+        };
+        for bad in [
+            json!(["*"]),
+            json!(["https://*.example.com"]),
+            json!(["api.example.com"]),
+            json!(["https://api.example.com/v1"]),
+            json!(["ftp://example.com"]),
+            json!(["https://user:pw@example.com"]),
+            json!(["http://0.0.0.0"]),
+            json!([]),
+        ] {
+            let msg = hosts(bad.clone());
+            assert!(msg.contains("network"), "{bad}: {msg}");
+        }
+        assert!(hosts(json!(["https://a.example", "https://A.example:443/"])).contains("twice"));
+        assert!(hosts(json!([{ "setting": "nope" }])).contains("does not declare"));
+        assert!(hosts(json!([{ "setting": "retries" }])).contains("must be a string"));
+        assert!(hosts(Value::Array(
+            (0..17)
+                .map(|i| json!(format!("https://h{i}.example")))
+                .collect()
+        ))
+        .contains("1 to 16"));
+        let msg = why(v4_with(|v| {
+            v["capabilities"]["network"]["purpose"] = json!("  ")
+        }));
+        assert!(msg.contains("purpose"), "{msg}");
+        let msg = why(v4_with(|v| v["config"][0]["default"] = json!("not a url")));
+        assert!(msg.contains("default of setting"), "{msg}");
+        // Explicit ports and local destinations are allowed to be asked for.
+        assert!(v4_with(|v| {
+            v["capabilities"]["network"]["hosts"] =
+                json!(["http://192.168.1.20:8123", "http://localhost:8080", { "setting": "baseUrl" }])
+        })
+        .is_ok());
+    }
+
+    #[test]
+    fn a_secret_is_bound_to_a_host_the_manifest_asks_for() {
+        let msg = why(v4_with(|v| {
+            v["secrets"][0]["host"] = json!("https://elsewhere.example")
+        }));
+        assert!(msg.contains("one of the hosts"), "{msg}");
+        let msg = why(v4_with(|v| {
+            v.as_object_mut().unwrap().remove("capabilities");
+        }));
+        assert!(msg.contains("one of the hosts"), "{msg}");
+        assert!(v4_with(|v| v["secrets"][0]["host"] = json!("https://api.example.com")).is_ok());
+        let msg = why(v4_with(|v| v["secrets"][0]["key"] = json!("baseUrl")));
+        assert!(msg.contains("twice"), "{msg}");
+        let msg = why(v4_with(|v| v["secrets"][0]["label"] = json!("")));
+        assert!(msg.contains("label"), "{msg}");
+        let msg =
+            why(v3_with(
+                |v| {
+                    v["secrets"] =
+                        json!([{ "key": "t", "label": "T", "host": "https://a.example" }])
+                },
+            ));
+        assert!(msg.contains("schemaVersion\": 4"), "{msg}");
+    }
+
+    #[test]
+    fn a_schema_4_setting_cannot_be_a_secret_the_module_receives() {
+        let msg = why(v4_with(|v| {
+            v["config"] = json!([{ "key": "baseUrl", "type": "string" }, { "key": "token", "type": "string", "secret": true }]);
+            v["secrets"] = json!([]);
+        }));
+        assert!(msg.contains("declared under `secrets`"), "{msg}");
+        // Older manifests keep what they had.
+        assert!(v3_with(
+            |v| v["config"] = json!([{ "key": "token", "type": "string", "secret": true }])
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn refresh_is_bounded_and_needs_states() {
+        for bad in [0, 1, 3601] {
+            let msg = why(v4_with(|v| v["refresh"]["intervalSeconds"] = json!(bad)));
+            assert!(msg.contains("between 2 and 3600"), "{msg}");
+        }
+        let msg = why(v4_with(|v| {
+            v["states"] = json!([]);
+            v["actions"][0]["suggests"] = json!([]);
+        }));
+        assert!(msg.contains("declares states"), "{msg}");
+        let msg = why(v3_with(|v| v["refresh"] = json!({ "intervalSeconds": 5 })));
+        assert!(msg.contains("schemaVersion\": 4"), "{msg}");
     }
 }

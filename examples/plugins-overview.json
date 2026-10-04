@@ -42,7 +42,9 @@
         "permissions": [],
         "states": [],
         "version": "0.1.0"
-      }
+      },
+      "secretStore": "memory",
+      "secrets": []
     },
     {
       "config": [
@@ -51,6 +53,7 @@
           "description": "How much one press adds or removes.",
           "isSet": false,
           "key": "step",
+          "label": "step",
           "secret": false,
           "type": "number"
         },
@@ -59,6 +62,7 @@
           "description": "The largest value.",
           "isSet": false,
           "key": "max",
+          "label": "max",
           "secret": false,
           "type": "number"
         }
@@ -155,7 +159,9 @@
         "permissions": [],
         "states": [],
         "version": "0.2.0"
-      }
+      },
+      "secretStore": "memory",
+      "secrets": []
     },
     {
       "config": [
@@ -164,6 +170,7 @@
           "description": "The word that starts every greeting.",
           "isSet": true,
           "key": "greeting",
+          "label": "greeting",
           "secret": false,
           "type": "string",
           "value": "Hola"
@@ -172,6 +179,7 @@
           "description": "An API token. Stored locally, never shown.",
           "isSet": true,
           "key": "token",
+          "label": "token",
           "secret": true,
           "type": "string"
         }
@@ -232,7 +240,360 @@
         "permissions": [],
         "states": [],
         "version": "0.1.0"
-      }
+      },
+      "secretStore": "memory",
+      "secrets": []
+    },
+    {
+      "config": [
+        {
+          "default": "http://homeassistant.local:8123",
+          "description": "Where your Home Assistant answers, as you would type it in a browser.",
+          "isSet": true,
+          "key": "baseUrl",
+          "label": "Home Assistant address",
+          "secret": false,
+          "type": "string",
+          "value": "http://192.168.1.20:8123"
+        }
+      ],
+      "dir": "<data>/plugins/home-assistant",
+      "enabled": true,
+      "network": {
+        "hosts": [
+          {
+            "decidedAt": 1791144530770,
+            "origin": "http://192.168.1.20:8123",
+            "reach": "local",
+            "source": {
+              "key": "baseUrl",
+              "kind": "setting"
+            },
+            "status": "granted"
+          }
+        ],
+        "purpose": "Connect to your Home Assistant instance.",
+        "stale": [
+          {
+            "decision": "denied",
+            "origin": "http://homeassistant.local:8123"
+          }
+        ],
+        "status": "granted",
+        "unresolved": []
+      },
+      "plugin": {
+        "actions": [
+          {
+            "appearance": {
+              "color": "#f5c518",
+              "icon": "💡",
+              "label": "Light"
+            },
+            "category": "Home Assistant",
+            "description": "Turn a light or a switch on if it is off, and off if it is on.",
+            "id": "toggle",
+            "keywords": [
+              "light",
+              "switch",
+              "lamp",
+              "on",
+              "off",
+              "home"
+            ],
+            "label": "Toggle",
+            "params": [
+              {
+                "description": "The entity id, as Home Assistant shows it.",
+                "integer": false,
+                "label": "Entity",
+                "maxLength": 64,
+                "monospace": true,
+                "multiline": false,
+                "name": "entity",
+                "placeholder": "light.kitchen",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "privileged": false,
+            "suggests": [
+              "entity"
+            ]
+          },
+          {
+            "appearance": {
+              "color": "#f5c518",
+              "icon": "💡",
+              "label": "On"
+            },
+            "category": "Home Assistant",
+            "description": "Turn a light or a switch on.",
+            "id": "turn_on",
+            "keywords": [
+              "light",
+              "switch",
+              "lamp",
+              "on",
+              "home"
+            ],
+            "label": "Turn on",
+            "params": [
+              {
+                "description": "The entity id, as Home Assistant shows it.",
+                "integer": false,
+                "label": "Entity",
+                "maxLength": 64,
+                "monospace": true,
+                "multiline": false,
+                "name": "entity",
+                "placeholder": "light.kitchen",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "privileged": false,
+            "suggests": [
+              "entity"
+            ]
+          },
+          {
+            "appearance": {
+              "color": "#6e7681",
+              "icon": "💡",
+              "label": "Off"
+            },
+            "category": "Home Assistant",
+            "description": "Turn a light or a switch off.",
+            "id": "turn_off",
+            "keywords": [
+              "light",
+              "switch",
+              "lamp",
+              "off",
+              "home"
+            ],
+            "label": "Turn off",
+            "params": [
+              {
+                "description": "The entity id, as Home Assistant shows it.",
+                "integer": false,
+                "label": "Entity",
+                "maxLength": 64,
+                "monospace": true,
+                "multiline": false,
+                "name": "entity",
+                "placeholder": "light.kitchen",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "privileged": false,
+            "suggests": [
+              "entity"
+            ]
+          }
+        ],
+        "description": "Turn lights and switches on and off, and show on a pad whether they are on. Talks to your own Home Assistant, and only to it.",
+        "external": {
+          "abi": 1,
+          "author": "LaunchDeck examples",
+          "events": [],
+          "sdk": "0.2.0",
+          "status": "enabled"
+        },
+        "id": "example.home-assistant",
+        "kind": "plugin",
+        "name": "Home Assistant",
+        "permissions": [
+          "network"
+        ],
+        "states": [],
+        "version": "0.1.0"
+      },
+      "refreshSeconds": 5,
+      "secretStore": "memory",
+      "secrets": [
+        {
+          "description": "Create one in Home Assistant: your profile, Security, Long-lived access tokens.",
+          "isSet": true,
+          "key": "token",
+          "label": "Long-lived access token",
+          "origin": "http://192.168.1.20:8123"
+        }
+      ]
+    },
+    {
+      "config": [
+        {
+          "default": "http://homeassistant.local:8123",
+          "description": "Where your Home Assistant answers, as you would type it in a browser.",
+          "isSet": true,
+          "key": "baseUrl",
+          "label": "Home Assistant address",
+          "secret": false,
+          "type": "string",
+          "value": "homeassistant"
+        }
+      ],
+      "dir": "<data>/plugins/home-assistant-unset",
+      "enabled": true,
+      "network": {
+        "hosts": [],
+        "purpose": "Connect to your Home Assistant instance.",
+        "stale": [],
+        "status": "needsApproval",
+        "unresolved": [
+          {
+            "reason": "`homeassistant` is not a URL.",
+            "setting": "baseUrl"
+          }
+        ]
+      },
+      "networkFailure": {
+        "at": 1791144531709,
+        "code": "invalid_request",
+        "message": "`homeassistant/api/states/light.kitchen` is not a URL"
+      },
+      "plugin": {
+        "actions": [
+          {
+            "appearance": {
+              "color": "#f5c518",
+              "icon": "💡",
+              "label": "Light"
+            },
+            "category": "Home Assistant",
+            "description": "Turn a light or a switch on if it is off, and off if it is on.",
+            "id": "toggle",
+            "keywords": [
+              "light",
+              "switch",
+              "lamp",
+              "on",
+              "off",
+              "home"
+            ],
+            "label": "Toggle",
+            "params": [
+              {
+                "description": "The entity id, as Home Assistant shows it.",
+                "integer": false,
+                "label": "Entity",
+                "maxLength": 64,
+                "monospace": true,
+                "multiline": false,
+                "name": "entity",
+                "placeholder": "light.kitchen",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "privileged": false,
+            "suggests": [
+              "entity"
+            ]
+          },
+          {
+            "appearance": {
+              "color": "#f5c518",
+              "icon": "💡",
+              "label": "On"
+            },
+            "category": "Home Assistant",
+            "description": "Turn a light or a switch on.",
+            "id": "turn_on",
+            "keywords": [
+              "light",
+              "switch",
+              "lamp",
+              "on",
+              "home"
+            ],
+            "label": "Turn on",
+            "params": [
+              {
+                "description": "The entity id, as Home Assistant shows it.",
+                "integer": false,
+                "label": "Entity",
+                "maxLength": 64,
+                "monospace": true,
+                "multiline": false,
+                "name": "entity",
+                "placeholder": "light.kitchen",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "privileged": false,
+            "suggests": [
+              "entity"
+            ]
+          },
+          {
+            "appearance": {
+              "color": "#6e7681",
+              "icon": "💡",
+              "label": "Off"
+            },
+            "category": "Home Assistant",
+            "description": "Turn a light or a switch off.",
+            "id": "turn_off",
+            "keywords": [
+              "light",
+              "switch",
+              "lamp",
+              "off",
+              "home"
+            ],
+            "label": "Turn off",
+            "params": [
+              {
+                "description": "The entity id, as Home Assistant shows it.",
+                "integer": false,
+                "label": "Entity",
+                "maxLength": 64,
+                "monospace": true,
+                "multiline": false,
+                "name": "entity",
+                "placeholder": "light.kitchen",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "privileged": false,
+            "suggests": [
+              "entity"
+            ]
+          }
+        ],
+        "description": "Turn lights and switches on and off, and show on a pad whether they are on. Talks to your own Home Assistant, and only to it.",
+        "external": {
+          "abi": 1,
+          "author": "LaunchDeck examples",
+          "events": [],
+          "sdk": "0.2.0",
+          "status": "enabled"
+        },
+        "id": "example.home-assistant-unset",
+        "kind": "plugin",
+        "name": "Home Assistant (not set up)",
+        "permissions": [
+          "network"
+        ],
+        "states": [],
+        "version": "0.1.0"
+      },
+      "refreshSeconds": 5,
+      "secretStore": "memory",
+      "secrets": [
+        {
+          "description": "Create one in Home Assistant: your profile, Security, Long-lived access tokens.",
+          "isSet": false,
+          "key": "token",
+          "label": "Long-lived access token"
+        }
+      ]
     }
   ]
 }

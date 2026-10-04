@@ -8,10 +8,13 @@
 //! What a module can do is exactly what is linked here and nothing else:
 //! `launchdeck.log`, `launchdeck.publish` and `launchdeck.respond`. `publish`
 //! carries two kinds of message, an event (`{"type": ...}`) and a state
-//! (`{"state": ...}`); there is no fourth function, so the protocol is still
-//! ABI 1. No WASI, so
-//! no files, clock, random, environment, sockets or processes exist inside.
-//! A module that imports anything else does not load.
+//! (`{"state": ...}`). A plugin that was given a network gate (its manifest
+//! asks for the network) may also import `launchdeck.http_request` and
+//! `launchdeck.http_response`, which hand a request to the host and read the
+//! answer; the host decides whether anything is sent. The protocol is still
+//! ABI 1: a module that imports neither is unaffected. No WASI, so no files,
+//! clock, random, environment, sockets or processes exist inside. A module
+//! that imports anything else does not load.
 //!
 //! Limits per call: a fuel budget (deterministic CPU), an epoch deadline (wall
 //! clock), a memory cap, bounded stack, bounded request, response, event and
@@ -20,21 +23,27 @@
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 use wasmtime::{
-    Caller, Config, Engine, Extern, Linker, Memory, Module, Store, StoreLimits, StoreLimitsBuilder,
-    Trap, TypedFunc,
+    AsContextMut, Caller, Config, Engine, Extern, Linker, Memory, Module, Store, StoreLimits,
+    StoreLimitsBuilder, Trap, TypedFunc,
 };
 
 use super::log::{clean_line, Level, Origin, PluginLog, MAX_LINE_BYTES};
+use super::network::{
+    code as net_code, refusal, NetGate, MAX_REQUESTS_PER_CALL, MAX_REQUEST_MESSAGE,
+    NETWORK_BUDGET_PER_CALL,
+};
 use crate::events::external::valid_ident;
 use crate::state::definition::Write;
 
 /// Namespace of the host functions a module may import.
 pub const HOST_MODULE: &str = "launchdeck";
 const HOST_FUNCTIONS: &[&str] = &["log", "publish", "respond"];
+/// Linked only for a plugin that was given a network gate.
+const NETWORK_FUNCTIONS: &[&str] = &["http_request", "http_response"];
 
 pub const MAX_REQUEST_BYTES: usize = 64 * 1024;
 pub const MAX_RESPONSE_BYTES: usize = 64 * 1024;
@@ -147,6 +156,13 @@ struct CallState {
     violation: Option<String>,
     log_lines: u32,
     log_overflow: bool,
+    /// This call may use the network (every call but `init`).
+    network: bool,
+    http_requests: u32,
+    /// Time this call has spent waiting on the network.
+    http_spent: Duration,
+    /// The answer to the last request, until the module reads it.
+    http_answer: Option<Vec<u8>>,
 }
 
 struct HostState {
@@ -154,6 +170,9 @@ struct HostState {
     log: Arc<PluginLog>,
     declared_events: Arc<HashSet<String>>,
     gate: Arc<dyn StateGate>,
+    net: Option<Arc<dyn NetGate>>,
+    /// Ticks one call may run for, to give back after a network wait.
+    deadline_ticks: u64,
     call: CallState,
 }
 
@@ -472,6 +491,72 @@ fn host_respond(mut caller: Caller<'_, HostState>, ptr: i32, len: i32) -> wasmti
     Ok(())
 }
 
+/// `http_request(ptr, len) -> i32`: hand one request to the host. The result
+/// is the size of the answer, which is always there to read with
+/// `http_response`: a refusal is an answer too. The host performs the request;
+/// the module waits, and that wait is not counted against its own time.
+fn host_http_request(
+    mut caller: Caller<'_, HostState>,
+    ptr: i32,
+    len: i32,
+) -> wasmtime::Result<i32> {
+    let answer = if len as u32 as usize > MAX_REQUEST_MESSAGE {
+        refusal(net_code::REQUEST_TOO_LARGE, "the request is too large")
+    } else {
+        let message = read_guest(&mut caller, ptr, len, "http_request")?;
+        let state = caller.data_mut();
+        let left = NETWORK_BUDGET_PER_CALL.saturating_sub(state.call.http_spent);
+        match state.net.clone() {
+            // Not reachable: the functions are only linked when there is a gate.
+            None => refusal(net_code::PERMISSION_DENIED, "this plugin has no network access"),
+            Some(_) if !state.call.network => refusal(
+                net_code::INVALID_REQUEST,
+                "the network is not available while a plugin starts; make requests from an action or from refresh",
+            ),
+            Some(_) if state.call.http_requests >= MAX_REQUESTS_PER_CALL => refusal(
+                net_code::RATE_LIMITED,
+                &format!("more than {MAX_REQUESTS_PER_CALL} requests in one call"),
+            ),
+            Some(_) if left.is_zero() => refusal(net_code::TIMEOUT, "this call has used up its time on the network"),
+            Some(net) => {
+                state.call.http_requests += 1;
+                let started = Instant::now();
+                let answer = net.request(&message, left);
+                let state = caller.data_mut();
+                state.call.http_spent += started.elapsed();
+                // The wait was the server's, not the module's: its own clock starts again.
+                let ticks = state.deadline_ticks;
+                caller.as_context_mut().set_epoch_deadline(ticks);
+                answer
+            }
+        }
+    };
+    let size = answer.len() as i32;
+    caller.data_mut().call.http_answer = Some(answer);
+    Ok(size)
+}
+
+/// `http_response(ptr, cap) -> i32`: copy the last answer into the module's
+/// buffer. Returns its size, or -1 when there is none or it does not fit.
+fn host_http_response(
+    mut caller: Caller<'_, HostState>,
+    ptr: i32,
+    cap: i32,
+) -> wasmtime::Result<i32> {
+    let Some(answer) = caller.data_mut().call.http_answer.take() else {
+        return Ok(-1);
+    };
+    if answer.len() > cap as u32 as usize {
+        caller.data_mut().call.http_answer = Some(answer);
+        return Ok(-1);
+    }
+    let memory = guest_memory(&mut caller)?;
+    memory
+        .write(&mut caller, ptr as u32 as usize, &answer)
+        .map_err(|_| wasmtime::format_err!("http_response: pointer out of bounds"))?;
+    Ok(answer.len() as i32)
+}
+
 // ---------------------------------------------------------------------------
 // Loading and calling
 // ---------------------------------------------------------------------------
@@ -487,20 +572,29 @@ fn describe(err: &wasmtime::Error, limits: &Limits) -> String {
     }
 }
 
-fn arm(store: &mut Store<HostState>, limits: &Limits) {
+fn ticks_of(limits: &Limits) -> u64 {
+    (limits.timeout.as_millis() / TICK.as_millis() + 1) as u64
+}
+
+fn arm(store: &mut Store<HostState>, limits: &Limits, network: bool) {
     let _ = store.set_fuel(limits.fuel);
-    let ticks = limits.timeout.as_millis() / TICK.as_millis() + 1;
-    store.set_epoch_deadline(ticks as u64);
-    store.data_mut().call = CallState::default();
+    store.set_epoch_deadline(ticks_of(limits));
+    store.data_mut().call = CallState {
+        network,
+        ..CallState::default()
+    };
 }
 
 impl Sandbox {
     /// Compile, link and start a module, and check that it speaks `abi`.
+    /// `net` is given only for a plugin whose manifest asks for the network;
+    /// without it the network functions do not exist for the module.
     pub fn load(
         wasm: &[u8],
         abi: u32,
         declared_events: Arc<HashSet<String>>,
         gate: Arc<dyn StateGate>,
+        net: Option<Arc<dyn NetGate>>,
         log: Arc<PluginLog>,
         limits: &Limits,
     ) -> Result<Sandbox, String> {
@@ -514,9 +608,19 @@ impl Sandbox {
         // Deny by default, with a readable reason: anything that is not a
         // `launchdeck` function would be a request for system access.
         for import in module.imports() {
-            let allowed = import.module() == HOST_MODULE
-                && HOST_FUNCTIONS.contains(&import.name())
-                && import.ty().func().is_some();
+            let known = HOST_FUNCTIONS.contains(&import.name())
+                || (net.is_some() && NETWORK_FUNCTIONS.contains(&import.name()));
+            let allowed = import.module() == HOST_MODULE && known && import.ty().func().is_some();
+            if !allowed
+                && import.module() == HOST_MODULE
+                && NETWORK_FUNCTIONS.contains(&import.name())
+            {
+                return Err(format!(
+                    "the module imports `{}::{}`, but its manifest does not ask for the network (`capabilities.network`)",
+                    import.module(),
+                    import.name()
+                ));
+            }
             if !allowed {
                 return Err(format!(
                     "the module imports `{}::{}`, which LaunchDeck does not provide (plugins have no system access)",
@@ -531,6 +635,12 @@ impl Sandbox {
             .and_then(|l| l.func_wrap(HOST_MODULE, "publish", host_publish))
             .and_then(|l| l.func_wrap(HOST_MODULE, "respond", host_respond))
             .map_err(|e| e.to_string())?;
+        if net.is_some() {
+            linker
+                .func_wrap(HOST_MODULE, "http_request", host_http_request)
+                .and_then(|l| l.func_wrap(HOST_MODULE, "http_response", host_http_response))
+                .map_err(|e| e.to_string())?;
+        }
 
         let state = HostState {
             limits: StoreLimitsBuilder::new()
@@ -543,11 +653,13 @@ impl Sandbox {
             log,
             declared_events,
             gate,
+            net,
+            deadline_ticks: ticks_of(limits),
             call: CallState::default(),
         };
         let mut store = Store::new(engine, state);
         store.limiter(|s| &mut s.limits);
-        arm(&mut store, limits);
+        arm(&mut store, limits, false);
 
         // Count the sandbox before the first instruction can run.
         LIVE.fetch_add(1, Ordering::SeqCst);
@@ -589,13 +701,24 @@ impl Sandbox {
     }
 
     /// Send one request and collect the response and the events it published.
+    /// The module may use the network during it, if it has a gate.
     pub fn call(&mut self, request: &[u8]) -> Result<CallOutput, CallError> {
+        self.call_with(request, true)
+    }
+
+    /// Like [`call`](Sandbox::call), with the network closed: for `init`,
+    /// which runs while the plugin host is busy and must be quick.
+    pub fn call_offline(&mut self, request: &[u8]) -> Result<CallOutput, CallError> {
+        self.call_with(request, false)
+    }
+
+    fn call_with(&mut self, request: &[u8], network: bool) -> Result<CallOutput, CallError> {
         if request.is_empty() || request.len() > MAX_REQUEST_BYTES {
             return Err(CallError::Rejected(format!(
                 "request is larger than {MAX_REQUEST_BYTES} bytes"
             )));
         }
-        arm(&mut self.store, &self.limits);
+        arm(&mut self.store, &self.limits, network);
         let len = request.len() as i32;
         let ptr = self
             .alloc

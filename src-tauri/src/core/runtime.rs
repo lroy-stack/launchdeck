@@ -55,6 +55,14 @@ const RENDER_INTERVAL: Duration = Duration::from_millis(40);
 const RESCAN_INTERVAL: Duration = Duration::from_secs(3);
 const SUCCESS_RESET: Duration = Duration::from_millis(2500);
 const ERROR_RESET: Duration = Duration::from_millis(4000);
+/// How long the `failed` look stays on a control whose action failed.
+const FAILED_RESET: Duration = Duration::from_millis(1500);
+/// How often plugins that asked to be refreshed are checked for being due.
+const REFRESH_TICK: Duration = Duration::from_millis(250);
+/// Looks a control may define for its own action: shown while it is in flight
+/// and briefly after it failed. They sit over the state rules and end by themselves.
+const PENDING_LOOK: &str = "pending";
+const FAILED_LOOK: &str = "failed";
 const RECENT_EVENTS: usize = 100;
 /// Changes to the Observable Catalog that arrive within this window reach the
 /// UI as one message. Feedback is not delayed by it: pads are re-evaluated as
@@ -131,8 +139,24 @@ pub struct RuntimeState {
     /// temporary one (an action running, an event's look) over the one its
     /// state rules give. Absent means the resting look.
     pub control_states: BTreeMap<String, String>,
+    /// Actions that were invoked and have not finished. The runtime owns this:
+    /// an entry appears when the action starts and goes when it completes or fails.
+    pub pending: Vec<PendingAction>,
     pub devices: Vec<DeviceInfo>,
     pub external: ExternalStatus,
+}
+
+/// One action in flight.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingAction {
+    /// `surface/page/control` of the pad that started it; absent for a test run.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub control: Option<String>,
+    /// `provider.action`.
+    pub action: String,
+    /// When it started, milliseconds since the epoch.
+    pub since: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -162,6 +186,9 @@ pub struct RuntimeConfig {
     pub demo_pace: f32,
     /// Folders scanned for external plugins (one folder per plugin inside each).
     pub plugin_dirs: Vec<std::path::PathBuf>,
+    /// Where plugin secrets are kept. `None` keeps them in memory, which is
+    /// what tests want: the app passes the system's credential store.
+    pub secrets: Option<Arc<dyn crate::plugins::external::secrets::SecretStore>>,
 }
 
 /// A temporary look: an unbound pad running an action, or an event rule's look
@@ -213,6 +240,8 @@ struct Inner {
     held: HashMap<String, Held>,
     recent: VecDeque<Event>,
     external: ExternalStatus,
+    /// Actions in flight, by the token each run was given.
+    pending: BTreeMap<u64, PendingAction>,
 }
 
 pub fn control_key(surface: &str, page: &str, control: &str) -> String {
@@ -392,16 +421,23 @@ impl Runtime {
             log::error!("could not declare the states of the runtime: {e}");
         }
         // External plugins: found on disk, sandboxed, registered next to the built-ins.
-        let plugin_host = PluginHost::with_hub(
+        let data_dir = config.store.as_ref().and_then(|s| s.path().parent());
+        let plugin_host = PluginHost::with_parts(
             config.plugin_dirs.clone(),
-            config
-                .store
-                .as_ref()
-                .and_then(|s| s.path().parent())
-                .map(|dir| dir.join("plugins.json")),
+            data_dir.map(|dir| dir.join("plugins.json")),
             registry.clone(),
             PluginLimits::default(),
             hub.clone(),
+            // What each plugin was granted, and the trail of who decided what:
+            // next to the workspace, never inside it.
+            Arc::new(crate::plugins::external::capabilities::Grants::new(
+                data_dir.map(|dir| dir.join("permissions.json")),
+                data_dir.map(|dir| dir.join("audit.jsonl")),
+            )),
+            config
+                .secrets
+                .clone()
+                .unwrap_or_else(|| Arc::new(crate::plugins::external::secrets::MemoryStore::new())),
         );
         {
             // Compiling modules is blocking work.
@@ -468,6 +504,7 @@ impl Runtime {
                 held: HashMap::new(),
                 recent: VecDeque::new(),
                 external,
+                pending: BTreeMap::new(),
             }),
             bus: bus.clone(),
             engine,
@@ -550,6 +587,18 @@ impl Runtime {
                 }
             });
         }
+        // Plugins that asked to be refreshed: checked often, called when due.
+        {
+            let rt = rt.clone();
+            tokio::spawn(async move {
+                let mut tick = tokio::time::interval(REFRESH_TICK);
+                tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                loop {
+                    tick.tick().await;
+                    rt.refresh_due();
+                }
+            });
+        }
         // Real-harness hooks: off unless the user turned the endpoint on.
         if let Err(e) = hooks.apply().await {
             log::warn!("{e}");
@@ -621,6 +670,50 @@ impl Runtime {
     /// The index follows the workspace: rebuilt after any edit of the rules.
     fn rebuild_index(&self, inner: &mut Inner) {
         inner.index = FeedbackIndex::build(&inner.workspace);
+        // What controls read may have changed, so what plugins report should too.
+        self.plugin_host.refresh_all_soon();
+    }
+
+    /// The instances of a provider's states that some control's rules read,
+    /// anywhere in the workspace.
+    fn watched_states(&self, provider: &str) -> Vec<crate::state::StateAddress> {
+        let inner = self.lock();
+        let mut seen = std::collections::HashSet::new();
+        let mut out = Vec::new();
+        for surface in &inner.workspace.surfaces {
+            for page in &surface.pages {
+                for control in &page.controls {
+                    for rule in &control.feedback {
+                        if let When::State(c) = &rule.when {
+                            if c.state.provider == provider && seen.insert(c.state.key()) {
+                                out.push(c.state.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// Start the refresh of every plugin that is due. Each runs on a blocking
+    /// thread, like an action; none is started on top of one still running.
+    fn refresh_due(self: &Arc<Self>) {
+        for id in self.plugin_host.due_refreshes() {
+            let watching = self.watched_states(&id);
+            let rt = self.clone();
+            self.handle.spawn(async move {
+                let host = rt.plugin_host.clone();
+                let ctx = crate::plugins::PluginContext::new(
+                    &id,
+                    rt.bus.clone(),
+                    tokio::runtime::Handle::current(),
+                )
+                .with_hub(rt.hub.clone());
+                let _ =
+                    tokio::task::spawn_blocking(move || host.refresh(&id, &ctx, &watching)).await;
+            });
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -668,6 +761,7 @@ impl Runtime {
             active_page_id: inner.active_page.clone(),
             mode: inner.mode,
             control_states: looks_of(inner),
+            pending: inner.pending.values().cloned().collect(),
             devices: inner.devices.list(),
             external: inner.external.clone(),
         }
@@ -1070,19 +1164,41 @@ impl Runtime {
             };
         }
 
-        // A control with feedback rules gets its look from them; the automatic
-        // running/success/error looks only apply to one without.
+        // A control with feedback rules gets its stable look from them. Its own
+        // action only ever adds a temporary one: `pending` while it is in flight
+        // and `failed` briefly after it failed, when the control defines them.
+        // A control without rules keeps the automatic running/success/error looks.
         let auto = control.as_ref().filter(|c| c.feedback.is_empty());
         let key = control
             .as_ref()
             .map(|c| control_key(&surface_id, &page_id, &c.id));
         let has = |state: &str| auto.is_some_and(|c| c.states.contains_key(state));
+        let defines = |state: &str| {
+            control
+                .as_ref()
+                .is_some_and(|c| c.states.contains_key(state))
+        };
+        let pending_look = if has("running") {
+            Some("running")
+        } else if defines(PENDING_LOOK) {
+            Some(PENDING_LOOK)
+        } else {
+            None
+        };
 
         self.publish("runtime", types::ACTION_STARTED, ctx.clone());
-        if let (Some(key), true) = (&key, has("running")) {
-            self.set_overlay(key, Some("running"), None, Origin::ACTION);
-        }
-        match self.engine.execute(&action).await {
+        // From here until the provider answers, the action is pending, and the
+        // runtime says so: in its state, and on the pad if it has a look for it.
+        let run = self.begin_action(key.clone(), &semantic);
+        let shown = match (&key, pending_look) {
+            (Some(key), Some(look)) => {
+                Some(self.set_overlay(key, Some(look), None, Origin::ACTION))
+            }
+            _ => None,
+        };
+        let outcome = self.engine.execute(&action).await;
+        self.end_action(run);
+        match outcome {
             Ok(result) => {
                 self.publish(
                     "runtime",
@@ -1090,17 +1206,13 @@ impl Runtime {
                     with(json!({ "result": result })),
                 );
                 if let Some(key) = &key {
-                    if auto.is_some() {
-                        if has("success") {
-                            self.set_overlay(
-                                key,
-                                Some("success"),
-                                Some(SUCCESS_RESET),
-                                Origin::ACTION,
-                            );
-                        } else {
-                            self.set_overlay(key, None, None, Origin::ACTION);
-                        }
+                    if has("success") {
+                        self.set_overlay(key, Some("success"), Some(SUCCESS_RESET), Origin::ACTION);
+                    } else if auto.is_some() {
+                        self.set_overlay(key, None, None, Origin::ACTION);
+                    } else if let Some(token) = shown {
+                        // Success leaves nothing behind: the state rules decide what the pad shows.
+                        self.clear_overlay(key, token);
                     }
                 }
                 Ok(result)
@@ -1112,16 +1224,44 @@ impl Runtime {
                     with(json!({ "error": e.to_string() })),
                 );
                 if let Some(key) = &key {
-                    if auto.is_some() {
-                        if has("error") {
-                            self.set_overlay(key, Some("error"), Some(ERROR_RESET), Origin::ACTION);
-                        } else {
-                            self.set_overlay(key, None, None, Origin::ACTION);
-                        }
+                    if has("error") {
+                        self.set_overlay(key, Some("error"), Some(ERROR_RESET), Origin::ACTION);
+                    } else if defines(FAILED_LOOK) {
+                        self.set_overlay(
+                            key,
+                            Some(FAILED_LOOK),
+                            Some(FAILED_RESET),
+                            Origin::ACTION,
+                        );
+                    } else if auto.is_some() {
+                        self.set_overlay(key, None, None, Origin::ACTION);
+                    } else if let Some(token) = shown {
+                        self.clear_overlay(key, token);
                     }
                 }
                 Err(e.to_string())
             }
+        }
+    }
+
+    /// Record that an action is in flight. The token ends it.
+    fn begin_action(&self, control: Option<String>, action: &str) -> u64 {
+        let token = self.next_token();
+        self.lock().pending.insert(
+            token,
+            PendingAction {
+                control,
+                action: action.to_string(),
+                since: crate::events::now_ms(),
+            },
+        );
+        self.emit_state();
+        token
+    }
+
+    fn end_action(&self, token: u64) {
+        if self.lock().pending.remove(&token).is_some() {
+            self.emit_state();
         }
     }
 
@@ -1138,7 +1278,7 @@ impl Runtime {
         look: Option<&str>,
         reset_after: Option<Duration>,
         origin: Origin,
-    ) {
+    ) -> u64 {
         let token = self.next_token();
         {
             let mut inner = self.lock();
@@ -1178,6 +1318,24 @@ impl Runtime {
                     rt.emit_state();
                 }
             });
+        }
+        token
+    }
+
+    /// Take a temporary look off, if it is still the one `token` put there.
+    /// Something that replaced it in the meantime (an event's look) stays.
+    fn clear_overlay(&self, key: &str, token: u64) {
+        let removed = {
+            let mut i = self.lock();
+            if i.overlay.get(key).is_some_and(|e| e.token == token) {
+                i.overlay.remove(key);
+                true
+            } else {
+                false
+            }
+        };
+        if removed {
+            self.emit_state();
         }
     }
 
@@ -1851,6 +2009,7 @@ mod tests {
             serve_external: false,
             demo_pace: 1.0,
             plugin_dirs: vec![],
+            secrets: None,
         })
         .await
     }
@@ -2313,6 +2472,7 @@ mod tests {
             serve_external: true,
             demo_pace: 1.0,
             plugin_dirs: vec![],
+            secrets: None,
         })
         .await;
         let ext = rt.state().external;

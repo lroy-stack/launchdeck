@@ -473,6 +473,10 @@ export const runtimeStateSchema = z.object({
   activePageId: z.string(),
   mode: modeSchema,
   controlStates: z.record(z.string(), z.string()),
+  /** Actions that were invoked and have not finished, as the runtime holds them. */
+  pending: z
+    .array(z.object({ control: z.string().optional(), action: z.string(), since: z.number() }))
+    .default([]),
   devices: z.array(deviceInfoSchema),
   external: z.object({
     enabled: z.boolean(),
@@ -532,6 +536,8 @@ export type PluginManifest = z.infer<typeof pluginManifestSchema>;
 
 export const pluginConfigSchema = z.object({
   key: z.string(),
+  /** The name a person sees. The key when the manifest gives none. */
+  label: z.string(),
   type: z.enum(["string", "number", "boolean"]),
   description: z.string(),
   secret: z.boolean(),
@@ -542,12 +548,73 @@ export const pluginConfigSchema = z.object({
 });
 export type PluginConfig = z.infer<typeof pluginConfigSchema>;
 
+/** How far a destination is from this computer. Rust decides it; the interface says it in words. */
+export const reachSchema = z.enum(["loopback", "local", "internet"]);
+export type Reach = z.infer<typeof reachSchema>;
+
+export const grantStatusSchema = z.enum(["granted", "denied", "needsApproval"]);
+export type GrantStatus = z.infer<typeof grantStatusSchema>;
+
+/** One destination a plugin asks for now. */
+export const networkHostSchema = z.object({
+  /** Scheme, host and port: exactly what a grant covers. */
+  origin: z.string(),
+  reach: reachSchema,
+  status: grantStatusSchema,
+  /** Written in the manifest, or the origin of the URL in one of the plugin's settings. */
+  source: z.discriminatedUnion("kind", [z.object({ kind: z.literal("declared") }), z.object({ kind: z.literal("setting"), key: z.string() })]),
+  decidedAt: z.number().optional(),
+});
+export type NetworkHost = z.infer<typeof networkHostSchema>;
+
+/** What a plugin asks of the network and what was decided about it. */
+export const networkViewSchema = z.object({
+  /** Why the plugin needs it, in its author's words. */
+  purpose: z.string(),
+  status: grantStatusSchema,
+  hosts: z.array(networkHostSchema),
+  /** Hosts named through a setting that gives no destination yet. */
+  unresolved: z.array(z.object({ setting: z.string(), reason: z.string() })),
+  /** Decisions on file for destinations the plugin no longer asks for. They cover nothing. */
+  stale: z.array(z.object({ origin: z.string(), decision: z.enum(["granted", "denied"]) })),
+});
+export type NetworkView = z.infer<typeof networkViewSchema>;
+
+export const networkFailureSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+  origin: z.string().optional(),
+  at: z.number(),
+});
+export type NetworkFailure = z.infer<typeof networkFailureSchema>;
+
+/** A secret of a plugin: everything but its value, which never leaves the host. */
+export const pluginSecretSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  description: z.string(),
+  isSet: z.boolean(),
+  /** The only destination it is sent to. */
+  origin: z.string().optional(),
+});
+export type PluginSecret = z.infer<typeof pluginSecretSchema>;
+
+export const secretStoreSchema = z.enum(["keychain", "file", "memory"]);
+export type SecretStoreKind = z.infer<typeof secretStoreSchema>;
+
 export const pluginInfoSchema = z.object({
   plugin: pluginManifestSchema,
   dir: z.string(),
   /** What the person chose; `plugin.external.status` is what actually happened. */
   enabled: z.boolean(),
   config: z.array(pluginConfigSchema),
+  /** Absent for a plugin that asks for no network access. */
+  network: networkViewSchema.optional(),
+  /** The last request that was refused or failed, unless one succeeded since. */
+  networkFailure: networkFailureSchema.optional(),
+  secrets: z.array(pluginSecretSchema),
+  secretStore: secretStoreSchema,
+  refreshSeconds: z.number().optional(),
 });
 export type PluginInfo = z.infer<typeof pluginInfoSchema>;
 

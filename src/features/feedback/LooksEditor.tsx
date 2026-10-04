@@ -25,6 +25,9 @@ function usageText(control: Control, key: string): string {
     const n = ruleNumber(control.feedback, i);
     return kindOfRule(rule) === "event" ? `event rule ${n}` : `rule ${n}`;
   });
+  // Two names mean something by themselves: the runtime shows them for the pad's own action.
+  if (used.length === 0 && key === "pending") return "Shown while this pad’s action is running";
+  if (used.length === 0 && key === "failed") return "Shown for a moment when this pad’s action fails";
   if (used.length === 0) return "Not used by any rule";
   const text = used.join(", ");
   return `Shown by ${text.charAt(0).toUpperCase()}${text.slice(1)}`;
@@ -38,7 +41,10 @@ export function LooksEditor({ control, limits, onChange, say }: Props) {
   return (
     <section className="field-group looks" aria-label="Looks">
       <h4>Looks</h4>
-      <p className="hint">A look is a colour and an animation this pad can show. Rules choose one by name.</p>
+      <p className="hint">
+        A look is a colour and an animation this pad can show. Rules choose one by name. Two names work by themselves: a look called <b>Pending</b> shows while
+        this pad’s action is running, and one called <b>Failed</b> for a moment when it fails.
+      </p>
       <ul className="look-list">
         <li className="look-row">
           <Swatch visual={control.visual} />

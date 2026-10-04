@@ -157,6 +157,7 @@ async fn start(controls: Vec<Control>) -> Env {
         serve_external: false,
         demo_pace: 0.05,
         plugin_dirs: vec![plugins],
+        secrets: None,
     })
     .await;
     wait_until("the first frame", || {

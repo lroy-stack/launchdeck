@@ -230,6 +230,7 @@ async fn start_with(dirs: Vec<PathBuf>) -> (Arc<Runtime>, Arc<Recorder>) {
         serve_external: false,
         demo_pace: 0.05,
         plugin_dirs: dirs,
+        secrets: None,
     })
     .await;
     wait_until("first frame", || {

@@ -13,11 +13,14 @@
 //!
 //! The contract is described in `PLUGIN_SDK_PLAN.md` and `docs/plugin-sdk/`.
 
+pub mod capabilities;
 pub mod discovery;
 pub mod host;
 pub mod log;
 pub mod manifest;
+pub mod network;
 pub mod sandbox;
+pub mod secrets;
 pub mod wasm_plugin;
 
 #[cfg(test)]
@@ -34,7 +37,7 @@ pub use sandbox::Limits;
 /// Protocol (ABI) version between host and module.
 pub const ABI_VERSION: u32 = 1;
 /// SDK version this host understands.
-pub const SDK_VERSION: &str = "0.1.1";
+pub const SDK_VERSION: &str = "0.2.0";
 
 /// Environment variable with extra plugin folders (path list), for development.
 pub const PLUGINS_ENV: &str = "LAUNCHDECK_PLUGINS";

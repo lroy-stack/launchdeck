@@ -31,6 +31,8 @@ enigo = "0.5"
 # plugin contract does not need stays off: no WASI, no component model, no GC,
 # no async, no threads. Never go below 48.0.4 (RUSTSEC-2026-0315, -0327).
 wasmtime = { version = "48.0.4", default-features = false, features = ["std", "runtime", "cranelift"] }
+keyring = "4"
+url = "2"
 
 [dev-dependencies]
 tempfile = "3"

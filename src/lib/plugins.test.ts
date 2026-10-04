@@ -13,7 +13,13 @@ describe("plugins contract with Rust", () => {
   const byId = (id: string) => overview.plugins.find((p) => p.plugin.id === id)!;
 
   it("parses what the host emits for installed plugins, failed ones and rejected folders", () => {
-    expect(overview.plugins.map((p) => p.plugin.id).sort()).toEqual(["example.broken", "example.counter", "example.hello"]);
+    expect(overview.plugins.map((p) => p.plugin.id).sort()).toEqual([
+      "example.broken",
+      "example.counter",
+      "example.hello",
+      "example.home-assistant",
+      "example.home-assistant-unset",
+    ]);
     expect(overview.issues).toHaveLength(1);
     expect(overview.folders.length).toBeGreaterThan(0);
   });
@@ -66,6 +72,50 @@ describe("plugins contract with Rust", () => {
     expect(builtIn.kind).toBe("builtin");
   });
 
+  it("says what a plugin asks of the network and what was decided, per exact destination", () => {
+    const net = byId("example.home-assistant").network!;
+    expect(net.purpose).toBe("Connect to your Home Assistant instance.");
+    expect(net.status).toBe("granted");
+    expect(net.hosts).toMatchObject([{ origin: "http://192.168.1.20:8123", reach: "local", status: "granted", source: { kind: "setting", key: "baseUrl" } }]);
+    expect(net.hosts[0]!.decidedAt).toBeGreaterThan(0);
+    // The decision about the address it had before is still on file, and marked as covering nothing.
+    expect(net.stale).toEqual([{ origin: "http://homeassistant.local:8123", decision: "denied" }]);
+    expect(byId("example.home-assistant").plugin.permissions).toEqual(["network"]);
+    // A plugin that asks for nothing has no network block at all.
+    expect(byId("example.counter").network).toBeUndefined();
+    expect(byId("example.counter").plugin.permissions).toEqual([]);
+  });
+
+  it("says why a setting gives no destination yet, and why the last request failed", () => {
+    const unset = byId("example.home-assistant-unset");
+    expect(unset.network).toMatchObject({ status: "needsApproval", hosts: [], unresolved: [{ setting: "baseUrl" }] });
+    expect(unset.network!.unresolved[0]!.reason).toMatch(/not a URL/);
+    expect(unset.networkFailure).toMatchObject({ code: "invalid_request" });
+    expect(unset.networkFailure!.at).toBeGreaterThan(0);
+    expect(unset.secrets[0]).toMatchObject({ key: "token", isSet: false });
+    expect(unset.secrets[0]).not.toHaveProperty("origin");
+  });
+
+  it("carries a secret's name, where it goes and whether it is set, never its value", () => {
+    const ha = byId("example.home-assistant");
+    expect(ha.secrets).toEqual([
+      {
+        key: "token",
+        label: "Long-lived access token",
+        description: expect.stringContaining("Long-lived access tokens"),
+        isSet: true,
+        origin: "http://192.168.1.20:8123",
+      },
+    ]);
+    expect(ha.secretStore).toBe("memory");
+    expect(ha.refreshSeconds).toBe(5);
+    expect(JSON.stringify(fixture)).not.toContain("a-long-lived-access-token");
+    // The address is a setting, shown with the name its manifest gives it.
+    expect(ha.config).toMatchObject([{ key: "baseUrl", label: "Home Assistant address", value: "http://192.168.1.20:8123", secret: false }]);
+    // Older manifests give no label: the key stands in.
+    expect(byId("example.hello").config.find((c) => c.key === "greeting")!.label).toBe("greeting");
+  });
+
   it("parses the scan summary", () => {
     expect(scanReportSchema.parse({ loaded: 1, reloaded: 0, unchanged: 2, removed: 0, issues: 1 }).issues).toBe(1);
   });
@@ -76,5 +126,8 @@ describe("preview transport and plugins", () => {
     const t = await createPreviewTransport();
     expect(pluginsOverviewSchema.parse(await t.invoke("plugins_list"))).toEqual({ plugins: [], issues: [], folders: [] });
     await expect(t.invoke("plugins_rescan")).rejects.toMatch(/desktop app/);
+    for (const command of ["plugins_set_permission", "plugins_set_secret", "plugins_clear_secret"]) {
+      await expect(t.invoke(command, { id: "x" })).rejects.toMatch(/desktop app/);
+    }
   });
 });

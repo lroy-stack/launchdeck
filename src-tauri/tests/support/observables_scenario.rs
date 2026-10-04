@@ -221,6 +221,7 @@ pub async fn capture() -> Value {
         serve_external: false,
         demo_pace: 1.0,
         plugin_dirs: vec![plugins],
+        secrets: None,
     })
     .await;
     settle().await;

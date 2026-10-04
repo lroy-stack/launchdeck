@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/ipc";
 import type { PluginConfig, PluginInfo, PluginLog, PluginManifest, PluginsOverview } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
+import { NetworkAccess, Secrets } from "./Access";
 
 const PERMISSION_NOTES: Record<string, string> = {
   automation: "Sends keystrokes and opens apps on your behalf.",
@@ -58,7 +59,8 @@ export function PluginsView() {
         <h1>Plugins</h1>
         <p>
           Plugins add semantic actions and publish events. They never see MIDI notes or pad positions: a plugin says <code>example.hello.completed</code>, and the
-          surface decides which pad lights up. Installed plugins run in a sandbox with no access to files, network, shell or devices.
+          surface decides which pad lights up. Installed plugins run in a sandbox with no access to files, shell or devices. One that needs the network says
+          exactly which addresses, and reaches none of them until you allow it here.
         </p>
       </header>
 
@@ -128,8 +130,8 @@ export function PluginsView() {
         ))}
       </div>
       <p className="hint foot">
-        Built-in plugins are part of LaunchDeck and declare what they use. Installed plugins can only use the small contract the host offers, so they have nothing
-        to ask for. See docs/plugin-sdk/security.md.
+        Built-in plugins are part of LaunchDeck and declare what they use. Installed plugins can only use the small contract the host offers. Network access is the
+        one thing an installed plugin can ask for, by exact address, and it is off until you allow it. See docs/plugins/permissions.md.
       </p>
     </div>
   );
@@ -223,6 +225,7 @@ function InstalledCard({ info, change }: { info: PluginInfo; change: (fn: () => 
           {logs ? "Hide log" : "Show log"}
         </button>
       </div>
+      <NetworkAccess info={info} change={change} />
       <ActionList plugin={p} />
       {ext && ext.events.length > 0 && (
         <>
@@ -247,6 +250,7 @@ function InstalledCard({ info, change }: { info: PluginInfo; change: (fn: () => 
           ))}
         </>
       )}
+      <Secrets info={info} change={change} />
       {logs && <LogView logs={logs} />}
     </article>
   );
@@ -272,7 +276,7 @@ function ConfigField({ pluginId, item, change }: { pluginId: string; item: Plugi
   return (
     <label className="field">
       <span>
-        <code>{item.key}</code> {item.description}
+        {item.label !== item.key ? <b>{item.label}</b> : <code>{item.key}</code>} {item.description}
         {item.secret && <> ({item.isSet ? "set" : "not set"}, never shown)</>}
       </span>
       {item.type === "boolean" ? (

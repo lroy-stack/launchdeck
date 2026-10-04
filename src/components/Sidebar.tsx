@@ -19,6 +19,7 @@ export function Sidebar() {
   const select = useStore((s) => s.select);
   const pending = useStore((s) => s.agents.summary.pendingApprovals);
   const failed = useStore((s) => s.agents.summary.failedSessions);
+  const requests = useStore((s) => s.permissionRequests);
   const [creating, setCreating] = useState<string | null>(null);
 
   const hardware = state?.devices.find((d) => d.identity.kind === "hardware" && d.connected);
@@ -47,6 +48,11 @@ export function Sidebar() {
             {n.view === "agents" && pending > 0 && (
               <b className="badge attention" title={`${pending} waiting for your decision`} aria-label={`${pending} approvals pending`}>
                 {pending}
+              </b>
+            )}
+            {n.view === "plugins" && requests > 0 && (
+              <b className="badge attention" title="A plugin is waiting for your permission" aria-label={`${requests} permission ${requests === 1 ? "request" : "requests"} waiting`}>
+                {requests}
               </b>
             )}
             {n.view === "agents" && pending === 0 && failed > 0 && (

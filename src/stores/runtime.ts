@@ -37,6 +37,8 @@ interface Store {
   workspace: Workspace | null;
   state: RuntimeState | null;
   plugins: PluginManifest[];
+  /** Destinations that enabled plugins ask for and nobody has decided about yet. */
+  permissionRequests: number;
   /** The Action Library's catalog as Rust evaluated it, indexed for local search. */
   catalog: CatalogIndex;
   /**
@@ -115,6 +117,18 @@ function showSystemNotification(n: AgentNotification): void {
   }
 }
 
+/** How many destinations enabled plugins are waiting for a decision on. Never throws: the count is a hint. */
+async function countPermissionRequests(): Promise<number> {
+  try {
+    const overview = await api.plugins.list();
+    return overview.plugins
+      .filter((p) => p.enabled)
+      .reduce((n, p) => n + (p.network?.hosts.filter((h) => h.status === "needsApproval").length ?? 0), 0);
+  } catch {
+    return 0;
+  }
+}
+
 export const useStore = create<Store>((set, get) => ({
   ready: false,
   preview: false,
@@ -122,6 +136,7 @@ export const useStore = create<Store>((set, get) => ({
   workspace: null,
   state: null,
   plugins: [],
+  permissionRequests: 0,
   catalog: emptyIndex,
   observables: emptyObservableCatalog,
   events: [],
@@ -197,6 +212,7 @@ export const useStore = create<Store>((set, get) => ({
         observablesHeardEarly = false;
         void get().refreshObservables();
       }
+      void countPermissionRequests().then((permissionRequests) => set({ permissionRequests }));
       return off;
     } catch (e) {
       set({ fatal: errorMessage(e) });
@@ -237,7 +253,7 @@ export const useStore = create<Store>((set, get) => ({
   refreshPlugins: async () => {
     try {
       const snap = await api.snapshot();
-      set({ plugins: snap.plugins, catalog: indexCatalog(snap.catalog), observables: snap.observables });
+      set({ plugins: snap.plugins, catalog: indexCatalog(snap.catalog), observables: snap.observables, permissionRequests: await countPermissionRequests() });
     } catch (e) {
       get().toast(errorMessage(e), "error");
     }

@@ -22,13 +22,16 @@ import {
   Reply,
   ActionHandler,
   InitHandler,
+  RefreshHandler,
   actionIds,
   actionHandlers,
   setInitHandler,
+  setRefreshHandler,
 } from "./registry";
 
 export { Json, Kind } from "./json";
-export { Call, Reply, ActionHandler, InitHandler } from "./registry";
+export { Call, Reply, Watched, ActionHandler, InitHandler, RefreshHandler } from "./registry";
+export { http, HttpRequest, HttpResponse, HttpError } from "./http";
 
 // ---- results ---------------------------------------------------------------
 
@@ -128,7 +131,16 @@ export function action(id: string, handler: ActionHandler): void {
 }
 
 // Optional. Runs once when the plugin starts, with its configuration. Return
-// fail(...) to refuse to start.
+// fail(...) to refuse to start. The network is not available here.
 export function onInit(handler: InitHandler): void {
   setInitHandler(handler);
+}
+
+// Optional, for a plugin that declares `refresh` in plugin.json. LaunchDeck
+// calls it when the plugin starts and then every interval, with the instances
+// of the plugin's states that controls are showing. Report each one with
+// setState (or clearState when it cannot be known), so a pad follows the real
+// thing and not the last action.
+export function onRefresh(handler: RefreshHandler): void {
+  setRefreshHandler(handler);
 }

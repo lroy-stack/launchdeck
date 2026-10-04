@@ -209,19 +209,51 @@ function numberText(v: f64): string {
 
 const HEX = "0123456789abcdef";
 
+// One pass to measure, one to write into a string of exactly that size: the
+// cost is a few instructions per character, whatever the text holds, so a body
+// of several hundred kilobytes fits in a call's CPU budget.
 function quote(s: string): string {
-  let out = '"';
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    if (c == 0x22) out += '\\"';
-    else if (c == 0x5c) out += "\\\\";
-    else if (c == 0x0a) out += "\\n";
-    else if (c == 0x0d) out += "\\r";
-    else if (c == 0x09) out += "\\t";
-    else if (c < 0x20) out += "\\u00" + HEX.charAt((c >> 4) & 15) + HEX.charAt(c & 15);
-    else out += String.fromCharCode(c);
+  const n = s.length;
+  const src = changetype<usize>(s);
+  let extra = 0;
+  for (let i = 0; i < n; i++) {
+    const c = load<u16>(src + (<usize>i << 1));
+    if (c == 0x22 || c == 0x5c || c == 0x0a || c == 0x0d || c == 0x09) extra += 1;
+    else if (c < 0x20) extra += 5;
   }
-  return out + '"';
+  const out = changetype<string>(__new(<usize>(n + extra + 2) << 1, idof<string>()));
+  let p = changetype<usize>(out);
+  store<u16>(p, 0x22);
+  p += 2;
+  for (let i = 0; i < n; i++) {
+    const c = load<u16>(src + (<usize>i << 1));
+    if (c >= 0x20 && c != 0x22 && c != 0x5c) {
+      store<u16>(p, c);
+      p += 2;
+      continue;
+    }
+    store<u16>(p, 0x5c);
+    p += 2;
+    if (c == 0x22 || c == 0x5c) {
+      store<u16>(p, c);
+    } else if (c == 0x0a) {
+      store<u16>(p, 0x6e);
+    } else if (c == 0x0d) {
+      store<u16>(p, 0x72);
+    } else if (c == 0x09) {
+      store<u16>(p, 0x74);
+    } else {
+      store<u16>(p, 0x75); // u
+      store<u16>(p + 2, 0x30);
+      store<u16>(p + 4, 0x30);
+      store<u16>(p + 6, <u16>HEX.charCodeAt((c >> 4) & 15));
+      store<u16>(p + 8, <u16>HEX.charCodeAt(c & 15));
+      p += 8;
+    }
+    p += 2;
+  }
+  store<u16>(p, 0x22);
+  return out;
 }
 
 class Parser {
@@ -294,36 +326,76 @@ class Parser {
     return v;
   }
 
+  // Finds the closing quote first. A string without escapes (most of them) is
+  // one slice; one with escapes is written into a buffer no longer than the
+  // text it came from. Either way the cost is linear.
   str(): string | null {
     this.at++; // opening quote
-    let out = "";
-    while (this.at < this.text.length) {
-      const c = this.text.charCodeAt(this.at++);
-      if (c == 0x22) return out;
+    const text = this.text;
+    const src = changetype<usize>(text);
+    const start = this.at;
+    let end = start;
+    let escapes = false;
+    while (end < text.length) {
+      const c = load<u16>(src + (<usize>end << 1));
+      if (c == 0x22) break;
       if (c < 0x20) {
         this.failed = true;
         return null;
       }
+      if (c == 0x5c) {
+        escapes = true;
+        end++; // whatever is escaped is not the closing quote
+      }
+      end++;
+    }
+    if (end >= text.length) {
+      this.failed = true;
+      return null;
+    }
+    if (!escapes) {
+      this.at = end + 1;
+      return text.substring(start, end);
+    }
+    const out = changetype<string>(__new(<usize>(end - start) << 1, idof<string>()));
+    let p = changetype<usize>(out);
+    let i = start;
+    while (i < end) {
+      const c = load<u16>(src + (<usize>i << 1));
+      i++;
       if (c != 0x5c) {
-        out += String.fromCharCode(c);
+        store<u16>(p, c);
+        p += 2;
         continue;
       }
-      if (this.at >= this.text.length) break;
-      const e = this.text.charCodeAt(this.at++);
-      if (e == 0x6e) out += "\n";
-      else if (e == 0x74) out += "\t";
-      else if (e == 0x72) out += "\r";
-      else if (e == 0x62) out += "\b";
-      else if (e == 0x66) out += "\f";
-      else if (e == 0x22 || e == 0x5c || e == 0x2f) out += String.fromCharCode(e);
+      const e = load<u16>(src + (<usize>i << 1));
+      i++;
+      let v: u16 = 0;
+      if (e == 0x6e) v = 0x0a;
+      else if (e == 0x74) v = 0x09;
+      else if (e == 0x72) v = 0x0d;
+      else if (e == 0x62) v = 0x08;
+      else if (e == 0x66) v = 0x0c;
+      else if (e == 0x22 || e == 0x5c || e == 0x2f) v = e;
       else if (e == 0x75) {
+        this.at = i;
         const u = this.hex4();
-        if (u < 0) break;
-        out += String.fromCharCode(u);
-      } else break;
+        if (u < 0 || this.at > end) {
+          this.failed = true;
+          return null;
+        }
+        i = this.at;
+        v = <u16>u;
+      } else {
+        this.failed = true;
+        return null;
+      }
+      store<u16>(p, v);
+      p += 2;
     }
-    this.failed = true;
-    return null;
+    this.at = end + 1;
+    const used = <i32>((p - changetype<usize>(out)) >> 1);
+    return out.substring(0, used);
   }
 
   array(depth: i32): Json | null {

@@ -14,13 +14,14 @@ use serde_json::{json, Map, Value};
 
 use super::log::{clean_line, Level, PluginLog};
 use super::manifest::{ConfigField, ExternalManifest};
-use super::sandbox::{CallError, Limits, Refusal, Sandbox, StateGate};
+use super::network::{Broker, NetGate};
+use super::sandbox::{CallError, CallOutput, Limits, Refusal, Sandbox, StateGate};
 use super::{EventInfo, ExternalInfo, PluginStatus, ABI_VERSION, SDK_VERSION};
 use crate::actions::definition::ProviderKind;
 use crate::events::external::valid_ident;
 use crate::plugins::{ActionDef, ActionError, Plugin, PluginContext, PluginManifest};
 use crate::state::definition::{ObservableDefinition, Write};
-use crate::state::StateHub;
+use crate::state::{StateAddress, StateHub};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct StatusInfo {
@@ -82,6 +83,20 @@ pub(crate) fn invoke_request(action: &str, args: &Value) -> String {
     )
 }
 
+/// Instances one refresh names. When more are being shown, each refresh takes
+/// the next ones in turn, so every instance is asked about every few rounds.
+pub const MAX_WATCHING: usize = 16;
+
+/// "Report these states of yours: something is showing them."
+pub(crate) fn refresh_request(watching: &[StateAddress]) -> String {
+    let list: Vec<Value> = watching
+        .iter()
+        .take(MAX_WATCHING)
+        .map(|a| json!({ "state": a.id, "args": a.args_json() }))
+        .collect();
+    format!(r#"{{"op":"refresh","watching":{}}}"#, Value::Array(list))
+}
+
 /// The configuration a module receives: declared keys only, saved values when
 /// they still fit the declared type, defaults otherwise.
 pub fn effective_config(fields: &[ConfigField], saved: &Map<String, Value>) -> Map<String, Value> {
@@ -134,6 +149,8 @@ pub struct WasmPlugin {
     gate: Arc<DeclaredStates>,
     log: Arc<PluginLog>,
     limits: Limits,
+    /// The plugin's way to the network, when its manifest asks for one.
+    net: Option<Arc<Broker>>,
     /// Kept apart from the sandbox so listing plugins never waits for a call.
     status: RwLock<StatusInfo>,
     sandbox: Mutex<Option<Sandbox>>,
@@ -164,6 +181,19 @@ impl WasmPlugin {
         limits: Limits,
         hub: StateHub,
     ) -> Arc<WasmPlugin> {
+        Self::with_network(manifest, dir, fingerprint, log, limits, hub, None)
+    }
+
+    /// The same, with the broker its requests go through.
+    pub fn with_network(
+        manifest: ExternalManifest,
+        dir: PathBuf,
+        fingerprint: u64,
+        log: Arc<PluginLog>,
+        limits: Limits,
+        hub: StateHub,
+        net: Option<Arc<Broker>>,
+    ) -> Arc<WasmPlugin> {
         let declared_events = Arc::new(manifest.events.iter().map(|e| e.kind.clone()).collect());
         let gate = DeclaredStates::of(&manifest);
         Arc::new(WasmPlugin {
@@ -174,6 +204,7 @@ impl WasmPlugin {
             gate,
             log,
             limits,
+            net,
             status: RwLock::new(StatusInfo {
                 status: PluginStatus::Disabled,
                 error: None,
@@ -201,6 +232,11 @@ impl WasmPlugin {
 
     pub fn log(&self) -> &Arc<PluginLog> {
         &self.log
+    }
+
+    /// The broker this plugin's requests go through, if it has one.
+    pub fn network(&self) -> Option<&Arc<Broker>> {
+        self.net.as_ref()
     }
 
     pub fn status(&self) -> (PluginStatus, Option<String>) {
@@ -295,12 +331,13 @@ impl WasmPlugin {
             self.manifest.abi,
             self.declared_events.clone(),
             self.gate.clone(),
+            self.net.clone().map(|b| b as Arc<dyn NetGate>),
             self.log.clone(),
             &self.limits,
         )
         .and_then(|mut sandbox| {
             let request = init_request(&self.manifest, config);
-            let out = match sandbox.call(request.as_bytes()) {
+            let out = match sandbox.call_offline(request.as_bytes()) {
                 Ok(out) => out,
                 Err(CallError::Fatal(m) | CallError::Rejected(m)) => {
                     return Err(format!("init {m}"))
@@ -363,6 +400,94 @@ impl WasmPlugin {
         self.log.host(Level::Error, &format!("stopped: {message}"));
         ActionError::Failed(format!("plugin `{}` failed: {message}", self.manifest.id))
     }
+
+    fn refuse_if_stopped(&self) -> Result<(), ActionError> {
+        let id = &self.manifest.id;
+        match self.status() {
+            (PluginStatus::Disabled, _) => {
+                Err(ActionError::Failed(format!("plugin `{id}` is disabled")))
+            }
+            (PluginStatus::Error, error) => Err(ActionError::Failed(format!(
+                "plugin `{id}` is unavailable: {}",
+                error.unwrap_or_else(|| "it failed to load".into())
+            ))),
+            (PluginStatus::Enabled, _) => Ok(()),
+        }
+    }
+
+    /// One request to the running module: what it answered and what it
+    /// published. The instance is held for the whole call, network waits
+    /// included, so a plugin handles one thing at a time.
+    fn call(&self, what: &str, request: &str) -> Result<(Reply, CallOutput), ActionError> {
+        let id = &self.manifest.id;
+        let mut slot = self.sandbox_slot();
+        let Some(sandbox) = slot.as_mut() else {
+            // Disabled or stopped while this call waited for the lock.
+            return Err(ActionError::Failed(format!("plugin `{id}` is not running")));
+        };
+        let output = match sandbox.call(request.as_bytes()) {
+            Ok(out) => out,
+            Err(CallError::Fatal(m)) => return Err(self.fail(&mut slot, &m)),
+            Err(CallError::Rejected(m)) => {
+                self.log
+                    .host(Level::Warn, &format!("call to `{what}` rejected: {m}"));
+                return Err(ActionError::Failed(format!("plugin `{id}` {m}")));
+            }
+        };
+        drop(slot);
+        match parse_reply(&output.response) {
+            Ok(reply) => Ok((reply, output)),
+            Err(m) => {
+                self.log.host(
+                    Level::Warn,
+                    &format!("`{what}` returned an unusable response: {m}"),
+                );
+                Err(ActionError::Failed(format!(
+                    "plugin `{id}` returned an unusable response: {m}"
+                )))
+            }
+        }
+    }
+
+    /// What the module published is real once the call ended normally. States
+    /// first, then the events about them, so that anything listening to an
+    /// event finds the value it is about already in the hub.
+    fn deliver(&self, ctx: &PluginContext, output: CallOutput) {
+        self.apply_states(output.states);
+        for event in output.events {
+            ctx.publish(&event.kind, event.payload);
+        }
+    }
+
+    /// Whether the manifest asks to be refreshed, and how often.
+    pub fn refresh_interval(&self) -> Option<std::time::Duration> {
+        self.manifest
+            .refresh
+            .map(|r| std::time::Duration::from_secs(u64::from(r.interval_seconds)))
+    }
+
+    /// Ask the plugin to report the instances of its states that something is
+    /// showing. Nothing is asked of a plugin that did not declare `refresh`.
+    pub fn refresh(
+        &self,
+        ctx: &PluginContext,
+        watching: &[StateAddress],
+    ) -> Result<(), ActionError> {
+        if self.manifest.refresh.is_none() {
+            return Ok(());
+        }
+        self.refuse_if_stopped()?;
+        let (reply, output) = self.call("refresh", &refresh_request(watching))?;
+        self.deliver(ctx, output);
+        match reply {
+            Reply::Ok(_) => Ok(()),
+            Reply::Failed(message) => {
+                self.log
+                    .host(Level::Warn, &format!("refresh failed: {message}"));
+                Err(ActionError::Failed(message))
+            }
+        }
+    }
 }
 
 impl Plugin for WasmPlugin {
@@ -397,7 +522,11 @@ impl Plugin for WasmPlugin {
                 })
                 .collect(),
             states: vec![],
-            permissions: vec![],
+            permissions: if self.manifest.capabilities.network.is_some() {
+                vec!["network".to_string()]
+            } else {
+                vec![]
+            },
             external: Some(ExternalInfo {
                 status,
                 error,
@@ -424,18 +553,7 @@ impl Plugin for WasmPlugin {
         args: &Value,
     ) -> Result<Value, ActionError> {
         let id = &self.manifest.id;
-        match self.status() {
-            (PluginStatus::Disabled, _) => {
-                return Err(ActionError::Failed(format!("plugin `{id}` is disabled")))
-            }
-            (PluginStatus::Error, error) => {
-                return Err(ActionError::Failed(format!(
-                    "plugin `{id}` is unavailable: {}",
-                    error.unwrap_or_else(|| "it failed to load".into())
-                )))
-            }
-            (PluginStatus::Enabled, _) => {}
-        }
+        self.refuse_if_stopped()?;
         let Some(spec) = self.manifest.action(action) else {
             return Err(ActionError::UnknownAction {
                 plugin: id.clone(),
@@ -443,43 +561,8 @@ impl Plugin for WasmPlugin {
             });
         };
         let args = spec.normalize(args)?;
-        let request = invoke_request(action, &args);
-
-        let mut slot = self.sandbox_slot();
-        let Some(sandbox) = slot.as_mut() else {
-            // Disabled or stopped while this call waited for the lock.
-            return Err(ActionError::Failed(format!("plugin `{id}` is not running")));
-        };
-        let output = match sandbox.call(request.as_bytes()) {
-            Ok(out) => out,
-            Err(CallError::Fatal(m)) => return Err(self.fail(&mut slot, &m)),
-            Err(CallError::Rejected(m)) => {
-                self.log
-                    .host(Level::Warn, &format!("call to `{action}` rejected: {m}"));
-                return Err(ActionError::Failed(format!("plugin `{id}` {m}")));
-            }
-        };
-        drop(slot);
-
-        let reply = match parse_reply(&output.response) {
-            Ok(r) => r,
-            Err(m) => {
-                self.log.host(
-                    Level::Warn,
-                    &format!("`{action}` returned an unusable response: {m}"),
-                );
-                return Err(ActionError::Failed(format!(
-                    "plugin `{id}` returned an unusable response: {m}"
-                )));
-            }
-        };
-        // The call ended normally, so what the module published is real. States
-        // first, then the events about them, so that anything listening to an
-        // event finds the value it is about already in the hub.
-        self.apply_states(output.states);
-        for event in output.events {
-            ctx.publish(&event.kind, event.payload);
-        }
+        let (reply, output) = self.call(action, &invoke_request(action, &args))?;
+        self.deliver(ctx, output);
         match reply {
             Reply::Ok(value) => Ok(value),
             Reply::Failed(message) => Err(ActionError::Failed(message)),
@@ -547,6 +630,7 @@ mod tests {
                 default: Some(json!("Hello")),
                 secret: false,
                 description: String::new(),
+                label: None,
             },
             ConfigField {
                 key: "n".into(),
@@ -554,6 +638,7 @@ mod tests {
                 default: None,
                 secret: false,
                 description: String::new(),
+                label: None,
             },
         ];
         let mut saved = Map::new();

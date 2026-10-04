@@ -172,6 +172,12 @@ export const api = {
     reload: (id: string): Promise<PluginInfo> => call("plugins_reload", pluginInfoSchema, { id }),
     rescan: (): Promise<ScanReport> => call("plugins_rescan", scanReportSchema),
     logs: (id: string): Promise<PluginLog[]> => call("plugins_logs", z.array(pluginLogSchema), { id }),
+    /** Allow or deny one destination a plugin asks for; `null` takes the decision back. */
+    setPermission: (id: string, origin: string, decision: "granted" | "denied" | null): Promise<PluginInfo> =>
+      call("plugins_set_permission", pluginInfoSchema, { id, origin, decision }),
+    /** The value goes to the credential store and is never sent back. */
+    setSecret: (id: string, key: string, value: string): Promise<PluginInfo> => call("plugins_set_secret", pluginInfoSchema, { id, key, value }),
+    clearSecret: (id: string, key: string): Promise<PluginInfo> => call("plugins_clear_secret", pluginInfoSchema, { id, key }),
   },
   agents: {
     /** Resolves with the request id; the outcome arrives in the next snapshot. */

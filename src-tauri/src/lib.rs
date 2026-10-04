@@ -435,6 +435,51 @@ fn plugins_logs(
         .map_err(|e| e.to_string())
 }
 
+/// Grant (`"granted"`), deny (`"denied"`) or take back (`null`) one origin a
+/// plugin asks for. Only the person does this: no plugin, event or remote
+/// interface can reach this command.
+#[tauri::command]
+async fn plugins_set_permission(
+    state: State<'_, AppState>,
+    id: String,
+    origin: String,
+    decision: Option<plugins::external::capabilities::Decision>,
+) -> CmdResult<plugins::external::PluginInfo> {
+    let host = state.runtime.plugin_host().clone();
+    tauri::async_runtime::spawn_blocking(move || host.set_permission(&id, &origin, decision))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+/// Store a secret. The value goes to the credential store and is never returned.
+#[tauri::command]
+async fn plugins_set_secret(
+    state: State<'_, AppState>,
+    id: String,
+    key: String,
+    value: String,
+) -> CmdResult<plugins::external::PluginInfo> {
+    let host = state.runtime.plugin_host().clone();
+    tauri::async_runtime::spawn_blocking(move || host.set_secret(&id, &key, &value))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn plugins_clear_secret(
+    state: State<'_, AppState>,
+    id: String,
+    key: String,
+) -> CmdResult<plugins::external::PluginInfo> {
+    let host = state.runtime.plugin_host().clone();
+    tauri::async_runtime::spawn_blocking(move || host.clear_secret(&id, &key))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
 // ---------------------------------------------------------------------------
 // Tray
 // ---------------------------------------------------------------------------
@@ -510,6 +555,9 @@ pub fn run() {
                     &dir,
                     std::env::var_os(plugins::external::PLUGINS_ENV),
                 ),
+                // The system's credential store, or a private file next to the
+                // workspace when the system has none.
+                secrets: Some(plugins::external::secrets::open_store(Some(&dir))),
             };
             let runtime = tauri::async_runtime::block_on(Runtime::start(config));
             if let Err(e) = build_tray(app, &runtime) {
@@ -557,6 +605,9 @@ pub fn run() {
             plugins_reload,
             plugins_rescan,
             plugins_logs,
+            plugins_set_permission,
+            plugins_set_secret,
+            plugins_clear_secret,
         ])
         .run(tauri::generate_context!())
         .expect("error while running LaunchDeck");

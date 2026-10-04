@@ -196,6 +196,7 @@ async fn start_with(dirs: Vec<PathBuf>, store: Option<Store>) -> Arc<Runtime> {
         serve_external: false,
         demo_pace: 0.05,
         plugin_dirs: dirs,
+        secrets: None,
     })
     .await;
     wait_until("first frame", || {
@@ -665,6 +666,7 @@ async fn network_clients_cannot_impersonate_an_installed_plugin() {
         serve_external: true,
         demo_pace: 0.05,
         plugin_dirs: vec![examples()],
+        secrets: None,
     })
     .await;
     let port = rt.state().external.port;

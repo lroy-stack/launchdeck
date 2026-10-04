@@ -11,6 +11,7 @@ const state = (surface: string, page: string, controlStates: Record<string, stri
   activePageId: page,
   mode: "live",
   controlStates,
+  pending: [],
   devices: [],
   external: { enabled: true, port: 47821, listening: true },
 });

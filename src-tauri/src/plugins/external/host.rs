@@ -5,23 +5,32 @@
 //! sandbox and registers them in the shared [`PluginRegistry`]. Registering is
 //! all it takes for the action engine to see a plugin; nothing else in
 //! LaunchDeck knows this module exists.
+//!
+//! It also holds what a plugin was granted (`permissions.json`) and where its
+//! secrets are kept, and builds each running plugin the broker its network
+//! requests go through. Grants and secrets are never part of a plugin's
+//! settings: a setting is given to the module, these are not.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use super::capabilities::{Decision, Grants, NetworkRequest, NetworkView};
 use super::discovery::{self, Candidate, Issue};
 use super::log::{Level, LogEntry, PluginLog};
-use super::manifest::ConfigType;
+use super::manifest::{ConfigType, ExternalManifest};
+use super::network::{Broker, NetFailure, SecretBinding};
 use super::sandbox::Limits;
-use super::wasm_plugin::{effective_config, WasmPlugin};
+use super::secrets::{SecretRef, SecretStore, StoreKind};
+use super::wasm_plugin::{effective_config, WasmPlugin, MAX_WATCHING};
 use super::PluginStatus;
 use crate::persistence::write_private;
-use crate::plugins::{Plugin, PluginManifest, PluginRegistry};
-use crate::state::StateHub;
+use crate::plugins::{ActionError, Plugin, PluginContext, PluginManifest, PluginRegistry};
+use crate::state::{StateAddress, StateHub};
 
 const STATE_SCHEMA: u32 = 1;
 
@@ -71,6 +80,8 @@ struct SavedState {
 #[serde(rename_all = "camelCase")]
 pub struct ConfigView {
     pub key: String,
+    /// The name a person sees. The key when the manifest gives none.
+    pub label: String,
     #[serde(rename = "type")]
     pub kind: ConfigType,
     pub description: String,
@@ -84,6 +95,19 @@ pub struct ConfigView {
     pub default: Option<Value>,
 }
 
+/// A secret of a plugin, as the Plugins screen shows it: everything but the value.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SecretView {
+    pub key: String,
+    pub label: String,
+    pub description: String,
+    pub is_set: bool,
+    /// The only origin it is sent to. Absent while the setting that names it is not set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginInfo {
@@ -92,6 +116,19 @@ pub struct PluginInfo {
     /// What the person chose; `plugin.external.status` is what actually happened.
     pub enabled: bool,
     pub config: Vec<ConfigView>,
+    /// What the plugin asks of the network and what was decided. Absent for a
+    /// plugin that asks for nothing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network: Option<NetworkView>,
+    /// The last request that was refused or failed, unless one succeeded since.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network_failure: Option<NetFailure>,
+    pub secrets: Vec<SecretView>,
+    /// Where secrets are kept on this computer.
+    pub secret_store: StoreKind,
+    /// How often the plugin is asked to report the states being shown.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_seconds: Option<u32>,
 }
 
 /// Everything the Plugins screen needs in one read.
@@ -115,7 +152,23 @@ pub struct ScanReport {
     pub issues: usize,
 }
 
+/// When a plugin is next asked to report its states.
+struct RefreshSlot {
+    next: Instant,
+    /// A refresh is running now; another is not started on top of it.
+    running: bool,
+    /// Something changed while it ran (a grant, a secret): run again right after.
+    again: bool,
+    /// Where the next refresh starts in the list of what is being shown, when
+    /// the list is longer than one refresh takes.
+    cursor: usize,
+}
+
 struct Data {
+    /// Secrets known to hold a value: `(plugin, key)`. Read from the store when
+    /// a plugin is installed, so listing plugins never opens the credential store.
+    secrets_set: HashSet<(String, String)>,
+    refresh: HashMap<String, RefreshSlot>,
     /// Plugins whose states this host declared in the hub, so that a plugin
     /// whose new version declares none has its old declarations cleared.
     declared: HashSet<String>,
@@ -131,6 +184,9 @@ struct Inner {
     registry: PluginRegistry,
     limits: Limits,
     hub: StateHub,
+    /// What each plugin was granted. Its own lock, never held during a call.
+    grants: Arc<Grants>,
+    secrets: Arc<dyn SecretStore>,
     data: Mutex<Data>,
 }
 
@@ -166,13 +222,35 @@ impl PluginHost {
         Self::with_hub(roots, state_path, registry, limits, StateHub::new())
     }
 
-    /// A host whose plugins report their lifecycle and states to `hub`.
+    /// A host whose plugins report their lifecycle and states to `hub`. Grants
+    /// and the audit trail live in the folder of `state_path` (in memory without
+    /// one). Secrets are kept in memory: the app, which wants them in the
+    /// system's credential store, builds its host with [`with_parts`](PluginHost::with_parts).
     pub fn with_hub(
         roots: Vec<PathBuf>,
         state_path: Option<PathBuf>,
         registry: PluginRegistry,
         limits: Limits,
         hub: StateHub,
+    ) -> PluginHost {
+        let dir = state_path.as_deref().and_then(Path::parent);
+        let grants = Arc::new(Grants::new(
+            dir.map(|d| d.join("permissions.json")),
+            dir.map(|d| d.join("audit.jsonl")),
+        ));
+        let secrets = Arc::new(super::secrets::MemoryStore::new());
+        Self::with_parts(roots, state_path, registry, limits, hub, grants, secrets)
+    }
+
+    /// A host with the grants and the secret store it is given.
+    pub fn with_parts(
+        roots: Vec<PathBuf>,
+        state_path: Option<PathBuf>,
+        registry: PluginRegistry,
+        limits: Limits,
+        hub: StateHub,
+        grants: Arc<Grants>,
+        secrets: Arc<dyn SecretStore>,
     ) -> PluginHost {
         let saved = state_path.as_deref().map(load_state).unwrap_or_default();
         PluginHost {
@@ -182,7 +260,11 @@ impl PluginHost {
                 registry,
                 limits,
                 hub,
+                grants,
+                secrets,
                 data: Mutex::new(Data {
+                    secrets_set: HashSet::new(),
+                    refresh: HashMap::new(),
                     declared: HashSet::new(),
                     plugins: BTreeMap::new(),
                     logs: HashMap::new(),
@@ -195,6 +277,58 @@ impl PluginHost {
 
     pub fn roots(&self) -> &[PathBuf] {
         &self.inner.roots
+    }
+
+    pub fn grants(&self) -> &Arc<Grants> {
+        &self.inner.grants
+    }
+
+    pub fn secret_store(&self) -> &Arc<dyn SecretStore> {
+        &self.inner.secrets
+    }
+
+    /// What a manifest asks of the network with these settings.
+    fn network_request(
+        manifest: &ExternalManifest,
+        saved: &Map<String, Value>,
+    ) -> Option<NetworkRequest> {
+        let decl = manifest.capabilities.network.as_ref()?;
+        Some(NetworkRequest::resolve(
+            decl,
+            &effective_config(&manifest.config, saved),
+        ))
+    }
+
+    /// The broker a plugin's requests go through: what it asks for now, where
+    /// each of its secrets may go, and the shared grants and store.
+    fn broker(
+        &self,
+        manifest: &ExternalManifest,
+        saved: &Map<String, Value>,
+        log: &Arc<PluginLog>,
+    ) -> Option<Arc<Broker>> {
+        let request = Self::network_request(manifest, saved)?;
+        self.inner.grants.note_requested(&manifest.id, &request);
+        let secrets = manifest
+            .secrets
+            .iter()
+            .map(|s| {
+                (
+                    s.key.clone(),
+                    SecretBinding {
+                        origin: request.origin_of(&s.host).cloned(),
+                    },
+                )
+            })
+            .collect();
+        Some(Arc::new(Broker::new(
+            &manifest.id,
+            request,
+            secrets,
+            self.inner.grants.clone(),
+            self.inner.secrets.clone(),
+            log.clone(),
+        )))
     }
 
     fn data(&self) -> MutexGuard<'_, Data> {
@@ -229,13 +363,25 @@ impl PluginHost {
             .clone();
         let settings = data.saved.plugins.get(&id).cloned().unwrap_or_default();
         let fields = cand.manifest.config.clone();
-        let plugin = WasmPlugin::with_hub(
+        let net = self.broker(&cand.manifest, &settings.config, &log);
+        // Which secrets hold a value is looked up once, here, so that listing
+        // plugins never has to open the credential store.
+        data.secrets_set.retain(|(plugin, _)| plugin != &id);
+        for secret in &cand.manifest.secrets {
+            let found = self.inner.secrets.get(&SecretRef::new(&id, &secret.key));
+            if matches!(found, Ok(Some(_))) {
+                data.secrets_set.insert((id.clone(), secret.key.clone()));
+            }
+        }
+        let refreshes = cand.manifest.refresh.is_some();
+        let plugin = WasmPlugin::with_network(
             cand.manifest,
             cand.dir,
             cand.fingerprint,
             log.clone(),
             self.inner.limits.clone(),
             self.inner.hub.clone(),
+            net,
         );
         // What the plugin offers is declared before it starts, so the first
         // thing the hub sees of it is a provider with states and no values.
@@ -262,6 +408,19 @@ impl PluginHost {
         // Said after the registry lists it, so whoever reads the catalog on this
         // signal sees the new version (the declaration above came before).
         self.inner.hub.catalog_changed(&id);
+        // A plugin that starts knows nothing yet: ask it as soon as possible.
+        data.refresh.remove(&id);
+        if refreshes {
+            data.refresh.insert(
+                id.clone(),
+                RefreshSlot {
+                    next: Instant::now(),
+                    running: false,
+                    again: false,
+                    cursor: 0,
+                },
+            );
+        }
         data.plugins.insert(id, plugin);
     }
 
@@ -336,6 +495,7 @@ impl PluginHost {
             self.inner.registry.unregister(&id);
             self.inner.hub.remove_provider(&id);
             data.declared.remove(&id);
+            data.refresh.remove(&id);
             data.plugins.remove(&id);
             report.removed += 1;
         }
@@ -357,6 +517,7 @@ impl PluginHost {
                 let stored = settings.config.get(&f.key).filter(|v| f.kind.accepts(v));
                 ConfigView {
                     key: f.key.clone(),
+                    label: f.label.clone().unwrap_or_else(|| f.key.clone()),
                     kind: f.kind,
                     description: f.description.clone(),
                     secret: f.secret,
@@ -366,11 +527,38 @@ impl PluginHost {
                 }
             })
             .collect();
+        // From the settings as they are now, so the screen is right for a
+        // plugin that is not running too.
+        let request = Self::network_request(plugin.spec(), &settings.config);
+        let secrets = plugin
+            .spec()
+            .secrets
+            .iter()
+            .map(|s| SecretView {
+                key: s.key.clone(),
+                label: s.label.clone(),
+                description: s.description.clone(),
+                is_set: data
+                    .secrets_set
+                    .contains(&(plugin.id().to_string(), s.key.clone())),
+                origin: request
+                    .as_ref()
+                    .and_then(|r| r.origin_of(&s.host))
+                    .map(|o| o.as_str().to_string()),
+            })
+            .collect();
         PluginInfo {
             plugin: plugin.manifest(),
             dir: plugin.dir().display().to_string(),
             enabled: settings.enabled,
             config,
+            network: request
+                .as_ref()
+                .map(|r| self.inner.grants.view(plugin.id(), r)),
+            network_failure: plugin.network().and_then(|b| b.last_failure()),
+            secrets,
+            secret_store: self.inner.secrets.kind(),
+            refresh_seconds: plugin.spec().refresh.map(|r| r.interval_seconds),
         }
     }
 
@@ -492,13 +680,216 @@ impl PluginHost {
             entry.config.insert(key.to_string(), value);
         }
         let enabled = entry.enabled;
+        let config = entry.config.clone();
         self.persist(&saved)?;
         data.saved = saved;
         if enabled && plugin.status().0 == PluginStatus::Enabled {
             self.reload_locked(&mut data, id)?;
+        } else if let Some(request) = Self::network_request(plugin.spec(), &config) {
+            // Not running, but a new address is still something it now asks for.
+            self.inner.grants.note_requested(id, &request);
         }
         let plugin = data.plugins.get(id).cloned().unwrap_or(plugin);
         Ok(self.info(&data, &plugin))
+    }
+
+    // -- permissions --------------------------------------------------------
+
+    /// Grant or deny one origin a plugin asks for now, or (with `None`) take
+    /// the decision back. An origin it does not ask for cannot be granted.
+    pub fn set_permission(
+        &self,
+        id: &str,
+        origin: &str,
+        decision: Option<Decision>,
+    ) -> Result<PluginInfo, HostError> {
+        let mut data = self.data();
+        let plugin = data
+            .plugins
+            .get(id)
+            .cloned()
+            .ok_or_else(|| HostError::Unknown(id.to_string()))?;
+        let settings = data.saved.plugins.get(id).cloned().unwrap_or_default();
+        let request = Self::network_request(plugin.spec(), &settings.config).ok_or_else(|| {
+            HostError::Invalid(format!("plugin `{id}` does not ask for network access"))
+        })?;
+        let asked = request
+            .hosts
+            .iter()
+            .map(|h| &h.origin)
+            .find(|o| o.as_str() == origin)
+            .cloned();
+        match (asked, decision) {
+            (Some(origin), decision) => self
+                .inner
+                .grants
+                .decide(id, &origin, decision)
+                .map_err(HostError::Storage)?,
+            // A decision about something it no longer asks for can only be removed.
+            (None, None) => self
+                .inner
+                .grants
+                .forget(id, origin)
+                .map_err(HostError::Storage)?,
+            (None, Some(_)) => {
+                let shown: String = origin
+                    .chars()
+                    .filter(|c| !c.is_control())
+                    .take(80)
+                    .collect();
+                return Err(HostError::Invalid(format!(
+                    "plugin `{id}` does not ask for access to `{shown}`"
+                )));
+            }
+        }
+        Self::refresh_now(&mut data, id);
+        Ok(self.info(&data, &plugin))
+    }
+
+    // -- secrets ------------------------------------------------------------
+
+    fn secret_ref(plugin: &WasmPlugin, key: &str) -> Result<SecretRef, HostError> {
+        if !plugin.spec().secrets.iter().any(|s| s.key == key) {
+            return Err(HostError::Invalid(format!(
+                "plugin `{}` has no secret `{key}`",
+                plugin.id()
+            )));
+        }
+        Ok(SecretRef::new(plugin.id(), key))
+    }
+
+    /// Store a secret's value. It goes to the store and nowhere else: not to
+    /// the module, not to `plugins.json`, not to a log.
+    pub fn set_secret(&self, id: &str, key: &str, value: &str) -> Result<PluginInfo, HostError> {
+        let mut data = self.data();
+        let plugin = data
+            .plugins
+            .get(id)
+            .cloned()
+            .ok_or_else(|| HostError::Unknown(id.to_string()))?;
+        let secret = Self::secret_ref(&plugin, key)?;
+        self.inner
+            .secrets
+            .set(&secret, value)
+            .map_err(|e| HostError::Invalid(format!("the secret was not stored: {e}")))?;
+        data.secrets_set.insert((id.to_string(), key.to_string()));
+        plugin
+            .log()
+            .host(Level::Info, &format!("secret `{key}` was set"));
+        Self::refresh_now(&mut data, id);
+        Ok(self.info(&data, &plugin))
+    }
+
+    pub fn clear_secret(&self, id: &str, key: &str) -> Result<PluginInfo, HostError> {
+        let mut data = self.data();
+        let plugin = data
+            .plugins
+            .get(id)
+            .cloned()
+            .ok_or_else(|| HostError::Unknown(id.to_string()))?;
+        let secret = Self::secret_ref(&plugin, key)?;
+        self.inner
+            .secrets
+            .delete(&secret)
+            .map_err(|e| HostError::Invalid(format!("the secret was not removed: {e}")))?;
+        data.secrets_set.remove(&(id.to_string(), key.to_string()));
+        plugin
+            .log()
+            .host(Level::Info, &format!("secret `{key}` was removed"));
+        Self::refresh_now(&mut data, id);
+        Ok(self.info(&data, &plugin))
+    }
+
+    // -- refresh ------------------------------------------------------------
+
+    fn refresh_now(data: &mut Data, id: &str) {
+        if let Some(slot) = data.refresh.get_mut(id) {
+            slot.next = Instant::now();
+            slot.again = slot.running;
+        }
+    }
+
+    /// Ask every plugin that refreshes to do so at the next opportunity (what
+    /// is being shown changed).
+    pub fn refresh_all_soon(&self) {
+        let mut data = self.data();
+        let now = Instant::now();
+        for slot in data.refresh.values_mut() {
+            slot.next = now;
+            slot.again = slot.running;
+        }
+    }
+
+    /// The plugins whose refresh is due and not already running. Each one
+    /// returned is marked as running: call [`refresh`](PluginHost::refresh) for it.
+    pub fn due_refreshes(&self) -> Vec<String> {
+        let mut data = self.data();
+        let now = Instant::now();
+        let running: HashSet<String> = data
+            .plugins
+            .iter()
+            .filter(|(_, p)| p.status().0 == PluginStatus::Enabled)
+            .map(|(id, _)| id.clone())
+            .collect();
+        data.refresh
+            .iter_mut()
+            .filter(|(id, slot)| !slot.running && slot.next <= now && running.contains(*id))
+            .map(|(id, slot)| {
+                slot.running = true;
+                slot.again = false;
+                id.clone()
+            })
+            .collect()
+    }
+
+    /// Run one plugin's refresh with the instances being shown. With nothing
+    /// to report the plugin is not called. Blocks for as long as the plugin
+    /// takes (network included), so call it from a blocking thread.
+    pub fn refresh(
+        &self,
+        id: &str,
+        ctx: &PluginContext,
+        watching: &[StateAddress],
+    ) -> Result<(), ActionError> {
+        let (plugin, round) = {
+            let mut data = self.data();
+            // One refresh asks about a bounded number of instances; a longer
+            // list is taken a window at a time, in turn.
+            let round: Vec<StateAddress> = match data.refresh.get_mut(id) {
+                Some(slot) if watching.len() > MAX_WATCHING => {
+                    let start = slot.cursor % watching.len();
+                    slot.cursor = (start + MAX_WATCHING) % watching.len();
+                    watching
+                        .iter()
+                        .cycle()
+                        .skip(start)
+                        .take(MAX_WATCHING)
+                        .cloned()
+                        .collect()
+                }
+                _ => watching.to_vec(),
+            };
+            (data.plugins.get(id).cloned(), round)
+        };
+        let outcome = match &plugin {
+            Some(plugin) if !round.is_empty() => plugin.refresh(ctx, &round),
+            _ => Ok(()),
+        };
+        let mut data = self.data();
+        let wait = plugin
+            .as_ref()
+            .and_then(|p| p.refresh_interval())
+            .unwrap_or(Duration::from_secs(60));
+        if let Some(slot) = data.refresh.get_mut(id) {
+            slot.running = false;
+            slot.next = if slot.again {
+                Instant::now()
+            } else {
+                Instant::now() + wait
+            };
+            slot.again = false;
+        }
+        outcome
     }
 }
 

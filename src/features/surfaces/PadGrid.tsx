@@ -68,6 +68,10 @@ export function PadGrid({ page, frame, mode, device }: Props) {
   const select = useStore((s) => s.select);
   const selected = useStore((s) => s.selected);
   const showLabels = useStore((s) => s.showLabels);
+  // Actions in flight on this page, as the runtime reports them: `surface/page/control`.
+  const pending = useStore((s) => s.state?.pending);
+  const place = useStore((s) => (s.state ? `${s.state.activeSurfaceId}/${s.state.activePageId}/` : ""));
+  const acting = useMemo(() => new Set((pending ?? []).flatMap((p) => (p.control?.startsWith(place) ? [p.control.slice(place.length)] : []))), [pending, place]);
   const caps = device?.capabilities ?? FALLBACK;
   const width = caps.grid?.width ?? 0;
   const height = caps.grid?.height ?? 0;
@@ -167,6 +171,7 @@ export function PadGrid({ page, frame, mode, device }: Props) {
             mode={mode}
             showLabels={showLabels}
             selected={isSelected(cell)}
+            acting={!!cell.control && acting.has(cell.control.id)}
             tabStop={cell.key === stop}
             onSelect={() => select(cell.pos)}
             onFocus={() => setFocusKey(cell.key)}
@@ -189,6 +194,7 @@ function Pad({
   mode,
   showLabels,
   selected,
+  acting,
   tabStop,
   onSelect,
   onFocus,
@@ -199,6 +205,8 @@ function Pad({
   mode: Mode;
   showLabels: boolean;
   selected: boolean;
+  /** The pad's action was invoked and has not finished. */
+  acting: boolean;
   /** This is the pad Tab lands on. */
   tabStop: boolean;
   onSelect: () => void;
@@ -235,7 +243,7 @@ function Pad({
   return (
     <button
       type="button"
-      className={["pad", cell.aux ? "aux" : "", lit ? "lit" : "", anim, selected ? "selected" : "", droppable && dragging ? "drop-ready" : "", droppable && over ? "drop-over" : "", problem ? "flagged" : "", control ? "assigned" : "empty", cell.w > 1 && cell.h > 1 ? "big" : cell.w * cell.h > 1 ? "wide" : ""].join(" ")}
+      className={["pad", cell.aux ? "aux" : "", lit ? "lit" : "", anim, selected ? "selected" : "", acting ? "acting" : "", droppable && dragging ? "drop-ready" : "", droppable && over ? "drop-over" : "", problem ? "flagged" : "", control ? "assigned" : "empty", cell.w > 1 && cell.h > 1 ? "big" : cell.w * cell.h > 1 ? "wide" : ""].join(" ")}
       style={{
         gridColumn: `${cell.col} / span ${cell.w}`,
         gridRow: `${cell.row} / span ${cell.h}`,
@@ -246,6 +254,7 @@ function Pad({
       title={title}
       aria-label={problem ? `${label}. Action unavailable. ${problem}` : label}
       aria-pressed={selected}
+      aria-busy={acting || undefined}
       data-cell={cell.key}
       tabIndex={tabStop ? 0 : -1}
       onFocus={onFocus}

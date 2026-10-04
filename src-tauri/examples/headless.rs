@@ -58,6 +58,7 @@ async fn main() {
         .into_iter()
         .skip(1)
         .collect(),
+        secrets: None,
     })
     .await;
     let ext = rt.state().external;

@@ -13,9 +13,11 @@ import { hostRespond } from "./host";
 import {
   Reply,
   Call,
+  Watched,
   actionIds,
   actionHandlers,
   initHandler,
+  refreshHandler,
 } from "./registry";
 
 export function ld_abi(): i32 {
@@ -48,6 +50,22 @@ function handle(text: string): string {
     if (at < 0) return failed("this plugin has no action `" + id + "`");
     const args = request.get("args");
     return actionHandlers[at](new Call(id, args != null ? args : Json.object())).toString();
+  }
+
+  if (op == "refresh") {
+    const handler = refreshHandler;
+    if (handler == null) return new Reply(true, null, "", "").toString();
+    const watching: Watched[] = [];
+    const list = request.get("watching");
+    if (list != null) {
+      for (let i = 0; i < list.length; i++) {
+        const item = list.at(i);
+        if (item == null) continue;
+        const args = item.get("args");
+        watching.push(new Watched(item.getString("state"), args != null ? args : Json.object()));
+      }
+    }
+    return handler(watching).toString();
   }
 
   return failed("unknown request `" + op + "`");

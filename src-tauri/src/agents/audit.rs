@@ -44,6 +44,9 @@ pub struct AuditEntry {
     pub tool: Option<String>,
     /// Short code or concise summary. Never user content.
     pub detail: Option<String>,
+    /// The installed plugin an entry is about (permission changes).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin_id: Option<String>,
 }
 
 impl AuditEntry {
@@ -56,7 +59,13 @@ impl AuditEntry {
             session_id: None,
             tool: None,
             detail: None,
+            plugin_id: None,
         }
+    }
+
+    pub fn plugin(mut self, id: &str) -> Self {
+        self.plugin_id = Some(id.to_string());
+        self
     }
 
     pub fn agent(mut self, id: &str) -> Self {

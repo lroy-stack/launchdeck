@@ -1,13 +1,19 @@
 //! A real Plugins screen payload, built from the real example plugins: one
 //! healthy, one with a secret setting, one that failed to load, one folder
-//! that is not a plugin. Shared by the `dump_plugins` example and the contract
+//! that is not a plugin, and two copies of the Home Assistant example: one
+//! set up (an address, a grant, a token, and a decision left over from the
+//! address it had before), one whose address is not usable and whose last
+//! request was refused. Shared by the `dump_plugins` example and the contract
 //! test, so the TypeScript schemas are checked against what Rust emits.
 
 use std::fs;
 use std::path::Path;
 
+use launchdeck_lib::events::EventBus;
+use launchdeck_lib::plugins::external::capabilities::Decision;
 use launchdeck_lib::plugins::external::{Limits, PluginHost};
-use launchdeck_lib::plugins::PluginRegistry;
+use launchdeck_lib::plugins::{PluginContext, PluginRegistry};
+use launchdeck_lib::state::StateAddress;
 use serde_json::{json, Value};
 
 fn copy_dir(from: &Path, to: &Path) {
@@ -60,6 +66,21 @@ pub fn capture() -> Value {
     fs::create_dir_all(plugins.join("junk")).unwrap();
     fs::write(plugins.join("junk/plugin.json"), b"{ \"id\": 7 }").unwrap();
 
+    // Home Assistant, set up, and a second copy that is not.
+    copy_dir(
+        &examples.join("home-assistant"),
+        &plugins.join("home-assistant"),
+    );
+    copy_dir(
+        &examples.join("home-assistant"),
+        &plugins.join("home-assistant-unset"),
+    );
+    let unset_path = plugins.join("home-assistant-unset/plugin.json");
+    let mut unset: Value = serde_json::from_str(&fs::read_to_string(&unset_path).unwrap()).unwrap();
+    unset["id"] = json!("example.home-assistant-unset");
+    unset["name"] = json!("Home Assistant (not set up)");
+    fs::write(&unset_path, serde_json::to_string_pretty(&unset).unwrap()).unwrap();
+
     let host = PluginHost::new(
         vec![plugins.clone()],
         Some(root.path().join("plugins.json")),
@@ -71,6 +92,33 @@ pub fn capture() -> Value {
         .unwrap();
     host.set_config("example.hello", "greeting", json!("Hola"))
         .unwrap();
+
+    // The first address was refused; a second one was typed, granted, and given its token.
+    let ha = "example.home-assistant";
+    host.set_permission(
+        ha,
+        "http://homeassistant.local:8123",
+        Some(Decision::Denied),
+    )
+    .unwrap();
+    host.set_config(ha, "baseUrl", json!("http://192.168.1.20:8123"))
+        .unwrap();
+    host.set_permission(ha, "http://192.168.1.20:8123", Some(Decision::Granted))
+        .unwrap();
+    host.set_secret(ha, "token", "a-long-lived-access-token")
+        .unwrap();
+    // The copy has an address that is not one, so its refresh is refused before
+    // anything touches the network.
+    let unset = "example.home-assistant-unset";
+    host.set_config(unset, "baseUrl", json!("homeassistant"))
+        .unwrap();
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let ctx = PluginContext::new(unset, EventBus::new(), runtime.handle().clone());
+    let _ = host.refresh(
+        unset,
+        &ctx,
+        &[StateAddress::new(unset, "entity").with("entity", "light.kitchen")],
+    );
 
     let mut out = serde_json::to_value(host.overview()).unwrap();
     // Keep the fixture free of machine paths.
