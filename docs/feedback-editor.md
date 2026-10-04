@@ -142,6 +142,7 @@ The workspace schema is unchanged (**4**). The editor writes the rules in `feedb
 * Moves, removals, replaced states and created looks are announced in a status line, which is also visible.
 * Status is always a word (`Known`, `Unknown`, `Unavailable`), never only a colour. Moving a rule keeps the cursor on the same control of the same rule.
 * Everything described here can be done without a mouse. Alt+↑ / Alt+↓ move a rule from any of its fields.
+* The Launchpad surface is one tab stop: Tab enters it on one pad and leaves it, the arrow keys (and Home, End, Ctrl+Home, Ctrl+End) move between pads, Enter or Space selects a pad in Edit mode and presses it in Live mode for as long as the key is held.
 
 ## How it is built
 
@@ -154,7 +155,7 @@ The workspace schema is unchanged (**4**). The editor writes the rules in `feedb
 * Pure model: `src/lib/feedbackEdit.test.ts`.
 * Components, on the preview transport with the catalog and workspace Rust emitted: the picker (`picker.test.tsx`), rules, order, events, missing providers and saving (`rules.test.tsx`), looks (`looks.test.tsx`), the live panel and when it asks again (`explain.test.tsx`).
 * Contract: `examples/observables.json` carries the real `review_feedback` replies and is checked from both sides.
-* **The real window.** The same scenarios were driven in the desktop app itself (the WebKitGTK window under a virtual display, through WebDriver) with the real Counter and Channels plugins: authoring from an empty pad, saving, pressing the virtual Launchpad, switching surface, turning a plugin off and on and taking its folder away, an event overlay, scoped states, reordering by button and by Alt+↑/↓, and a run done with the keyboard only. These runs are manual checks, not part of `cargo test` or `npm test`.
+* **The real window.** `tools/desktop-e2e` drives the desktop app itself (the WebKitGTK window under a virtual display, through WebDriver) with the real Counter and Channels plugins: authoring from an empty pad, saving, pressing the virtual Launchpad, switching surface, turning a plugin off and on and taking its folder away, an event overlay, scoped states, reordering by button and by Alt+↑/↓, and a run done with the keyboard only. It is slow and needs a Linux desktop stack, so it is run on request (`python3 tools/desktop-e2e/run.py feedback`) and is not part of `cargo test` or `npm test`. See [tools/desktop-e2e/README.md](../tools/desktop-e2e/README.md).
 * **Shared acceptance controls.** `examples/feedback-editor-counter.json` and `examples/feedback-editor-event.json` are the exact controls the editor produces for the Counter and event scenarios. A TypeScript test proves the editor's functions generate them, and `src-tauri/tests/feedback_editor.rs` runs them against the real Counter and Channels plugins and the virtual Launchpad: the pad changes as the counter goes up, survives switching surface and back, goes dim when the plugin is disabled, `unknown` when it comes back and correct once it reports; and an event overlays Error for 0.7 seconds and returns to the state's look with the state untouched.
 
 ## Not built

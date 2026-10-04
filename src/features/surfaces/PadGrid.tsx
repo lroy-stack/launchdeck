@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { api } from "../../lib/ipc";
 import { DRAG_TYPE, problemOf } from "../../lib/assign";
 import { inkFor, isOff, withAlpha } from "../../lib/color";
@@ -15,7 +15,7 @@ interface Props {
 
 const FALLBACK = { grid: { width: 8, height: 8 }, aux: { top: 8, side: 8, logo: true } };
 
-interface Cell {
+export interface Cell {
   key: string;
   pos: ControlPos;
   control: Control | null;
@@ -27,9 +27,42 @@ interface Cell {
   aux: boolean;
 }
 
+/** The cell that covers a place of the layout, if any (the logo's corner and unsupported places have none). */
+const cellAt = (cells: Cell[], col: number, row: number): Cell | undefined => cells.find((c) => col >= c.col && col < c.col + c.w && row >= c.row && row < c.row + c.h);
+
+/**
+ * Where an arrow key goes from a cell: the next cell in that direction, skipping
+ * places that hold nothing. A control that spans several places is one stop.
+ */
+export function neighbour(cells: Cell[], from: Cell, key: string, columns: number, rows: number): Cell | undefined {
+  const step = key === "ArrowRight" ? [1, 0] : key === "ArrowLeft" ? [-1, 0] : key === "ArrowDown" ? [0, 1] : key === "ArrowUp" ? [0, -1] : null;
+  if (step) {
+    let col = step[0]! > 0 ? from.col + from.w : step[0]! < 0 ? from.col - 1 : from.col;
+    let row = step[1]! > 0 ? from.row + from.h : step[1]! < 0 ? from.row - 1 : from.row;
+    while (col >= 1 && col <= columns && row >= 1 && row <= rows) {
+      const found = cellAt(cells, col, row);
+      if (found && found !== from) return found;
+      col += step[0]!;
+      row += step[1]!;
+    }
+    return undefined;
+  }
+  if (key === "Home" || key === "End") {
+    const inRow = cells.filter((c) => from.row >= c.row && from.row < c.row + c.h).sort((a, b) => a.col - b.col);
+    return key === "Home" ? inRow[0] : inRow[inRow.length - 1];
+  }
+  return undefined;
+}
+
+/** Reading order: top to bottom, left to right. */
+const inOrder = (a: Cell, b: Cell): number => a.row - b.row || a.col - b.col;
+
 /**
  * The surface as a physical object: top row, 8x8 grid, side column and logo.
  * Layout comes from device capabilities, never from a hardcoded 8x8.
+ *
+ * For the keyboard the whole surface is one stop: Tab enters it on one pad and
+ * leaves it, and the arrow keys (with Home and End) move between pads.
  */
 export function PadGrid({ page, frame, mode, device }: Props) {
   const select = useStore((s) => s.select);
@@ -88,6 +121,34 @@ export function PadGrid({ page, frame, mode, device }: Props) {
 
   const selectedControl = controlAt(page, selected);
   const selectedKey = selected ? posKey(selected) : null;
+  const isSelected = (cell: Cell): boolean => selectedKey === cell.key || (!!selectedControl && selectedControl.id === cell.control?.id && cell.control !== null);
+
+  // The one pad Tab lands on: the pad the keys were last on, else the selected one, else the first.
+  const deck = useRef<HTMLDivElement>(null);
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const stop = useMemo(() => {
+    const kept = focusKey ? cells.find((c) => c.key === focusKey) : undefined;
+    return (kept ?? cells.find(isSelected) ?? [...cells].sort(inOrder)[0])?.key ?? null;
+    // `isSelected` reads `selectedKey` and `selectedControl`.
+  }, [cells, focusKey, selectedKey, selectedControl]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const columns = width + (hasSide ? 1 : 0);
+  const rows = height + rowOffset;
+  const onArrow = (cell: Cell, e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.altKey || e.metaKey) return;
+    let to: Cell | undefined;
+    if ((e.key === "Home" || e.key === "End") && e.ctrlKey) {
+      const all = [...cells].sort(inOrder);
+      to = e.key === "Home" ? all[0] : all[all.length - 1];
+    } else if (!e.ctrlKey) {
+      to = neighbour(cells, cell, e.key, columns, rows);
+    }
+    if (!e.key.startsWith("Arrow") && e.key !== "Home" && e.key !== "End") return;
+    e.preventDefault(); // an arrow at the edge stays put and does not scroll the page
+    if (!to) return;
+    setFocusKey(to.key);
+    deck.current?.querySelector<HTMLElement>(`[data-cell="${to.key}"]`)?.focus();
+  };
 
   const style = {
     gridTemplateColumns: `repeat(${width + (hasSide ? 1 : 0)}, 1fr)`,
@@ -97,7 +158,7 @@ export function PadGrid({ page, frame, mode, device }: Props) {
 
   return (
     <div className="deck-wrap">
-      <div className={`deck mode-${mode}`} style={style} role="group" aria-label="Launchpad surface">
+      <div ref={deck} className={`deck mode-${mode}`} style={style} role="group" aria-label="Launchpad surface" aria-description="Use the arrow keys to move between pads.">
         {cells.map((cell) => (
           <Pad
             key={cell.key}
@@ -105,11 +166,11 @@ export function PadGrid({ page, frame, mode, device }: Props) {
             led={ledAt.get(cell.key)}
             mode={mode}
             showLabels={showLabels}
-            selected={
-              selectedKey === cell.key ||
-              (!!selectedControl && selectedControl.id === cell.control?.id && cell.control !== null)
-            }
+            selected={isSelected(cell)}
+            tabStop={cell.key === stop}
             onSelect={() => select(cell.pos)}
+            onFocus={() => setFocusKey(cell.key)}
+            onArrow={(e) => onArrow(cell, e)}
           />
         ))}
         {caps.aux.logo && hasSide && hasTop && (
@@ -128,14 +189,21 @@ function Pad({
   mode,
   showLabels,
   selected,
+  tabStop,
   onSelect,
+  onFocus,
+  onArrow,
 }: {
   cell: Cell;
   led: { color: string; animation: string } | undefined;
   mode: Mode;
   showLabels: boolean;
   selected: boolean;
+  /** This is the pad Tab lands on. */
+  tabStop: boolean;
   onSelect: () => void;
+  onFocus: () => void;
+  onArrow: (e: KeyboardEvent<HTMLButtonElement>) => void;
 }) {
   const { control } = cell;
   const down = useRef(false);
@@ -149,11 +217,17 @@ function Pad({
   const color = led?.color ?? "#000000";
   const anim = lit && led!.animation !== "none" ? `anim-${led!.animation}` : "";
 
+  const press = () => {
+    if (down.current) return;
+    down.current = true;
+    void api.virtualInput(cell.pos, true).catch(() => undefined);
+  };
   const release = () => {
     if (!down.current) return;
     down.current = false;
     void api.virtualInput(cell.pos, false).catch(() => undefined);
   };
+  const isPressKey = (key: string): boolean => key === "Enter" || key === " ";
 
   const label = control ? control.label : cell.aux ? "Unassigned" : "Empty pad";
   const title = control ? `${control.label}${control.description ? `\n${control.description}` : ""}${problem ? `\nAction unavailable. ${problem}` : ""}` : label;
@@ -172,6 +246,25 @@ function Pad({
       title={title}
       aria-label={problem ? `${label}. Action unavailable. ${problem}` : label}
       aria-pressed={selected}
+      data-cell={cell.key}
+      tabIndex={tabStop ? 0 : -1}
+      onFocus={onFocus}
+      onBlur={release}
+      onKeyDown={(e) => {
+        // Live: Enter or Space is a finger on the pad, held for as long as the key is. Edit: the button's own click selects.
+        if (mode !== "edit" && isPressKey(e.key)) {
+          e.preventDefault();
+          if (!e.repeat) press();
+          return;
+        }
+        onArrow(e);
+      }}
+      onKeyUp={(e) => {
+        if (mode !== "edit" && isPressKey(e.key)) {
+          e.preventDefault();
+          release();
+        }
+      }}
       onDragOver={(e) => {
         if (!droppable || !Array.from(e.dataTransfer.types).includes(DRAG_TYPE)) return;
         e.preventDefault();
@@ -190,8 +283,7 @@ function Pad({
       onPointerDown={(e) => {
         if (mode === "edit") return;
         e.currentTarget.setPointerCapture(e.pointerId);
-        down.current = true;
-        void api.virtualInput(cell.pos, true).catch(() => undefined);
+        press();
       }}
       onPointerUp={release}
       onPointerCancel={release}
