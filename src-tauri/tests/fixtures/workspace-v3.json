@@ -1,0 +1,4652 @@
+{
+  "schemaVersion": 3,
+  "surfaces": [
+    {
+      "id": "agent-control",
+      "name": "Agent Control",
+      "description": "A physical control surface for autonomous agents. Watch every session at a glance, approve or reject, pause and resume, start a task.",
+      "icon": "◉",
+      "category": "agents",
+      "pages": [
+        {
+          "id": "home",
+          "name": "Home",
+          "controls": [
+            {
+              "id": "g.0.0",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agent 1",
+              "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+              "icon": "1",
+              "visual": {
+                "color": "#0c0d12",
+                "animation": "none"
+              },
+              "states": {
+                "approval_required": {
+                  "color": "#ffffff",
+                  "animation": "flash"
+                },
+                "cancelled": {
+                  "color": "#4d0c0f",
+                  "animation": "none"
+                },
+                "completed": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "empty": {
+                  "color": "#0c0d12",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "idle": {
+                  "color": "#123273",
+                  "animation": "none"
+                },
+                "offline": {
+                  "color": "#15161b",
+                  "animation": "none"
+                },
+                "paused": {
+                  "color": "#ff7814",
+                  "animation": "none"
+                },
+                "running": {
+                  "color": "#1edc5a",
+                  "animation": "pulse"
+                },
+                "starting": {
+                  "color": "#ffc81e",
+                  "animation": "none"
+                },
+                "tool_use": {
+                  "color": "#1ed2e6",
+                  "animation": "pulse"
+                },
+                "waiting": {
+                  "color": "#aa50ff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 0
+                }
+              },
+              "longPress": {
+                "provider": "agent-control",
+                "action": "dismissSlot",
+                "args": {
+                  "slot": 0
+                }
+              },
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "slot.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 0
+                        }
+                      ],
+                      "setState": "$payload.status"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.0.1",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Select 1",
+              "description": "Lit while this track is selected. Press to select it.",
+              "icon": "▲",
+              "visual": {
+                "color": "#000000",
+                "animation": "none"
+              },
+              "states": {
+                "focused": {
+                  "color": "#ffffff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 0
+                }
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "focus.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 0
+                        }
+                      ],
+                      "setState": "focused"
+                    },
+                    {
+                      "event": "focus.changed",
+                      "when": [],
+                      "setState": "idle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.1.0",
+              "pos": {
+                "kind": "grid",
+                "col": 1,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agent 2",
+              "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+              "icon": "2",
+              "visual": {
+                "color": "#0c0d12",
+                "animation": "none"
+              },
+              "states": {
+                "approval_required": {
+                  "color": "#ffffff",
+                  "animation": "flash"
+                },
+                "cancelled": {
+                  "color": "#4d0c0f",
+                  "animation": "none"
+                },
+                "completed": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "empty": {
+                  "color": "#0c0d12",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "idle": {
+                  "color": "#123273",
+                  "animation": "none"
+                },
+                "offline": {
+                  "color": "#15161b",
+                  "animation": "none"
+                },
+                "paused": {
+                  "color": "#ff7814",
+                  "animation": "none"
+                },
+                "running": {
+                  "color": "#1edc5a",
+                  "animation": "pulse"
+                },
+                "starting": {
+                  "color": "#ffc81e",
+                  "animation": "none"
+                },
+                "tool_use": {
+                  "color": "#1ed2e6",
+                  "animation": "pulse"
+                },
+                "waiting": {
+                  "color": "#aa50ff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 1
+                }
+              },
+              "longPress": {
+                "provider": "agent-control",
+                "action": "dismissSlot",
+                "args": {
+                  "slot": 1
+                }
+              },
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "slot.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 1
+                        }
+                      ],
+                      "setState": "$payload.status"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.1.1",
+              "pos": {
+                "kind": "grid",
+                "col": 1,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Select 2",
+              "description": "Lit while this track is selected. Press to select it.",
+              "icon": "▲",
+              "visual": {
+                "color": "#000000",
+                "animation": "none"
+              },
+              "states": {
+                "focused": {
+                  "color": "#ffffff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 1
+                }
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "focus.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 1
+                        }
+                      ],
+                      "setState": "focused"
+                    },
+                    {
+                      "event": "focus.changed",
+                      "when": [],
+                      "setState": "idle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.2.0",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agent 3",
+              "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+              "icon": "3",
+              "visual": {
+                "color": "#0c0d12",
+                "animation": "none"
+              },
+              "states": {
+                "approval_required": {
+                  "color": "#ffffff",
+                  "animation": "flash"
+                },
+                "cancelled": {
+                  "color": "#4d0c0f",
+                  "animation": "none"
+                },
+                "completed": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "empty": {
+                  "color": "#0c0d12",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "idle": {
+                  "color": "#123273",
+                  "animation": "none"
+                },
+                "offline": {
+                  "color": "#15161b",
+                  "animation": "none"
+                },
+                "paused": {
+                  "color": "#ff7814",
+                  "animation": "none"
+                },
+                "running": {
+                  "color": "#1edc5a",
+                  "animation": "pulse"
+                },
+                "starting": {
+                  "color": "#ffc81e",
+                  "animation": "none"
+                },
+                "tool_use": {
+                  "color": "#1ed2e6",
+                  "animation": "pulse"
+                },
+                "waiting": {
+                  "color": "#aa50ff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 2
+                }
+              },
+              "longPress": {
+                "provider": "agent-control",
+                "action": "dismissSlot",
+                "args": {
+                  "slot": 2
+                }
+              },
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "slot.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 2
+                        }
+                      ],
+                      "setState": "$payload.status"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.2.1",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Select 3",
+              "description": "Lit while this track is selected. Press to select it.",
+              "icon": "▲",
+              "visual": {
+                "color": "#000000",
+                "animation": "none"
+              },
+              "states": {
+                "focused": {
+                  "color": "#ffffff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 2
+                }
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "focus.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 2
+                        }
+                      ],
+                      "setState": "focused"
+                    },
+                    {
+                      "event": "focus.changed",
+                      "when": [],
+                      "setState": "idle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.3.0",
+              "pos": {
+                "kind": "grid",
+                "col": 3,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agent 4",
+              "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+              "icon": "4",
+              "visual": {
+                "color": "#0c0d12",
+                "animation": "none"
+              },
+              "states": {
+                "approval_required": {
+                  "color": "#ffffff",
+                  "animation": "flash"
+                },
+                "cancelled": {
+                  "color": "#4d0c0f",
+                  "animation": "none"
+                },
+                "completed": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "empty": {
+                  "color": "#0c0d12",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "idle": {
+                  "color": "#123273",
+                  "animation": "none"
+                },
+                "offline": {
+                  "color": "#15161b",
+                  "animation": "none"
+                },
+                "paused": {
+                  "color": "#ff7814",
+                  "animation": "none"
+                },
+                "running": {
+                  "color": "#1edc5a",
+                  "animation": "pulse"
+                },
+                "starting": {
+                  "color": "#ffc81e",
+                  "animation": "none"
+                },
+                "tool_use": {
+                  "color": "#1ed2e6",
+                  "animation": "pulse"
+                },
+                "waiting": {
+                  "color": "#aa50ff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 3
+                }
+              },
+              "longPress": {
+                "provider": "agent-control",
+                "action": "dismissSlot",
+                "args": {
+                  "slot": 3
+                }
+              },
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "slot.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 3
+                        }
+                      ],
+                      "setState": "$payload.status"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.3.1",
+              "pos": {
+                "kind": "grid",
+                "col": 3,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Select 4",
+              "description": "Lit while this track is selected. Press to select it.",
+              "icon": "▲",
+              "visual": {
+                "color": "#000000",
+                "animation": "none"
+              },
+              "states": {
+                "focused": {
+                  "color": "#ffffff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 3
+                }
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "focus.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 3
+                        }
+                      ],
+                      "setState": "focused"
+                    },
+                    {
+                      "event": "focus.changed",
+                      "when": [],
+                      "setState": "idle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.4.0",
+              "pos": {
+                "kind": "grid",
+                "col": 4,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agent 5",
+              "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+              "icon": "5",
+              "visual": {
+                "color": "#0c0d12",
+                "animation": "none"
+              },
+              "states": {
+                "approval_required": {
+                  "color": "#ffffff",
+                  "animation": "flash"
+                },
+                "cancelled": {
+                  "color": "#4d0c0f",
+                  "animation": "none"
+                },
+                "completed": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "empty": {
+                  "color": "#0c0d12",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "idle": {
+                  "color": "#123273",
+                  "animation": "none"
+                },
+                "offline": {
+                  "color": "#15161b",
+                  "animation": "none"
+                },
+                "paused": {
+                  "color": "#ff7814",
+                  "animation": "none"
+                },
+                "running": {
+                  "color": "#1edc5a",
+                  "animation": "pulse"
+                },
+                "starting": {
+                  "color": "#ffc81e",
+                  "animation": "none"
+                },
+                "tool_use": {
+                  "color": "#1ed2e6",
+                  "animation": "pulse"
+                },
+                "waiting": {
+                  "color": "#aa50ff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 4
+                }
+              },
+              "longPress": {
+                "provider": "agent-control",
+                "action": "dismissSlot",
+                "args": {
+                  "slot": 4
+                }
+              },
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "slot.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 4
+                        }
+                      ],
+                      "setState": "$payload.status"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.4.1",
+              "pos": {
+                "kind": "grid",
+                "col": 4,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Select 5",
+              "description": "Lit while this track is selected. Press to select it.",
+              "icon": "▲",
+              "visual": {
+                "color": "#000000",
+                "animation": "none"
+              },
+              "states": {
+                "focused": {
+                  "color": "#ffffff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 4
+                }
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "focus.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 4
+                        }
+                      ],
+                      "setState": "focused"
+                    },
+                    {
+                      "event": "focus.changed",
+                      "when": [],
+                      "setState": "idle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.5.0",
+              "pos": {
+                "kind": "grid",
+                "col": 5,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agent 6",
+              "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+              "icon": "6",
+              "visual": {
+                "color": "#0c0d12",
+                "animation": "none"
+              },
+              "states": {
+                "approval_required": {
+                  "color": "#ffffff",
+                  "animation": "flash"
+                },
+                "cancelled": {
+                  "color": "#4d0c0f",
+                  "animation": "none"
+                },
+                "completed": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "empty": {
+                  "color": "#0c0d12",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "idle": {
+                  "color": "#123273",
+                  "animation": "none"
+                },
+                "offline": {
+                  "color": "#15161b",
+                  "animation": "none"
+                },
+                "paused": {
+                  "color": "#ff7814",
+                  "animation": "none"
+                },
+                "running": {
+                  "color": "#1edc5a",
+                  "animation": "pulse"
+                },
+                "starting": {
+                  "color": "#ffc81e",
+                  "animation": "none"
+                },
+                "tool_use": {
+                  "color": "#1ed2e6",
+                  "animation": "pulse"
+                },
+                "waiting": {
+                  "color": "#aa50ff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 5
+                }
+              },
+              "longPress": {
+                "provider": "agent-control",
+                "action": "dismissSlot",
+                "args": {
+                  "slot": 5
+                }
+              },
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "slot.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 5
+                        }
+                      ],
+                      "setState": "$payload.status"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.5.1",
+              "pos": {
+                "kind": "grid",
+                "col": 5,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Select 6",
+              "description": "Lit while this track is selected. Press to select it.",
+              "icon": "▲",
+              "visual": {
+                "color": "#000000",
+                "animation": "none"
+              },
+              "states": {
+                "focused": {
+                  "color": "#ffffff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 5
+                }
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "focus.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 5
+                        }
+                      ],
+                      "setState": "focused"
+                    },
+                    {
+                      "event": "focus.changed",
+                      "when": [],
+                      "setState": "idle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.6.0",
+              "pos": {
+                "kind": "grid",
+                "col": 6,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agent 7",
+              "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+              "icon": "7",
+              "visual": {
+                "color": "#0c0d12",
+                "animation": "none"
+              },
+              "states": {
+                "approval_required": {
+                  "color": "#ffffff",
+                  "animation": "flash"
+                },
+                "cancelled": {
+                  "color": "#4d0c0f",
+                  "animation": "none"
+                },
+                "completed": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "empty": {
+                  "color": "#0c0d12",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "idle": {
+                  "color": "#123273",
+                  "animation": "none"
+                },
+                "offline": {
+                  "color": "#15161b",
+                  "animation": "none"
+                },
+                "paused": {
+                  "color": "#ff7814",
+                  "animation": "none"
+                },
+                "running": {
+                  "color": "#1edc5a",
+                  "animation": "pulse"
+                },
+                "starting": {
+                  "color": "#ffc81e",
+                  "animation": "none"
+                },
+                "tool_use": {
+                  "color": "#1ed2e6",
+                  "animation": "pulse"
+                },
+                "waiting": {
+                  "color": "#aa50ff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 6
+                }
+              },
+              "longPress": {
+                "provider": "agent-control",
+                "action": "dismissSlot",
+                "args": {
+                  "slot": 6
+                }
+              },
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "slot.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 6
+                        }
+                      ],
+                      "setState": "$payload.status"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.6.1",
+              "pos": {
+                "kind": "grid",
+                "col": 6,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Select 7",
+              "description": "Lit while this track is selected. Press to select it.",
+              "icon": "▲",
+              "visual": {
+                "color": "#000000",
+                "animation": "none"
+              },
+              "states": {
+                "focused": {
+                  "color": "#ffffff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 6
+                }
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "focus.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 6
+                        }
+                      ],
+                      "setState": "focused"
+                    },
+                    {
+                      "event": "focus.changed",
+                      "when": [],
+                      "setState": "idle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.7.0",
+              "pos": {
+                "kind": "grid",
+                "col": 7,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agent 8",
+              "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+              "icon": "8",
+              "visual": {
+                "color": "#0c0d12",
+                "animation": "none"
+              },
+              "states": {
+                "approval_required": {
+                  "color": "#ffffff",
+                  "animation": "flash"
+                },
+                "cancelled": {
+                  "color": "#4d0c0f",
+                  "animation": "none"
+                },
+                "completed": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "empty": {
+                  "color": "#0c0d12",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "idle": {
+                  "color": "#123273",
+                  "animation": "none"
+                },
+                "offline": {
+                  "color": "#15161b",
+                  "animation": "none"
+                },
+                "paused": {
+                  "color": "#ff7814",
+                  "animation": "none"
+                },
+                "running": {
+                  "color": "#1edc5a",
+                  "animation": "pulse"
+                },
+                "starting": {
+                  "color": "#ffc81e",
+                  "animation": "none"
+                },
+                "tool_use": {
+                  "color": "#1ed2e6",
+                  "animation": "pulse"
+                },
+                "waiting": {
+                  "color": "#aa50ff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 7
+                }
+              },
+              "longPress": {
+                "provider": "agent-control",
+                "action": "dismissSlot",
+                "args": {
+                  "slot": 7
+                }
+              },
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "slot.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 7
+                        }
+                      ],
+                      "setState": "$payload.status"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.7.1",
+              "pos": {
+                "kind": "grid",
+                "col": 7,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Select 8",
+              "description": "Lit while this track is selected. Press to select it.",
+              "icon": "▲",
+              "visual": {
+                "color": "#000000",
+                "animation": "none"
+              },
+              "states": {
+                "focused": {
+                  "color": "#ffffff",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "focusSlot",
+                "args": {
+                  "slot": 7
+                }
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "focus.changed",
+                      "when": [
+                        {
+                          "field": "slot",
+                          "equals": 7
+                        }
+                      ],
+                      "setState": "focused"
+                    },
+                    {
+                      "event": "focus.changed",
+                      "when": [],
+                      "setState": "idle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.0.2",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 2
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "Approve",
+              "description": "Approve the selected session's pending request. Flashes while the selected session is waiting for you. Never pressed for you.",
+              "icon": "✔",
+              "visual": {
+                "color": "#031609",
+                "animation": "none"
+              },
+              "states": {
+                "attention": {
+                  "color": "#1edc5a",
+                  "animation": "flash"
+                },
+                "available": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "pending": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "succeeded": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "unavailable": {
+                  "color": "#031609",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "approve",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "command.state",
+                      "when": [
+                        {
+                          "field": "command",
+                          "equals": "approve"
+                        }
+                      ],
+                      "setState": "$payload.state"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.2.2",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 2
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "Reject",
+              "description": "Reject the selected session's pending request.",
+              "icon": "✕",
+              "visual": {
+                "color": "#1a0405",
+                "animation": "none"
+              },
+              "states": {
+                "attention": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "available": {
+                  "color": "#ff2832",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "pending": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "succeeded": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "unavailable": {
+                  "color": "#1a0405",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "reject",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "command.state",
+                      "when": [
+                        {
+                          "field": "command",
+                          "equals": "reject"
+                        }
+                      ],
+                      "setState": "$payload.state"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.4.2",
+              "pos": {
+                "kind": "grid",
+                "col": 4,
+                "row": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Pause",
+              "description": "Pause the selected session, if its agent supports pausing.",
+              "icon": "⏸",
+              "visual": {
+                "color": "#1a0c02",
+                "animation": "none"
+              },
+              "states": {
+                "attention": {
+                  "color": "#ff7814",
+                  "animation": "flash"
+                },
+                "available": {
+                  "color": "#ff7814",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "pending": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "succeeded": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "unavailable": {
+                  "color": "#1a0c02",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "pause",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "command.state",
+                      "when": [
+                        {
+                          "field": "command",
+                          "equals": "pause"
+                        }
+                      ],
+                      "setState": "$payload.state"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.5.2",
+              "pos": {
+                "kind": "grid",
+                "col": 5,
+                "row": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Resume",
+              "description": "Resume the selected paused session.",
+              "icon": "▶",
+              "visual": {
+                "color": "#031609",
+                "animation": "none"
+              },
+              "states": {
+                "attention": {
+                  "color": "#1edc5a",
+                  "animation": "flash"
+                },
+                "available": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "pending": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "succeeded": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "unavailable": {
+                  "color": "#031609",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "resume",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "command.state",
+                      "when": [
+                        {
+                          "field": "command",
+                          "equals": "resume"
+                        }
+                      ],
+                      "setState": "$payload.state"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.6.2",
+              "pos": {
+                "kind": "grid",
+                "col": 6,
+                "row": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Retry",
+              "description": "Retry the selected failed or cancelled session.",
+              "icon": "↻",
+              "visual": {
+                "color": "#1a1403",
+                "animation": "none"
+              },
+              "states": {
+                "attention": {
+                  "color": "#ffc81e",
+                  "animation": "flash"
+                },
+                "available": {
+                  "color": "#ffc81e",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "pending": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "succeeded": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "unavailable": {
+                  "color": "#1a1403",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "retry",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "command.state",
+                      "when": [
+                        {
+                          "field": "command",
+                          "equals": "retry"
+                        }
+                      ],
+                      "setState": "$payload.state"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.7.2",
+              "pos": {
+                "kind": "grid",
+                "col": 7,
+                "row": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Stop",
+              "description": "Cancel the selected session.",
+              "icon": "■",
+              "visual": {
+                "color": "#1a0405",
+                "animation": "none"
+              },
+              "states": {
+                "attention": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "available": {
+                  "color": "#ff2832",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "pending": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "succeeded": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "unavailable": {
+                  "color": "#1a0405",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "cancel",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "command.state",
+                      "when": [
+                        {
+                          "field": "command",
+                          "equals": "cancel"
+                        }
+                      ],
+                      "setState": "$payload.state"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.4.3",
+              "pos": {
+                "kind": "grid",
+                "col": 4,
+                "row": 3
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Continue",
+              "description": "Tell the selected session to continue. Edit the text in the inspector.",
+              "icon": "⏵⏵",
+              "visual": {
+                "color": "#11081a",
+                "animation": "none"
+              },
+              "states": {
+                "attention": {
+                  "color": "#aa50ff",
+                  "animation": "flash"
+                },
+                "available": {
+                  "color": "#aa50ff",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "pending": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "succeeded": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "unavailable": {
+                  "color": "#11081a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "continue",
+                "args": {
+                  "text": "continue"
+                }
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "command.state",
+                      "when": [
+                        {
+                          "field": "command",
+                          "equals": "send_instruction"
+                        }
+                      ],
+                      "setState": "$payload.state"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.0.4",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 4
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Run tests",
+              "description": "Start this task on the selected agent (or the first agent that can). Edit the task text in the inspector.",
+              "icon": "✓",
+              "visual": {
+                "color": "#031517",
+                "animation": "none"
+              },
+              "states": {
+                "attention": {
+                  "color": "#1ed2e6",
+                  "animation": "flash"
+                },
+                "available": {
+                  "color": "#1ed2e6",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "pending": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "succeeded": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "unavailable": {
+                  "color": "#031517",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "newTask",
+                "args": {
+                  "task": "Run the test suite and report failures"
+                }
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "command.state",
+                      "when": [
+                        {
+                          "field": "command",
+                          "equals": "spawn"
+                        }
+                      ],
+                      "setState": "$payload.state"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.1.4",
+              "pos": {
+                "kind": "grid",
+                "col": 1,
+                "row": 4
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Review diff",
+              "description": "Start this task on the selected agent (or the first agent that can). Edit the task text in the inspector.",
+              "icon": "±",
+              "visual": {
+                "color": "#031517",
+                "animation": "none"
+              },
+              "states": {
+                "attention": {
+                  "color": "#1ed2e6",
+                  "animation": "flash"
+                },
+                "available": {
+                  "color": "#1ed2e6",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "pending": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "succeeded": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "unavailable": {
+                  "color": "#031517",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "newTask",
+                "args": {
+                  "task": "Review the uncommitted changes"
+                }
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "command.state",
+                      "when": [
+                        {
+                          "field": "command",
+                          "equals": "spawn"
+                        }
+                      ],
+                      "setState": "$payload.state"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.2.4",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 4
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Summarize",
+              "description": "Start this task on the selected agent (or the first agent that can). Edit the task text in the inspector.",
+              "icon": "≡",
+              "visual": {
+                "color": "#031517",
+                "animation": "none"
+              },
+              "states": {
+                "attention": {
+                  "color": "#1ed2e6",
+                  "animation": "flash"
+                },
+                "available": {
+                  "color": "#1ed2e6",
+                  "animation": "none"
+                },
+                "failed": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "pending": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "succeeded": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                },
+                "unavailable": {
+                  "color": "#031517",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "agent-control",
+                "action": "newTask",
+                "args": {
+                  "task": "Summarize the recent changes"
+                }
+              },
+              "longPress": null,
+              "bindings": [
+                {
+                  "source": "agent-control",
+                  "rules": [
+                    {
+                      "event": "command.state",
+                      "when": [
+                        {
+                          "field": "command",
+                          "equals": "spawn"
+                        }
+                      ],
+                      "setState": "$payload.state"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "g.0.7",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 7
+              },
+              "span": {
+                "w": 2,
+                "h": 1
+              },
+              "label": "Run Agent Demo",
+              "description": "Start four simulated agents: tool use, an approval to answer, a pause to try, a failure to retry. Nothing real runs.",
+              "icon": "▶",
+              "visual": {
+                "color": "#159a3f",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "agent-control",
+                "action": "runDemo",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.2.7",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 7
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Reset demo",
+              "description": "Stop the simulated agents and clear their sessions.",
+              "icon": "↺",
+              "visual": {
+                "color": "#731217",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "agent-control",
+                "action": "resetDemo",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.6.7",
+              "pos": {
+                "kind": "grid",
+                "col": 6,
+                "row": 7
+              },
+              "span": {
+                "w": 2,
+                "h": 1
+              },
+              "label": "Open Agents",
+              "description": "Show the Agents section in the desktop app: sessions, logs, adapters.",
+              "icon": "☰",
+              "visual": {
+                "color": "#464a5a",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "agent-control",
+                "action": "openApp",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.0",
+              "pos": {
+                "kind": "top",
+                "index": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agents",
+              "description": "Switch to the Agents surface.",
+              "icon": "◉",
+              "visual": {
+                "color": "#ffffff",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "agent-control"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.1",
+              "pos": {
+                "kind": "top",
+                "index": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Dev",
+              "description": "Switch to the Dev surface.",
+              "icon": "⌘",
+              "visual": {
+                "color": "#0b4a51",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "development"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.2",
+              "pos": {
+                "kind": "top",
+                "index": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Work",
+              "description": "Switch to the Work surface.",
+              "icon": "☑",
+              "visual": {
+                "color": "#0b4d20",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "productivity"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.3",
+              "pos": {
+                "kind": "top",
+                "index": 3
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Home",
+              "description": "Switch to the Home surface.",
+              "icon": "⌂",
+              "visual": {
+                "color": "#592a07",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "smart-home"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.4",
+              "pos": {
+                "kind": "top",
+                "index": 4
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Access",
+              "description": "Switch to the Access surface.",
+              "icon": "◎",
+              "visual": {
+                "color": "#59460b",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "accessibility"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            }
+          ]
+        }
+      ],
+      "context": null
+    },
+    {
+      "id": "development",
+      "name": "Development",
+      "description": "Build, test and ship. Pads pulse while a command runs, then turn green or flash red.",
+      "icon": "⌘",
+      "category": "development",
+      "pages": [
+        {
+          "id": "home",
+          "name": "Home",
+          "controls": [
+            {
+              "id": "g.0.0",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Terminal",
+              "description": "Launch a terminal (placeholder command).",
+              "icon": "›_",
+              "visual": {
+                "color": "#1ed2e6",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "system",
+                "action": "launchApplication",
+                "args": {
+                  "app": "x-terminal-emulator"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.1.0",
+              "pos": {
+                "kind": "grid",
+                "col": 1,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "VS Code",
+              "description": "Launch VS Code (`code` must be on your PATH, or the app name on macOS).",
+              "icon": "⌘",
+              "visual": {
+                "color": "#286eff",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "system",
+                "action": "launchApplication",
+                "args": {
+                  "app": "code"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.2.0",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "GitHub",
+              "description": "Open GitHub.",
+              "icon": "⎇",
+              "visual": {
+                "color": "#aa50ff",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "system",
+                "action": "openUrl",
+                "args": {
+                  "url": "https://github.com"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.3.0",
+              "pos": {
+                "kind": "grid",
+                "col": 3,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Docker",
+              "description": "Placeholder: harmless echo. Replace with `docker compose up`.",
+              "icon": "▣",
+              "visual": {
+                "color": "#1ed2e6",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "shell",
+                "action": "execute",
+                "args": {
+                  "command": "sleep 1 && echo 'docker: demo only'"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.0.1",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Tests",
+              "description": "Safe demo: sleeps 2s then succeeds. Pad pulses yellow, then turns green.",
+              "icon": "✓",
+              "visual": {
+                "color": "#ffc81e",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "shell",
+                "action": "execute",
+                "args": {
+                  "command": "sleep 2 && echo 'tests passed'"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.1.1",
+              "pos": {
+                "kind": "grid",
+                "col": 1,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Build",
+              "description": "Safe demo: sleeps 3s then succeeds.",
+              "icon": "⚒",
+              "visual": {
+                "color": "#ff7814",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "shell",
+                "action": "execute",
+                "args": {
+                  "command": "sleep 3 && echo 'build ok'"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.2.1",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Dev Server",
+              "description": "Safe demo: sleeps 1s then succeeds.",
+              "icon": "⚡",
+              "visual": {
+                "color": "#1edc5a",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "shell",
+                "action": "execute",
+                "args": {
+                  "command": "sleep 1 && echo 'dev server: demo only'"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.3.1",
+              "pos": {
+                "kind": "grid",
+                "col": 3,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Deploy",
+              "description": "Safe demo: sleeps 2s then succeeds. Replace with your deploy script.",
+              "icon": "⇪",
+              "visual": {
+                "color": "#ff2832",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "shell",
+                "action": "execute",
+                "args": {
+                  "command": "sleep 2 && echo 'deploy: demo only'"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.0.2",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Git",
+              "description": "Open the Git page.",
+              "icon": "⑂",
+              "visual": {
+                "color": "#ff50aa",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openPage",
+                "args": {
+                  "pageId": "git"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.1.2",
+              "pos": {
+                "kind": "grid",
+                "col": 1,
+                "row": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Failing Task",
+              "description": "Demonstrates the error state: exits with code 1, pad flashes red.",
+              "icon": "✕",
+              "visual": {
+                "color": "#801419",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "shell",
+                "action": "execute",
+                "args": {
+                  "command": "echo 'simulated failure' >&2; exit 1"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.0",
+              "pos": {
+                "kind": "top",
+                "index": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agents",
+              "description": "Switch to the Agents surface.",
+              "icon": "◉",
+              "visual": {
+                "color": "#3c1c59",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "agent-control"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.1",
+              "pos": {
+                "kind": "top",
+                "index": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Dev",
+              "description": "Switch to the Dev surface.",
+              "icon": "⌘",
+              "visual": {
+                "color": "#ffffff",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "development"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.2",
+              "pos": {
+                "kind": "top",
+                "index": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Work",
+              "description": "Switch to the Work surface.",
+              "icon": "☑",
+              "visual": {
+                "color": "#0b4d20",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "productivity"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.3",
+              "pos": {
+                "kind": "top",
+                "index": 3
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Home",
+              "description": "Switch to the Home surface.",
+              "icon": "⌂",
+              "visual": {
+                "color": "#592a07",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "smart-home"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.4",
+              "pos": {
+                "kind": "top",
+                "index": 4
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Access",
+              "description": "Switch to the Access surface.",
+              "icon": "◎",
+              "visual": {
+                "color": "#59460b",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "accessibility"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            }
+          ]
+        },
+        {
+          "id": "git",
+          "name": "Git",
+          "controls": [
+            {
+              "id": "g.0.0",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Git Status",
+              "description": "Safe demo: prints a message.",
+              "icon": "≡",
+              "visual": {
+                "color": "#1ed2e6",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "shell",
+                "action": "execute",
+                "args": {
+                  "command": "sleep 1 && echo 'git status: demo only'"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.1.0",
+              "pos": {
+                "kind": "grid",
+                "col": 1,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Commit",
+              "description": "Safe demo. Replace with your commit script.",
+              "icon": "●",
+              "visual": {
+                "color": "#1edc5a",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "shell",
+                "action": "execute",
+                "args": {
+                  "command": "sleep 1 && echo 'git commit: demo only'"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.2.0",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Pull",
+              "description": "Safe demo. Replace with `git pull`.",
+              "icon": "↓",
+              "visual": {
+                "color": "#286eff",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "shell",
+                "action": "execute",
+                "args": {
+                  "command": "sleep 1 && echo 'git pull: demo only'"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.3.0",
+              "pos": {
+                "kind": "grid",
+                "col": 3,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Push",
+              "description": "Safe demo. Replace with `git push`.",
+              "icon": "↑",
+              "visual": {
+                "color": "#ff7814",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "shell",
+                "action": "execute",
+                "args": {
+                  "command": "sleep 1 && echo 'git push: demo only'"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.0.7",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 7
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Back",
+              "description": "Return to the previous page.",
+              "icon": "←",
+              "visual": {
+                "color": "#464a5a",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openPage",
+                "args": {
+                  "pageId": "home"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.0",
+              "pos": {
+                "kind": "top",
+                "index": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agents",
+              "description": "Switch to the Agents surface.",
+              "icon": "◉",
+              "visual": {
+                "color": "#3c1c59",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "agent-control"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.1",
+              "pos": {
+                "kind": "top",
+                "index": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Dev",
+              "description": "Switch to the Dev surface.",
+              "icon": "⌘",
+              "visual": {
+                "color": "#ffffff",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "development"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.2",
+              "pos": {
+                "kind": "top",
+                "index": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Work",
+              "description": "Switch to the Work surface.",
+              "icon": "☑",
+              "visual": {
+                "color": "#0b4d20",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "productivity"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.3",
+              "pos": {
+                "kind": "top",
+                "index": 3
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Home",
+              "description": "Switch to the Home surface.",
+              "icon": "⌂",
+              "visual": {
+                "color": "#592a07",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "smart-home"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.4",
+              "pos": {
+                "kind": "top",
+                "index": 4
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Access",
+              "description": "Switch to the Access surface.",
+              "icon": "◎",
+              "visual": {
+                "color": "#59460b",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "accessibility"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            }
+          ]
+        }
+      ],
+      "context": {
+        "foregroundApps": [
+          "com.microsoft.VSCode",
+          "Code"
+        ]
+      }
+    },
+    {
+      "id": "productivity",
+      "name": "Productivity",
+      "description": "Everyday shortcuts, apps and media on physical pads.",
+      "icon": "☑",
+      "category": "productivity",
+      "pages": [
+        {
+          "id": "home",
+          "name": "Home",
+          "controls": [
+            {
+              "id": "g.0.0",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Browser",
+              "description": "Open a web page.",
+              "icon": "◉",
+              "visual": {
+                "color": "#184299",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "openUrl",
+                "args": {
+                  "url": "https://www.google.com"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.1.0",
+              "pos": {
+                "kind": "grid",
+                "col": 1,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Mail",
+              "description": "Open your mail app (mailto:).",
+              "icon": "✉",
+              "visual": {
+                "color": "#127e8a",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "openUrl",
+                "args": {
+                  "url": "mailto:"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.2.0",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Calendar",
+              "description": "Open a web calendar.",
+              "icon": "▦",
+              "visual": {
+                "color": "#128436",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "openUrl",
+                "args": {
+                  "url": "https://calendar.google.com"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.3.0",
+              "pos": {
+                "kind": "grid",
+                "col": 3,
+                "row": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Files",
+              "description": "Open the file manager.",
+              "icon": "▤",
+              "visual": {
+                "color": "#99480c",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "launchApplication",
+                "args": {
+                  "app": "xdg-open",
+                  "args": "."
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.0.1",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Copy",
+              "description": "Copy (Cmd/Ctrl+C).",
+              "icon": "⧉",
+              "visual": {
+                "color": "#999999",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "keyboardShortcut",
+                "args": {
+                  "keys": "mod+c"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.1.1",
+              "pos": {
+                "kind": "grid",
+                "col": 1,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Paste",
+              "description": "Paste (Cmd/Ctrl+V).",
+              "icon": "⎘",
+              "visual": {
+                "color": "#999999",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "keyboardShortcut",
+                "args": {
+                  "keys": "mod+v"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.2.1",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Undo",
+              "description": "Undo (Cmd/Ctrl+Z).",
+              "icon": "↶",
+              "visual": {
+                "color": "#997812",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "keyboardShortcut",
+                "args": {
+                  "keys": "mod+z"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.3.1",
+              "pos": {
+                "kind": "grid",
+                "col": 3,
+                "row": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Redo",
+              "description": "Redo (Cmd/Ctrl+Shift+Z).",
+              "icon": "↷",
+              "visual": {
+                "color": "#997812",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "keyboardShortcut",
+                "args": {
+                  "keys": "mod+shift+z"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.0.2",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Screenshot",
+              "description": "Take a screenshot with your OS shortcut.",
+              "icon": "▣",
+              "visual": {
+                "color": "#993066",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "shell",
+                "action": "execute",
+                "args": {
+                  "command": "gnome-screenshot --interactive"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.1.2",
+              "pos": {
+                "kind": "grid",
+                "col": 1,
+                "row": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Search",
+              "description": "Open system search (Cmd/Ctrl+Space).",
+              "icon": "⌕",
+              "visual": {
+                "color": "#993066",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "keyboardShortcut",
+                "args": {
+                  "keys": "mod+space"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.2.2",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Music",
+              "description": "Play / pause media.",
+              "icon": "♪",
+              "visual": {
+                "color": "#663099",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "playPause",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.3.2",
+              "pos": {
+                "kind": "grid",
+                "col": 3,
+                "row": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Do Not Disturb",
+              "description": "Placeholder: wire this to your OS focus mode with a shell command.",
+              "icon": "☾",
+              "visual": {
+                "color": "#2a2c36",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "shell",
+                "action": "execute",
+                "args": {
+                  "command": "sleep 1 && echo 'dnd: demo only'"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.0",
+              "pos": {
+                "kind": "top",
+                "index": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agents",
+              "description": "Switch to the Agents surface.",
+              "icon": "◉",
+              "visual": {
+                "color": "#3c1c59",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "agent-control"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.1",
+              "pos": {
+                "kind": "top",
+                "index": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Dev",
+              "description": "Switch to the Dev surface.",
+              "icon": "⌘",
+              "visual": {
+                "color": "#0b4a51",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "development"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.2",
+              "pos": {
+                "kind": "top",
+                "index": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Work",
+              "description": "Switch to the Work surface.",
+              "icon": "☑",
+              "visual": {
+                "color": "#ffffff",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "productivity"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.3",
+              "pos": {
+                "kind": "top",
+                "index": 3
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Home",
+              "description": "Switch to the Home surface.",
+              "icon": "⌂",
+              "visual": {
+                "color": "#592a07",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "smart-home"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.4",
+              "pos": {
+                "kind": "top",
+                "index": 4
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Access",
+              "description": "Switch to the Access surface.",
+              "icon": "◎",
+              "visual": {
+                "color": "#59460b",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "accessibility"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            }
+          ]
+        }
+      ],
+      "context": null
+    },
+    {
+      "id": "smart-home",
+      "name": "Smart Home",
+      "description": "Template for Home Assistant style webhooks. Edit the URLs to make it yours.",
+      "icon": "⌂",
+      "category": "smart-home",
+      "pages": [
+        {
+          "id": "home",
+          "name": "Home",
+          "controls": [
+            {
+              "id": "g.0.0",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 0
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "Lights",
+              "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+              "icon": "☀",
+              "visual": {
+                "color": "#ffc81e",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "http",
+                "action": "request",
+                "args": {
+                  "method": "POST",
+                  "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lights"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.2.0",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 0
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "Movie",
+              "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+              "icon": "▶",
+              "visual": {
+                "color": "#aa50ff",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "http",
+                "action": "request",
+                "args": {
+                  "method": "POST",
+                  "url": "http://homeassistant.local:8123/api/webhook/launchdeck-movie"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.4.0",
+              "pos": {
+                "kind": "grid",
+                "col": 4,
+                "row": 0
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "Work",
+              "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+              "icon": "⌨",
+              "visual": {
+                "color": "#286eff",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "http",
+                "action": "request",
+                "args": {
+                  "method": "POST",
+                  "url": "http://homeassistant.local:8123/api/webhook/launchdeck-work"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.0.2",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 2
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "Warmer",
+              "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+              "icon": "▲",
+              "visual": {
+                "color": "#ff7814",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "http",
+                "action": "request",
+                "args": {
+                  "method": "POST",
+                  "url": "http://homeassistant.local:8123/api/webhook/launchdeck-warmer"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.2.2",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 2
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "Cooler",
+              "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+              "icon": "▼",
+              "visual": {
+                "color": "#1ed2e6",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "http",
+                "action": "request",
+                "args": {
+                  "method": "POST",
+                  "url": "http://homeassistant.local:8123/api/webhook/launchdeck-cooler"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.4.2",
+              "pos": {
+                "kind": "grid",
+                "col": 4,
+                "row": 2
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "Lock",
+              "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+              "icon": "🔒",
+              "visual": {
+                "color": "#ff2832",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "http",
+                "action": "request",
+                "args": {
+                  "method": "POST",
+                  "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lock"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.0",
+              "pos": {
+                "kind": "top",
+                "index": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agents",
+              "description": "Switch to the Agents surface.",
+              "icon": "◉",
+              "visual": {
+                "color": "#3c1c59",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "agent-control"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.1",
+              "pos": {
+                "kind": "top",
+                "index": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Dev",
+              "description": "Switch to the Dev surface.",
+              "icon": "⌘",
+              "visual": {
+                "color": "#0b4a51",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "development"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.2",
+              "pos": {
+                "kind": "top",
+                "index": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Work",
+              "description": "Switch to the Work surface.",
+              "icon": "☑",
+              "visual": {
+                "color": "#0b4d20",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "productivity"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.3",
+              "pos": {
+                "kind": "top",
+                "index": 3
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Home",
+              "description": "Switch to the Home surface.",
+              "icon": "⌂",
+              "visual": {
+                "color": "#ffffff",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "smart-home"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.4",
+              "pos": {
+                "kind": "top",
+                "index": 4
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Access",
+              "description": "Switch to the Access surface.",
+              "icon": "◎",
+              "visual": {
+                "color": "#59460b",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "accessibility"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            }
+          ]
+        }
+      ],
+      "context": null
+    },
+    {
+      "id": "accessibility",
+      "name": "Accessibility",
+      "description": "Fewer, larger targets in colour-coded groups. A predictable, low-effort way to drive the computer.",
+      "icon": "◎",
+      "category": "accessibility",
+      "pages": [
+        {
+          "id": "home",
+          "name": "Home",
+          "controls": [
+            {
+              "id": "g.0.0",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 0
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "HOME",
+              "description": "Go to the start of the page (Alt+Home).",
+              "icon": "⌂",
+              "visual": {
+                "color": "#286eff",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "keyboardShortcut",
+                "args": {
+                  "keys": "alt+home"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.2.0",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 0
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "BACK",
+              "description": "Go back (Alt+Left).",
+              "icon": "←",
+              "visual": {
+                "color": "#286eff",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "keyboardShortcut",
+                "args": {
+                  "keys": "alt+left"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.4.0",
+              "pos": {
+                "kind": "grid",
+                "col": 4,
+                "row": 0
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "COPY",
+              "description": "Copy (Cmd/Ctrl+C).",
+              "icon": "⧉",
+              "visual": {
+                "color": "#1edc5a",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "keyboardShortcut",
+                "args": {
+                  "keys": "mod+c"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.6.0",
+              "pos": {
+                "kind": "grid",
+                "col": 6,
+                "row": 0
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "PASTE",
+              "description": "Paste (Cmd/Ctrl+V).",
+              "icon": "⎘",
+              "visual": {
+                "color": "#1edc5a",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "keyboardShortcut",
+                "args": {
+                  "keys": "mod+v"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.0.2",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 2
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "ZOOM +",
+              "description": "Zoom in (Cmd/Ctrl+Plus).",
+              "icon": "＋",
+              "visual": {
+                "color": "#ffc81e",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "keyboardShortcut",
+                "args": {
+                  "keys": "mod+="
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.2.2",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 2
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "ZOOM −",
+              "description": "Zoom out (Cmd/Ctrl+Minus).",
+              "icon": "－",
+              "visual": {
+                "color": "#ffc81e",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "keyboardShortcut",
+                "args": {
+                  "keys": "mod+-"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.4.2",
+              "pos": {
+                "kind": "grid",
+                "col": 4,
+                "row": 2
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "SCROLL ↑",
+              "description": "Scroll up (Page Up).",
+              "icon": "▲",
+              "visual": {
+                "color": "#ffc81e",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "keyboardShortcut",
+                "args": {
+                  "keys": "pageup"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.6.2",
+              "pos": {
+                "kind": "grid",
+                "col": 6,
+                "row": 2
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "SCROLL ↓",
+              "description": "Scroll down (Page Down).",
+              "icon": "▼",
+              "visual": {
+                "color": "#ffc81e",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "keyboardShortcut",
+                "args": {
+                  "keys": "pagedown"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.0.4",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 4
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "VOLUME +",
+              "description": "Volume up.",
+              "icon": "🔊",
+              "visual": {
+                "color": "#ff7814",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "volumeUp",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.2.4",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 4
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "VOLUME −",
+              "description": "Volume down.",
+              "icon": "🔉",
+              "visual": {
+                "color": "#ff7814",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "volumeDown",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.4.4",
+              "pos": {
+                "kind": "grid",
+                "col": 4,
+                "row": 4
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "MUTE",
+              "description": "Mute / unmute.",
+              "icon": "🔇",
+              "visual": {
+                "color": "#ff7814",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "toggleMute",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.6.4",
+              "pos": {
+                "kind": "grid",
+                "col": 6,
+                "row": 4
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "HELP",
+              "description": "Open the help page: call, message, lights, music.",
+              "icon": "?",
+              "visual": {
+                "color": "#ff2832",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openPage",
+                "args": {
+                  "pageId": "help"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.0",
+              "pos": {
+                "kind": "top",
+                "index": 0
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Agents",
+              "description": "Switch to the Agents surface.",
+              "icon": "◉",
+              "visual": {
+                "color": "#3c1c59",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "agent-control"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.1",
+              "pos": {
+                "kind": "top",
+                "index": 1
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Dev",
+              "description": "Switch to the Dev surface.",
+              "icon": "⌘",
+              "visual": {
+                "color": "#0b4a51",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "development"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.2",
+              "pos": {
+                "kind": "top",
+                "index": 2
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Work",
+              "description": "Switch to the Work surface.",
+              "icon": "☑",
+              "visual": {
+                "color": "#0b4d20",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "productivity"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.3",
+              "pos": {
+                "kind": "top",
+                "index": 3
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Home",
+              "description": "Switch to the Home surface.",
+              "icon": "⌂",
+              "visual": {
+                "color": "#592a07",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "smart-home"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "t.4",
+              "pos": {
+                "kind": "top",
+                "index": 4
+              },
+              "span": {
+                "w": 1,
+                "h": 1
+              },
+              "label": "Access",
+              "description": "Switch to the Access surface.",
+              "icon": "◎",
+              "visual": {
+                "color": "#ffffff",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openSurface",
+                "args": {
+                  "surfaceId": "accessibility"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            }
+          ]
+        },
+        {
+          "id": "help",
+          "name": "Help",
+          "controls": [
+            {
+              "id": "g.0.0",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 0
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "CALL",
+              "description": "Start a call with your phone app (tel:). Edit the number in the inspector.",
+              "icon": "☎",
+              "visual": {
+                "color": "#1edc5a",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "openUrl",
+                "args": {
+                  "url": "tel:"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.2.0",
+              "pos": {
+                "kind": "grid",
+                "col": 2,
+                "row": 0
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "MESSAGE",
+              "description": "Start a text message (sms:). Edit the recipient in the inspector.",
+              "icon": "✉",
+              "visual": {
+                "color": "#286eff",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "openUrl",
+                "args": {
+                  "url": "sms:"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.4.0",
+              "pos": {
+                "kind": "grid",
+                "col": 4,
+                "row": 0
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "LIGHTS",
+              "description": "Template: edit the webhook URL in the inspector.",
+              "icon": "☀",
+              "visual": {
+                "color": "#ffc81e",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "http",
+                "action": "request",
+                "args": {
+                  "method": "POST",
+                  "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lights"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.6.0",
+              "pos": {
+                "kind": "grid",
+                "col": 6,
+                "row": 0
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "MUSIC",
+              "description": "Play / pause media.",
+              "icon": "♪",
+              "visual": {
+                "color": "#aa50ff",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "system",
+                "action": "playPause",
+                "args": {}
+              },
+              "longPress": null,
+              "bindings": []
+            },
+            {
+              "id": "g.0.6",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 6
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "BACK",
+              "description": "Return to the main accessibility page.",
+              "icon": "←",
+              "visual": {
+                "color": "#464a5a",
+                "animation": "none"
+              },
+              "states": {},
+              "press": {
+                "provider": "navigation",
+                "action": "openPage",
+                "args": {
+                  "pageId": "home"
+                }
+              },
+              "longPress": null,
+              "bindings": []
+            }
+          ]
+        }
+      ],
+      "context": null
+    }
+  ],
+  "lastActiveSurface": "agent-control",
+  "preferences": {
+    "onboardingDone": false,
+    "externalEventsPort": 47821,
+    "externalEventsEnabled": true
+  }
+}

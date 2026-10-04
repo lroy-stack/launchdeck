@@ -1,0 +1,272 @@
+{
+  "command.state": {
+    "approve": {
+      "attention": {
+        "animation": "flash",
+        "color": "#1edc5a"
+      },
+      "available": {
+        "animation": "none",
+        "color": "#1edc5a"
+      },
+      "failed": {
+        "animation": "flash",
+        "color": "#ff2832"
+      },
+      "pending": {
+        "animation": "pulse",
+        "color": "#ffc81e"
+      },
+      "succeeded": {
+        "animation": "none",
+        "color": "#1edc5a"
+      },
+      "unavailable": {
+        "animation": "none",
+        "color": "#031609"
+      }
+    },
+    "cancel": {
+      "attention": {
+        "animation": "flash",
+        "color": "#ff2832"
+      },
+      "available": {
+        "animation": "none",
+        "color": "#ff2832"
+      },
+      "failed": {
+        "animation": "flash",
+        "color": "#ff2832"
+      },
+      "pending": {
+        "animation": "pulse",
+        "color": "#ffc81e"
+      },
+      "succeeded": {
+        "animation": "none",
+        "color": "#1edc5a"
+      },
+      "unavailable": {
+        "animation": "none",
+        "color": "#1a0405"
+      }
+    },
+    "pause": {
+      "attention": {
+        "animation": "flash",
+        "color": "#ff7814"
+      },
+      "available": {
+        "animation": "none",
+        "color": "#ff7814"
+      },
+      "failed": {
+        "animation": "flash",
+        "color": "#ff2832"
+      },
+      "pending": {
+        "animation": "pulse",
+        "color": "#ffc81e"
+      },
+      "succeeded": {
+        "animation": "none",
+        "color": "#1edc5a"
+      },
+      "unavailable": {
+        "animation": "none",
+        "color": "#1a0c02"
+      }
+    },
+    "reject": {
+      "attention": {
+        "animation": "flash",
+        "color": "#ff2832"
+      },
+      "available": {
+        "animation": "none",
+        "color": "#ff2832"
+      },
+      "failed": {
+        "animation": "flash",
+        "color": "#ff2832"
+      },
+      "pending": {
+        "animation": "pulse",
+        "color": "#ffc81e"
+      },
+      "succeeded": {
+        "animation": "none",
+        "color": "#1edc5a"
+      },
+      "unavailable": {
+        "animation": "none",
+        "color": "#1a0405"
+      }
+    },
+    "resume": {
+      "attention": {
+        "animation": "flash",
+        "color": "#1edc5a"
+      },
+      "available": {
+        "animation": "none",
+        "color": "#1edc5a"
+      },
+      "failed": {
+        "animation": "flash",
+        "color": "#ff2832"
+      },
+      "pending": {
+        "animation": "pulse",
+        "color": "#ffc81e"
+      },
+      "succeeded": {
+        "animation": "none",
+        "color": "#1edc5a"
+      },
+      "unavailable": {
+        "animation": "none",
+        "color": "#031609"
+      }
+    },
+    "retry": {
+      "attention": {
+        "animation": "flash",
+        "color": "#ffc81e"
+      },
+      "available": {
+        "animation": "none",
+        "color": "#ffc81e"
+      },
+      "failed": {
+        "animation": "flash",
+        "color": "#ff2832"
+      },
+      "pending": {
+        "animation": "pulse",
+        "color": "#ffc81e"
+      },
+      "succeeded": {
+        "animation": "none",
+        "color": "#1edc5a"
+      },
+      "unavailable": {
+        "animation": "none",
+        "color": "#1a1403"
+      }
+    },
+    "send_instruction": {
+      "attention": {
+        "animation": "flash",
+        "color": "#aa50ff"
+      },
+      "available": {
+        "animation": "none",
+        "color": "#aa50ff"
+      },
+      "failed": {
+        "animation": "flash",
+        "color": "#ff2832"
+      },
+      "pending": {
+        "animation": "pulse",
+        "color": "#ffc81e"
+      },
+      "succeeded": {
+        "animation": "none",
+        "color": "#1edc5a"
+      },
+      "unavailable": {
+        "animation": "none",
+        "color": "#11081a"
+      }
+    },
+    "spawn": {
+      "attention": {
+        "animation": "flash",
+        "color": "#1ed2e6"
+      },
+      "available": {
+        "animation": "none",
+        "color": "#1ed2e6"
+      },
+      "failed": {
+        "animation": "flash",
+        "color": "#ff2832"
+      },
+      "pending": {
+        "animation": "pulse",
+        "color": "#ffc81e"
+      },
+      "succeeded": {
+        "animation": "none",
+        "color": "#1edc5a"
+      },
+      "unavailable": {
+        "animation": "none",
+        "color": "#031517"
+      }
+    }
+  },
+  "slot.focused": {
+    "not selected": {
+      "animation": "none",
+      "color": "#000000"
+    },
+    "selected": {
+      "animation": "none",
+      "color": "#ffffff"
+    }
+  },
+  "slot.status": {
+    "approval_required": {
+      "animation": "flash",
+      "color": "#ffffff"
+    },
+    "cancelled": {
+      "animation": "none",
+      "color": "#4d0c0f"
+    },
+    "completed": {
+      "animation": "none",
+      "color": "#1edc5a"
+    },
+    "empty": {
+      "animation": "none",
+      "color": "#0c0d12"
+    },
+    "failed": {
+      "animation": "flash",
+      "color": "#ff2832"
+    },
+    "idle": {
+      "animation": "none",
+      "color": "#123273"
+    },
+    "offline": {
+      "animation": "none",
+      "color": "#15161b"
+    },
+    "paused": {
+      "animation": "none",
+      "color": "#ff7814"
+    },
+    "running": {
+      "animation": "pulse",
+      "color": "#1edc5a"
+    },
+    "starting": {
+      "animation": "none",
+      "color": "#ffc81e"
+    },
+    "tool_use": {
+      "animation": "pulse",
+      "color": "#1ed2e6"
+    },
+    "waiting": {
+      "animation": "none",
+      "color": "#aa50ff"
+    }
+  }
+}
