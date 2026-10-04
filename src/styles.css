@@ -551,8 +551,8 @@ textarea { resize: vertical; }
 .live-details ul { margin: 4px 0 0; padding-left: 16px; }
 
 /* Plugin permissions and secrets ----------------------------------------- */
-.access { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel); }
-.access h4 { margin: 0; }
+.plugin-access { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel); }
+.plugin-access h4 { margin: 0; }
 .pill.grant.granted { color: #86efac; background: #10261a; border-color: #1c4a2e; }
 .pill.grant.denied { color: #fca5a5; background: #2a1517; border-color: #6a2b2b; }
 .pill.grant.needsApproval { color: #fbbf24; background: #2a2110; border-color: #4a3a14; }

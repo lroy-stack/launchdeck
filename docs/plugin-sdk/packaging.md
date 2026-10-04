@@ -49,6 +49,15 @@ Declared in the manifest (`config`) and edited on the plugin's card. Changing on
 
 Do not edit it by hand while LaunchDeck runs.
 
+Two more things belong to an installed plugin and are kept apart from its settings, from the workspace and from the plugin's folder:
+
+| | Kept in | Travels with a surface or a plugin folder? |
+| --- | --- | --- |
+| Network grants | `permissions.json` in the app data folder (owner-only) | No. See [plugin permissions](../plugins/permissions.md). |
+| Secrets | The system's credential store, or `secrets.json` (owner-only) when there is none | No. See [secrets](secrets.md). |
+
+Changing a setting that a network address comes from asks for the new address; the grant for the old one stays on file and allows nothing.
+
 ## Using a plugin from a surface
 
 A plugin's actions appear in the **Action Library** in the Surface editor, listed as *Plugin: Notes*, as soon as the plugin is found. A person searches for one, assigns it to a pad and fills in its form; there is nothing to configure in the plugin or the host. The pad stores `{ "provider": "acme.notes", "action": "notes.add", "args": { "text": "hi" } }` and follows what the plugin publishes with an event rule on `provider: "acme.notes"`.

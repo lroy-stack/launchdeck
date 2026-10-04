@@ -127,8 +127,10 @@ class Desk(WebDriver):
     def sidebar(self, name):
         """Open a view or a surface from the sidebar by its name."""
         index = self.js(
+            # A count next to the name (approvals, permission requests) is not part of the name.
             "const n = arguments[0]; return [...document.querySelectorAll('button')].findIndex(b => {"
-            " const t = b.innerText.trim().replace(/\\s+/g, ' '); return t.endsWith(n) && t.length <= n.length + 3; })",
+            " const c = b.cloneNode(true); c.querySelectorAll('.badge').forEach(x => x.remove());"
+            " const t = c.textContent.trim().replace(/\\s+/g, ' '); return t.endsWith(n) && t.length <= n.length + 3; })",
             name,
         )
         if index is None or index < 0:
@@ -175,8 +177,10 @@ class Desk(WebDriver):
         self.js(
             """window.__e2eSamples = []; const t0 = performance.now();
             const pad = [...document.querySelectorAll('.pad')].find(b => b.style.gridColumnStart == String(arguments[0]) && b.style.gridRowStart == String(arguments[1]));
-            window.__e2eTimer = setInterval(() => window.__e2eSamples.push([Math.round(performance.now() - t0),
-              pad.style.getPropertyValue('--led').trim().toLowerCase(), /anim-/.test(pad.className)]), arguments[2]);""",
+            const take = () => window.__e2eSamples.push([Math.round(performance.now() - t0),
+              pad.style.getPropertyValue('--led').trim().toLowerCase(), /anim-/.test(pad.className)]);
+            take();  // what it shows before anything is done to it
+            window.__e2eTimer = setInterval(take, arguments[2]);""",
             col,
             row,
             every_ms,

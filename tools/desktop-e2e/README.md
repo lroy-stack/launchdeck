@@ -37,7 +37,7 @@ python3 tools/desktop-e2e/run.py feedback --from scoped      # from a step to th
 python3 tools/desktop-e2e/run.py feedback --display :0       # in a window you can watch
 ```
 
-`--only` and `--from` do not start from a clean app, so run the suite once from the start first.
+`--only` and `--from` do not start from a clean app, so run the suite once from the start first. (The `home_assistant` suite remembers its stand-in server's port in `.work/` for this, because the address saved by the earlier steps names it.)
 
 ## What a run touches
 
@@ -50,7 +50,7 @@ Everything a run writes is in `tools/desktop-e2e/.work/` (ignored by git), and n
 | `shots/` | Screenshots, named `<suite>-<step>-<name>.png`. A step that cannot go on leaves `…-failed.png`. |
 | `logs/` | Output of Xvfb, the driver and the app. |
 
-The run starts its own Xvfb on a free display and its own driver on free ports, and stops them when it ends. Your own LaunchDeck data is never read. Two things are shared with the machine: the app's WebSocket port (47821), so close a LaunchDeck that is running, and port 1420 for `--app debug`.
+The run starts its own Xvfb on a free display and its own driver on free ports, and stops them when it ends. Your own LaunchDeck data is never read. Two things are shared with the machine: the app's WebSocket port (47821), so close a LaunchDeck that is running, and port 1420 for `--app debug`. The `home_assistant` suite also listens on one free loopback port for its stand-in server.
 
 ## How it is laid out
 
@@ -58,10 +58,11 @@ The run starts its own Xvfb on a free display and its own driver on free ports, 
 run.py            the runner: display, driver, data folder, suites, summary
 lib/webdriver.py  a small W3C WebDriver client
 lib/desk.py       the app's own words on top of it: sidebar, mode, pads, LEDs, the editor, plugins
+lib/mock_home_assistant.py   a stand-in Home Assistant for the home_assistant suite (three REST endpoints, records every request)
 suites/*.py       the checks
 ```
 
-A **suite** is a module with a `NAME`, the example `PLUGINS` it needs, and `STEPS`, a list of functions. The runner empties the data folder, installs the plugins, and runs the steps in order. Every step gets a **new launch of the app** on the data the earlier steps saved, so plugins start from scratch each time, as they do for a user. A suite may define `setup(env)` and `teardown(env)` for something that lives beside the app, such as a local server.
+A **suite** is a module with a `NAME`, the example `PLUGINS` it needs, and `STEPS`, a list of functions. The runner empties the data folder, installs the plugins, and runs the steps in order. Every step gets a **new launch of the app** on the data the earlier steps saved, so plugins start from scratch each time, as they do for a user. A suite may define `setup(env)` and `teardown(env)` for something that lives beside the app, such as a local server, and may set `env.extra_env` there to give the app environment variables.
 
 A step is a function of one argument, the `Desk`:
 
@@ -85,10 +86,12 @@ def live(d):
 * **Act like a person.** `d.replace(field, text)` selects all and types, because the driver's own "clear" empties a field without telling React. `d.choose(select, value)` clicks the option.
 * **Pads are found by where they are drawn**: `d.click_pad(column, row)` counts from 1, with the top row of round buttons as row 1. `d.led(column, row)` is the colour the virtual Launchpad shows.
 * **The driver drops a connection now and then.** `tauri-driver`'s connection to WebKitWebDriver is sometimes reset before a request is delivered. The client sends the request again and the run says how often it happened. If the driver stops answering altogether, the suite is run once more from the start.
+* **A colour that passes quickly is sampled, not polled.** `d.sample_led(column, row)` records the pad's colour in the page every 25 ms, starting with what it shows before anything is done, and `d.sampled()` returns the runs of colour with their times. That is how a step sees *Off, Pending, On* around one click.
 * **Focus rings need a real key press.** `:focus-visible` is not set by `element.focus()` from a script, so a check of a focus ring has to get there with `d.keys("Tab")`.
 
 ## Suites
 
 | Suite | What it covers |
 | --- | --- |
+| `home_assistant` | Plugin capabilities with the Home Assistant example and a stand-in server (`lib/mock_home_assistant.py`, on a loopback port): the permission prompt with the exact address and how far it reaches, an address that comes from a setting, Deny, Allow and Revoke and what `permissions.json` and `audit.jsonl` hold afterwards, entering and removing the token and proof that it is in the secret store and in no other file or log, a pad that goes Off, Pending, On against the server, a change made on the server arriving by itself, a revoked grant (the Failed look, no request reaching the server, the reason on the card) and recovery. The run sets `LAUNCHDECK_SECRET_STORE=file`, so it never writes to a keychain. |
 | `feedback` | The feedback editor with the Counter and Channels plugins: authoring from an empty pad, saving, the virtual Launchpad following a state, a plugin turned off and on and taken away, an event's temporary look, scoped states, reordering by button and by Alt+arrows, and the whole authoring again with the keyboard only (which also covers the grid's arrow-key navigation). |

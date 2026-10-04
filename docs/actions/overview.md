@@ -56,4 +56,4 @@ The research behind the design and the decisions it led to are in [ACTION_LIBRAR
 
 ## Not built
 
-Marketplace and remote registries, network or filesystem capabilities, plugin-supplied UI, workflow chaining, macros and conditional actions, and recommendations are out of scope. **State-feedback suggestions** (which pad states an action usually drives) are deferred: they only pay off together with an editor for feedback rules, and a field that nothing reads would be dead metadata. A definition has no field for them, so adding them later changes nothing that is stored.
+Marketplace and remote registries, filesystem capabilities, plugin-supplied UI, workflow chaining, macros and conditional actions, and recommendations are out of scope. **State-feedback suggestions** (which pad states an action usually drives) are deferred: they only pay off together with an editor for feedback rules, and a field that nothing reads would be dead metadata. A definition has no field for them, so adding them later changes nothing that is stored.

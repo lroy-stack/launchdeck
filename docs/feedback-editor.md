@@ -76,6 +76,7 @@ A **look** is a colour and an animation with a name, kept in the control's `stat
   * **Renaming** rewrites every rule that showed the old name, so nothing is left pointing at it.
   * **Removing** a look nothing shows is immediate. Removing one that rules show asks first, and says what happens: the rules keep their choice, the choice reads `(this pad has no such look)`, and the pad rests until you create the look again or choose another.
 * A rule that names a look the pad does not have is **not an error and not silent**: the field says so and the note says what the pad does.
+* **Two names work without a rule.** A look called **Pending** is shown while the pad's own action is running (for example while a plugin waits for an answer from the network), and a look called **Failed** for 1.5 seconds after it fails. Both sit over the state rules and end by themselves; the Looks list says so next to them. They are ordinary looks in the file (`pending`, `failed`): the runtime decides when to show them, from the action's real progress. A finished action leaves no look behind, so what the pad shows after a press is what its state rules say.
 
 ## Event rules
 

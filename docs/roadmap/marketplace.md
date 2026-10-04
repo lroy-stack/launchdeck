@@ -91,7 +91,7 @@ What a marketplace would add around it, none of it built:
 }
 ```
 
-`permissions` would be a host-mediated version of the manifest's `capabilities` array, which is already in the format and must be empty today, so a plugin that needs one is refused by a host that cannot provide it. `checksums` and `signature` would be verified before a package is stored. The runtime contract is the one in [plugin-sdk/protocol.md](../plugin-sdk/protocol.md): actions in, replies and declared events out, no MIDI, no positions. A plugin that needs network access cannot exist until a mediated `network` capability is built; the sandbox gives it none.
+`permissions` would summarize the manifest's `capabilities` for a listing. Since manifest schema 4 one capability exists, `network`, with per-address grants the person gives on the Plugins screen (see [plugin permissions](../plugins/permissions.md)); a plugin that asks for any other is refused by a host that cannot provide it. `checksums` and `signature` would be verified before a package is stored. The runtime contract is the one in [plugin-sdk/protocol.md](../plugin-sdk/protocol.md): actions in, replies and declared events out, no MIDI, no positions. A marketplace would show what a package asks for before it is installed; installing would still grant nothing.
 
 ### Pack
 

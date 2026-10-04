@@ -94,25 +94,29 @@ Permissions declared: none. It starts nothing outside LaunchDeck by itself; comm
 
 Built-in providers with their own ids, so the library lists them with everything else. Navigation (*Open surface*, *Open page*) is declared by the provider and performed by the runtime. Shell (*Run shell command*) and HTTP (*HTTP request*) are marked **privileged**.
 
-## Why shell and HTTP cannot be reached by plugins
+## Why the shell and HTTP actions cannot be reached by plugins
 
-Shell commands and HTTP requests are privileged built-in actions that only a person can attach to a control. They appear in the Action Library like any other action, with a *Privileged* label, but they are not plugin capabilities: if they were, installing a plugin would be a route to running code. Only a pad a person configured, or the inspector's *Test run*, can run them. No plugin API, WebSocket message or Agent Bridge message invokes them or any other provider, installed plugin ids need two dotted parts and so cannot be `shell` or `http`, and no plugin API can execute a string as a command. Tests assert that exactly these two actions are privileged and that the manifest check refuses the built-in ids.
+*Run shell command* and *HTTP request* are privileged built-in actions that only a person can attach to a control. They appear in the Action Library like any other action, with a *Privileged* label, but they are not plugin capabilities: if they were, installing a plugin would be a route to running code or to requests anywhere. (An installed plugin's own network access is a different thing: a per-address grant through the broker, described under [permissions](#permissions-and-capabilities).) Only a pad a person configured, or the inspector's *Test run*, can run them. No plugin API, WebSocket message or Agent Bridge message invokes them or any other provider, installed plugin ids need two dotted parts and so cannot be `shell` or `http`, and no plugin API can execute a string as a command. Tests assert that exactly these two actions are privileged and that the manifest check refuses the built-in ids.
 
 ## Permissions and capabilities
 
 **Built-in plugins** declare permissions (`automation`, `network`, `filesystem`, `shell`, `accessibility`, `midi`) for the Plugins screen. They are trusted first-party code, so the declaration is documentation, not a gate.
 
-**Installed plugins** do not get permissions to ask for, because the sandbox has nothing to give: no filesystem, shell, network, MIDI, process, clock or secrets, and no WASI. They can only call the three host functions of the [protocol](plugin-sdk/protocol.md) (log, publish an event, reply). Their manifest has a `capabilities` array that must be empty in this version; a plugin that lists anything is refused, so a host that cannot provide a capability never runs a plugin that needs it. Details: [plugin-sdk/security.md](plugin-sdk/security.md).
+**Installed plugins** run in a sandbox that has nothing to give: no filesystem, shell, sockets, MIDI, process, clock or secrets, and no WASI. By themselves they can only call the three host functions of the [protocol](plugin-sdk/protocol.md) (log, publish an event, reply).
 
-How a real capability will be added (not built):
+One capability exists: **`network`**. A plugin's manifest asks for exact addresses and says why; the person allows or denies each one on the Plugins screen and can revoke it; and every request is made by LaunchDeck, which checks the address, the grant, where the name resolves and every redirect before anything is sent. A token is a *secret* that LaunchDeck keeps and adds to the request, and the plugin never sees it. The example is [Home Assistant](../examples/plugins/home-assistant/README.md).
 
-| Capability | Would grant | Example |
-| --- | --- | --- |
-| `network` | Outbound requests to hosts the manifest names, mediated by the host. | A Home Assistant plugin. |
-| `filesystem` | Read or write inside folders the person picks. | A notes plugin. |
-| `shell` | Run specific, person-approved commands. Never a general `exec`. | A git plugin. |
+| Read | For |
+| --- | --- |
+| [plugins/permissions.md](plugins/permissions.md) | What the person sees and decides. |
+| [plugin-sdk/capabilities.md](plugin-sdk/capabilities.md) | Requests, grants and uses. |
+| [plugin-sdk/network.md](plugin-sdk/network.md) | The request API, the checks, the limits. |
+| [plugin-sdk/secrets.md](plugin-sdk/secrets.md) | Secrets and where they are kept. |
+| [plugin-sdk/security.md](plugin-sdk/security.md) | The whole security model. |
 
-The rules for that future: the person grants each capability per install and can revoke it; an update that asks for more is re-approved; every capability call goes through the host so it can be checked and logged (never ambient access); and events a plugin publishes always carry its id as `source`, so it cannot publish as `runtime` or `device`. The last rule is already enforced.
+The rules, all enforced: nothing is granted by installing or updating; an update that asks for more needs a new approval for the new address only; grants live outside the workspace and the plugin folder; every capability call goes through the host, so it is checked and the decision is logged; and events a plugin publishes always carry its id as `source`, so it cannot publish as `runtime` or `device`.
+
+Not built, and not prepared for: `filesystem` (read or write inside folders the person picks) and `shell` (specific, person-approved commands, never a general `exec`). A manifest that asks for either is refused.
 
 ## Writing a built-in plugin
 

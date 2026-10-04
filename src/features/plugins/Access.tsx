@@ -25,7 +25,7 @@ const STATUS: Record<GrantStatus, string> = {
 
 const STORE: Record<SecretStoreKind, string> = {
   keychain: "Kept in your system's credential store.",
-  file: "Kept in a private file on this computer, because this system has no credential store.",
+  file: "Kept in a private file on this computer, readable by your account only: no system credential store is in use.",
   memory: "Kept in memory only, and forgotten when LaunchDeck closes.",
 };
 
@@ -49,7 +49,7 @@ export function NetworkAccess({ info, change }: { info: PluginInfo; change: Chan
   const failure = info.networkFailure;
 
   return (
-    <section className="access" aria-label={`Network access for ${name}`}>
+    <section className="plugin-access" aria-label={`Network access for ${name}`}>
       <div className="field-head">
         <h4>Network access</h4>
         <StatusPill status={net.status} />
@@ -163,7 +163,7 @@ function HostLine({ info, host, bare }: { info: PluginInfo; host: NetworkHost; b
 export function Secrets({ info, change }: { info: PluginInfo; change: Change }) {
   if (info.secrets.length === 0) return null;
   return (
-    <section className="access" aria-label={`Secrets of ${info.plugin.name}`}>
+    <section className="plugin-access" aria-label={`Secrets of ${info.plugin.name}`}>
       <h4>Secrets</h4>
       <p className="hint">
         A secret is used by LaunchDeck on the plugin's behalf and is never handed to the plugin. {STORE[info.secretStore]}

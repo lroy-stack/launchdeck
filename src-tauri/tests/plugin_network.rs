@@ -216,6 +216,27 @@ async fn a_granted_request_leaves_the_sandbox_and_the_answer_comes_back() {
         (Status::Known, Some("200".into()))
     );
     assert!(w.host.get(PROBE).unwrap().network_failure.is_none());
+
+    // What the broker costs: a whole request (sandbox, checks, a new connection
+    // to a loopback server, the answer back into the module), and a refusal,
+    // which never leaves the process.
+    let rounds = 100;
+    let started = Instant::now();
+    for _ in 0..rounds {
+        w.get(&server.url("/things"));
+    }
+    let per_request = started.elapsed() / rounds;
+    let started = Instant::now();
+    for _ in 0..rounds {
+        w.get("http://127.0.0.1:9/never");
+    }
+    let per_refusal = started.elapsed() / rounds;
+    eprintln!("through the broker: {per_request:?} per request to a loopback server, {per_refusal:?} per refused request (debug build)");
+    assert_eq!(
+        server.hits(),
+        1 + rounds as usize,
+        "the refused ones went nowhere"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

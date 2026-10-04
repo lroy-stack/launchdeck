@@ -4,14 +4,14 @@
 
 ```json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "id": "acme.notes",
   "name": "Notes",
   "version": "1.2.0",
   "description": "Short text shown on the Plugins screen.",
   "author": "Acme",
   "abi": 1,
-  "sdk": "0.1.1",
+  "sdk": "0.2.0",
   "main": "notes.wasm",
   "actions": [
     { "id": "notes.add", "label": "Add note", "description": "Adds a note to the list.",
@@ -26,10 +26,16 @@
   "events": [{ "type": "notes.added", "name": "Note added", "description": "A note was added. Payload: count.",
                "fields": [{ "name": "count", "label": "Count", "type": "number" }] }],
   "config": [
-    { "key": "limit", "type": "number", "default": 50, "description": "Most notes kept." },
-    { "key": "token", "type": "string", "secret": true, "description": "Access token." }
+    { "key": "limit", "type": "number", "default": 50, "label": "Limit", "description": "Most notes kept." },
+    { "key": "server", "type": "string", "default": "https://notes.example.com", "label": "Server" }
   ],
-  "capabilities": []
+  "capabilities": {
+    "network": { "purpose": "Save your notes to your Notes server.", "hosts": [{ "setting": "server" }] }
+  },
+  "secrets": [
+    { "key": "token", "label": "Access token", "description": "From your account page.", "host": { "setting": "server" } }
+  ],
+  "refresh": { "intervalSeconds": 30 }
 }
 ```
 
@@ -37,7 +43,7 @@
 
 | Field | Required | Rule |
 | --- | --- | --- |
-| `schemaVersion` | yes | `1`, `2` or `3`. Checked first, so a future shape fails with a clear message. Schema 3 is the current one: it adds `states`, the `name` and `fields` of an event, and `suggests` on an action, all optional. Schema 2 added the library fields below. Schema 1 and 2 manifests are still read, see [schema 1](#schema-1) and [what each schema adds](#what-each-schema-adds). |
+| `schemaVersion` | yes | `1` to `4`. Checked first, so a future shape fails with a clear message. Schema 4 is the current one: it adds `capabilities.network`, `secrets`, `refresh` and a `label` on settings. Schema 3 added `states`, the `name` and `fields` of an event, and `suggests` on an action. Schema 2 added the library fields below. Older manifests are still read, see [schema 1](#schema-1) and [what each schema adds](#what-each-schema-adds). |
 | `id` | yes | Lowercase dotted, at least two parts, 3 to 64 characters: `[a-z][a-z0-9-]*` per part. Built-in provider ids (`system`, `navigation`, `shell`, `http`, `demo`, `agent-control`) cannot be used because they have no dot, so an installed plugin can never claim, shadow or impersonate one. |
 | `name` | yes | 1 to 64 characters, no control characters. |
 | `version` | yes | `x.y.z`, numbers only. Your plugin's own version. |
@@ -50,7 +56,9 @@
 | `states` | no | Up to 64. Schema 3 only. See [States](#states). |
 | `events` | no | Up to 64. See below. |
 | `config` | no | Up to 32 settings. See below. |
-| `capabilities` | no | Must be empty in this version. A plugin that lists anything is refused with ``capability `x` is not available in this LaunchDeck``, because this host cannot provide it. The field exists so permissions can be added later without a new manifest shape. |
+| `capabilities` | no | Schema 4: an object. The only key is `network`: `{ "purpose", "hosts" }`. See [Capabilities](capabilities.md). Any other key is refused. In schemas 1 to 3 it is an array that must be empty; a plugin that lists anything is refused with ``capability `x` is not available in this LaunchDeck``. |
+| `secrets` | no | Schema 4. Up to 8 values LaunchDeck keeps and applies and the module never receives. See [Secrets](secrets.md). |
+| `refresh` | no | Schema 4. `{ "intervalSeconds": n }`, 2 to 3600, for a plugin that declares `states`: LaunchDeck asks it at that interval for the states pads are showing. See [Network](network.md#keeping-states-current-refresh). |
 
 ### Actions
 
@@ -128,7 +136,11 @@ Schema 3 events may also carry `name` (what the person sees; the type when absen
 
 ### Config
 
-Settings the person can change on the Plugins screen. `key` is a plain identifier, `type` is `string`, `number` or `boolean`, `default` must match the type, `description` is up to 280 characters. A setting with `"secret": true` cannot have a default, is never shown and never put in a snapshot or the plugin list, and the host never logs it; the screen only shows whether it is set. Values reach the module in the `init` request. Changing one restarts the plugin so it reads the new value.
+Settings the person can change on the Plugins screen. `key` is a plain identifier, `type` is `string`, `number` or `boolean`, `default` must match the type, `description` is up to 280 characters. Schema 4 adds `label`, 1 to 64 characters: the name shown above the field, and the name a permission prompt uses when an address comes from this setting (the key is shown when there is none). Values reach the module in the `init` request. Changing one restarts the plugin so it reads the new value.
+
+A setting named by `capabilities.network.hosts` as `{ "setting": key }` must be a `string`, and its `default`, if it has one, must be a URL with a usable origin.
+
+**`"secret": true` (schemas 1 to 3 only).** Such a setting cannot have a default, is never shown and never put in a snapshot or the plugin list, and the host never logs it; the screen only shows whether it is set. It is still handed to the module at `init` and stored in `plugins.json`. Schema 4 refuses the flag: declare the value under [`secrets`](secrets.md), which the module never sees.
 
 ## What each schema adds
 
@@ -137,9 +149,10 @@ Settings the person can change on the Plugins screen. `key` is a plain identifie
 | 1 | `actions[].args`, `events`, `config` | n/a |
 | 2 | `actions[].category`, `keywords`, `appearance`, `params` (schema 1's `args` become `params`) | no |
 | 3 | `states`, `events[].name` and `fields`, `actions[].suggests` | only to call `setState` |
+| 4 | `capabilities.network`, `secrets`, `refresh`, `config[].label`; refuses `config[].secret` | only to call `http.request` or answer `refresh` |
 
 Each schema only adds optional fields, so a manifest of an older schema keeps loading unchanged and declares no more than it did. Using a newer field under an older `schemaVersion` is an error that says which number it needs (`` `states` needs "schemaVersion": 3 ``). The module and the protocol do not change between them: `abi` stays `1`.
 
 ## What validation does
 
-Discovery reads each folder, refuses symlinks and anything over the size caps (module 8 MiB), then parses and validates the manifest. A folder that fails is listed under **Installed plugins** with the reason and never runs. A plugin that validates but cannot be loaded (the module is not valid WebAssembly, imports something the host does not provide, lacks an export, answers `init` with a failure, or reports a different `ld_abi` than the manifest) appears with status *error* and the reason. The other plugins are unaffected.
+Discovery reads each folder, refuses symlinks and anything over the size caps (module 8 MiB), then parses and validates the manifest. A folder that fails is listed under **Installed plugins** with the reason and never runs. A plugin that validates but cannot be loaded (the module is not valid WebAssembly, imports something the host does not provide, such as the network functions without the `network` capability, lacks an export, answers `init` with a failure, or reports a different `ld_abi` than the manifest) appears with status *error* and the reason. The other plugins are unaffected.

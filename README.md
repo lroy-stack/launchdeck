@@ -2,7 +2,7 @@
 
 **LaunchDeck turns MIDI grid controllers into programmable physical interfaces for your computer. Control apps. Automate workflows. Build accessible interfaces. Monitor and orchestrate AI agents.**
 
-It is a runtime, not a music toy: pads that open apps, run actions, switch contexts and show live state, starting with the Novation Launchpad X. A virtual Launchpad is built in, so everything works without hardware.
+It is a runtime, not a music toy: pads that open apps, run actions, switch contexts and show live state, including the state of things outside your computer through plugins you grant network access to, starting with the Novation Launchpad X. A virtual Launchpad is built in, so everything works without hardware.
 
 > Status: **v0.2 prototype.** The runtime, editor, virtual device, Launchpad X adapter and Agent Control work and are tested. The Launchpad X path has **not** been exercised on real hardware yet (see [known limitations](#known-limitations)).
 
@@ -43,7 +43,9 @@ Agents you connect start read-only. You grant control per agent, in the app. See
 | Agent Control: agents, sessions, approvals, commands, surface, Agents section in the app | Working. Demo agents, Agent Bridge, hook adapters. |
 | Starter surfaces: Agent Control, Development, Productivity, Accessibility, Smart Home | Included. |
 | System plugin, Demo plugin, Agent Control plugin | Working. |
-| Plugin SDK: external plugins in a WebAssembly sandbox, discovered from a folder, with typed actions, events on the existing bus, settings, logs, enable and disable | Working. AssemblyScript SDK and examples (Hello, Counter, a C one) in this repository. [Guide](docs/plugin-sdk/README.md) |
+| Plugin SDK: external plugins in a WebAssembly sandbox, discovered from a folder, with typed actions, events on the existing bus, states, settings, logs, enable and disable | Working. AssemblyScript SDK and examples (Hello, Counter, Channels, a C one) in this repository. [Guide](docs/plugin-sdk/README.md) |
+| Plugin capabilities: a plugin asks for network access to exact addresses, you allow or deny each one on the Plugins screen, and LaunchDeck sends the requests itself. Secrets are kept in the system credential store and never handed to the plugin. Actions show as pending while a request is out | Working. Tested with a real local server, and in the real desktop app. [Permissions](docs/plugins/permissions.md), [capabilities](docs/plugin-sdk/capabilities.md) |
+| Home Assistant example plugin: toggle a light from a pad and see on the pad whether it is on | Working against a stand-in server that implements the documented REST endpoints. **Not run against a real Home Assistant.** [Guide](examples/plugins/home-assistant/README.md) |
 | Local WebSocket for external events and the Agent Bridge (`127.0.0.1` only) | Working. |
 | Hook endpoint for Claude Code and Codex (`127.0.0.1` only, token, off by default) | Working for Claude Code (verified live). Codex untested. |
 | System tray | Working where the OS supports it. |
@@ -70,7 +72,8 @@ npm run rust:fmt
 npm run rust:check       # cargo check --all-targets
 npm run rust:test        # cargo test
 npm run tauri build      # production bundle
-npm run plugins:build    # rebuild the example plugin modules (Hello, Counter, C Ping)
+npm run plugins:build    # rebuild the example plugin modules (Hello, Counter, Channels, Home Assistant, C Ping)
+python3 tools/desktop-e2e/run.py   # drive the real built app (Linux, slow; see tools/desktop-e2e/README.md)
 LAUNCHDECK_PLUGINS="$PWD/examples/plugins" npm run tauri dev   # run with the example plugins
 ```
 
@@ -124,7 +127,8 @@ Events can change how pads look. They cannot execute anything. The sources `runt
 * **A permission request is never approved automatically.** Timeouts, hang-ups and errors all end with no decision. Only a person presses APPROVE.
 * **Prompts and sensitive payloads are not logged.** The audit log records what happened and who decided, not what the agent was asked to do.
 * **No silent installs, no telemetry, no cloud.** Nothing is downloaded. A plugin is a folder you put in the plugins folder.
-* **Installed plugins are sandboxed.** They run as WebAssembly with no filesystem, shell, network, MIDI or WASI, three host functions only, and limits on CPU time, memory and message size. They can publish only the events their manifest declares, never as someone else, and a crash stops only that plugin. They never see MIDI notes or pad positions. See [docs/plugin-sdk/security.md](docs/plugin-sdk/security.md), including what this does not protect against.
+* **Installed plugins are sandboxed.** They run as WebAssembly with no filesystem, shell, sockets, MIDI or WASI, a handful of host functions only, and limits on CPU time, memory and message size. They can publish only the events their manifest declares, never as someone else, and a crash stops only that plugin. They never see MIDI notes or pad positions. See [docs/plugin-sdk/security.md](docs/plugin-sdk/security.md), including what this does not protect against.
+* **A plugin reaches the network only through LaunchDeck, and only where you allowed.** It asks for exact addresses (scheme, host, port); nothing is granted by installing or updating; a redirect or a DNS answer cannot lead somewhere you did not approve; and local addresses are shown as local. Tokens are kept in the system credential store, sent to one address only, and never given to the plugin. Decisions are in a file outside the workspace, so a shared surface carries none. See [docs/plugins/permissions.md](docs/plugins/permissions.md).
 * Built-in plugins declare permissions (`network`, `filesystem`, `shell`, `automation`, `accessibility`, `midi`) that the Plugins screen displays; they are trusted first-party code, not gated. See [docs/plugins.md](docs/plugins.md) and [docs/agent-control/security.md](docs/agent-control/security.md).
 
 ## Project map
@@ -138,16 +142,18 @@ src-tauri/src/
   renderer/           semantic visual state to capability-aware frames
   actions/            Action Library: unified registry, definitions, parameter schema, action engine, Navigation, Shell and HTTP providers
   plugins/            plugin runtime, System plugin, Demo plugin
-  plugins/external/   Plugin SDK host: manifest, discovery, WebAssembly sandbox, lifecycle
+  plugins/external/   Plugin SDK host: manifest, discovery, WebAssembly sandbox, lifecycle,
+                      capabilities (requests and grants), network broker, secret stores
   agents/             Agent Control: model, service, adapters, bridge, audit, pack manifest
   events/             event bus, localhost WebSocket
   surfaces/           starter surfaces, including Agent Control
   persistence/        versioned JSON store, schema 2 to 3 migration
 sdk/assemblyscript/   the plugin SDK for AssemblyScript
 docs/                 product, architecture, surfaces, actions, plugins, plugin-sdk, device notes, roadmap, agent-control
+tools/desktop-e2e/    checks that drive the real desktop app through WebDriver (run on request)
 examples/             default-workspace.json, agents-snapshot.json, plugins-overview.json and action-catalog.json (generated by Rust and
                       parsed by the TypeScript tests), generic-agent/ (bridge client), agent-pack/ (manifest example),
-                      plugins/ (Hello, Counter and a C plugin, built outside the core)
+                      plugins/ (Hello, Counter, Channels, Home Assistant and a C plugin, built outside the core)
 ```
 
 ## Documentation
@@ -155,14 +161,14 @@ examples/             default-workspace.json, agents-snapshot.json, plugins-over
 * [Product](docs/product.md)
 * [Architecture](docs/architecture.md)
 * [Surfaces](docs/surfaces.md)
-* [Plugins](docs/plugins.md)
+* [Plugins](docs/plugins.md) and [plugin permissions](docs/plugins/permissions.md)
 * Actions: [overview](docs/actions/overview.md), [definitions](docs/actions/definitions.md), [parameters](docs/actions/parameters.md), [providers](docs/actions/providers.md), [availability](docs/actions/availability.md), [Action Library](docs/actions/action-library.md)
-* Plugin SDK: [overview](docs/plugin-sdk/README.md), [getting started](docs/plugin-sdk/getting-started.md), [manifest](docs/plugin-sdk/manifest.md), [AssemblyScript SDK](docs/plugin-sdk/assemblyscript.md), [protocol](docs/plugin-sdk/protocol.md), [security](docs/plugin-sdk/security.md), [packaging](docs/plugin-sdk/packaging.md), [testing](docs/plugin-sdk/testing.md), [versioning](docs/plugin-sdk/versioning.md)
+* Plugin SDK: [overview](docs/plugin-sdk/README.md), [getting started](docs/plugin-sdk/getting-started.md), [manifest](docs/plugin-sdk/manifest.md), [capabilities](docs/plugin-sdk/capabilities.md), [network](docs/plugin-sdk/network.md), [secrets](docs/plugin-sdk/secrets.md), [AssemblyScript SDK](docs/plugin-sdk/assemblyscript.md), [protocol](docs/plugin-sdk/protocol.md), [security](docs/plugin-sdk/security.md), [packaging](docs/plugin-sdk/packaging.md), [testing](docs/plugin-sdk/testing.md), [versioning](docs/plugin-sdk/versioning.md)
 * [Launchpad X notes](docs/devices/launchpad-x.md)
 * Agent Control: [overview](docs/agent-control/overview.md), [domain model](docs/agent-control/domain-model.md), [adapter SDK](docs/agent-control/adapter-sdk.md), [bridge protocol](docs/agent-control/bridge-protocol.md), [surfaces](docs/agent-control/surfaces.md), [security](docs/agent-control/security.md), [MCP (optional, design only)](docs/agent-control/mcp.md)
 * [Marketplace (roadmap)](docs/roadmap/marketplace.md)
 * [MCP at platform level (roadmap)](docs/roadmap/mcp.md)
-* [Implementation plan](IMPLEMENTATION_PLAN.md), [Agent Control plan](AGENT_CONTROL_PLAN.md), [Plugin SDK plan](PLUGIN_SDK_PLAN.md) and [Action Library plan](ACTION_LIBRARY_PLAN.md)
+* [Implementation plan](IMPLEMENTATION_PLAN.md), [Agent Control plan](AGENT_CONTROL_PLAN.md), [Plugin SDK plan](PLUGIN_SDK_PLAN.md), [Action Library plan](ACTION_LIBRARY_PLAN.md) and [Plugin capabilities plan](PLUGIN_CAPABILITIES_PLAN.md)
 
 ## Known limitations
 
@@ -173,7 +179,9 @@ examples/             default-workspace.json, agents-snapshot.json, plugins-over
 * **The Agent Bridge is not authenticated.** Any local process can register an agent, read-only. Control still needs your explicit grant.
 * **Agent state is not persisted.** Agents and sessions are rebuilt as adapters reconnect. Settings, control grants and the audit trail are kept.
 * Keyboard shortcuts and volume keys use OS automation (`enigo`). On macOS this needs Accessibility permission, and on Linux Wayland sessions may block synthetic input.
-* **Installed plugins cannot do I/O yet.** The sandbox gives them no network or files, and the capability mechanism that would grant them is reserved but not built. A plugin that must reach a service (Home Assistant, for example) has to wait for it.
+* **The only plugin capability is HTTP.** A plugin can make HTTP and HTTPS requests to addresses you granted, with text bodies, one at a time. There are no files, no shell, no WebSocket or other long-lived connection, no MQTT, no OAuth flow and no proxy support. State from an outside system is therefore **polled** (the Home Assistant example every 5 seconds), not pushed.
+* **The Home Assistant example was checked against a stand-in, not a real installation**, and switches lights and switches on and off only.
+* **Secrets fall back to a private file** (`secrets.json`, readable by your account only, not encrypted) when the system has no credential store, and the app says so. A secret is not removed when its plugin's folder is deleted.
 * **Plugins are not signed.** There is no signature, checksum check or revocation, and no marketplace. Install only plugins you trust; the sandbox protects LaunchDeck from the plugin, not you from a misleading one.
 * **Action settings use a closed set of field kinds.** Text, number, on/off, choice, and a surface or page. There is no list, colour or file picker kind, and a plugin cannot ship its own form. Anything else is a text field until the schema grows.
 * **A feedback rule is one comparison on one state, or one event.** There is no AND / OR, no timer that marks a state stale, no scripting and no aggregate state ("anything needs me"). The editor reports a rule that can never be reached only when it can prove it. See [docs/feedback-editor.md](docs/feedback-editor.md#not-built).

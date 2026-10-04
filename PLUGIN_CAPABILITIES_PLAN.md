@@ -81,7 +81,7 @@ Error codes: `permission_denied` (requested, not granted), `host_not_allowed` (n
   | Reach | Origin | May resolve to |
   | --- | --- | --- |
   | This computer | `localhost`, `*.localhost`, loopback addresses | loopback only |
-  | Your local network | private, link-local and unique-local addresses; `*.local`; names without a dot | loopback, private, link-local, unique-local |
+  | Your local network | private, link-local, carrier-NAT and unique-local addresses; names ending in `.local`, `.lan`, `.internal`, `.home.arpa`; names without a dot | loopback, private, link-local, unique-local |
   | The internet | every other name, public addresses | public addresses only |
 
   So a grant for an internet name cannot be turned into access to the LAN or to this computer by changing DNS (rebinding), and local access is always something the person saw and approved.

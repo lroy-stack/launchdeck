@@ -74,7 +74,9 @@ A rule names its look one of two ways: `"show": "name"`, or `"showFromValue": tr
 
 `where` compares payload fields as values, `showFromField` names the look after a payload field, and `hold` is `{"ms": 200 to 60000}` (default 3 s) or `"latch"`. A temporary look sits **over** the look the state rules give. When it ends the pad returns to what the state rules say now. Events are never written to the hub or to the file. The newest event replaces an older temporary look of the same control, and an older timer cannot take a newer look away. `latch` keeps the look until another event replaces it, `idle` clears it or the control is edited; it exists so that migrated bindings behave as they did.
 
-What decides a pad's look, top to bottom: a temporary look (an event rule, or the automatic `running` / `success` / `error` of a pad **without** feedback rules), then the state rules, then the resting look.
+What decides a pad's look, top to bottom: a temporary look, then the state rules, then the resting look. A temporary look is one of: an event rule's look; the look named `pending` while the control's own action is in flight and the look named `failed` for 1.5 s after it failed, when the control defines them; or, on a pad **without** feedback rules, the automatic `running` / `success` / `error`.
+
+The runtime also publishes the actions in flight in its state (`pending`: control, action, since), so an interface can mark a busy pad without guessing. An action's result is never a state: a pad that should read *On* after a press needs a state rule and a provider that reports the value it read.
 
 ### The gate
 
@@ -91,7 +93,7 @@ An index maps each state, provider and event to the controls that read it, and i
 | `agent-control` | `slot.status {slot}`, `slot.focused {slot}`, `command.state {command}`. The agent domain stays authoritative; its projection is written to the hub on every change, and the track, marker and command pads read it. Nothing is replayed to repaint a surface. |
 | `runtime` (LaunchDeck) | `surface.active`, `page.active`: the surface and page on screen. |
 | `demo` | One state per simulated agent (`alpha`, `beta`, `gamma`): `idle`, `running`, `waiting`, `approval-required`, `success`, `error`. |
-| Installed plugins | The `states` of their manifest (schema 3), written with `setState`. The Counter reports `level`; Channels reports `status {channel}`. A plugin that declares none keeps working: its events work as event rules. |
+| Installed plugins | The `states` of their manifest (schema 3 and later), written with `setState`. The Counter reports `level`; Channels reports `status {channel}`; the Home Assistant example reports `entity {entity}`, read from an outside system. A plugin that declares `refresh` is asked every few seconds for the instances saved controls read, so its states follow changes made elsewhere; an instance no saved control reads is not asked for and stays `unknown`. A plugin that declares none keeps working: its events work as event rules. |
 
 The event projection of Agent Control (`slot.changed`, `focus.changed`, `command.state`) is still published, for subscribers of the bus and the WebSocket.
 

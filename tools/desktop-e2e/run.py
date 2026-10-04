@@ -26,7 +26,7 @@ sys.path.insert(0, HERE)
 from lib.desk import Desk  # noqa: E402
 from lib.webdriver import DriverError, DriverGone  # noqa: E402
 
-SUITES = ["feedback"]
+SUITES = ["feedback", "home_assistant"]
 DEV_URL = "http://127.0.0.1:1420/"
 
 

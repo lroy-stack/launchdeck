@@ -45,6 +45,7 @@ my-plugin/
 
 ```ts
 import { action, onInit, ok, fail, publish, setState, Json, Call, Reply } from "@launchdeck/plugin-sdk/assembly";
+// with the network capability, also: http, HttpRequest, HttpResponse, HttpError, onRefresh, Watched
 export * from "@launchdeck/plugin-sdk/assembly/abi";
 ```
 
@@ -61,6 +62,9 @@ The second line exports `ld_abi`, `ld_alloc` and `ld_handle`. Without it the mod
 | `publish(type, payload?)` | Publish a declared event. Returns `false` if the host refused it (the reason is in the log). Delivered when the call returns normally. |
 | `setState(id, value, args?)` | Say how a declared state is now. `value` is a string, a boolean or a number; `args` is a `Json` object naming the instance of a scoped state. Returns `false` if the host refused it. Delivered when the call returns normally. See [States](states.md). |
 | `clearState(id, args?)` | Say that an instance has no value now: it reads `unknown` again. |
+| `http.request(request)`, `http.get(url)` | Ask LaunchDeck to send an HTTP request to an address the manifest asks for and the person granted. Returns an `HttpResponse`; never traps. Needs `capabilities.network`. See [Network](network.md). |
+| `new HttpRequest(method, url)` with `.header()`, `.json()`, `.text()`, `.bearer(secret)`, `.timeout(ms)` | Describe the request. `.bearer("token")` names a [secret](secrets.md); the value is added by LaunchDeck and never reaches the plugin. |
+| `onRefresh(handler)` | Optional. `handler(watching: Watched[]): Reply` is called at the manifest's `refresh` interval with the state instances pads are showing (`Watched` has `state: string` and `args: Json`). |
 | `debug`, `info`, `warn`, `error`, `log(level, text)` | Write to the plugin's log (see the Plugins screen). |
 
 `Call` has `action: string` and `args: Json`. Arguments were already validated against the action's `params` in the manifest, with defaults filled in and blanks removed, so `getString("name", fallback)` only ever sees a string or nothing.
@@ -83,7 +87,9 @@ The setters return the object, so they chain: `Json.object().setString("name", n
 * **Report how things are, whenever you learn it.** `setState("level", "high")` costs almost nothing when the value did not change, so report it from every action, including the ones that fail. A pad that shows a level reads the state; a pad that flashes when something happens reads the event. See [States](states.md) for which a fact is.
 * **Fail with a sentence.** `fail("the counter is at its maximum", "at_limit")` appears on the pad's failure and in the log. Do not trap on expected conditions.
 * **Keep state in globals.** The module lives as long as the plugin is running, so a counter survives between presses. Restarting the plugin (disable and enable, changing a setting, **Reload**) starts again from zero, and every state it declared reads `unknown` until an action reports it again. Nothing is saved for you; if a value matters across restarts, make it a setting.
-* **Stay short.** A call has 2 seconds and 100 million instructions. Long work does not belong in a plugin yet (there are no timers and no network).
+* **Stay short.** A call has 2 seconds and 100 million instructions of its own. Waiting for a network answer is not counted against them, but a call may spend at most 30 seconds on the network. There are no timers; to do something regularly, declare `refresh`.
+* **Say what is true, not what you asked for.** After a request that changes something outside, read the value back and report *that* with `setState`. When the outside system cannot be read, `clearState`, so a pad shows unknown instead of a stale value.
+* **Pass network failures on.** `if (!r.ok) return fail(r.message, r.error);` gives the person the reason (`permission_denied`, `secret_missing`, `timeout`) on the pad and on the plugin's card.
 * **Do not name globals like builtins.** A global called `max` hides AssemblyScript's `max()`.
 
 ## Memory
