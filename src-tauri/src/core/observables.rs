@@ -12,7 +12,7 @@
 use crate::actions::definition::{ProviderInfo, ProviderKind, ProviderStatus};
 use crate::events::types;
 use crate::state::catalog::Source;
-use crate::state::definition::ObservableDefinition;
+use crate::state::definition::{ObservableDefinition, Role};
 use crate::state::StateAddress;
 
 /// The bus source of action, navigation and device-connection events.
@@ -31,6 +31,13 @@ pub fn surface_active() -> StateAddress {
 
 pub fn page_active() -> StateAddress {
     StateAddress::new(RUNTIME, PAGE_ACTIVE)
+}
+
+/// Who decides which surface is shown: `off`, `auto`, `manual`, `paused`, `unavailable`.
+pub const CONTEXT_MODE: &str = "context.mode";
+
+pub fn context_mode() -> StateAddress {
+    StateAddress::new(RUNTIME, CONTEXT_MODE)
 }
 
 /// The states the runtime reports to the hub. Always running.
@@ -54,6 +61,23 @@ pub fn states() -> Vec<ObservableDefinition> {
         .category("LaunchDeck")
         .keywords(&["page", "navigation", "current"])
         .text(),
+        // One word about Auto Context, so a pad can show it. Which
+        // application is in front is deliberately not a state.
+        ObservableDefinition::state(
+            RUNTIME,
+            CONTEXT_MODE,
+            "Auto Context",
+            "Whether the surface follows the application in front: on, kept by hand, paused while editing, off, or not available on this system.",
+        )
+        .category("LaunchDeck")
+        .keywords(&["context", "auto", "application", "override"])
+        .one_of(&[
+            ("auto", "Auto", Some(Role::Ok)),
+            ("manual", "Manual override", Some(Role::Attention)),
+            ("paused", "Paused while editing", Some(Role::Inactive)),
+            ("off", "Off", Some(Role::Inactive)),
+            ("unavailable", "Not available", Some(Role::Warning)),
+        ]),
     ]
 }
 
@@ -211,7 +235,12 @@ mod tests {
     #[test]
     fn only_what_has_a_current_value_is_a_state() {
         let states = states();
-        assert_eq!(states.len(), 2);
+        let ids: Vec<&str> = states.iter().map(|d| d.local.as_str()).collect();
+        assert_eq!(ids, vec![SURFACE_ACTIVE, PAGE_ACTIVE, CONTEXT_MODE]);
         assert!(states.iter().all(|d| d.is_state() && d.params.is_empty()));
+        // Auto Context is one word. Which application is in front is not
+        // something a pad, a plugin or the catalog can read.
+        let listed = serde_json::to_string(&states).unwrap();
+        assert!(!listed.contains("foreground") && !listed.contains("application.id"));
     }
 }

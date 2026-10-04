@@ -44,6 +44,7 @@ async fn start() -> (Arc<Runtime>, u16) {
         demo_pace: 0.05,
         plugin_dirs: vec![],
         secrets: None,
+        observer: None,
     })
     .await;
     let st = rt.state();

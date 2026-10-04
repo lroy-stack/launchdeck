@@ -31,6 +31,7 @@ pub async fn capture() -> Value {
         demo_pace: 0.05,
         plugin_dirs: vec![],
         secrets: None,
+        observer: None,
     })
     .await;
     rt.demo_adapter().run_demo().expect("demo starts");

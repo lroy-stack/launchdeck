@@ -5,8 +5,8 @@
 
 import { agentsSnapshotSchema, type AgentsSnapshot } from "./agents";
 import { indexCatalog, normalizeArgs } from "./actions";
-import { catalogSchema, definitionId, feedbackReviewSchema, observableCatalogSchema, posKey, snapshotSchema, workspaceSchema } from "./schema";
-import type { Assignment, Control, ControlPos, Frame, Issue, Mode, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Workspace } from "./schema";
+import { catalogSchema, contextSettingsSchema, definitionId, feedbackReviewSchema, observableCatalogSchema, posKey, snapshotSchema, workspaceSchema } from "./schema";
+import type { Assignment, ContextSettings, ContextStatus, Control, ControlPos, Frame, Issue, Mode, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Workspace } from "./schema";
 
 type Handler = (payload: unknown) => void;
 
@@ -179,6 +179,18 @@ export async function createPreviewTransport() {
     return issues.length > 0 ? { issues } : { assignment: { ...a, args }, issues: [] };
   };
 
+  // Nothing observes the foreground in a browser tab: the settings can be
+  // edited and are forgotten, and the status says why nothing follows them.
+  let contextSettings: ContextSettings = { auto: false, rules: [], fallback: { kind: "keep" } };
+  const context = (): ContextStatus => ({
+    settings: contextSettings,
+    observer: { state: "unavailable", reason: "Browser preview: the desktop app is what sees which application is in front." },
+    mode: contextSettings.auto ? "unavailable" : "off",
+    foreground: { kind: "unknown" },
+    recent: [],
+    problems: contextSettings.rules.map(() => null),
+  });
+
   const snapshot = (): Snapshot =>
     snapshotSchema.parse({
       workspace,
@@ -188,12 +200,20 @@ export async function createPreviewTransport() {
       observables,
       recentEvents: events,
       agents,
+      context: context(),
     });
 
   const invoke = async (cmd: string, args: Record<string, unknown> = {}): Promise<unknown> => {
     switch (cmd) {
       case "get_snapshot":
         return snapshot();
+      case "context_status":
+      case "context_resume":
+        return context();
+      case "context_update":
+        contextSettings = contextSettingsSchema.parse(args.settings);
+        emit("context-changed", context());
+        return context();
       case "virtual_frame":
         return frame();
       case "set_mode":

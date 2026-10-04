@@ -169,6 +169,7 @@ mod tests {
             }],
             last_active_surface: None,
             preferences: Default::default(),
+            context: Default::default(),
         }
     }
 

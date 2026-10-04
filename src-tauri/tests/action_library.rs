@@ -49,6 +49,7 @@ async fn start_with(workspace: Workspace, store: Option<Store>, plugins: bool) -
         demo_pace: 0.05,
         plugin_dirs: if plugins { vec![examples()] } else { vec![] },
         secrets: None,
+        observer: None,
     })
     .await;
     wait_until("first frame", || {

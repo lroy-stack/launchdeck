@@ -13,7 +13,7 @@
         "instances": [
           {
             "status": "known",
-            "updatedAt": 1791133107852,
+            "updatedAt": 1791151071233,
             "value": "scenario"
           }
         ],
@@ -43,7 +43,7 @@
         "instances": [
           {
             "status": "known",
-            "updatedAt": 1791133107852,
+            "updatedAt": 1791151071233,
             "value": "home"
           }
         ],
@@ -59,6 +59,63 @@
         "providerName": "LaunchDeck",
         "value": {
           "type": "string"
+        }
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "LaunchDeck",
+        "description": "Whether the surface follows the application in front: on, kept by hand, paused while editing, off, or not available on this system.",
+        "id": "runtime.context.mode",
+        "instanceCount": 1,
+        "instances": [
+          {
+            "status": "known",
+            "updatedAt": 1791151070975,
+            "value": "off"
+          }
+        ],
+        "keywords": [
+          "context",
+          "auto",
+          "application",
+          "override"
+        ],
+        "kind": "state",
+        "local": "context.mode",
+        "name": "Auto Context",
+        "provider": "runtime",
+        "providerName": "LaunchDeck",
+        "value": {
+          "type": "enum",
+          "values": [
+            {
+              "label": "Auto",
+              "role": "ok",
+              "value": "auto"
+            },
+            {
+              "label": "Manual override",
+              "role": "attention",
+              "value": "manual"
+            },
+            {
+              "label": "Paused while editing",
+              "role": "inactive",
+              "value": "paused"
+            },
+            {
+              "label": "Off",
+              "role": "inactive",
+              "value": "off"
+            },
+            {
+              "label": "Not available",
+              "role": "warning",
+              "value": "unavailable"
+            }
+          ]
         }
       },
       {
@@ -545,7 +602,7 @@
               "slot": 0
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": "idle"
           },
           {
@@ -553,7 +610,7 @@
               "slot": 1
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069088,
             "value": "idle"
           },
           {
@@ -561,7 +618,7 @@
               "slot": 2
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069088,
             "value": "idle"
           },
           {
@@ -569,7 +626,7 @@
               "slot": 3
             },
             "status": "known",
-            "updatedAt": 1791133105522,
+            "updatedAt": 1791151069088,
             "value": "idle"
           },
           {
@@ -577,7 +634,7 @@
               "slot": 4
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": "empty"
           },
           {
@@ -585,7 +642,7 @@
               "slot": 5
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": "empty"
           },
           {
@@ -593,7 +650,7 @@
               "slot": 6
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": "empty"
           },
           {
@@ -601,7 +658,7 @@
               "slot": 7
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": "empty"
           }
         ],
@@ -710,7 +767,7 @@
               "slot": 0
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": false
           },
           {
@@ -718,7 +775,7 @@
               "slot": 1
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": false
           },
           {
@@ -726,7 +783,7 @@
               "slot": 2
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": false
           },
           {
@@ -734,7 +791,7 @@
               "slot": 3
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": false
           },
           {
@@ -742,7 +799,7 @@
               "slot": 4
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": false
           },
           {
@@ -750,7 +807,7 @@
               "slot": 5
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": false
           },
           {
@@ -758,7 +815,7 @@
               "slot": 6
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": false
           },
           {
@@ -766,7 +823,7 @@
               "slot": 7
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": false
           }
         ],
@@ -825,7 +882,7 @@
               "command": "approve"
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": "unavailable"
           },
           {
@@ -833,7 +890,7 @@
               "command": "cancel"
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": "unavailable"
           },
           {
@@ -841,7 +898,7 @@
               "command": "pause"
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": "unavailable"
           },
           {
@@ -849,7 +906,7 @@
               "command": "reject"
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": "unavailable"
           },
           {
@@ -857,7 +914,7 @@
               "command": "resume"
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": "unavailable"
           },
           {
@@ -865,7 +922,7 @@
               "command": "retry"
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": "unavailable"
           },
           {
@@ -873,7 +930,7 @@
               "command": "send_instruction"
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": "unavailable"
           },
           {
@@ -881,7 +938,7 @@
               "command": "spawn"
             },
             "status": "known",
-            "updatedAt": 1791133105521,
+            "updatedAt": 1791151069087,
             "value": "available"
           }
         ],
@@ -2980,7 +3037,7 @@
               "channel": "alpha"
             },
             "status": "known",
-            "updatedAt": 1791133107853,
+            "updatedAt": 1791151071231,
             "value": "up"
           },
           {
@@ -2988,7 +3045,7 @@
               "channel": "beta"
             },
             "status": "known",
-            "updatedAt": 1791133107854,
+            "updatedAt": 1791151071233,
             "value": "down"
           }
         ],
@@ -3078,7 +3135,7 @@
         "instances": [
           {
             "status": "known",
-            "updatedAt": 1791133107852,
+            "updatedAt": 1791151071230,
             "value": "low"
           }
         ],
@@ -3319,7 +3376,7 @@
           },
           "observed": {
             "status": "known",
-            "updatedAt": 1791133107852,
+            "updatedAt": 1791151071230,
             "value": "low"
           },
           "valueLabel": "Low"
@@ -3343,7 +3400,7 @@
       "overlay": {
         "latched": false,
         "look": "blink",
-        "remainingMs": 29743,
+        "remainingMs": 29740,
         "rule": 1,
         "source": "event"
       },
@@ -3366,7 +3423,7 @@
           },
           "observed": {
             "status": "known",
-            "updatedAt": 1791133107852,
+            "updatedAt": 1791151071230,
             "value": "low"
           },
           "valueLabel": "Low"
@@ -3515,7 +3572,7 @@
                 "channel": "alpha"
               },
               "status": "known",
-              "updatedAt": 1791133107853,
+              "updatedAt": 1791151071231,
               "value": "up"
             },
             {
@@ -3523,7 +3580,7 @@
                 "channel": "beta"
               },
               "status": "known",
-              "updatedAt": 1791133107854,
+              "updatedAt": 1791151071233,
               "value": "down"
             }
           ]
@@ -3537,7 +3594,7 @@
           "instances": [
             {
               "status": "known",
-              "updatedAt": 1791133107852,
+              "updatedAt": 1791151071230,
               "value": "low"
             }
           ]
@@ -3643,7 +3700,7 @@
             },
             "observed": {
               "status": "known",
-              "updatedAt": 1791135964515,
+              "updatedAt": 1791151071230,
               "value": "low"
             },
             "valueLabel": "Low"
@@ -3665,7 +3722,7 @@
             },
             "observed": {
               "status": "known",
-              "updatedAt": 1791135964515,
+              "updatedAt": 1791151071230,
               "value": "low"
             },
             "valueLabel": "Low"
@@ -3739,7 +3796,7 @@
             },
             "observed": {
               "status": "known",
-              "updatedAt": 1791135964516,
+              "updatedAt": 1791151071231,
               "value": "up"
             },
             "valueLabel": "Up"
@@ -3759,7 +3816,7 @@
             },
             "observed": {
               "status": "known",
-              "updatedAt": 1791135964515,
+              "updatedAt": 1791151071230,
               "value": "low"
             },
             "valueLabel": "Low"

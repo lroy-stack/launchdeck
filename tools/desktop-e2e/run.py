@@ -27,7 +27,7 @@ sys.path.insert(0, HERE)
 from lib.desk import Desk  # noqa: E402
 from lib.webdriver import DriverError, DriverGone  # noqa: E402
 
-SUITES = ["feedback", "home_assistant", "secrets"]
+SUITES = ["feedback", "home_assistant", "secrets", "context"]
 # The password of the throwaway keyring a suite may ask for. It protects nothing.
 KEYRING_PASSWORD = "launchdeck-desktop-e2e"
 DEV_URL = "http://127.0.0.1:1420/"
@@ -78,6 +78,9 @@ class Environment:
         # Not under `.work/`: that kind of folder belongs in the system's
         # temporary space, and a mount inside the repository helps nobody.
         self.runtime_dir = None
+        # A window manager on the display, for the steps that need the desktop
+        # to say which window is active. Without one the app sees none.
+        self.window_manager = None
         self.app = self.find_app(args.app)
         for d in (self.work, self.shots, self.logs):
             os.makedirs(d, exist_ok=True)
@@ -112,6 +115,9 @@ class Environment:
             for tool, package in (("dbus-run-session", "dbus"), ("gnome-keyring-daemon", "gnome-keyring")):
                 if not which(tool):
                     missing.append(f"{tool} (apt install {package}), for the suites that need a credential store")
+        for tool in sorted(self.needs_tools):
+            if not which(tool):
+                missing.append(f"{tool} (apt install {tool}), for the suites that put other applications on the display")
         if missing:
             sys.exit("Missing:\n  " + "\n  ".join(missing))
 
@@ -150,6 +156,21 @@ class Environment:
                 return
             time.sleep(0.1)
         sys.exit("Xvfb did not start; see " + os.path.join(self.logs, "xvfb.log"))
+
+    def set_window_manager(self, on):
+        """Run a window manager (openbox) on the display, or stop it."""
+        if on and not self.window_manager:
+            self.window_manager = self.spawn("openbox", ["openbox"], env={**os.environ, "DISPLAY": self.display})
+            time.sleep(1.0)
+        elif not on and self.window_manager:
+            self.stop(self.window_manager)
+            self.window_manager = None
+            time.sleep(0.4)
+
+    def x(self, *command, check=False):
+        """Run an X client (wmctrl, xprop, ...) on the run's display and return what it printed."""
+        done = subprocess.run(list(command), env={**os.environ, "DISPLAY": self.display}, capture_output=True, text=True, check=check)
+        return done.stdout
 
     def start_dev_server(self):
         if not self.needs_dev_server or port_open(1420):
@@ -260,6 +281,7 @@ def run_suite(env, suite, first=None, only=None):
             title = (step.__doc__ or name).strip().splitlines()[0]
             print(f"\n  {suite.NAME} / {name}: {title}", flush=True)
             env.keyring = getattr(step, "keyring", getattr(suite, "KEYRING", False))
+            env.set_window_manager(getattr(step, "window_manager", getattr(suite, "WINDOW_MANAGER", False)))
             desk = env.open(f"{suite.NAME}-{name}")
             try:
                 step(desk)
@@ -279,6 +301,7 @@ def run_suite(env, suite, first=None, only=None):
     finally:
         if teardown:
             teardown(env)
+        env.set_window_manager(False)
     return results
 
 
@@ -309,6 +332,7 @@ def main():
         sys.exit("--from and --only need exactly one suite")
 
     env = Environment(args)
+    env.needs_tools = {tool for m in modules for tool in getattr(m, "TOOLS", [])}
     env.needs_keyring = any(getattr(m, "KEYRING", False) or any(getattr(f, "keyring", False) for f in m.STEPS) for m in modules)
     env.check_tools()
     results = []

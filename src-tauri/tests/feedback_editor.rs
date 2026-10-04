@@ -136,6 +136,7 @@ fn workspace(controls: Vec<Control>) -> Workspace {
         ],
         last_active_surface: Some(SURFACE.into()),
         preferences: Preferences::default(),
+        context: Default::default(),
     }
 }
 
@@ -158,6 +159,7 @@ async fn start(controls: Vec<Control>) -> Env {
         demo_pace: 0.05,
         plugin_dirs: vec![plugins],
         secrets: None,
+        observer: None,
     })
     .await;
     wait_until("the first frame", || {

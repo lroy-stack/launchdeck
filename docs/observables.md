@@ -26,7 +26,7 @@ the runtime ─────┘                             ├─► Observable 
 
 | Provider | Id | States | Events |
 | --- | --- | --- | --- |
-| LaunchDeck itself | `runtime` | `surface.active`, `page.active` (the surface and page on screen) | `action.started`, `action.completed`, `action.failed`, `surface.changed`, `page.changed`, `device.connected`, `device.disconnected` |
+| LaunchDeck itself | `runtime` | `surface.active`, `page.active` (the surface and page on screen), `context.mode` (whether Auto Context is in charge: `auto`, `manual`, `paused`, `off`, `unavailable`) | `action.started`, `action.completed`, `action.failed`, `surface.changed`, `page.changed`, `device.connected`, `device.disconnected` |
 | Devices | `device` | none | `control.pressed` |
 | Agent Control | `agent-control` | `slot.status {slot}`, `slot.focused {slot}`, `command.state {command}` | `agent.online`, `agent.offline`, `agent.access`, `session.created`, `session.started`, `session.ended`, one `session.<status>` per status, `approval.created`, `approval.resolved`, `command.sent`, `command.completed` |
 | Demo | `demo` | `alpha`, `beta`, `gamma` | none |

@@ -706,6 +706,7 @@ pub fn default_workspace() -> Workspace {
         surfaces: starter_surfaces(),
         last_active_surface: Some(agent_control::SURFACE_ID.into()),
         preferences: Preferences::default(),
+        context: Default::default(),
     }
 }
 

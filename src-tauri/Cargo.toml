@@ -34,6 +34,20 @@ wasmtime = { version = "48.0.4", default-features = false, features = ["std", "r
 keyring = "4"
 url = "2"
 
+# Which application is in front (Context Engine). One small native adapter
+# per system; each reads the application's identity and nothing else.
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+x11rb = "0.14"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+block2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSWorkspace", "NSRunningApplication"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSOperation"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_UI_Accessibility", "Win32_UI_WindowsAndMessaging"] }
+
 [dev-dependencies]
 tempfile = "3"
 wat = "1"

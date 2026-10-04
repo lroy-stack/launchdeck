@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../../lib/ipc";
 import { useStore } from "../../stores/runtime";
+import { ContextPanel } from "../context/ContextPanel";
 
 export function SettingsView() {
   const state = useStore((s) => s.state);
@@ -65,6 +66,8 @@ export function SettingsView() {
         </ul>
         {!state.devices.some((d) => d.identity.kind === "hardware") && <p className="hint">No Launchpad X found. The virtual device works the same way.</p>}
       </section>
+
+      <ContextPanel />
 
       <section className="panel">
         <div className="panel-head">

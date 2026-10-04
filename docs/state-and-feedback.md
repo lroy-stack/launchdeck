@@ -91,7 +91,7 @@ An index maps each state, provider and event to the controls that read it, and i
 | Provider | States |
 | --- | --- |
 | `agent-control` | `slot.status {slot}`, `slot.focused {slot}`, `command.state {command}`. The agent domain stays authoritative; its projection is written to the hub on every change, and the track, marker and command pads read it. Nothing is replayed to repaint a surface. |
-| `runtime` (LaunchDeck) | `surface.active`, `page.active`: the surface and page on screen. |
+| `runtime` (LaunchDeck) | `surface.active`, `page.active`: the surface and page on screen. `context.mode`: one word about [Auto Context](context-engine.md). Which application is in front is deliberately not a state. |
 | `demo` | One state per simulated agent (`alpha`, `beta`, `gamma`): `idle`, `running`, `waiting`, `approval-required`, `success`, `error`. |
 | Installed plugins | The `states` of their manifest (schema 3 and later), written with `setState`. The Counter reports `level`; Channels reports `status {channel}`; the Home Assistant example reports `entity {entity}`, read from an outside system. A plugin that declares `refresh` is asked every few seconds for the instances saved controls read, so its states follow changes made elsewhere; an instance no saved control reads is not asked for and stays `unknown`. A plugin that declares none keeps working: its events work as event rules. |
 

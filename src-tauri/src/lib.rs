@@ -12,6 +12,7 @@
 
 pub mod actions;
 pub mod agents;
+pub mod context;
 pub mod core;
 pub mod devices;
 pub mod events;
@@ -88,6 +89,27 @@ fn activate_surface(
 #[tauri::command]
 fn activate_page(state: State<'_, AppState>, page_id: String) -> CmdResult<()> {
     state.runtime.activate_page(&page_id)
+}
+
+/// Auto Context as it is now: settings, observer, application in front, decision.
+#[tauri::command]
+fn context_status(state: State<'_, AppState>) -> context::ContextStatus {
+    state.runtime.context()
+}
+
+/// Replace the context settings: Auto on or off, the rules, the fallback.
+#[tauri::command]
+fn context_update(
+    state: State<'_, AppState>,
+    settings: context::ContextSettings,
+) -> CmdResult<context::ContextStatus> {
+    state.runtime.update_context(settings)
+}
+
+/// Resume Auto: end a manual override.
+#[tauri::command]
+fn context_resume(state: State<'_, AppState>) -> context::ContextStatus {
+    state.runtime.resume_context()
 }
 
 /// Press or release a pad on the virtual Launchpad X. This goes through the
@@ -577,9 +599,11 @@ pub fn run() {
                     &dir,
                     std::env::var_os(plugins::external::PLUGINS_ENV),
                 ),
-                // The system's credential store, or a private file next to the
-                // workspace when the system has none.
+                // The system's credential store. Without one, secrets are
+                // unavailable: there is no file to fall back to.
                 secrets: Some(plugins::external::secrets::open_store(Some(&dir))),
+                // Which application is in front, by this system's own means.
+                observer: Some(context::observer::native()),
             };
             let runtime = tauri::async_runtime::block_on(Runtime::start(config));
             if let Err(e) = build_tray(app, &runtime) {
@@ -595,6 +619,9 @@ pub fn run() {
             set_mode,
             activate_surface,
             activate_page,
+            context_status,
+            context_update,
+            context_resume,
             virtual_input,
             update_control,
             remove_control,

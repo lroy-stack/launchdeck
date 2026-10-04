@@ -8,7 +8,7 @@ import { emptyAgents, newer, type AgentNotification, type AgentsSnapshot } from 
 import { emptyIndex, indexCatalog, type CatalogIndex } from "../lib/actions";
 import type { Slot } from "../lib/assign";
 import { applyDelta } from "../lib/observables";
-import type { Catalog, Control, ControlPos, Frame, ObservableCatalog, ObservablesDelta, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Surface, Workspace, Page } from "../lib/schema";
+import type { Catalog, ContextStatus, Control, ControlPos, Frame, ObservableCatalog, ObservablesDelta, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Surface, Workspace, Page } from "../lib/schema";
 import { emptyObservableCatalog, posKey } from "../lib/schema";
 
 export type View = "home" | "agents" | "surface" | "plugins" | "settings";
@@ -50,6 +50,8 @@ interface Store {
   frame: Frame;
   /** Agent Control as Rust derived it. Never edited here. */
   agents: AgentsSnapshot;
+  /** Auto Context as Rust reports it: settings, the application in front, what was decided. */
+  context: ContextStatus | null;
 
   view: View;
   agentsTab: AgentsTab;
@@ -142,6 +144,7 @@ export const useStore = create<Store>((set, get) => ({
   events: [],
   frame: { leds: [] },
   agents: emptyAgents,
+  context: null,
 
   view: "home",
   agentsTab: "overview",
@@ -192,6 +195,7 @@ export const useStore = create<Store>((set, get) => ({
         },
         onFrame: (frame) => set({ frame }),
         onObservables: (delta) => get().applyObservables(delta),
+        onContext: (context) => set({ context }),
       });
       const snap: Snapshot = await api.snapshot();
       const frame = await api.virtualFrame();
@@ -206,6 +210,7 @@ export const useStore = create<Store>((set, get) => ({
         events: snap.recentEvents.slice(-MAX_EVENTS),
         frame,
         agents: snap.agents,
+        context: snap.context,
         view: snap.workspace.preferences.onboardingDone ? "surface" : "home",
       });
       if (observablesHeardEarly) {

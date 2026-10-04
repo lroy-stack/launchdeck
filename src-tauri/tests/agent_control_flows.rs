@@ -36,6 +36,7 @@ async fn start() -> Arc<Runtime> {
         demo_pace: 0.05,
         plugin_dirs: vec![],
         secrets: None,
+        observer: None,
     })
     .await;
     assert_eq!(rt.state().active_surface_id, "agent-control");

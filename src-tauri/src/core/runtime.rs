@@ -32,6 +32,11 @@ use crate::agents::plugin::AgentControlPlugin;
 use crate::agents::service::{is_projection, AgentControl, AgentsSink, Timing};
 use crate::agents::settings::{AgentsStorage, SettingsPatch};
 use crate::agents::view::AgentsSnapshot;
+use crate::context::engine::World;
+use crate::context::observer::{ForegroundObserver, NoObserver, Report, Sink};
+use crate::context::rules::checked as checked_context;
+use crate::context::status::status as context_status;
+use crate::context::{ContextSettings, ContextStatus, Engine, Target};
 use crate::devices::manager::{DeviceChange, DeviceInfo, DeviceManager};
 use crate::devices::virtual_device::{VirtualHandle, VirtualLaunchpadX, VIRTUAL_ID};
 use crate::devices::{DeviceInput, InputKind};
@@ -72,6 +77,8 @@ const OBSERVABLES_COALESCE: Duration = Duration::from_millis(50);
 /// UI event names (Tauri events).
 pub mod ui {
     pub const STATE: &str = "runtime-state";
+    /// Auto Context: its settings, the application in front, what was decided.
+    pub const CONTEXT: &str = "context-changed";
     pub const WORKSPACE: &str = "workspace-changed";
     pub const EVENT: &str = "runtime-event";
     pub const FRAME: &str = "virtual-frame";
@@ -171,6 +178,8 @@ pub struct Snapshot {
     pub observables: ObservableCatalog,
     pub recent_events: Vec<Event>,
     pub agents: AgentsSnapshot,
+    /// Auto Context, as it is now.
+    pub context: ContextStatus,
 }
 
 pub struct RuntimeConfig {
@@ -189,6 +198,19 @@ pub struct RuntimeConfig {
     /// Where plugin secrets are kept. `None` keeps them in memory, which is
     /// what tests want: the app passes the system's credential store.
     pub secrets: Option<Arc<dyn crate::plugins::external::secrets::SecretStore>>,
+    /// What tells which application is in front. `None` observes nothing,
+    /// which is what tests want unless they bring a scripted one; the app
+    /// passes the one for the system it runs on.
+    pub observer: Option<Box<dyn ForegroundObserver>>,
+}
+
+/// Who asked for a surface or a page to be shown.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum By {
+    /// The sidebar, the tray, a navigation pad, a top-row button.
+    Person,
+    /// The context engine, for the application in front.
+    Context,
 }
 
 /// A temporary look: an unbound pad running an action, or an event rule's look
@@ -242,6 +264,8 @@ struct Inner {
     external: ExternalStatus,
     /// Actions in flight, by the token each run was given.
     pending: BTreeMap<u64, PendingAction>,
+    /// When a surface may change by itself. It decides; the activation below does.
+    context: Engine,
 }
 
 pub fn control_key(surface: &str, page: &str, control: &str) -> String {
@@ -358,6 +382,8 @@ pub struct Runtime {
     epoch: Instant,
     counter: AtomicU64,
     handle: tokio::runtime::Handle,
+    /// The context status the UI was last sent, so it is only told of changes.
+    context_sent: Mutex<Option<ContextStatus>>,
 }
 
 impl Runtime {
@@ -490,6 +516,13 @@ impl Runtime {
             error: None,
         };
 
+        let observer: Box<dyn ForegroundObserver> = config.observer.unwrap_or_else(|| {
+            Box::new(NoObserver(
+                "Nothing observes the application in front in this run.".into(),
+            ))
+        });
+        let observing = observer.status();
+
         let index = FeedbackIndex::build(&workspace);
         let rt = Arc::new(Runtime {
             inner: Mutex::new(Inner {
@@ -505,6 +538,7 @@ impl Runtime {
                 recent: VecDeque::new(),
                 external,
                 pending: BTreeMap::new(),
+                context: Engine::new(observing.clone(), false),
             }),
             bus: bus.clone(),
             engine,
@@ -522,6 +556,7 @@ impl Runtime {
             epoch: Instant::now(),
             counter: AtomicU64::new(1),
             handle: tokio::runtime::Handle::current(),
+            context_sent: Mutex::new(None),
         });
 
         // Every control is evaluated once, from the states the providers
@@ -529,10 +564,40 @@ impl Runtime {
         {
             let mut inner = rt.lock();
             rt.publish_navigation(&inner.active_surface, &inner.active_page);
+            rt.publish_context_mode(inner.context.mode(&inner.workspace.context));
             // What the providers declared so far is already in the evaluation
             // below; anything they write from now on is drained later.
             let _ = rt.hub.drain();
             rt.evaluate_all(&mut inner);
+        }
+        // Context: the observer has a thread of its own (it blocks on the
+        // system's events); what it sees arrives here. Without one, nothing is
+        // started and every surface change is the person's.
+        if observing.can_observe() {
+            let (tx, mut rx) = unbounded_channel::<Report>();
+            let sink = Sink::new(move |report| {
+                let _ = tx.send(report);
+            });
+            let started = std::thread::Builder::new()
+                .name("foreground-observer".into())
+                .spawn(move || observer.run(sink));
+            match started {
+                Ok(_) => {
+                    let rt = rt.clone();
+                    tokio::spawn(async move {
+                        while let Some(report) = rx.recv().await {
+                            rt.on_foreground(report);
+                        }
+                    });
+                }
+                Err(e) => {
+                    rt.lock()
+                        .context
+                        .set_observer(crate::context::ObserverStatus::unavailable(&format!(
+                            "The observer could not be started ({e})."
+                        )));
+                }
+            }
         }
         // Input loop: devices (any thread) -> runtime.
         {
@@ -791,6 +856,7 @@ impl Runtime {
             observables: self.observables(),
             recent_events: inner.recent.iter().rev().take(50).rev().cloned().collect(),
             agents: self.agents.snapshot(),
+            context: context_status(&inner.context, &inner.workspace.context, &inner.workspace),
         }
     }
 
@@ -829,7 +895,15 @@ impl Runtime {
     // Navigation
     // -----------------------------------------------------------------------
 
+    /// Show a surface (and a page of it) because a person asked: the sidebar,
+    /// the tray, a navigation pad. With Auto Context on, this is what begins a
+    /// manual override.
     pub fn activate_surface(&self, surface_id: &str, page_id: Option<&str>) -> Result<(), String> {
+        self.activate(surface_id, page_id, By::Person)
+    }
+
+    /// The one way a surface comes on screen, whoever asked.
+    fn activate(&self, surface_id: &str, page_id: Option<&str>, by: By) -> Result<(), String> {
         {
             let mut inner = self.lock();
             let surface = inner
@@ -845,10 +919,14 @@ impl Runtime {
             .id
             .clone();
             let surface_changed = inner.active_surface != surface_id;
+            let changed = surface_changed || inner.active_page != page;
             inner.active_surface = surface_id.to_string();
             inner.active_page = page.clone();
             inner.held.clear();
             inner.workspace.last_active_surface = Some(surface_id.to_string());
+            if by == By::Person {
+                Self::with_context(&mut inner, |engine, world| engine.manual(changed, world));
+            }
             self.persist(&inner);
             drop(inner);
             if surface_changed {
@@ -867,9 +945,11 @@ impl Runtime {
         // Nothing is replayed to repaint the surface: every control's look is
         // already derived from the states the hub holds, shown or not.
         self.emit_state();
+        self.emit_context();
         Ok(())
     }
 
+    /// Show another page of the surface on screen, because a person asked.
     pub fn activate_page(&self, page_id: &str) -> Result<(), String> {
         let surface_id = {
             let mut inner = self.lock();
@@ -880,8 +960,10 @@ impl Runtime {
             if surface.page(page_id).is_none() {
                 return Err(format!("unknown page `{page_id}`"));
             }
+            let changed = inner.active_page != page_id;
             inner.active_page = page_id.to_string();
             inner.held.clear();
+            Self::with_context(&mut inner, |engine, world| engine.manual(changed, world));
             inner.active_surface.clone()
         };
         self.publish(
@@ -890,6 +972,7 @@ impl Runtime {
             json!({ "surfaceId": surface_id, "pageId": page_id }),
         );
         self.emit_state();
+        self.emit_context();
         Ok(())
     }
 
@@ -916,12 +999,143 @@ impl Runtime {
     }
 
     pub fn set_mode(&self, mode: Mode) {
-        {
+        let target = {
             let mut inner = self.lock();
             inner.mode = mode;
             inner.held.clear();
-        }
+            // Editing suspends automatic switching; coming back to Live
+            // applies the current application's rule once.
+            Self::with_context(&mut inner, |engine, world| {
+                engine.set_editing(mode == Mode::Edit, world)
+            })
+        };
         self.emit_state();
+        self.show_for_context(target);
+        self.emit_context();
+    }
+
+    // -----------------------------------------------------------------------
+    // Context: the surface follows the application in front
+    // -----------------------------------------------------------------------
+
+    /// Give the engine what it needs to know about the rest of the runtime.
+    fn with_context<R>(inner: &mut Inner, f: impl FnOnce(&mut Engine, &World) -> R) -> R {
+        let Inner {
+            context,
+            workspace,
+            active_surface,
+            active_page,
+            ..
+        } = inner;
+        let world = World {
+            settings: &workspace.context,
+            workspace,
+            surface: active_surface,
+            page: active_page,
+        };
+        f(context, &world)
+    }
+
+    /// Activate what the engine decided, through the same path as a person's
+    /// choice: persistence, events, the hub, the renderer and the devices all
+    /// follow from there.
+    fn show_for_context(&self, target: Option<Target>) {
+        let Some(target) = target else { return };
+        if let Err(e) = self.activate(&target.surface_id, target.page_id.as_deref(), By::Context) {
+            log::warn!("context: {e}");
+        }
+    }
+
+    /// The observer reported something.
+    fn on_foreground(self: &Arc<Self>, report: Report) {
+        match report {
+            Report::Status(status) => self.lock().context.set_observer(status),
+            Report::Seen(seen) => {
+                let wait = self.lock().context.observe(seen, Instant::now());
+                if let Some(deadline) = wait {
+                    // It counts only if it is still in front when this fires.
+                    let rt = self.clone();
+                    self.handle.spawn(async move {
+                        tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)).await;
+                        rt.settle_context();
+                    });
+                }
+            }
+        }
+        self.emit_context();
+    }
+
+    fn settle_context(&self) {
+        let target = {
+            let mut inner = self.lock();
+            let now = Instant::now();
+            Self::with_context(&mut inner, |engine, world| engine.settle(now, world))
+        };
+        self.show_for_context(target);
+        self.emit_context();
+    }
+
+    /// Auto Context as it is now: settings, observer, application, decision.
+    pub fn context(&self) -> ContextStatus {
+        let inner = self.lock();
+        context_status(&inner.context, &inner.workspace.context, &inner.workspace)
+    }
+
+    /// Replace the context settings (Auto on or off, the rules, the fallback).
+    /// New rules are checked; the error says which one and why.
+    pub fn update_context(&self, settings: ContextSettings) -> Result<ContextStatus, String> {
+        let target = {
+            let mut inner = self.lock();
+            let settings = checked_context(&settings, &inner.workspace.context, &inner.workspace)
+                .map_err(|e| e.to_string())?;
+            let was_auto = inner.workspace.context.auto;
+            inner.workspace.context = settings;
+            self.persist(&inner);
+            Self::with_context(&mut inner, |engine, world| {
+                engine.settings_changed(was_auto, world)
+            })
+        };
+        self.emit_workspace();
+        self.show_for_context(target);
+        self.emit_context();
+        Ok(self.context())
+    }
+
+    /// Resume Auto: end a manual override and apply the current application's rule.
+    pub fn resume_context(&self) -> ContextStatus {
+        let target = {
+            let mut inner = self.lock();
+            Self::with_context(&mut inner, |engine, world| engine.resume(world))
+        };
+        self.show_for_context(target);
+        self.emit_context();
+        self.context()
+    }
+
+    fn publish_context_mode(&self, mode: crate::context::Mode) {
+        if let Err(e) = self
+            .hub
+            .set(&native::context_mode(), Scalar::text(mode.as_str()))
+        {
+            log::warn!("could not publish the context mode: {e}");
+        }
+    }
+
+    /// Tell the UI and the hub, if anything about context changed.
+    fn emit_context(&self) {
+        let status = self.context();
+        {
+            let mut sent = self.context_sent.lock().unwrap_or_else(|e| e.into_inner());
+            if sent.as_ref() == Some(&status) {
+                return;
+            }
+            *sent = Some(status.clone());
+        }
+        self.publish_context_mode(status.mode);
+        self.emitter.emit(
+            ui::CONTEXT,
+            serde_json::to_value(status).unwrap_or(Value::Null),
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -1852,6 +2066,7 @@ impl Runtime {
         {
             let mut inner = self.lock();
             let prefs = inner.workspace.preferences.clone();
+            let was_auto = inner.workspace.context.auto;
             let mut ws = default_workspace();
             ws.preferences = prefs;
             let first = ws
@@ -1872,8 +2087,14 @@ impl Runtime {
             self.rebuild_index(&mut inner);
             self.evaluate_all(&mut inner);
             self.persist(&inner);
+            // The rules named surfaces of the workspace that is gone: Auto
+            // Context starts again, off and without rules.
+            let _ = Self::with_context(&mut inner, |engine, world| {
+                engine.settings_changed(was_auto, world)
+            });
         }
         self.emit_workspace();
+        self.emit_context();
     }
 
     pub fn update_preferences(&self, preferences: Preferences) {
@@ -1996,6 +2217,7 @@ mod tests {
             }],
             last_active_surface: Some("bound".into()),
             preferences: Preferences::default(),
+            context: Default::default(),
         }
     }
 
@@ -2010,6 +2232,7 @@ mod tests {
             demo_pace: 1.0,
             plugin_dirs: vec![],
             secrets: None,
+            observer: None,
         })
         .await
     }
@@ -2473,6 +2696,7 @@ mod tests {
             demo_pace: 1.0,
             plugin_dirs: vec![],
             secrets: None,
+            observer: None,
         })
         .await;
         let ext = rt.state().external;

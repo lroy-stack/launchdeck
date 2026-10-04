@@ -59,6 +59,7 @@ async fn main() {
         .skip(1)
         .collect(),
         secrets: None,
+        observer: None,
     })
     .await;
     let ext = rt.state().external;

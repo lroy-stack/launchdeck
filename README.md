@@ -49,7 +49,8 @@ Agents you connect start read-only. You grant control per agent, in the app. See
 | Local WebSocket for external events and the Agent Bridge (`127.0.0.1` only) | Working. |
 | Hook endpoint for Claude Code and Codex (`127.0.0.1` only, token, off by default) | Working for Claude Code (verified live). Codex untested. |
 | System tray | Working where the OS supports it. |
-| Marketplace, MCP, Agent Pack loading, context engine | Documented as roadmap or manifest only. |
+| Auto Context: the surface follows the application in front, by ordered rules (application to surface and page), with an explicit fallback, a manual override that is never fought, and a panel that says which rule matched and why | Working on Linux/X11, tested in the real desktop app with real windows. macOS and Windows observers are written and **have not been compiled or run**. Not available on Wayland. [Guide](docs/context-engine.md) |
+| Marketplace, MCP, Agent Pack loading | Documented as roadmap or manifest only. |
 
 ## Run it
 
@@ -72,6 +73,7 @@ npm run rust:fmt
 npm run rust:check       # cargo check --all-targets
 npm run rust:test        # cargo test
 npm run tauri build      # production bundle
+cargo run --manifest-path src-tauri/Cargo.toml --example foreground   # print which application is in front, as Auto Context sees it
 npm run plugins:build    # rebuild the example plugin modules (Hello, Counter, Channels, Home Assistant, C Ping)
 python3 tools/desktop-e2e/run.py   # drive the real built app (Linux, slow; see tools/desktop-e2e/README.md)
 LAUNCHDECK_PLUGINS="$PWD/examples/plugins" npm run tauri dev   # run with the example plugins
@@ -137,7 +139,7 @@ Events can change how pads look. They cannot execute anything. The sources `runt
 src/                  React + TypeScript editor (Zustand for UI state only, Zod at the IPC boundary)
   features/agents/    the Agents section: Overview, Sessions, Adapters, Surface
 src-tauri/src/
-  core/               model, runtime (surface runtime, state engine, event routing), validation, context
+  core/               model, runtime (surface runtime, state engine, event routing), validation
   devices/            SurfaceDevice trait, capabilities, virtual device, Launchpad X (the only MIDI code)
   renderer/           semantic visual state to capability-aware frames
   actions/            Action Library: unified registry, definitions, parameter schema, action engine, Navigation, Shell and HTTP providers
@@ -145,6 +147,7 @@ src-tauri/src/
   plugins/external/   Plugin SDK host: manifest, discovery, WebAssembly sandbox, lifecycle,
                       capabilities (requests and grants), network broker, secret stores
   agents/             Agent Control: model, service, adapters, bridge, audit, pack manifest
+  context/            Auto Context: foreground observers (one per system), application identity, ordered rules, the Auto / Manual Override engine
   events/             event bus, localhost WebSocket
   surfaces/           starter surfaces, including Agent Control
   persistence/        versioned JSON store, schema 2 to 3 migration
@@ -161,6 +164,7 @@ examples/             default-workspace.json, agents-snapshot.json, plugins-over
 * [Product](docs/product.md)
 * [Architecture](docs/architecture.md)
 * [Surfaces](docs/surfaces.md)
+* [Context Engine](docs/context-engine.md): the surface follows the application in front
 * [Plugins](docs/plugins.md) and [plugin permissions](docs/plugins/permissions.md)
 * Security: [where secrets are kept](docs/security/secrets.md)
 * Actions: [overview](docs/actions/overview.md), [definitions](docs/actions/definitions.md), [parameters](docs/actions/parameters.md), [providers](docs/actions/providers.md), [availability](docs/actions/availability.md), [Action Library](docs/actions/action-library.md)
@@ -169,7 +173,7 @@ examples/             default-workspace.json, agents-snapshot.json, plugins-over
 * Agent Control: [overview](docs/agent-control/overview.md), [domain model](docs/agent-control/domain-model.md), [adapter SDK](docs/agent-control/adapter-sdk.md), [bridge protocol](docs/agent-control/bridge-protocol.md), [surfaces](docs/agent-control/surfaces.md), [security](docs/agent-control/security.md), [MCP (optional, design only)](docs/agent-control/mcp.md)
 * [Marketplace (roadmap)](docs/roadmap/marketplace.md)
 * [MCP at platform level (roadmap)](docs/roadmap/mcp.md)
-* [Implementation plan](IMPLEMENTATION_PLAN.md), [Agent Control plan](AGENT_CONTROL_PLAN.md), [Plugin SDK plan](PLUGIN_SDK_PLAN.md), [Action Library plan](ACTION_LIBRARY_PLAN.md) and [Plugin capabilities plan](PLUGIN_CAPABILITIES_PLAN.md)
+* [Implementation plan](IMPLEMENTATION_PLAN.md), [Agent Control plan](AGENT_CONTROL_PLAN.md), [Plugin SDK plan](PLUGIN_SDK_PLAN.md), [Action Library plan](ACTION_LIBRARY_PLAN.md), [Plugin capabilities plan](PLUGIN_CAPABILITIES_PLAN.md) and [Context Engine plan](CONTEXT_ENGINE_PLAN.md)
 
 ## Known limitations
 
@@ -180,6 +184,7 @@ examples/             default-workspace.json, agents-snapshot.json, plugins-over
 * **The Agent Bridge is not authenticated.** Any local process can register an agent, read-only. Control still needs your explicit grant.
 * **Agent state is not persisted.** Agents and sessions are rebuilt as adapters reconnect. Settings, control grants and the audit trail are kept.
 * Keyboard shortcuts and volume keys use OS automation (`enigo`). On macOS this needs Accessibility permission, and on Linux Wayland sessions may block synthetic input.
+* **Auto Context is verified on Linux/X11 only.** The macOS and Windows observers were written without being able to build them here; on Wayland it is not available at all (no standard way to learn the focused application), and LaunchDeck says so and works by hand. Rules match the application only: no window titles, projects or conditions. See [docs/context-engine.md](docs/context-engine.md#platform-support).
 * **The only plugin capability is HTTP.** A plugin can make HTTP and HTTPS requests to addresses you granted, with text bodies, one at a time. There are no files, no shell, no WebSocket or other long-lived connection, no MQTT, no OAuth flow and no proxy support. State from an outside system is therefore **polled** (the Home Assistant example every 5 seconds), not pushed.
 * **The Home Assistant example was checked against a stand-in, not a real installation**, and switches lights and switches on and off only.
 * **Secrets need a system credential store.** Keychain on macOS, Credential Manager on Windows, a Secret Service keyring on Linux. Without one, a plugin's secrets are unavailable and the app says why; there is no file fallback. Only the Linux path has been run here. A secret is not removed when its plugin's folder is deleted. See [docs/security/secrets.md](docs/security/secrets.md).

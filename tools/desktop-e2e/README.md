@@ -14,6 +14,7 @@ They are slow (minutes), need a Linux desktop stack, and are **not** part of `np
 | `Xvfb` | A display when there is none | `apt install xvfb` |
 | Python 3.9+ | Runs the steps. Standard library only. | |
 | `dbus-run-session`, `gnome-keyring-daemon` | A real credential store for the suites that keep a secret (`home_assistant`, `secrets`) | `apt install dbus gnome-keyring` |
+| `openbox`, `xterm`, `wmctrl` | A window manager and other applications to bring to the front (`context`) | `apt install openbox xterm wmctrl` |
 
 Linux only: `tauri-driver` has no macOS support, and on Windows it needs a different native driver that this harness does not set up.
 
@@ -65,7 +66,7 @@ lib/mock_home_assistant.py   a stand-in Home Assistant for the home_assistant su
 suites/*.py       the checks
 ```
 
-A **suite** is a module with a `NAME`, the example `PLUGINS` it needs, and `STEPS`, a list of functions. The runner empties the data folder, installs the plugins, and runs the steps in order. Every step gets a **new launch of the app** on the data the earlier steps saved, so plugins start from scratch each time, as they do for a user. A suite may define `setup(env)` and `teardown(env)` for something that lives beside the app, such as a local server, and may set `env.extra_env` there to give the app environment variables.
+A **suite** is a module with a `NAME`, the example `PLUGINS` it needs, and `STEPS`, a list of functions. The runner empties the data folder, installs the plugins, and runs the steps in order. Every step gets a **new launch of the app** on the data the earlier steps saved, so plugins start from scratch each time, as they do for a user. A suite may define `setup(env)` and `teardown(env)` for something that lives beside the app, such as a local server, and may set `env.extra_env` there to give the app environment variables. `WINDOW_MANAGER = True` on a suite, or `step.window_manager = False` on one step, says whether openbox runs on the display for it; `TOOLS = [...]` names the programs a suite needs, so a missing one is reported before anything starts. `env.x("wmctrl", ...)` runs an X client on the run's display.
 
 A step is a function of one argument, the `Desk`:
 
@@ -90,6 +91,7 @@ def live(d):
 * **Pads are found by where they are drawn**: `d.click_pad(column, row)` counts from 1, with the top row of round buttons as row 1. `d.led(column, row)` is the colour the virtual Launchpad shows.
 * **The driver drops a connection now and then.** `tauri-driver`'s connection to WebKitWebDriver is sometimes reset before a request is delivered. The client sends the request again and the run says how often it happened. If the driver stops answering altogether, the suite is run once more from the start.
 * **A colour that passes quickly is sampled, not polled.** `d.sample_led(column, row)` records the pad's colour in the page every 25 ms, starting with what it shows before anything is done, and `d.sampled()` returns the runs of colour with their times. That is how a step sees *Off, Pending, On* around one click.
+* **Without a window manager nothing is "in front".** The other suites run on a bare Xvfb, where LaunchDeck's foreground observer is (correctly) unavailable. Only `context` starts one. An application counts for Auto Context once it has been in front for 150 ms, so a step that brings one forward and immediately does something else has not made it count: `front(d, cls, stay=0.6)`.
 * **Focus rings need a real key press.** `:focus-visible` is not set by `element.focus()` from a script, so a check of a focus ring has to get there with `d.keys("Tab")`.
 
 ## Suites
@@ -97,5 +99,6 @@ def live(d):
 | Suite | What it covers |
 | --- | --- |
 | `home_assistant` | Plugin capabilities with the Home Assistant example and a stand-in server (`lib/mock_home_assistant.py`, on a loopback port): the permission prompt with the exact address and how far it reaches, an address that comes from a setting, Deny, Allow and Revoke and what `permissions.json` and `audit.jsonl` hold afterwards, entering and removing the token and proof that it is in the secret store and in no other file or log, a pad that goes Off, Pending, On against the server, a change made on the server arriving by itself, a revoked grant (the Failed look, no request reaching the server, the reason on the card) and recovery. Runs with a real credential store of its own (see below). |
+| `context` | Auto Context with LaunchDeck's real X11 observer, a real window manager (openbox) and three real windows (xterms with their own `WM_CLASS`). Without a window manager: the observer is said to be unavailable, with the reason, and everything by hand works. With one: rules written by picking applications that were in front, saved by stable identity; application A shows surface A and B shows B, with the time it took; an application without a rule changes nothing; a surface picked by hand is not switched back by the same application, Resume Auto brings it back, a different application ends the override; Edit mode switches nothing and going back to Live applies the context once; and after a restart the rules are there and no application that was merely in front is in any file. |
 | `secrets` | Where a secret may be kept. Without a credential store: the Secrets section says Unavailable and why, nothing can be typed, a press that needs the secret sends nothing, and no file is written. A plain `secrets.json` such as an earlier version left behind: reported by name, not used, untouched. Then with a real credential store: still not used until **Move** is pressed, after which it is in the keyring, the file is gone, the token is readable in no file, and the pad works; and after a restart it still does. |
 | `feedback` | The feedback editor with the Counter and Channels plugins: authoring from an empty pad, saving, the virtual Launchpad following a state, a plugin turned off and on and taken away, an event's temporary look, scoped states, reordering by button and by Alt+arrows, and the whole authoring again with the keyboard only (which also covers the grid's arrow-key navigation). |

@@ -23,6 +23,7 @@ import {
   pluginLogSchema,
   pluginsOverviewSchema,
   legacyMigrationSchema,
+  contextStatusSchema,
   runtimeEventSchema,
   runtimeStateSchema,
   scanReportSchema,
@@ -41,6 +42,8 @@ import {
   type ObservablesDelta,
   type Observed,
   type LegacyMigration,
+  type ContextSettings,
+  type ContextStatus,
   type PluginInfo,
   type PluginLog,
   type PluginsOverview,
@@ -185,6 +188,14 @@ export const api = {
     /** Delete them without moving them. Resolves with how many there were. */
     discardLegacySecrets: (): Promise<number> => call("plugins_discard_legacy_secrets", z.number()),
   },
+  /** Auto Context: the surface follows the application in front. */
+  context: {
+    status: (): Promise<ContextStatus> => call("context_status", contextStatusSchema),
+    /** Auto on or off, the rules in order, the fallback. Rust checks them and says which rule is wrong. */
+    update: (settings: ContextSettings): Promise<ContextStatus> => call("context_update", contextStatusSchema, { settings }),
+    /** End a manual override: the current application's rule applies at once. */
+    resume: (): Promise<ContextStatus> => call("context_resume", contextStatusSchema),
+  },
   agents: {
     /** Resolves with the request id; the outcome arrives in the next snapshot. */
     command: (target: AgentTarget, command: AgentCommand): Promise<string> => call("agents_command", z.string(), { target, command }),
@@ -208,6 +219,7 @@ export interface Listeners {
   onNotification: (n: AgentNotification) => void;
   /** Only the providers and observables whose value or availability changed; `catalog: true` asks for a full fetch. */
   onObservables: (d: ObservablesDelta) => void;
+  onContext: (c: ContextStatus) => void;
 }
 
 /** Subscribe to everything Rust pushes. Invalid payloads are dropped, not trusted. */
@@ -228,6 +240,7 @@ export async function subscribe(l: Listeners): Promise<() => void> {
     t.listen("agents-changed", wrap(agentsSnapshotSchema, l.onAgents)),
     t.listen("agent-notification", wrap(notificationSchema, l.onNotification)),
     t.listen("observables-changed", wrap(observablesDeltaSchema, l.onObservables)),
+    t.listen("context-changed", wrap(contextStatusSchema, l.onContext)),
   ]);
   return () => offs.forEach((off) => off());
 }

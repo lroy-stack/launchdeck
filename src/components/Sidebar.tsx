@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../lib/ipc";
 import { useStore, type View } from "../stores/runtime";
+import { ContextControl } from "../features/context/ContextControl";
 
 const NAV: Array<{ view: View; label: string; glyph: string }> = [
   { view: "home", label: "Home", glyph: "⌂" },
@@ -76,6 +77,8 @@ export function Sidebar() {
           <small>{device ? (device.identity.kind === "hardware" ? "Connected" : "Simulator · connected") : "Disconnected"}</small>
         </span>
       </button>
+
+      <ContextControl />
 
       <div className="side-section">
         <div className="side-title">

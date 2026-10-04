@@ -3,6 +3,7 @@
 //! Everything here is hardware independent: no MIDI note numbers, no device
 //! coordinates beyond the logical `ControlPos`. Device adapters translate.
 
+use crate::context::rules::ContextSettings;
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
@@ -261,7 +262,9 @@ impl Page {
     }
 }
 
-/// Hints the (future) context engine can use to pick this surface.
+/// An early hint for choosing a surface by application. Not used: Auto Context
+/// has ordered rules in the workspace's `context`. Kept so that workspaces
+/// written with it still load unchanged.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContextHint {
@@ -336,6 +339,10 @@ pub struct Workspace {
     pub last_active_surface: Option<String>,
     #[serde(default)]
     pub preferences: Preferences,
+    /// Auto Context: whether it is on, its rules and its fallback. Absent in
+    /// a workspace that never used it, which is then saved exactly as before.
+    #[serde(default, skip_serializing_if = "ContextSettings::is_default")]
+    pub context: ContextSettings,
 }
 
 impl Workspace {

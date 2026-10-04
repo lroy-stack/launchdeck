@@ -216,6 +216,7 @@ fn workspace() -> Workspace {
         ],
         last_active_surface: Some("states".into()),
         preferences: Preferences::default(),
+        context: Default::default(),
     }
 }
 
@@ -231,6 +232,7 @@ async fn start_with(dirs: Vec<PathBuf>) -> (Arc<Runtime>, Arc<Recorder>) {
         demo_pace: 0.05,
         plugin_dirs: dirs,
         secrets: None,
+        observer: None,
     })
     .await;
     wait_until("first frame", || {

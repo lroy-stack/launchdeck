@@ -521,7 +521,10 @@ describe("the explanation, arranged for the panel without adding anything", () =
     const feedback: FeedbackRule[] = [counterRule("low", "low"), { ...newEventRule("example.counter", "counter.changed"), show: "blink" }];
     const view = viewExplanation(explain("overlay"), feedback, catalog);
     expect(view.layer).toBe("overlay");
-    expect(view.overlay).toEqual({ look: "blink", rule: 1, remainingMs: 29743, latched: false, source: "event" });
+    // How long is left is whatever it was at the instant Rust captured the fixture.
+    const remainingMs = explain("overlay").overlay!.remainingMs;
+    expect(remainingMs).toBeGreaterThan(29000);
+    expect(view.overlay).toEqual({ look: "blink", rule: 1, remainingMs, latched: false, source: "event" });
     expect(view.shown).toBe("blink");
     expect(view.derived).toBe("low");
     expect(view.missing[0]).toMatchObject({ label: "Rule 1" });

@@ -582,3 +582,37 @@ textarea { resize: vertical; }
 .pad.acting::after { content: ""; position: absolute; inset: 2px; border-radius: inherit; border: 2px solid transparent; border-top-color: #ffffffcc; animation: pad-acting 0.9s linear infinite; pointer-events: none; }
 @keyframes pad-acting { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pad.acting::after { animation: none; border-color: #ffffff99; } }
+
+/* Auto Context ------------------------------------------------------------ */
+.context-control { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 8px; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+.context-control.manual { border-color: #4a3a14; }
+.context-open { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; border: 0; background: transparent; padding: 0; text-align: left; color: var(--text); min-width: 0; }
+.context-open b { font-size: 12.5px; font-weight: 600; }
+.context-open small { color: var(--text-3); font-size: 11.5px; }
+.context-control.auto .context-open small { color: #86efac; }
+.context-control.manual .context-open small, .context-control.unavailable .context-open small { color: #fbbf24; }
+.context-resume { grid-column: 1 / -1; justify-self: start; }
+.switch { position: relative; width: 34px; height: 20px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg-2); padding: 0; flex: none; }
+.switch i { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text-3); transition: transform 0.12s ease; }
+.switch.on { background: #14301f; border-color: #1c4a2e; }
+.switch.on i { transform: translateX(14px); background: var(--good); }
+@media (prefers-reduced-motion: reduce) { .switch i { transition: none; } }
+.context-panel .segmented { flex: none; }
+.context-now { padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--bg-2); }
+.context-now dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
+.context-now dt { color: var(--text-3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; padding-top: 2px; }
+.context-now dd { margin: 0; min-width: 0; }
+.context-rules { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.context-rule { display: grid; grid-template-columns: 22px minmax(120px, 1.2fr) auto minmax(110px, 1fr) minmax(100px, 0.8fr) auto; align-items: center; gap: 6px 8px; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 10px; }
+.context-rule.matched { border-color: #1c4a2e; }
+.context-rule.flagged { border-color: #4a3a14; }
+.rule-number { color: var(--text-3); font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+.rule-app { display: flex; flex-direction: column; min-width: 0; }
+.rule-app code { font-size: 11.5px; color: var(--text-3); overflow-wrap: anywhere; align-self: flex-start; }
+.rule-arrow { color: var(--text-3); }
+.rule-actions { display: inline-flex; gap: 4px; }
+.rule-note { grid-column: 2 / -1; margin: 0; }
+.context-add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 10px; padding-top: 2px; }
+.context-add .field { flex: 1 1 150px; min-width: 0; }
+.context-add small { flex-basis: 100%; }
+@media (max-width: 900px) { .context-rule { grid-template-columns: 22px 1fr auto; } .context-rule select, .rule-actions { grid-column: 2 / -1; } }

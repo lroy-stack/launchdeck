@@ -118,6 +118,7 @@ fn workspace() -> Workspace {
         }],
         last_active_surface: Some("scenario".into()),
         preferences: Preferences::default(),
+        context: Default::default(),
     }
 }
 
@@ -222,6 +223,7 @@ pub async fn capture() -> Value {
         demo_pace: 1.0,
         plugin_dirs: vec![plugins],
         secrets: None,
+        observer: None,
     })
     .await;
     settle().await;

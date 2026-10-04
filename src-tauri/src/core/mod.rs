@@ -1,6 +1,5 @@
-//! LaunchDeck core: model, runtime, context.
+//! LaunchDeck core: model, runtime, validation.
 
-pub mod context;
 pub mod explain;
 pub mod model;
 pub mod observables;

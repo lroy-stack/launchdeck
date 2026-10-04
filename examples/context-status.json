@@ -1,0 +1,263 @@
+{
+  "auto": {
+    "application": {
+      "displayName": "Visual Studio Code",
+      "id": "Code",
+      "namespace": "x11"
+    },
+    "decision": {
+      "application": {
+        "displayName": "Visual Studio Code",
+        "id": "Code",
+        "namespace": "x11"
+      },
+      "outcome": "activated",
+      "pageId": "git",
+      "pageMissing": false,
+      "rule": 0,
+      "surfaceId": "development"
+    },
+    "foreground": {
+      "application": {
+        "displayName": "Visual Studio Code",
+        "id": "Code",
+        "namespace": "x11"
+      },
+      "kind": "application"
+    },
+    "mode": "auto",
+    "namespace": "x11",
+    "observer": {
+      "mechanism": "the X11 window manager",
+      "state": "available"
+    },
+    "problems": [
+      null,
+      null
+    ],
+    "recent": [
+      {
+        "displayName": "Visual Studio Code",
+        "id": "Code",
+        "namespace": "x11"
+      },
+      {
+        "displayName": "Terminal",
+        "id": "Gnome-terminal",
+        "namespace": "x11"
+      }
+    ],
+    "settings": {
+      "auto": true,
+      "fallback": {
+        "kind": "surface",
+        "surfaceId": "agent-control"
+      },
+      "rules": [
+        {
+          "application": {
+            "displayName": "Visual Studio Code",
+            "id": "Code",
+            "namespace": "x11"
+          },
+          "pageId": "git",
+          "surfaceId": "development"
+        },
+        {
+          "application": {
+            "displayName": "Terminal",
+            "id": "Gnome-terminal",
+            "namespace": "x11"
+          },
+          "surfaceId": "productivity"
+        }
+      ]
+    }
+  },
+  "manual": {
+    "application": {
+      "displayName": "Visual Studio Code",
+      "id": "Code",
+      "namespace": "x11"
+    },
+    "decision": {
+      "application": {
+        "displayName": "Visual Studio Code",
+        "id": "Code",
+        "namespace": "x11"
+      },
+      "held": "manual",
+      "outcome": "activated",
+      "pageId": "git",
+      "pageMissing": false,
+      "rule": 0,
+      "surfaceId": "development"
+    },
+    "foreground": {
+      "kind": "launchDeck"
+    },
+    "mode": "manual",
+    "namespace": "x11",
+    "observer": {
+      "mechanism": "the X11 window manager",
+      "state": "available"
+    },
+    "problems": [
+      null,
+      null
+    ],
+    "recent": [
+      {
+        "displayName": "Visual Studio Code",
+        "id": "Code",
+        "namespace": "x11"
+      },
+      {
+        "displayName": "Terminal",
+        "id": "Gnome-terminal",
+        "namespace": "x11"
+      }
+    ],
+    "settings": {
+      "auto": true,
+      "fallback": {
+        "kind": "surface",
+        "surfaceId": "agent-control"
+      },
+      "rules": [
+        {
+          "application": {
+            "displayName": "Visual Studio Code",
+            "id": "Code",
+            "namespace": "x11"
+          },
+          "pageId": "git",
+          "surfaceId": "development"
+        },
+        {
+          "application": {
+            "displayName": "Terminal",
+            "id": "Gnome-terminal",
+            "namespace": "x11"
+          },
+          "surfaceId": "productivity"
+        }
+      ]
+    }
+  },
+  "paused": {
+    "application": {
+      "displayName": "Visual Studio Code",
+      "id": "Code",
+      "namespace": "x11"
+    },
+    "decision": {
+      "application": {
+        "displayName": "Visual Studio Code",
+        "id": "Code",
+        "namespace": "x11"
+      },
+      "held": "paused",
+      "outcome": "activated",
+      "pageId": "git",
+      "pageMissing": false,
+      "rule": 0,
+      "surfaceId": "development"
+    },
+    "foreground": {
+      "kind": "launchDeck"
+    },
+    "mode": "paused",
+    "namespace": "x11",
+    "observer": {
+      "mechanism": "the X11 window manager",
+      "reason": "The connection to the X display was lost.",
+      "state": "degraded"
+    },
+    "problems": [
+      null,
+      null,
+      {
+        "by": 0,
+        "kind": "shadowed"
+      },
+      {
+        "kind": "otherSystem"
+      }
+    ],
+    "recent": [
+      {
+        "displayName": "Visual Studio Code",
+        "id": "Code",
+        "namespace": "x11"
+      },
+      {
+        "displayName": "Terminal",
+        "id": "Gnome-terminal",
+        "namespace": "x11"
+      }
+    ],
+    "settings": {
+      "auto": true,
+      "fallback": {
+        "kind": "surface",
+        "surfaceId": "agent-control"
+      },
+      "rules": [
+        {
+          "application": {
+            "displayName": "Visual Studio Code",
+            "id": "Code",
+            "namespace": "x11"
+          },
+          "pageId": "git",
+          "surfaceId": "development"
+        },
+        {
+          "application": {
+            "displayName": "Terminal",
+            "id": "Gnome-terminal",
+            "namespace": "x11"
+          },
+          "surfaceId": "productivity"
+        },
+        {
+          "application": {
+            "displayName": "Visual Studio Code",
+            "id": "Code",
+            "namespace": "x11"
+          },
+          "surfaceId": "productivity"
+        },
+        {
+          "application": {
+            "displayName": "Terminal",
+            "id": "com.apple.Terminal",
+            "namespace": "macos"
+          },
+          "surfaceId": "development"
+        }
+      ]
+    }
+  },
+  "unavailable": {
+    "foreground": {
+      "kind": "unknown"
+    },
+    "mode": "unavailable",
+    "namespace": "x11",
+    "observer": {
+      "reason": "This is a Wayland session (GNOME). Wayland does not let an application see which application is in front, and LaunchDeck has no compositor-specific support yet. Auto Context needs an X11 session; switching surfaces by hand works as always.",
+      "state": "unavailable"
+    },
+    "problems": [],
+    "recent": [],
+    "settings": {
+      "auto": true,
+      "fallback": {
+        "kind": "keep"
+      },
+      "rules": []
+    }
+  }
+}

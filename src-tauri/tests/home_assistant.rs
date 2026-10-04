@@ -193,6 +193,7 @@ async fn start(controls: Vec<Control>) -> Env {
             }],
             last_active_surface: Some(SURFACE.into()),
             preferences: Preferences::default(),
+            context: Default::default(),
         },
         store: Some(Store::new(&data)),
         emitter: rec.clone(),
@@ -202,6 +203,7 @@ async fn start(controls: Vec<Control>) -> Env {
         demo_pace: 0.05,
         plugin_dirs: vec![plugins.clone()],
         secrets: Some(secrets.clone()),
+        observer: None,
     })
     .await;
     wait_until("the first frame", || {
