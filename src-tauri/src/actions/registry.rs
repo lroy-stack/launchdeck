@@ -138,8 +138,10 @@ impl ActionRegistry {
     pub fn catalog(&self) -> Catalog {
         let mut providers = Vec::new();
         let mut actions = Vec::new();
+        let mut observables = Vec::new();
         let mut issues = Vec::new();
         let mut claimed: HashSet<String> = HashSet::new();
+        let mut claimed_observables: HashSet<String> = HashSet::new();
         for Entry { plugin, manifest } in self.ordered() {
             let (status, reason) = provider_state(&manifest);
             providers.push(ProviderInfo {
@@ -188,10 +190,32 @@ impl ActionRegistry {
                     appearance: def.appearance.clone(),
                 });
             }
+            for def in plugin.observables() {
+                if def.provider != manifest.id {
+                    issues.push(format!(
+                        "{} was left out: it is declared by `{}`",
+                        def.id, manifest.id
+                    ));
+                    continue;
+                }
+                if let Err(why) = def.check() {
+                    issues.push(format!("{} was left out: {why}", def.id));
+                    continue;
+                }
+                if !claimed_observables.insert(def.id.clone()) {
+                    issues.push(format!(
+                        "{} was left out: another provider already uses this id",
+                        def.id
+                    ));
+                    continue;
+                }
+                observables.push(def);
+            }
         }
         Catalog {
             providers,
             actions,
+            observables,
             issues,
         }
     }

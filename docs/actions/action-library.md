@@ -41,13 +41,13 @@ Dragging uses HTML5 drag and drop. Tauri's own file-drop handler would swallow t
 
 ### A new pad takes the action's look
 
-A pad that nobody has touched yet takes the action's suggested label, colour and icon when you assign. Any other pad keeps its own. For an existing pad the inspector offers **Use suggested look** when the action has hints that differ from the pad, and applies them only when pressed. Looks for states and bindings are never touched.
+A pad that nobody has touched yet takes the action's suggested label, colour and icon when you assign. Any other pad keeps its own. For an existing pad the inspector offers **Use suggested look** when the action has hints that differ from the pad, and applies them only when pressed. Looks and feedback rules are never touched.
 
 ### Replacing on purpose
 
 Assigning to a slot that already holds a different action changes nothing until you confirm. The inspector names what is lost:
 
-> This replaces “Open URL” and its 1 setting with “Keyboard shortcut”. The pad’s label, colour, icon, state looks and bindings are not changed.
+> This replaces “Open URL” and its 1 setting with “Keyboard shortcut”. The pad’s label, colour, icon, looks and feedback rules are not changed.
 
 **Replace** applies it to the draft and **Keep current** (or `Escape`) cancels. Assigning the action that is already there does nothing, and says so, so its settings are not reset.
 
@@ -65,11 +65,11 @@ Execution feedback is the existing runtime feedback, not a second system:
 
 | Stage | Event | On the pad |
 | --- | --- | --- |
-| Pending | `action.started` | The pad's `running` state, if it has one and no bindings. |
+| Pending | `action.started` | The pad's `running` look, if it has one and no feedback rules. |
 | Success | `action.completed` | `success` for 2.5 s. |
 | Failure | `action.failed`, with the message | `error` for 4 s. |
 
-A pad with bindings is driven only by its bindings. The event payload carries `action` as `provider.action`, the control and the page.
+A pad with feedback rules is driven only by its rules. The event payload carries `action` as `provider.action`, the control and the page.
 
 ## Keyboard and accessibility
 

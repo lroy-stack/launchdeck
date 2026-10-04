@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "surfaces": [
     {
       "id": "agent-control",
@@ -94,21 +94,21 @@
                   "slot": 0
                 }
               },
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "slot.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 0
-                        }
-                      ],
-                      "setState": "$payload.status"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.status",
+                      "args": {
+                        "slot": 0
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -144,26 +144,22 @@
                 }
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "focus.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 0
-                        }
-                      ],
-                      "setState": "focused"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.focused",
+                      "args": {
+                        "slot": 0
+                      }
                     },
-                    {
-                      "event": "focus.changed",
-                      "when": [],
-                      "setState": "idle"
+                    "is": {
+                      "op": "equals",
+                      "value": true
                     }
-                  ]
+                  },
+                  "show": "focused"
                 }
               ]
             },
@@ -249,21 +245,21 @@
                   "slot": 1
                 }
               },
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "slot.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 1
-                        }
-                      ],
-                      "setState": "$payload.status"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.status",
+                      "args": {
+                        "slot": 1
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -299,26 +295,22 @@
                 }
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "focus.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 1
-                        }
-                      ],
-                      "setState": "focused"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.focused",
+                      "args": {
+                        "slot": 1
+                      }
                     },
-                    {
-                      "event": "focus.changed",
-                      "when": [],
-                      "setState": "idle"
+                    "is": {
+                      "op": "equals",
+                      "value": true
                     }
-                  ]
+                  },
+                  "show": "focused"
                 }
               ]
             },
@@ -404,21 +396,21 @@
                   "slot": 2
                 }
               },
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "slot.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 2
-                        }
-                      ],
-                      "setState": "$payload.status"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.status",
+                      "args": {
+                        "slot": 2
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -454,26 +446,22 @@
                 }
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "focus.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 2
-                        }
-                      ],
-                      "setState": "focused"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.focused",
+                      "args": {
+                        "slot": 2
+                      }
                     },
-                    {
-                      "event": "focus.changed",
-                      "when": [],
-                      "setState": "idle"
+                    "is": {
+                      "op": "equals",
+                      "value": true
                     }
-                  ]
+                  },
+                  "show": "focused"
                 }
               ]
             },
@@ -559,21 +547,21 @@
                   "slot": 3
                 }
               },
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "slot.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 3
-                        }
-                      ],
-                      "setState": "$payload.status"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.status",
+                      "args": {
+                        "slot": 3
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -609,26 +597,22 @@
                 }
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "focus.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 3
-                        }
-                      ],
-                      "setState": "focused"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.focused",
+                      "args": {
+                        "slot": 3
+                      }
                     },
-                    {
-                      "event": "focus.changed",
-                      "when": [],
-                      "setState": "idle"
+                    "is": {
+                      "op": "equals",
+                      "value": true
                     }
-                  ]
+                  },
+                  "show": "focused"
                 }
               ]
             },
@@ -714,21 +698,21 @@
                   "slot": 4
                 }
               },
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "slot.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 4
-                        }
-                      ],
-                      "setState": "$payload.status"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.status",
+                      "args": {
+                        "slot": 4
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -764,26 +748,22 @@
                 }
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "focus.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 4
-                        }
-                      ],
-                      "setState": "focused"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.focused",
+                      "args": {
+                        "slot": 4
+                      }
                     },
-                    {
-                      "event": "focus.changed",
-                      "when": [],
-                      "setState": "idle"
+                    "is": {
+                      "op": "equals",
+                      "value": true
                     }
-                  ]
+                  },
+                  "show": "focused"
                 }
               ]
             },
@@ -869,21 +849,21 @@
                   "slot": 5
                 }
               },
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "slot.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 5
-                        }
-                      ],
-                      "setState": "$payload.status"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.status",
+                      "args": {
+                        "slot": 5
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -919,26 +899,22 @@
                 }
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "focus.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 5
-                        }
-                      ],
-                      "setState": "focused"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.focused",
+                      "args": {
+                        "slot": 5
+                      }
                     },
-                    {
-                      "event": "focus.changed",
-                      "when": [],
-                      "setState": "idle"
+                    "is": {
+                      "op": "equals",
+                      "value": true
                     }
-                  ]
+                  },
+                  "show": "focused"
                 }
               ]
             },
@@ -1024,21 +1000,21 @@
                   "slot": 6
                 }
               },
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "slot.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 6
-                        }
-                      ],
-                      "setState": "$payload.status"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.status",
+                      "args": {
+                        "slot": 6
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -1074,26 +1050,22 @@
                 }
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "focus.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 6
-                        }
-                      ],
-                      "setState": "focused"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.focused",
+                      "args": {
+                        "slot": 6
+                      }
                     },
-                    {
-                      "event": "focus.changed",
-                      "when": [],
-                      "setState": "idle"
+                    "is": {
+                      "op": "equals",
+                      "value": true
                     }
-                  ]
+                  },
+                  "show": "focused"
                 }
               ]
             },
@@ -1179,21 +1151,21 @@
                   "slot": 7
                 }
               },
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "slot.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 7
-                        }
-                      ],
-                      "setState": "$payload.status"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.status",
+                      "args": {
+                        "slot": 7
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -1229,26 +1201,22 @@
                 }
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "focus.changed",
-                      "when": [
-                        {
-                          "field": "slot",
-                          "equals": 7
-                        }
-                      ],
-                      "setState": "focused"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "slot.focused",
+                      "args": {
+                        "slot": 7
+                      }
                     },
-                    {
-                      "event": "focus.changed",
-                      "when": [],
-                      "setState": "idle"
+                    "is": {
+                      "op": "equals",
+                      "value": true
                     }
-                  ]
+                  },
+                  "show": "focused"
                 }
               ]
             },
@@ -1302,21 +1270,21 @@
                 "args": {}
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "command.state",
-                      "when": [
-                        {
-                          "field": "command",
-                          "equals": "approve"
-                        }
-                      ],
-                      "setState": "$payload.state"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "command.state",
+                      "args": {
+                        "command": "approve"
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -1370,21 +1338,21 @@
                 "args": {}
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "command.state",
-                      "when": [
-                        {
-                          "field": "command",
-                          "equals": "reject"
-                        }
-                      ],
-                      "setState": "$payload.state"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "command.state",
+                      "args": {
+                        "command": "reject"
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -1438,21 +1406,21 @@
                 "args": {}
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "command.state",
-                      "when": [
-                        {
-                          "field": "command",
-                          "equals": "pause"
-                        }
-                      ],
-                      "setState": "$payload.state"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "command.state",
+                      "args": {
+                        "command": "pause"
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -1506,21 +1474,21 @@
                 "args": {}
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "command.state",
-                      "when": [
-                        {
-                          "field": "command",
-                          "equals": "resume"
-                        }
-                      ],
-                      "setState": "$payload.state"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "command.state",
+                      "args": {
+                        "command": "resume"
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -1574,21 +1542,21 @@
                 "args": {}
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "command.state",
-                      "when": [
-                        {
-                          "field": "command",
-                          "equals": "retry"
-                        }
-                      ],
-                      "setState": "$payload.state"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "command.state",
+                      "args": {
+                        "command": "retry"
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -1642,21 +1610,21 @@
                 "args": {}
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "command.state",
-                      "when": [
-                        {
-                          "field": "command",
-                          "equals": "cancel"
-                        }
-                      ],
-                      "setState": "$payload.state"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "command.state",
+                      "args": {
+                        "command": "cancel"
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -1712,21 +1680,21 @@
                 }
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "command.state",
-                      "when": [
-                        {
-                          "field": "command",
-                          "equals": "send_instruction"
-                        }
-                      ],
-                      "setState": "$payload.state"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "command.state",
+                      "args": {
+                        "command": "send_instruction"
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -1782,21 +1750,21 @@
                 }
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "command.state",
-                      "when": [
-                        {
-                          "field": "command",
-                          "equals": "spawn"
-                        }
-                      ],
-                      "setState": "$payload.state"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "command.state",
+                      "args": {
+                        "command": "spawn"
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -1852,21 +1820,21 @@
                 }
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "command.state",
-                      "when": [
-                        {
-                          "field": "command",
-                          "equals": "spawn"
-                        }
-                      ],
-                      "setState": "$payload.state"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "command.state",
+                      "args": {
+                        "command": "spawn"
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -1922,21 +1890,21 @@
                 }
               },
               "longPress": null,
-              "bindings": [
+              "feedback": [
                 {
-                  "source": "agent-control",
-                  "rules": [
-                    {
-                      "event": "command.state",
-                      "when": [
-                        {
-                          "field": "command",
-                          "equals": "spawn"
-                        }
-                      ],
-                      "setState": "$payload.state"
+                  "when": {
+                    "state": {
+                      "provider": "agent-control",
+                      "id": "command.state",
+                      "args": {
+                        "command": "spawn"
+                      }
+                    },
+                    "is": {
+                      "op": "hasValue"
                     }
-                  ]
+                  },
+                  "showFromValue": true
                 }
               ]
             },
@@ -1964,8 +1932,7 @@
                 "action": "runDemo",
                 "args": {}
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.2.7",
@@ -1991,8 +1958,7 @@
                 "action": "resetDemo",
                 "args": {}
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.6.7",
@@ -2018,8 +1984,7 @@
                 "action": "openApp",
                 "args": {}
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.0",
@@ -2046,8 +2011,7 @@
                   "surfaceId": "agent-control"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.1",
@@ -2074,8 +2038,7 @@
                   "surfaceId": "development"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.2",
@@ -2102,8 +2065,7 @@
                   "surfaceId": "productivity"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.3",
@@ -2130,8 +2092,7 @@
                   "surfaceId": "smart-home"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.4",
@@ -2158,8 +2119,7 @@
                   "surfaceId": "accessibility"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             }
           ]
         }
@@ -2216,8 +2176,7 @@
                   "app": "x-terminal-emulator"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.1.0",
@@ -2258,8 +2217,7 @@
                   "app": "code"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.2.0",
@@ -2300,8 +2258,7 @@
                   "url": "https://github.com"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.3.0",
@@ -2342,8 +2299,7 @@
                   "command": "sleep 1 && echo 'docker: demo only'"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.0.1",
@@ -2384,8 +2340,7 @@
                   "command": "sleep 2 && echo 'tests passed'"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.1.1",
@@ -2426,8 +2381,7 @@
                   "command": "sleep 3 && echo 'build ok'"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.2.1",
@@ -2468,8 +2422,7 @@
                   "command": "sleep 1 && echo 'dev server: demo only'"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.3.1",
@@ -2510,8 +2463,7 @@
                   "command": "sleep 2 && echo 'deploy: demo only'"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.0.2",
@@ -2539,8 +2491,7 @@
                   "pageId": "git"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.1.2",
@@ -2581,8 +2532,7 @@
                   "command": "echo 'simulated failure' >&2; exit 1"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.0",
@@ -2609,8 +2559,7 @@
                   "surfaceId": "agent-control"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.1",
@@ -2637,8 +2586,7 @@
                   "surfaceId": "development"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.2",
@@ -2665,8 +2613,7 @@
                   "surfaceId": "productivity"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.3",
@@ -2693,8 +2640,7 @@
                   "surfaceId": "smart-home"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.4",
@@ -2721,8 +2667,7 @@
                   "surfaceId": "accessibility"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             }
           ]
         },
@@ -2769,8 +2714,7 @@
                   "command": "sleep 1 && echo 'git status: demo only'"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.1.0",
@@ -2811,8 +2755,7 @@
                   "command": "sleep 1 && echo 'git commit: demo only'"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.2.0",
@@ -2853,8 +2796,7 @@
                   "command": "sleep 1 && echo 'git pull: demo only'"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.3.0",
@@ -2895,8 +2837,7 @@
                   "command": "sleep 1 && echo 'git push: demo only'"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.0.7",
@@ -2924,8 +2865,7 @@
                   "pageId": "home"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.0",
@@ -2952,8 +2892,7 @@
                   "surfaceId": "agent-control"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.1",
@@ -2980,8 +2919,7 @@
                   "surfaceId": "development"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.2",
@@ -3008,8 +2946,7 @@
                   "surfaceId": "productivity"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.3",
@@ -3036,8 +2973,7 @@
                   "surfaceId": "smart-home"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.4",
@@ -3064,8 +3000,7 @@
                   "surfaceId": "accessibility"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             }
           ]
         }
@@ -3114,8 +3049,7 @@
                   "url": "https://www.google.com"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.1.0",
@@ -3143,8 +3077,7 @@
                   "url": "mailto:"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.2.0",
@@ -3172,8 +3105,7 @@
                   "url": "https://calendar.google.com"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.3.0",
@@ -3202,8 +3134,7 @@
                   "args": "."
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.0.1",
@@ -3231,8 +3162,7 @@
                   "keys": "mod+c"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.1.1",
@@ -3260,8 +3190,7 @@
                   "keys": "mod+v"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.2.1",
@@ -3289,8 +3218,7 @@
                   "keys": "mod+z"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.3.1",
@@ -3318,8 +3246,7 @@
                   "keys": "mod+shift+z"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.0.2",
@@ -3347,8 +3274,7 @@
                   "command": "gnome-screenshot --interactive"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.1.2",
@@ -3376,8 +3302,7 @@
                   "keys": "mod+space"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.2.2",
@@ -3403,8 +3328,7 @@
                 "action": "playPause",
                 "args": {}
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.3.2",
@@ -3432,8 +3356,7 @@
                   "command": "sleep 1 && echo 'dnd: demo only'"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.0",
@@ -3460,8 +3383,7 @@
                   "surfaceId": "agent-control"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.1",
@@ -3488,8 +3410,7 @@
                   "surfaceId": "development"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.2",
@@ -3516,8 +3437,7 @@
                   "surfaceId": "productivity"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.3",
@@ -3544,8 +3464,7 @@
                   "surfaceId": "smart-home"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.4",
@@ -3572,8 +3491,7 @@
                   "surfaceId": "accessibility"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             }
           ]
         }
@@ -3631,8 +3549,7 @@
                   "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lights"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.2.0",
@@ -3674,8 +3591,7 @@
                   "url": "http://homeassistant.local:8123/api/webhook/launchdeck-movie"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.4.0",
@@ -3717,8 +3633,7 @@
                   "url": "http://homeassistant.local:8123/api/webhook/launchdeck-work"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.0.2",
@@ -3760,8 +3675,7 @@
                   "url": "http://homeassistant.local:8123/api/webhook/launchdeck-warmer"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.2.2",
@@ -3803,8 +3717,7 @@
                   "url": "http://homeassistant.local:8123/api/webhook/launchdeck-cooler"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.4.2",
@@ -3846,8 +3759,7 @@
                   "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lock"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.0",
@@ -3874,8 +3786,7 @@
                   "surfaceId": "agent-control"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.1",
@@ -3902,8 +3813,7 @@
                   "surfaceId": "development"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.2",
@@ -3930,8 +3840,7 @@
                   "surfaceId": "productivity"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.3",
@@ -3958,8 +3867,7 @@
                   "surfaceId": "smart-home"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.4",
@@ -3986,8 +3894,7 @@
                   "surfaceId": "accessibility"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             }
           ]
         }
@@ -4031,8 +3938,7 @@
                   "keys": "alt+home"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.2.0",
@@ -4060,8 +3966,7 @@
                   "keys": "alt+left"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.4.0",
@@ -4089,8 +3994,7 @@
                   "keys": "mod+c"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.6.0",
@@ -4118,8 +4022,7 @@
                   "keys": "mod+v"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.0.2",
@@ -4147,8 +4050,7 @@
                   "keys": "mod+="
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.2.2",
@@ -4176,8 +4078,7 @@
                   "keys": "mod+-"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.4.2",
@@ -4205,8 +4106,7 @@
                   "keys": "pageup"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.6.2",
@@ -4234,8 +4134,7 @@
                   "keys": "pagedown"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.0.4",
@@ -4261,8 +4160,7 @@
                 "action": "volumeUp",
                 "args": {}
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.2.4",
@@ -4288,8 +4186,7 @@
                 "action": "volumeDown",
                 "args": {}
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.4.4",
@@ -4315,8 +4212,7 @@
                 "action": "toggleMute",
                 "args": {}
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.6.4",
@@ -4344,8 +4240,7 @@
                   "pageId": "help"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.0",
@@ -4372,8 +4267,7 @@
                   "surfaceId": "agent-control"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.1",
@@ -4400,8 +4294,7 @@
                   "surfaceId": "development"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.2",
@@ -4428,8 +4321,7 @@
                   "surfaceId": "productivity"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.3",
@@ -4456,8 +4348,7 @@
                   "surfaceId": "smart-home"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "t.4",
@@ -4484,8 +4375,7 @@
                   "surfaceId": "accessibility"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             }
           ]
         },
@@ -4519,8 +4409,7 @@
                   "url": "tel:"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.2.0",
@@ -4548,8 +4437,7 @@
                   "url": "sms:"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.4.0",
@@ -4578,8 +4466,7 @@
                   "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lights"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.6.0",
@@ -4605,8 +4492,7 @@
                 "action": "playPause",
                 "args": {}
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             },
             {
               "id": "g.0.6",
@@ -4634,8 +4520,7 @@
                   "pageId": "home"
                 }
               },
-              "longPress": null,
-              "bindings": []
+              "longPress": null
             }
           ]
         }

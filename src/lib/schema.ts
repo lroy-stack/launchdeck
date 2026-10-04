@@ -103,14 +103,40 @@ export const providerInfoSchema = z.object({
 });
 export type ProviderInfo = z.infer<typeof providerInfoSchema>;
 
+/** A value a state holds: a boolean, a number or a short text. */
+export const scalarSchema = z.union([z.boolean(), z.number(), z.string()]);
+export type Scalar = z.infer<typeof scalarSchema>;
+
+/** A state a provider offers: something a feedback rule can read. */
+export const observableSchema = z.object({
+  id: z.string(),
+  provider: z.string(),
+  local: z.string(),
+  name: z.string(),
+  description: z.string().default(""),
+  category: z.string().optional(),
+  keywords: z.array(z.string()).default([]),
+  kind: z.enum(["state", "event"]),
+  params: z.array(paramDefSchema).default([]),
+  value: z
+    .object({
+      type: z.enum(["enum", "boolean", "number", "string"]),
+      values: z.array(z.object({ value: scalarSchema, label: z.string(), role: z.string().optional() })).default([]),
+    })
+    .optional(),
+});
+export type Observable = z.infer<typeof observableSchema>;
+
 /** Everything the Action Library offers, as Rust evaluated it. Searched locally. */
 export const catalogSchema = z.object({
   providers: z.array(providerInfoSchema),
   actions: z.array(actionDefinitionSchema),
+  /** The states providers offer to feedback rules. */
+  observables: z.array(observableSchema).default([]),
   issues: z.array(z.string()).default([]),
 });
 export type Catalog = z.infer<typeof catalogSchema>;
-export const emptyCatalog: Catalog = { providers: [], actions: [], issues: [] };
+export const emptyCatalog: Catalog = { providers: [], actions: [], observables: [], issues: [] };
 
 export const issueSchema = z.object({ param: z.string().optional(), message: z.string() });
 export type Issue = z.infer<typeof issueSchema>;
@@ -122,17 +148,58 @@ export const validationSchema = z.object({
 });
 export type Validation = z.infer<typeof validationSchema>;
 
-const bindingSchema = z.object({
-  source: z.string(),
-  rules: z.array(
-    z.object({
-      event: z.string(),
-      when: z.array(z.object({ field: z.string(), equals: z.unknown() })).default([]),
-      setState: z.string(),
-    }),
-  ),
+// ---------------------------------------------------------------------------
+// Feedback rules (workspace schema 4): what decides which look a control shows.
+// State rules are continuous (they read the value a provider reported); event
+// rules are momentary (they show a look for a while). See state/feedback.rs.
+// ---------------------------------------------------------------------------
+
+export const stateAddressSchema = z.object({
+  provider: z.string(),
+  id: z.string(),
+  args: z.record(z.string(), scalarSchema).optional(),
 });
-export type Binding = z.infer<typeof bindingSchema>;
+export type StateAddress = z.infer<typeof stateAddressSchema>;
+
+export const stateTestSchema = z.discriminatedUnion("op", [
+  z.object({ op: z.literal("equals"), value: scalarSchema }),
+  z.object({ op: z.literal("notEquals"), value: scalarSchema }),
+  z.object({ op: z.literal("lessThan"), value: z.number() }),
+  z.object({ op: z.literal("atMost"), value: z.number() }),
+  z.object({ op: z.literal("greaterThan"), value: z.number() }),
+  z.object({ op: z.literal("atLeast"), value: z.number() }),
+  z.object({ op: z.literal("hasValue") }),
+  z.object({ op: z.literal("noValue") }),
+  z.object({ op: z.literal("unavailable") }),
+]);
+export type StateTest = z.infer<typeof stateTestSchema>;
+
+const whichLook = {
+  show: z.string().optional(),
+  showFromValue: z.boolean().optional(),
+  showFromField: z.string().optional(),
+};
+
+export const stateRuleSchema = z.object({
+  when: z.object({ state: stateAddressSchema, is: stateTestSchema }),
+  ...whichLook,
+});
+export type StateRule = z.infer<typeof stateRuleSchema>;
+
+export const eventRuleSchema = z.object({
+  when: z.object({
+    event: z.object({ provider: z.string(), id: z.string() }),
+    where: z.array(z.object({ field: z.string(), equals: scalarSchema })).default([]),
+  }),
+  ...whichLook,
+  hold: z.union([z.literal("latch"), z.object({ ms: z.number().int() })]).optional(),
+});
+export type EventRule = z.infer<typeof eventRuleSchema>;
+
+export const feedbackRuleSchema = z.union([stateRuleSchema, eventRuleSchema]);
+export type FeedbackRule = z.infer<typeof feedbackRuleSchema>;
+
+export const isStateRule = (rule: FeedbackRule): rule is StateRule => "state" in rule.when;
 
 export const controlSchema = z.object({
   id: z.string(),
@@ -145,7 +212,10 @@ export const controlSchema = z.object({
   states: z.record(z.string(), visualSchema).default({}),
   press: assignmentSchema.nullish(),
   longPress: assignmentSchema.nullish(),
-  bindings: z.array(bindingSchema).default([]),
+  /** One ordered list: the first state rule that is true decides the look. */
+  feedback: z.array(feedbackRuleSchema).default([]),
+  /** Schema 3 bindings that could not become rules, kept word for word. Inert. */
+  legacyBindings: z.array(z.unknown()).default([]),
 });
 export type Control = z.infer<typeof controlSchema>;
 

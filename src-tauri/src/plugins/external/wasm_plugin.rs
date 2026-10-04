@@ -19,6 +19,7 @@ use super::{EventInfo, ExternalInfo, PluginStatus, ABI_VERSION, SDK_VERSION};
 use crate::actions::definition::ProviderKind;
 use crate::events::external::valid_ident;
 use crate::plugins::{ActionDef, ActionError, Plugin, PluginContext, PluginManifest};
+use crate::state::StateHub;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct StatusInfo {
@@ -106,16 +107,32 @@ pub struct WasmPlugin {
     /// Kept apart from the sandbox so listing plugins never waits for a call.
     status: RwLock<StatusInfo>,
     sandbox: Mutex<Option<Sandbox>>,
+    /// The state hub of the runtime. A plugin's lifecycle is reported here at
+    /// the one place its status changes (`set_status`), so the hub can never
+    /// disagree with the plugin about whether it is running.
+    hub: StateHub,
 }
 
 impl WasmPlugin {
-    /// A plugin that is known but not running.
+    /// A plugin that is known but not running, with a state hub of its own.
     pub fn new(
         manifest: ExternalManifest,
         dir: PathBuf,
         fingerprint: u64,
         log: Arc<PluginLog>,
         limits: Limits,
+    ) -> Arc<WasmPlugin> {
+        Self::with_hub(manifest, dir, fingerprint, log, limits, StateHub::new())
+    }
+
+    /// A plugin that is known but not running, reporting to `hub`.
+    pub fn with_hub(
+        manifest: ExternalManifest,
+        dir: PathBuf,
+        fingerprint: u64,
+        log: Arc<PluginLog>,
+        limits: Limits,
+        hub: StateHub,
     ) -> Arc<WasmPlugin> {
         let declared_events = Arc::new(manifest.events.iter().map(|e| e.kind.clone()).collect());
         Arc::new(WasmPlugin {
@@ -130,6 +147,7 @@ impl WasmPlugin {
                 error: None,
             }),
             sandbox: Mutex::new(None),
+            hub,
         })
     }
 
@@ -158,8 +176,17 @@ impl WasmPlugin {
         (s.status, s.error.clone())
     }
 
+    /// The only place the status changes, and therefore the only place the
+    /// hub hears about it. Running again means everything this plugin said
+    /// before is gone (`unknown`); not running means `unavailable`.
     fn set_status(&self, status: PluginStatus, error: Option<String>) {
         *self.status.write().unwrap_or_else(|e| e.into_inner()) = StatusInfo { status, error };
+        match status {
+            PluginStatus::Enabled => self.hub.provider_up(&self.manifest.id),
+            PluginStatus::Disabled | PluginStatus::Error => {
+                self.hub.provider_down(&self.manifest.id)
+            }
+        }
     }
 
     fn sandbox_slot(&self) -> std::sync::MutexGuard<'_, Option<Sandbox>> {
@@ -249,6 +276,9 @@ impl WasmPlugin {
 }
 
 impl Plugin for WasmPlugin {
+    // Manifest schema 3 (a later milestone) is where a plugin declares states.
+    // Until then an installed plugin offers none, but its lifecycle is already
+    // reported, so the day it declares one the hub is right from the start.
     fn manifest(&self) -> PluginManifest {
         let (status, error) = self.status();
         PluginManifest {

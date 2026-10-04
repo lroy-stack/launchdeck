@@ -21,6 +21,7 @@ use super::wasm_plugin::{effective_config, WasmPlugin};
 use super::PluginStatus;
 use crate::persistence::write_private;
 use crate::plugins::{Plugin, PluginManifest, PluginRegistry};
+use crate::state::StateHub;
 
 const STATE_SCHEMA: u32 = 1;
 
@@ -115,6 +116,9 @@ pub struct ScanReport {
 }
 
 struct Data {
+    /// Plugins whose states this host declared in the hub, so that a plugin
+    /// whose new version declares none has its old declarations cleared.
+    declared: HashSet<String>,
     plugins: BTreeMap<String, Arc<WasmPlugin>>,
     logs: HashMap<String, Arc<PluginLog>>,
     issues: Vec<Issue>,
@@ -126,6 +130,7 @@ struct Inner {
     state_path: Option<PathBuf>,
     registry: PluginRegistry,
     limits: Limits,
+    hub: StateHub,
     data: Mutex<Data>,
 }
 
@@ -158,6 +163,17 @@ impl PluginHost {
         registry: PluginRegistry,
         limits: Limits,
     ) -> PluginHost {
+        Self::with_hub(roots, state_path, registry, limits, StateHub::new())
+    }
+
+    /// A host whose plugins report their lifecycle and states to `hub`.
+    pub fn with_hub(
+        roots: Vec<PathBuf>,
+        state_path: Option<PathBuf>,
+        registry: PluginRegistry,
+        limits: Limits,
+        hub: StateHub,
+    ) -> PluginHost {
         let saved = state_path.as_deref().map(load_state).unwrap_or_default();
         PluginHost {
             inner: Arc::new(Inner {
@@ -165,7 +181,9 @@ impl PluginHost {
                 state_path,
                 registry,
                 limits,
+                hub,
                 data: Mutex::new(Data {
+                    declared: HashSet::new(),
                     plugins: BTreeMap::new(),
                     logs: HashMap::new(),
                     issues: Vec::new(),
@@ -205,13 +223,29 @@ impl PluginHost {
             .clone();
         let settings = data.saved.plugins.get(&id).cloned().unwrap_or_default();
         let fields = cand.manifest.config.clone();
-        let plugin = WasmPlugin::new(
+        let plugin = WasmPlugin::with_hub(
             cand.manifest,
             cand.dir,
             cand.fingerprint,
             log.clone(),
             self.inner.limits.clone(),
+            self.inner.hub.clone(),
         );
+        // What the plugin offers is declared before it starts, so the first
+        // thing the hub sees of it is a provider with states and no values.
+        let defs = plugin.observables();
+        if !defs.is_empty() || data.declared.contains(&id) {
+            let has_any = !defs.is_empty();
+            match self.inner.hub.declare(&id, defs) {
+                Ok(()) if has_any => {
+                    data.declared.insert(id.clone());
+                }
+                Ok(()) => {
+                    data.declared.remove(&id);
+                }
+                Err(why) => log.host(Level::Error, &format!("states were not declared: {why}")),
+            }
+        }
         if settings.enabled {
             plugin.activate(&cand.wasm, &effective_config(&fields, &settings.config));
         } else {
@@ -291,6 +325,8 @@ impl PluginHost {
             .collect();
         for id in gone {
             self.inner.registry.unregister(&id);
+            self.inner.hub.remove_provider(&id);
+            data.declared.remove(&id);
             data.plugins.remove(&id);
             report.removed += 1;
         }

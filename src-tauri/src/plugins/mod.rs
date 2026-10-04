@@ -24,6 +24,7 @@ use crate::actions::definition::{Appearance, Availability, Issue, ProviderKind};
 use crate::actions::params::ParamDef;
 use crate::core::model::Rgb;
 use crate::events::{Event, EventBus};
+use crate::state::{ObservableDefinition, Scalar, StateAddress, StateHub};
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum ActionError {
@@ -144,6 +145,9 @@ pub struct PluginContext {
     plugin_id: String,
     bus: EventBus,
     handle: tokio::runtime::Handle,
+    /// Where this plugin's states are written. Absent when a context is built
+    /// outside a runtime (some unit tests).
+    hub: Option<StateHub>,
 }
 
 impl PluginContext {
@@ -152,11 +156,31 @@ impl PluginContext {
             plugin_id: plugin_id.to_string(),
             bus,
             handle,
+            hub: None,
         }
     }
 
-    /// Publish a semantic state change (`plugin.state.changed`).
+    /// Give the context the hub of the runtime that is running the plugin.
+    pub fn with_hub(mut self, hub: StateHub) -> Self {
+        self.hub = Some(hub);
+        self
+    }
+
+    /// Publish a semantic state change.
+    ///
+    /// The value is written to the state hub under this plugin's own id (a
+    /// plugin can only ever write its own states) and then announced as a
+    /// `plugin.state.changed` event, in that order. A value the plugin did not
+    /// declare is not stored; the event is published either way.
     pub fn publish_state(&self, key: &str, value: &str) {
+        if let Some(hub) = &self.hub {
+            if let Err(e) = hub.set(
+                &StateAddress::new(&self.plugin_id, key),
+                Scalar::text(value),
+            ) {
+                log::debug!("{} did not store state `{key}`: {e}", self.plugin_id);
+            }
+        }
         self.bus
             .publish(Event::plugin_state(&self.plugin_id, key, value));
     }
@@ -197,6 +221,13 @@ pub trait Plugin: Send + Sync {
     /// combination). Called with arguments that already passed the schema.
     fn check(&self, _action: &str, _args: &Value) -> Result<(), Issue> {
         Ok(())
+    }
+
+    /// The states (and events) this provider lets a control observe. Empty for
+    /// a provider that offers none. A definition describes; the values live in
+    /// the state hub.
+    fn observables(&self) -> Vec<ObservableDefinition> {
+        Vec::new()
     }
 }
 

@@ -16,6 +16,7 @@ use super::service::*;
 use super::settings::AgentsStorage;
 use super::view::AgentsSnapshot;
 use crate::events::{Event, EventBus};
+use crate::state::StateHub;
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -104,7 +105,7 @@ fn fixture_with(kind: AdapterKind, timing: Timing, storage: Option<AgentsStorage
     let bus = EventBus::new();
     let rx = bus.subscribe();
     let sink = Arc::new(CollectSink::default());
-    let ctl = AgentControl::new(bus, sink.clone(), storage, timing);
+    let ctl = AgentControl::new(bus, sink.clone(), storage, timing, StateHub::new());
     let adapter = TestAdapter::new("test", kind);
     ctl.register_adapter(adapter.clone());
     Fixture {

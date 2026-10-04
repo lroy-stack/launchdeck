@@ -8,6 +8,7 @@ use serde_json::Value;
 
 use crate::core::model::{Workspace, SCHEMA_VERSION};
 
+pub mod bindings;
 pub mod legacy;
 
 #[derive(Debug, thiserror::Error)]
@@ -26,6 +27,9 @@ pub enum PersistError {
 ///   existing surfaces. Nothing the user made is changed or removed.
 /// * v2 -> v3: every control action becomes an assignment
 ///   (`{provider, action, args}`); see [`legacy`]. Nothing is dropped.
+/// * v3 -> v4: every control's `bindings` become `feedback` rules; what cannot
+///   be expressed is kept in `legacyBindings`; see [`bindings`]. The values
+///   states hold are never part of the file.
 pub fn migrate(value: Value) -> Result<Workspace, PersistError> {
     let version = value
         .get("schemaVersion")
@@ -35,16 +39,24 @@ pub fn migrate(value: Value) -> Result<Workspace, PersistError> {
     let parse = |v: Value| -> Result<Workspace, PersistError> {
         serde_json::from_value(v).map_err(|e| PersistError::Invalid(e.to_string()))
     };
-    let upgraded = |mut v: Value| {
-        legacy::upgrade_actions(&mut v);
+    let upgraded = |mut v: Value, from: u32| {
+        if from < 3 {
+            legacy::upgrade_actions(&mut v);
+        }
+        if from < 4 {
+            let report = bindings::upgrade_bindings(&mut v);
+            if report != bindings::Report::default() {
+                log::info!("workspace v{from} -> v{SCHEMA_VERSION}: {report:?}");
+            }
+        }
         v["schemaVersion"] = Value::from(SCHEMA_VERSION);
         v
     };
     match version {
         SCHEMA_VERSION => parse(value),
-        2 => parse(upgraded(value)),
+        2 | 3 => parse(upgraded(value, version)),
         1 => {
-            let mut ws = parse(upgraded(value))?;
+            let mut ws = parse(upgraded(value, 1))?;
             crate::surfaces::add_agent_control(&mut ws);
             Ok(ws)
         }
@@ -174,7 +186,7 @@ mod tests {
         let loaded = store.load_or_default(|| panic!("should load from disk"));
         assert_eq!(loaded, ws);
         let raw: Value = serde_json::from_str(&fs::read_to_string(store.path()).unwrap()).unwrap();
-        assert_eq!(raw["schemaVersion"], 3);
+        assert_eq!(raw["schemaVersion"], 4);
     }
 
     #[test]
@@ -204,7 +216,7 @@ mod tests {
             migrate(v),
             Err(PersistError::TooNew {
                 found: 99,
-                supported: 3
+                supported: 4
             })
         ));
         assert!(matches!(
@@ -300,7 +312,7 @@ mod tests {
     }
 
     #[test]
-    fn a_real_v2_workspace_opens_as_v3_with_every_action_kept() {
+    fn a_real_v2_workspace_opens_in_the_current_schema_with_every_action_kept() {
         let old: Value = serde_json::from_str(V2_FIXTURE).unwrap();
         assert_eq!(old["schemaVersion"], 2);
         let before = actions_of(&old);
@@ -332,6 +344,10 @@ mod tests {
                     for c in p["controls"].as_array_mut().unwrap() {
                         c.as_object_mut().unwrap().remove("press");
                         c.as_object_mut().unwrap().remove("longPress");
+                        // Bindings became feedback rules (checked in `bindings.rs`).
+                        c.as_object_mut().unwrap().remove("bindings");
+                        c.as_object_mut().unwrap().remove("feedback");
+                        c.as_object_mut().unwrap().remove("legacyBindings");
                     }
                 }
             }
@@ -339,6 +355,101 @@ mod tests {
             v
         };
         assert_eq!(strip(old), strip(new));
+    }
+
+    const V3_FIXTURE: &str = include_str!("../../tests/fixtures/workspace-v3.json");
+
+    /// The strongest check of the conversion: the schema 3 workspace the last
+    /// release shipped, migrated by the rules in [`bindings`], is the same
+    /// workspace the code builds by hand today, control by control.
+    #[test]
+    fn a_real_v3_workspace_migrates_to_exactly_what_ships_now() {
+        let old: Value = serde_json::from_str(V3_FIXTURE).unwrap();
+        assert_eq!(old["schemaVersion"], 3);
+        let ws = migrate(old).unwrap();
+        assert_eq!(ws.schema_version, SCHEMA_VERSION);
+        let shipped = default_workspace();
+        assert_eq!(ws.surfaces.len(), shipped.surfaces.len());
+        for (a, b) in ws.surfaces.iter().zip(&shipped.surfaces) {
+            assert_eq!(a, b, "surface `{}` differs after migration", b.id);
+        }
+        assert!(ws
+            .surfaces
+            .iter()
+            .flat_map(|s| &s.pages)
+            .flat_map(|p| &p.controls)
+            .all(|c| c.legacy_bindings.is_empty()));
+    }
+
+    #[test]
+    fn a_v3_file_is_backed_up_once_and_loads_as_v4() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path());
+        fs::write(store.path(), V3_FIXTURE).unwrap();
+        let ws = store.load_or_default(|| panic!("should migrate"));
+        assert_eq!(ws.schema_version, 4);
+        let backup = dir.path().join("workspace.json.v3.bak");
+        assert_eq!(fs::read_to_string(&backup).unwrap(), V3_FIXTURE);
+        store.save(&ws).unwrap();
+        let on_disk: Value =
+            serde_json::from_str(&fs::read_to_string(store.path()).unwrap()).unwrap();
+        assert_eq!(on_disk["schemaVersion"], 4);
+        // The file holds rules, never a binding, a value or a frame.
+        let text = on_disk.to_string();
+        assert!(!text.contains("\"bindings\""));
+        assert!(text.contains("\"feedback\""));
+        assert!(!text.contains("\"updatedAt\""));
+        // A second load keeps the first backup and reads the new file as it is.
+        let again = store.load_or_default(|| panic!("should load"));
+        assert_eq!(again, ws);
+        assert_eq!(fs::read_to_string(&backup).unwrap(), V3_FIXTURE);
+    }
+
+    #[test]
+    fn a_binding_that_cannot_be_converted_survives_a_save_and_a_load() {
+        let mut doc: Value = serde_json::from_str(V3_FIXTURE).unwrap();
+        let odd = serde_json::json!({ "event": "x", "when": [{ "field": "a", "equals": [1, 2] }],
+                                       "setState": "y" });
+        let binding = serde_json::json!({ "source": "ci", "rules": [odd] });
+        doc["surfaces"][1]["pages"][0]["controls"][0]["bindings"] =
+            serde_json::json!([binding.clone()]);
+        let ws = migrate(doc).unwrap();
+        let control = &ws.surfaces[1].pages[0].controls[0];
+        assert!(control.feedback.is_empty());
+        assert_eq!(control.legacy_bindings, vec![binding.clone()]);
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path());
+        store.save(&ws).unwrap();
+        let loaded = store.load_or_default(|| panic!("should load"));
+        assert_eq!(
+            loaded.surfaces[1].pages[0].controls[0].legacy_bindings,
+            vec![binding]
+        );
+        assert_eq!(loaded, ws);
+    }
+
+    #[test]
+    fn every_binding_of_the_v2_fixture_is_converted_or_kept() {
+        let old: Value = serde_json::from_str(V2_FIXTURE).unwrap();
+        let count = |doc: &Value, key: &str| -> usize {
+            doc["surfaces"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .flat_map(|s| s["pages"].as_array().unwrap())
+                .flat_map(|p| p["controls"].as_array().unwrap())
+                .map(|c| c[key].as_array().map_or(0, Vec::len))
+                .sum()
+        };
+        assert_eq!(count(&old, "feedback"), 0);
+        let before = count(&old, "bindings");
+        assert!(before > 20, "the fixture has bindings");
+        let ws = migrate(old).unwrap();
+        let new = serde_json::to_value(&ws).unwrap();
+        assert_eq!(count(&new, "bindings"), 0);
+        assert!(count(&new, "feedback") > 0);
+        assert_eq!(count(&new, "legacyBindings"), 0);
     }
 
     #[test]
@@ -394,7 +505,7 @@ mod tests {
         assert_eq!(ws.schema_version, SCHEMA_VERSION);
         let backup = dir.path().join("workspace.json.v2.bak");
         assert_eq!(fs::read_to_string(&backup).unwrap(), V2_FIXTURE);
-        // Saving writes version 3 and does not touch the backup.
+        // Saving writes the current version and does not touch the backup.
         store.save(&ws).unwrap();
         let again = store.load_or_default(|| panic!("should load"));
         assert_eq!(again, ws);

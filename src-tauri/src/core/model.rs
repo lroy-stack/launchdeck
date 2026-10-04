@@ -6,13 +6,15 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 pub use crate::actions::definition::Assignment;
+pub use crate::state::feedback::FeedbackRule;
 
 /// Current on-disk schema version. Bump together with a migration in
 /// `persistence::migrate`.
-pub const SCHEMA_VERSION: u32 = 3;
+///
+/// 4: a control's `bindings` became `feedback` rules (see `state::feedback`).
+pub const SCHEMA_VERSION: u32 = 4;
 
 // ---------------------------------------------------------------------------
 // Visuals
@@ -161,35 +163,6 @@ impl Default for Span {
 }
 
 // ---------------------------------------------------------------------------
-// Bindings (external state -> control state)
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Condition {
-    /// Top-level payload field.
-    pub field: String,
-    pub equals: Value,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BindingRule {
-    pub event: String,
-    #[serde(default)]
-    pub when: Vec<Condition>,
-    /// State name to set. `$payload.<field>` reads a string from the payload.
-    pub set_state: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Binding {
-    /// Event source this binding listens to (`demo`, `ci`, ...).
-    pub source: String,
-    pub rules: Vec<BindingRule>,
-}
-
-// ---------------------------------------------------------------------------
 // Controls, pages, surfaces
 // ---------------------------------------------------------------------------
 
@@ -208,18 +181,25 @@ pub struct Control {
     pub icon: Option<String>,
     /// The `idle` appearance.
     pub visual: Visual,
-    /// Named state appearances (`running`, `success`, ...).
+    /// Named appearances, the control's *looks* (`running`, `success`, ...).
+    /// The saved field keeps its schema 1 name; the interface says "look",
+    /// because "state" now also means an observed value.
     #[serde(default)]
     pub states: BTreeMap<String, Visual>,
     #[serde(default)]
     pub press: Option<Assignment>,
     #[serde(default)]
     pub long_press: Option<Assignment>,
-    /// External/plugin state that drives this control's appearance. A control
-    /// can listen to several sources (for example the demo plugin and a real
-    /// agent on the WebSocket interface).
-    #[serde(default)]
-    pub bindings: Vec<Binding>,
+    /// What decides which look is shown, as one ordered list. The first state
+    /// rule that is true decides; an event rule shows its look for a while.
+    /// See `state::feedback`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub feedback: Vec<FeedbackRule>,
+    /// Schema 3 bindings that could not be converted to feedback rules, kept
+    /// word for word so nothing is lost. Inert; the inspector only says they
+    /// exist.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub legacy_bindings: Vec<serde_json::Value>,
 }
 
 impl Control {
@@ -235,7 +215,8 @@ impl Control {
             states: BTreeMap::new(),
             press: None,
             long_press: None,
-            bindings: Vec::new(),
+            feedback: Vec::new(),
+            legacy_bindings: Vec::new(),
         }
     }
 

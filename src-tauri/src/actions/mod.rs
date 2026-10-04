@@ -23,6 +23,7 @@ use serde_json::Value;
 
 use crate::events::EventBus;
 use crate::plugins::{ActionError, PluginContext, PluginRegistry};
+use crate::state::StateHub;
 
 use definition::Assignment;
 use registry::ActionRegistry;
@@ -31,13 +32,21 @@ use registry::ActionRegistry;
 pub struct ActionEngine {
     registry: ActionRegistry,
     bus: EventBus,
+    hub: StateHub,
 }
 
 impl ActionEngine {
+    /// An engine with a hub of its own (for tests that need none).
     pub fn new(plugins: PluginRegistry, bus: EventBus) -> Self {
+        Self::with_hub(plugins, bus, StateHub::new())
+    }
+
+    /// An engine whose plugins write their states into `hub`.
+    pub fn with_hub(plugins: PluginRegistry, bus: EventBus, hub: StateHub) -> Self {
         Self {
             registry: ActionRegistry::new(plugins),
             bus,
+            hub,
         }
     }
 
@@ -62,7 +71,8 @@ impl ActionEngine {
             &prepared.provider,
             self.bus.clone(),
             tokio::runtime::Handle::current(),
-        );
+        )
+        .with_hub(self.hub.clone());
         // Providers are synchronous and may block (keyboard, process, network).
         tokio::task::spawn_blocking(move || plugin.invoke(&ctx, &prepared.action, &prepared.args))
             .await

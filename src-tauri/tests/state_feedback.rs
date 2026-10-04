@@ -7,16 +7,12 @@
 //! runs on the real runtime, the real Demo plugin and Agent Control, and the
 //! real virtual device. Nothing is mocked.
 //!
-//! Phase 0 status: every test that describes new behaviour is `#[ignore]`d with
-//! the reason "red until phase 1". Run them with `cargo test --test
-//! state_feedback -- --include-ignored` to watch them fail on the schema 3
-//! implementation; the phase 1 commit that implements the state core removes
-//! the attributes in the same diff.
+//! Phase 0 committed these as `#[ignore]`d "red until phase 1" and they failed
+//! on the schema 3 runtime. Phase 1 implements the state core and removes the
+//! attributes in the same diff, so they all run now.
 //!
 //! Pads are described in both schemas (see `support/state_scenario.rs`), so
-//! the tests that must hold in both worlds (inactive surfaces, pages, a device
-//! that reconnects) pass before and after, and the ones that describe the new
-//! behaviour fail before.
+//! the same bodies ran against the old behaviour and run against the new.
 
 #[path = "support/state_scenario.rs"]
 mod scenario;
@@ -51,7 +47,6 @@ fn provider_events(
 ///   -> the virtual device shows the right look straight away
 /// ```
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "red until phase 1: the feedback model does not exist yet"]
 async fn acceptance_a_pad_created_after_the_value_shows_it_with_no_new_event() {
     let rt = start(Options::default()).await;
     demo(&rt, "startTask", "alpha").await;
@@ -80,7 +75,6 @@ async fn acceptance_a_pad_created_after_the_value_shows_it_with_no_new_event() {
 
 /// The same, when the pad existed but its feedback was added afterwards.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "red until phase 1: the feedback model does not exist yet"]
 async fn a_pad_edited_after_the_value_shows_it_at_once() {
     let rt = start(Options::default()).await;
     let (s, p) = new_surface(&rt, "Probe");
@@ -102,7 +96,6 @@ async fn a_pad_edited_after_the_value_shows_it_at_once() {
 /// Variant: a page that was never shown. The value is known before the pad
 /// that mirrors it exists, and the person opens the page afterwards.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "red until phase 1: the feedback model does not exist yet"]
 async fn acceptance_variant_a_page_switch_needs_no_event() {
     let rt = start(Options::default()).await;
     let (s, home) = new_surface(&rt, "Probe");
@@ -127,7 +120,6 @@ async fn acceptance_variant_a_page_switch_needs_no_event() {
 /// Variant: a device that is unplugged while the value changes and the pad is
 /// created is painted with the value as it is now when it comes back.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "red until phase 1: the feedback model does not exist yet"]
 async fn acceptance_variant_a_device_reconnect_needs_no_event() {
     let rt = start(Options::default()).await;
     let (s, p) = new_surface(&rt, "Probe");
@@ -167,7 +159,6 @@ async fn inactive_surfaces_stay_correct() {
 /// back, with no replay of its state by Agent Control. This is the
 /// `agents.republish()` workaround this milestone removes from navigation.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "red until phase 1: the feedback model does not exist yet"]
 async fn agent_control_surface_is_correct_after_a_switch_without_a_replay() {
     let rt = start(Options::default()).await;
     assert_eq!(rt.state().active_surface_id, "agent-control");
@@ -214,7 +205,6 @@ async fn agent_control_surface_is_correct_after_a_switch_without_a_replay() {
 ///
 /// Rule 1: alpha is running, show `a`. Rule 2: beta is running, show `b`.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "red until phase 1: the feedback model does not exist yet"]
 async fn the_first_matching_rule_wins_whatever_arrived_last() {
     let rt = start(Options::default()).await;
     let (s, p) = new_surface(&rt, "Probe");
@@ -257,7 +247,6 @@ async fn the_first_matching_rule_wins_whatever_arrived_last() {
 /// A rule for a state nobody has set yet is not an error, and a pad whose
 /// rules do not match rests (today the previous look would stay forever).
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "red until phase 1: the feedback model does not exist yet"]
 async fn when_no_rule_is_true_the_pad_rests() {
     let rt = start(Options::default()).await;
     let (s, p) = new_surface(&rt, "Probe");

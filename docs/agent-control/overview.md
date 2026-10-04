@@ -27,7 +27,7 @@ It does three things.
 
 Three rules hold the design together.
 
-1. **One state, three views.** `AgentControl` in Rust is the only place agent state lives. The desktop UI, the virtual Launchpad and a physical Launchpad are all derived from it through the same events, bindings and renderer. They cannot disagree, because there is no second copy to disagree with.
+1. **One state, three views.** `AgentControl` in Rust is the only place agent state lives. The desktop UI, the virtual Launchpad and a physical Launchpad are all derived from it through the same state hub, feedback rules and renderer. They cannot disagree, because there is no second copy to disagree with.
 2. **Control sessions and agents, not brands.** The domain model has no vendor in it. Statuses, capabilities and commands are normalized. A tool-specific adapter translates to them and nothing else.
 3. **Adapters know nothing about hardware.** An adapter reports what an agent is doing and carries out commands the person issued. It never sees a pad, a colour or a MIDI message. If Agent Control ever needs a MIDI change, the abstraction is wrong.
 
@@ -38,7 +38,7 @@ Agent Control adds a module and a surface. It does not fork the platform.
 | Platform piece | How Agent Control uses it |
 | --- | --- |
 | Event bus | Every agent event is an ordinary event with `source: "agent-control"`. |
-| Bindings | Pads change look by binding to those events. There is no agent-specific code in the device layer. |
+| Feedback rules | Pads change look by reading the states Agent Control keeps in the state hub (`slot.status`, `slot.focused`, `command.state`). There is no agent-specific code in the device layer or the hub. |
 | Renderer | Adapts the same visuals to what the device can show (native pulse and flash where a device has them, synthesised animation on the physical Launchpad X, or brightness only). |
 | Plugins | Pad presses call `agent-control` plugin actions, like any other plugin. |
 | Local WebSocket | The Agent Bridge is a versioned message family on the existing localhost socket. |

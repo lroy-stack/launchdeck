@@ -6,7 +6,7 @@ Everything a pad can do lives in one place, the **Action Library**, and reaches 
 Providers              Unified registry         Action Library          Surface editor          Action runtime
 built-in, Agent    ->  Rust, authoritative  ->  React, searchable   ->  select or drag,     ->  the existing engine:
 Control, installed     definitions,             projection of the       generated form,         events, automatic
-plugins                availability, params     catalog                 replace, test           states, bindings
+plugins                availability, params     catalog                 replace, test           states, feedback
 ```
 
 A person never needs an action id, a plugin id, JSON, MIDI, a Rust type or any WebAssembly knowledge to put "Approve" or "Open GitHub" on a pad.
@@ -32,7 +32,7 @@ The two ids and the settings are all there is. There is no label, no code and no
 | Unified registry | `actions/registry.rs` | A view over the plugin registry. Builds the catalog, resolves an assignment, and is the one gate (`prepare`) every assignment passes before it is saved or run. |
 | Parameter schema | `actions/params.rs` | The closed set of setting kinds, their validation and their defaults. |
 | Action engine | `actions/mod.rs` | Runs a prepared assignment through its provider. The only place an action executes. |
-| Runtime | `core/runtime.rs` | Press handling, navigation, `action.*` events, automatic states, bindings. Unchanged by the library. |
+| Runtime | `core/runtime.rs` | Press handling, navigation, `action.*` events, automatic states, feedback rules. Unchanged by the library. |
 | Library and editor | `src/features/library`, `src/features/editor` | Search, categories, drag and drop, the generated form, the replace confirmation, Test run. |
 
 Rust owns the catalog and the final validation. React keeps a copy of the catalog so searching never waits for a round trip, and mirrors the parameter rules only to mark a mistake while it is typed. A test runs every action of the default workspace through both implementations.
@@ -56,4 +56,4 @@ The research behind the design and the decisions it led to are in [ACTION_LIBRAR
 
 ## Not built
 
-Marketplace and remote registries, network or filesystem capabilities, plugin-supplied UI, workflow chaining, macros and conditional actions, and recommendations are out of scope. **State-feedback suggestions** (which pad states an action usually drives) are deferred: they only pay off together with an editor for state bindings, and a field that nothing reads would be dead metadata. A definition has no field for them, so adding them later changes nothing that is stored.
+Marketplace and remote registries, network or filesystem capabilities, plugin-supplied UI, workflow chaining, macros and conditional actions, and recommendations are out of scope. **State-feedback suggestions** (which pad states an action usually drives) are deferred: they only pay off together with an editor for feedback rules, and a field that nothing reads would be dead metadata. A definition has no field for them, so adding them later changes nothing that is stored.

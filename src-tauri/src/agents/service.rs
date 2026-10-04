@@ -35,13 +35,15 @@ use super::settings::{AgentsStorage, Settings};
 use super::view::*;
 use super::visual::{self, CommandState};
 use crate::events::{now_ms, Event, EventBus};
+use crate::state::{Scalar, StateHub};
 
 /// Event source for everything Agent Control publishes.
 pub const SOURCE: &str = "agent-control";
 /// Pads per row on the surface: one track per slot.
 pub const SLOT_COUNT: usize = 8;
 
-/// Projection events exist so that surface bindings can follow the state.
+/// Projection events predate the state hub and are kept for subscribers of the
+/// event bus. Surfaces no longer depend on them: they read the hub.
 /// They carry no news for a person reading an event log.
 pub fn is_projection(event: &Event) -> bool {
     event.source == SOURCE
@@ -255,6 +257,9 @@ impl Out {
 pub struct AgentControl {
     state: Mutex<State>,
     bus: EventBus,
+    /// Where the observable projection is written. A leaf lock: writing here
+    /// under the state lock cannot deadlock.
+    hub: StateHub,
     sink: Arc<dyn AgentsSink>,
     storage: Option<AgentsStorage>,
     timing: Timing,
@@ -268,10 +273,18 @@ impl AgentControl {
         sink: Arc<dyn AgentsSink>,
         storage: Option<AgentsStorage>,
         timing: Timing,
+        hub: StateHub,
     ) -> Arc<Self> {
         let settings = storage.as_ref().map(|s| s.load()).unwrap_or_default();
         let audit = Audit::new(storage.as_ref().map(|s| s.audit_path()));
-        Arc::new(Self {
+        // Agent Control is part of the app, so its states are always available.
+        if let Err(e) = hub.ensure_provider(
+            super::observables::PROVIDER,
+            super::observables::definitions(),
+        ) {
+            log::error!("agent control could not declare its states: {e}");
+        }
+        let this = Arc::new(Self {
             state: Mutex::new(State {
                 rev: 0,
                 seq: 0,
@@ -287,11 +300,21 @@ impl AgentControl {
                 published: None,
             }),
             bus,
+            hub,
             sink,
             storage,
             timing,
             handle: tokio::runtime::Handle::current(),
-        })
+        });
+        // Its states are known from the first moment (every track empty, nothing
+        // selected, every command unavailable), not only after the first change.
+        // No event is published and the revision does not move: `published`
+        // stays empty, so the first change still sends the whole projection.
+        {
+            let st = this.lock();
+            this.write_hub(None, &project(&st));
+        }
+        this
     }
 
     fn lock(&self) -> MutexGuard<'_, State> {
@@ -374,7 +397,41 @@ impl AgentControl {
         out.schedule
     }
 
+    /// Write what changed in the projection into the state hub. This is what
+    /// surfaces read: a control that appears later finds the current values
+    /// there, with no replay of events. `None` writes everything.
+    fn write_hub(&self, old: Option<&Projection>, new: &Projection) {
+        use super::observables as obs;
+        let put = |addr: crate::state::StateAddress, value: Scalar| {
+            if let Err(e) = self.hub.set(&addr, value) {
+                log::error!("agent control could not publish {addr}: {e}");
+            }
+        };
+        for (i, slot) in new.slots.iter().enumerate() {
+            if old.is_some_and(|o| o.slots.get(i).is_some_and(|s| s.status == slot.status)) {
+                continue;
+            }
+            put(obs::slot_status(i), Scalar::text(slot.status));
+        }
+        for i in 0..new.slots.len() {
+            let focused = new.focus == Some(i);
+            if old.is_some_and(|o| (o.focus == Some(i)) == focused) {
+                continue;
+            }
+            put(obs::slot_focused(i), Scalar::Bool(focused));
+        }
+        for (kind, state) in &new.commands {
+            if old.is_some_and(|o| o.commands.get(kind) == Some(state)) {
+                continue;
+            }
+            put(obs::command_state(*kind), Scalar::text(state.as_str()));
+        }
+    }
+
     fn publish_projection(&self, old: Option<&Projection>, new: &Projection) {
+        // State first, then the events about it, so anything that reads both
+        // never sees an event for a value that is not there yet.
+        self.write_hub(old, new);
         let publish = |kind: &str, payload: Value| {
             self.bus.publish(Event::new(SOURCE, kind, payload));
         };

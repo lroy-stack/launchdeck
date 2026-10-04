@@ -50,7 +50,7 @@ The catalog is information for the editor, not the thing that decides. Pressing 
 | State not right (Approve with nothing pending) | The provider refuses with its reason and `action.failed` follows. |
 | Arguments no longer valid | `action.failed` with the field messages; the provider never runs. |
 
-An unbound pad then shows the usual automatic error state; a pad with bindings follows its bindings.
+An unbound pad then shows the usual automatic error state; a pad with feedback rules follows its rules.
 
 ## Staying current
 

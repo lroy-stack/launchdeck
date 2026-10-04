@@ -14,6 +14,7 @@ use launchdeck_lib::agents::adapter::*;
 use launchdeck_lib::agents::model::*;
 use launchdeck_lib::agents::service::{AgentControl, NullSink, Target, Timing};
 use launchdeck_lib::events::EventBus;
+use launchdeck_lib::state::StateHub;
 
 const AGENT: &str = "stopwatch";
 const SESSION: &str = "stopwatch-1";
@@ -74,7 +75,13 @@ impl AgentAdapter for StopwatchAdapter {
 async fn main() {
     let bus = EventBus::new();
     let mut events = bus.subscribe();
-    let ctl = AgentControl::new(bus, Arc::new(NullSink), None, Timing::default());
+    let ctl = AgentControl::new(
+        bus,
+        Arc::new(NullSink),
+        None,
+        Timing::default(),
+        StateHub::new(),
+    );
     ctl.register_adapter(Arc::new(StopwatchAdapter::default()));
 
     let status = || {

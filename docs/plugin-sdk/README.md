@@ -10,7 +10,7 @@ pad press
   -> your module runs in a sandbox and returns { "message": "Hello, Leroy!" }
   -> your module also publishes  hello.completed { name, message }
   -> Event Bus
-  -> the pad's binding  (source example.hello, event hello.completed -> state "greeted")
+  -> the pad's event rule  (provider example.hello, event hello.completed -> look "greeted")
   -> the pad turns green on every device
 ```
 

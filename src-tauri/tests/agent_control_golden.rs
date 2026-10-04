@@ -8,7 +8,8 @@
 //!
 //! The fixture was recorded from the workspace schema 3 implementation, before
 //! the change (`UPDATE_GOLDEN=1 cargo test --test agent_control_golden`). It
-//! must still match after it.
+//! still matches after it: moving to the state hub changed how a pad finds out,
+//! not what it shows.
 
 #[path = "support/state_scenario.rs"]
 mod scenario;
@@ -18,9 +19,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use launchdeck_lib::agents::model::{CommandKind, Status};
+use launchdeck_lib::agents::observables;
 use launchdeck_lib::agents::visual::{self, CommandState};
 use launchdeck_lib::core::runtime::Runtime;
-use launchdeck_lib::events::Event;
+use launchdeck_lib::state::{Scalar, StateAddress};
 use scenario::*;
 use serde_json::{json, Value};
 
@@ -55,31 +57,37 @@ fn describe(rt: &Runtime, col: u8, row: u8) -> Value {
 // ---------------------------------------------------------------------------
 // How the test drives Agent Control's state. This is the only part that
 // depends on the implementation.
+//
+// Schema 3 published projection events that the surface's bindings listened
+// to. From schema 4 the surface reads the states Agent Control keeps in the
+// hub, so the test writes the values a track, a marker and a command pad
+// would have. The expected LEDs did not change.
 // ---------------------------------------------------------------------------
 
+fn put(rt: &Runtime, address: StateAddress, value: Scalar) {
+    rt.state_hub()
+        .set(&address, value)
+        .unwrap_or_else(|e| panic!("{address}: {e}"));
+}
+
 fn drive_slot(rt: &Runtime, slot: u8, status: &str) {
-    // Schema 3: the projection event the surface is bound to.
-    rt.publish_external(Event::new(
-        "agent-control",
-        "slot.changed",
-        json!({ "slot": slot, "status": status }),
-    ));
+    put(rt, observables::slot_status(slot.into()), status.into());
 }
 
 fn drive_focus(rt: &Runtime, slot: Option<u8>) {
-    rt.publish_external(Event::new(
-        "agent-control",
-        "focus.changed",
-        json!({ "slot": slot }),
-    ));
+    put(
+        rt,
+        observables::slot_focused(SLOT.into()),
+        Scalar::Bool(slot == Some(SLOT)),
+    );
 }
 
 fn drive_command(rt: &Runtime, command: CommandKind, state: CommandState) {
-    rt.publish_external(Event::new(
-        "agent-control",
-        "command.state",
-        json!({ "command": command.as_str(), "state": state.as_str() }),
-    ));
+    put(
+        rt,
+        observables::command_state(command),
+        state.as_str().into(),
+    );
 }
 
 async fn settle() {
@@ -143,5 +151,38 @@ async fn the_agent_control_surface_looks_exactly_like_the_recorded_one() {
         serde_json::to_string_pretty(&now).unwrap(),
         serde_json::to_string_pretty(&golden).unwrap(),
         "the surface no longer looks like the recorded one"
+    );
+}
+
+/// The same surface, but reached the way a person with a saved schema 3 file
+/// reaches it: the file is migrated on load and the runtime starts from the
+/// result. The LEDs are the recorded ones.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_migrated_schema_3_file_looks_exactly_like_the_recorded_one() {
+    use launchdeck_lib::persistence::Store;
+    use launchdeck_lib::surfaces::default_workspace;
+
+    let dir = tempfile::tempdir().unwrap();
+    let v3 = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/workspace-v3.json"
+    );
+    std::fs::copy(v3, dir.path().join("workspace.json")).unwrap();
+    let workspace = Store::new(dir.path()).load_or_default(default_workspace);
+    assert_eq!(workspace.schema_version, 4);
+    assert!(dir.path().join("workspace.json.v3.bak").exists());
+
+    let rt = start(Options {
+        workspace: Some(workspace),
+        ..Options::default()
+    })
+    .await;
+    assert_eq!(rt.state().active_surface_id, "agent-control");
+    let now = capture(&rt).await;
+    let golden: Value = serde_json::from_str(&std::fs::read_to_string(GOLDEN).unwrap()).unwrap();
+    assert_eq!(
+        serde_json::to_string_pretty(&now).unwrap(),
+        serde_json::to_string_pretty(&golden).unwrap(),
+        "a migrated surface no longer looks like the recorded one"
     );
 }

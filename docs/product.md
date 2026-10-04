@@ -37,9 +37,10 @@ Agent Control is the first vertical built on the platform: **a physical human co
 | Page | One screenful of controls inside a surface. |
 | Control | A position on the surface with a look per state and actions. |
 | Action | A semantic thing to do: keyboard shortcut, open URL, shell command, plugin action... |
-| State | A named condition of a control (idle, running, success...) that picks its look. |
+| Look | A named appearance of a control (idle, running, success...). Saved in the control's `states` map. |
+| State | How something is now, reported by a provider and held by the state hub (`known`, `unknown` or `unavailable`). A rule reads it. |
 | Event | Something that happened: a pad press, an action result, a plugin state change, an external message. |
-| Binding | A rule that maps events from a source to a control state. |
+| Feedback rule | A rule on a control that picks its look: a state rule reads a provider's value, an event rule shows a look for a while. First true state rule wins. See [state-and-feedback](state-and-feedback.md). |
 | Plugin | Provides actions and publishes state. Never sees MIDI. |
 | Capability | What a device (or in future, a plugin) can do or is allowed to do. |
 | Context | What the user is doing; conceptual in this prototype. See [architecture](architecture.md#context-engine-conceptual). |

@@ -11,41 +11,22 @@
 //! ```
 //!
 //! Nothing here is provider specific and nothing here is about a device. The
-//! surface only *binds* to the projection events that Agent Control publishes
-//! (`slot.changed`, `focus.changed`, `command.state`) and presses call plugin
+//! surface only carries *feedback rules* on the states Agent Control offers
+//! (`slot.status`, `slot.focused`, `command.state`) and presses call plugin
 //! actions. Colours come from `agents::visual`, the single status mapping.
 
 use serde_json::{json, Value};
 
 use super::*;
-use crate::agents::model::Status;
+use crate::agents::model::{CommandKind, Status};
+use crate::agents::observables;
 use crate::agents::plugin::PLUGIN_ID;
-use crate::agents::service::{SLOT_COUNT, SOURCE};
+use crate::agents::service::SLOT_COUNT;
 use crate::agents::visual::{self, command_visual, CommandState};
+use crate::state::feedback::{FeedbackRule, Test};
+use crate::state::Scalar;
 
 pub const SURFACE_ID: &str = "agent-control";
-
-fn when(field: &str, equals: Value) -> Vec<Condition> {
-    vec![Condition {
-        field: field.into(),
-        equals,
-    }]
-}
-
-fn rule(event: &str, conditions: Vec<Condition>, set_state: &str) -> BindingRule {
-    BindingRule {
-        event: event.into(),
-        when: conditions,
-        set_state: set_state.into(),
-    }
-}
-
-fn bind(rules: Vec<BindingRule>) -> Vec<Binding> {
-    vec![Binding {
-        source: SOURCE.into(),
-        rules,
-    }]
-}
 
 fn act(action: &str, args: Value) -> Assignment {
     plugin(PLUGIN_ID, action, args)
@@ -71,11 +52,10 @@ fn slot_pad(i: u8) -> Control {
         c.states
             .insert(status.as_str().into(), visual::status_visual(status));
     }
-    c.bindings = bind(vec![rule(
-        "slot.changed",
-        when("slot", json!(i)),
-        "$payload.status",
-    )]);
+    // One rule per pad: show the look named after the track's status.
+    c.feedback = vec![
+        FeedbackRule::state(observables::slot_status(i.into()), Test::HasValue).show_from_value(),
+    ];
     c
 }
 
@@ -92,10 +72,14 @@ fn focus_marker(i: u8) -> Control {
     c.visual = visual::focus_visual(false);
     c.states
         .insert("focused".into(), visual::focus_visual(true));
-    c.bindings = bind(vec![
-        rule("focus.changed", when("slot", json!(i)), "focused"),
-        rule("focus.changed", vec![], "idle"),
-    ]);
+    // Lit while this track is selected; otherwise no rule is true and it rests.
+    c.feedback = vec![FeedbackRule::state(
+        observables::slot_focused(i.into()),
+        Test::Equals {
+            value: Scalar::Bool(true),
+        },
+    )
+    .show("focused")];
     c
 }
 
@@ -108,7 +92,7 @@ fn command_pad(
     label: &str,
     icon: &str,
     base: Rgb,
-    command: &str,
+    command: CommandKind,
     action: Assignment,
     description: &str,
 ) -> Control {
@@ -120,11 +104,9 @@ fn command_pad(
         c.states
             .insert(state.as_str().into(), command_visual(base, state));
     }
-    c.bindings = bind(vec![rule(
-        "command.state",
-        when("command", json!(command)),
-        "$payload.state",
-    )]);
+    c.feedback = vec![
+        FeedbackRule::state(observables::command_state(command), Test::HasValue).show_from_value(),
+    ];
     c
 }
 
@@ -149,7 +131,7 @@ pub(super) fn agent_control() -> Surface {
         "Approve",
         "✔",
         visual::GREEN,
-        "approve",
+        CommandKind::Approve,
         act("approve", json!({})),
         "Approve the selected session's pending request. Flashes while the selected \
          session is waiting for you. Never pressed for you.",
@@ -160,7 +142,7 @@ pub(super) fn agent_control() -> Surface {
         "Reject",
         "✕",
         visual::RED,
-        "reject",
+        CommandKind::Reject,
         act("reject", json!({})),
         "Reject the selected session's pending request.",
     ));
@@ -170,7 +152,7 @@ pub(super) fn agent_control() -> Surface {
         "Pause",
         "⏸",
         visual::ORANGE,
-        "pause",
+        CommandKind::Pause,
         act("pause", json!({})),
         "Pause the selected session, if its agent supports pausing.",
     ));
@@ -180,7 +162,7 @@ pub(super) fn agent_control() -> Surface {
         "Resume",
         "▶",
         visual::GREEN,
-        "resume",
+        CommandKind::Resume,
         act("resume", json!({})),
         "Resume the selected paused session.",
     ));
@@ -190,7 +172,7 @@ pub(super) fn agent_control() -> Surface {
         "Retry",
         "↻",
         visual::YELLOW,
-        "retry",
+        CommandKind::Retry,
         act("retry", json!({})),
         "Retry the selected failed or cancelled session.",
     ));
@@ -200,7 +182,7 @@ pub(super) fn agent_control() -> Surface {
         "Stop",
         "■",
         visual::RED,
-        "cancel",
+        CommandKind::Cancel,
         act("cancel", json!({})),
         "Cancel the selected session.",
     ));
@@ -210,7 +192,7 @@ pub(super) fn agent_control() -> Surface {
         "Continue",
         "⏵⏵",
         visual::PURPLE,
-        "send_instruction",
+        CommandKind::SendInstruction,
         act("continue", json!({ "text": "continue" })),
         "Tell the selected session to continue. Edit the text in the inspector.",
     ));
@@ -231,7 +213,7 @@ pub(super) fn agent_control() -> Surface {
             label,
             icon,
             visual::CYAN,
-            "spawn",
+            CommandKind::Spawn,
             act("newTask", json!({ "task": task })),
             "Start this task on the selected agent (or the first agent that can). \
              Edit the task text in the inspector.",
@@ -348,15 +330,18 @@ mod tests {
     }
 
     #[test]
-    fn the_surface_has_no_provider_names_and_binds_only_to_agent_control() {
+    fn the_surface_has_no_provider_names_and_reads_only_agent_control_states() {
         let s = surface();
         let text = serde_json::to_string(&s).unwrap().to_lowercase();
         for banned in ["claude", "codex", "chatgpt", "openai", "anthropic"] {
             assert!(!text.contains(banned), "{banned} leaked into the surface");
         }
         for c in &s.pages[0].controls {
-            for b in &c.bindings {
-                assert_eq!(b.source, SOURCE);
+            for rule in &c.feedback {
+                let crate::state::feedback::When::State(cond) = &rule.when else {
+                    panic!("{} has an event rule", c.label);
+                };
+                assert_eq!(cond.state.provider, observables::PROVIDER);
             }
         }
     }

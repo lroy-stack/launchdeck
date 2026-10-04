@@ -26,22 +26,23 @@ LaunchDeck Core (Rust)
 | Virtual device | `devices/virtual_device.rs` | `VirtualLaunchpadX`, the simulator. It implements the same trait and is the device the UI drives. |
 | Launchpad X | `devices/launchpad_x.rs` | The **only** file with MIDI bytes. SysEx encoding, note and CC decoding, port classification, `midir` I/O. |
 | Surface Runtime | `core/runtime.rs` | Active surface and page, control lookup (span aware), navigation, Live and Edit modes, long press. |
-| State Engine | `core/runtime.rs` | Control state keyed `surface/page/control`, automatic running/success/error states, bindings from events to states, token-guarded auto reset. |
+| State Hub | `state/` | The current value of every state a provider offers (`known`, `unknown`, `unavailable`), addressed by provider, definition and arguments. No history, nothing saved, not a bus. See [state-and-feedback.md](state-and-feedback.md). |
+| State Engine | `core/runtime.rs`, `state/eval.rs`, `state/index.rs` | A control's look, keyed `surface/page/control`: its state rules evaluated from the hub (first true rule wins), under temporary looks (event rules, the automatic running/success/error of a pad without rules, token-guarded expiry). An index re-evaluates only the controls that read what changed. |
 | Event Bus | `events/mod.rs` | Tokio broadcast channel of semantic `Event { source, type, payload, ts }`. |
 | Action Registry | `actions/registry.rs`, `actions/params.rs`, `actions/definition.rs` | The Action Library's source of truth. A view over the plugin registry: builds the catalog (definitions, providers, availability), and its `prepare` is the one gate every assignment passes before it is saved or run. See [actions](actions/overview.md). |
 | Action Engine | `actions/mod.rs` | Executes a prepared `Assignment` (`{provider, action, args}`) through the provider that owns it. |
 | Plugin Runtime | `plugins/` | `Plugin` trait (with defaulted `availability` and `check`), a shared registry that can change at runtime, built-in System and Demo plugins, the Navigation, Shell and HTTP providers from `actions/builtin.rs`, plus the Agent Control plugin from `agents/plugin.rs`. |
 | Plugin SDK host | `plugins/external/` | Installed plugins: manifest validation, discovery, a Wasmtime sandbox with strict limits, `WasmPlugin` (an installed plugin behind the same `Plugin` trait), and `PluginHost` (enabled flags, settings, status, logs). Everything above the trait is unchanged. See [plugin-sdk](plugin-sdk/README.md). |
-| Agent Control | `agents/` | A module on top of the platform: one `AgentControl` state (agents, sessions, approvals, commands, slots, focus), the adapter SDK and adapters, the Agent Bridge, the audit log and the surface projection. Uses the bus, bindings, plugins, renderer and persistence below. See [agent-control/overview.md](agent-control/overview.md). |
+| Agent Control | `agents/` | A module on top of the platform: one `AgentControl` state (agents, sessions, approvals, commands, slots, focus), the adapter SDK and adapters, the Agent Bridge, the audit log and the surface projection. Uses the bus, the state hub, feedback rules, plugins, renderer and persistence below. See [agent-control/overview.md](agent-control/overview.md). |
 | Renderer | `renderer/mod.rs` | Resolves each control's visual for its state, then adapts it to the device's capabilities. Pure functions. |
 | Context Engine | `core/context.rs` | Conceptual. See below. |
-| Persistence | `persistence/mod.rs` | `workspace.json` in the app data folder with `schemaVersion`, atomic writes, `.bak` copy of a damaged file, `migrate()` upgrades older schemas (schema 2 to 3 turns the old action shapes into assignments, keeping a `.v2.bak` copy) and refuses newer ones. Agent Control also keeps `agents.json` (settings, control grants, hook token; owner-only on Unix) and an append-only `audit.jsonl`, written the same atomic way. Installed plugins keep their enabled flag and settings in `plugins.json`, the same way. |
+| Persistence | `persistence/mod.rs` | `workspace.json` in the app data folder with `schemaVersion`, atomic writes, `.bak` copy of a damaged file, `migrate()` upgrades older schemas (schema 2 to 3 turns the old action shapes into assignments, schema 3 to 4 turns `bindings` into `feedback` rules and keeps what it cannot convert in `legacyBindings`; each keeps a `.v2.bak` / `.v3.bak` copy) and refuses newer ones. Values the hub holds are never saved. Agent Control also keeps `agents.json` (settings, control grants, hook token; owner-only on Unix) and an append-only `audit.jsonl`, written the same atomic way. Installed plugins keep their enabled flag and settings in `plugins.json`, the same way. |
 | External events | `events/external.rs` | Localhost-only WebSocket. Generic `event` and `ping` messages; `agent.*` messages go to the Agent Bridge on the same socket. |
 
 ## Rules that keep it honest
 
 1. **No MIDI above the device layer.** `ControlPos` (`grid`, `top`, `side`, `logo`) is the only addressing the rest of the system knows. Raw notes and CCs live in `launchpad_x.rs`.
-2. **Plugins never see positions.** A plugin publishes an event (`plugin.state.changed {key, value}` for built-ins, a declared event type for installed ones). A control's *binding* decides it cares.
+2. **Plugins never see positions.** A plugin publishes an event (`plugin.state.changed {key, value}` for built-ins, a declared event type for installed ones). A control's *feedback rules* decide it cares: an event rule reacts to the event, a state rule to the value a provider reports.
 3. **UI state is not runtime state.** Zustand holds the selected pad, the current view and toasts. The workspace, active surface, page, mode and every control state arrive from Rust and are never written locally.
 4. **Everything crossing IPC is validated.** Rust validates edits (`core/validate.rs`), TypeScript parses payloads with Zod (`src/lib/schema.ts`).
 5. **Agent Control is a module, not a core concept.** The runtime constructs and hosts it at startup, but the model, device, renderer and action layers know nothing about agents, and the agent domain names no vendor. Tool-specific code is confined to `agents/adapters/`. A test fails if the Agent Control surface or an Agent Pack manifest names one.
@@ -52,7 +53,7 @@ LaunchDeck Core (Rust)
 2. The runtime finds the control at that position (honouring spans) and publishes `control.pressed`.
 3. In **Edit** mode it stops there, so the editor can select the control. In **Live** mode it picks the action: press, or long press if the pad is held 500 ms (the tap is deferred until release when a long press exists).
 4. The control's assignment is `{provider, action, args}`. Navigation (`navigation.openSurface`, `navigation.openPage`) is performed by the runtime. Everything else goes through the registry's `prepare` and then the Action Engine, with `action.started`, then `action.completed` or `action.failed` on the bus; the payload's `action` is `provider.action`.
-5. Controls without bindings get automatic `running`, then `success` (reset after 2.5 s) or `error` (reset after 4 s). Controls *with* bindings are driven only by events.
+5. Controls without feedback rules get automatic `running`, then `success` (reset after 2.5 s) or `error` (reset after 4 s) as a temporary look. Controls *with* feedback rules are driven only by their rules.
 6. A 25 Hz render tick composes a `SurfaceFrame` for every connected device through the renderer. Only changed LEDs are sent to hardware.
 
 ## Capabilities and graceful degradation
@@ -85,19 +86,19 @@ All events have the same shape:
 
 Types in use: `control.pressed`, `action.started`, `action.completed`, `action.failed`, `surface.changed`, `page.changed`, `plugin.state.changed`, `device.connected`, `device.disconnected`, the semantic agent events published by Agent Control (`agent.registered`, `session.running`, `approval.created` and the rest, with `source: "agent-control"`; see [agent-control/domain-model.md](agent-control/domain-model.md#events)), the events an installed plugin declares in its manifest (with the plugin id as `source`), and anything an external tool sends. The sources `runtime`, `device` and `agent-control`, and the id of every installed plugin, are reserved: the WebSocket refuses them from clients.
 
-### Bindings
+### Feedback rules
 
-A control may carry bindings that map events to states:
+A control carries one ordered list of rules that decide its look. A **state rule** reads the value a provider reported; an **event rule** reacts to an event for a while:
 
 ```json
-{ "source": "codex",
-  "rules": [
-    { "event": "task.started", "setState": "running" },
-    { "event": "task.completed", "when": [{"field":"success","equals":false}], "setState": "error" },
-    { "event": "task.completed", "setState": "success" } ] }
+{ "when": { "state": { "provider": "demo", "id": "alpha" }, "is": { "op": "equals", "value": "running" } },
+  "show": "busy" }
+
+{ "when": { "event": { "provider": "codex", "id": "task.completed" }, "where": [{ "field": "success", "equals": false }] },
+  "show": "error", "hold": { "ms": 4000 } }
 ```
 
-The first matching rule wins. `setState` may be `"$payload.value"` style to take the state from the event payload. The state name then selects the control's `states[name]` visual.
+The first state rule that is true decides; an event rule's look sits over it until its hold ends. `show` names one of the control's `states`, or `showFromValue` / `showFromField` takes the name from the value or a payload field. The full model (addresses, the hub and its lifecycle, tests, holds, the gate, migration from `bindings`) is in [state-and-feedback.md](state-and-feedback.md).
 
 ## UI to runtime contract
 

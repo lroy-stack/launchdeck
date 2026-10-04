@@ -21,6 +21,7 @@ pub mod bridge;
 pub mod demo;
 pub mod model;
 pub mod notify;
+pub mod observables;
 pub mod pack;
 pub mod plugin;
 pub mod service;

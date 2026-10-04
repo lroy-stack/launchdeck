@@ -118,7 +118,7 @@ fn surface_switchers(active: &str) -> Vec<Control> {
 
 fn with_state_visuals(mut c: Control) -> Control {
     // The state vocabulary the runtime also applies automatically to actions
-    // on controls without bindings: running / success / error.
+    // on controls without feedback rules: running / success / error.
     c.states.insert("running".into(), Visual::pulse(YELLOW));
     c.states.insert("success".into(), Visual::solid(GREEN));
     c.states.insert("error".into(), Visual::flash(RED));

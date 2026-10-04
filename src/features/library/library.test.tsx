@@ -180,7 +180,7 @@ describe("giving an action to a pad", () => {
     const confirm = await screen.findByRole("group", { name: "Confirm replacing the action" });
     expect(confirm.textContent).toContain("This replaces");
     expect(confirm.textContent).toContain("Open URL");
-    expect(confirm.textContent).toContain("state looks and bindings are not changed");
+    expect(confirm.textContent).toContain("looks and feedback rules are not changed");
     // Nothing happened yet.
     expect(screen.queryByLabelText(/^Link/)).toBeNull();
     await user.click(within(confirm).getByRole("button", { name: "Keep current" }));

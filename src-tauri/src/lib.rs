@@ -18,6 +18,7 @@ pub mod events;
 pub mod persistence;
 pub mod plugins;
 pub mod renderer;
+pub mod state;
 pub mod surfaces;
 
 use std::sync::Arc;

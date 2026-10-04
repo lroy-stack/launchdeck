@@ -2,6 +2,8 @@
 
 Status: research and plan, written before any implementation, 2026-10-04. No product code was changed. The only code written for this phase was a throwaway integration test (nine probes against the real runtime and the real compiled Counter plugin); its results are in section 1 and it was removed afterwards. Section 18 turns each probe into a permanent test.
 
+> **Implementation status (2026-10-04).** Phases 0 and 1 are built: the state hub, state addresses, the pure evaluator with its index, event overlays, the provider lifecycle, Agent Control writing its states to the hub, and workspace schema 4 with migration from schema 3. What is built and how it behaves is described in [docs/state-and-feedback.md](docs/state-and-feedback.md). Not built: manifest schema 3 and plugin-declared states (phase 2), and the rule editor and explanations in the interface (phase 3). Where the build departs from this plan: event rules are not listed as observables in the catalog yet (only states are), and the newest event replaces an older temporary look on the same control, so among event looks arrival order decides (state rules never depend on it).
+
 The Action Library answers "what should this control do?". This milestone answers "what external state should this control represent?", so that a pad can both trigger something and keep showing what is true, and so that a person can set that up without JSON, payload paths, source ids or event-bus knowledge.
 
 ```

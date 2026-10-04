@@ -74,27 +74,28 @@ A command pad has a resting colour (green for Approve, red for Reject and Stop, 
 A surface never talks to agents. It binds to projection events that Agent Control publishes and calls plugin actions when pressed.
 
 ```
-agents --> AgentControl --publishes--> slot.changed / focus.changed / command.state
-                                                |  (event bus, source "agent-control")
-        surface controls bind to them <---------+
+agents --> AgentControl --writes--> state hub:  slot.status {slot}, slot.focused {slot}, command.state {command}
+                                           |    (it also publishes slot.changed / focus.changed / command.state on the bus)
+        surface controls read them <-------+
                 |
         renderer adapts the visual to the device  -->  virtual Launchpad  and  physical Launchpad
 ```
 
-A slot pad's binding, as it appears in the workspace file:
+A slot pad's feedback rule, as it appears in the workspace file:
 
 ```json
-{ "source": "agent-control",
-  "rules": [ { "event": "slot.changed", "when": [ { "field": "slot", "equals": 0 } ], "setState": "$payload.status" } ] }
+{ "when": { "state": { "provider": "agent-control", "id": "slot.status", "args": { "slot": 0 } },
+            "is": { "op": "hasValue" } },
+  "showFromValue": true }
 ```
 
-`$payload.status` means "use the status in the event as the control's state name". The control has a visual for each status name (`running`, `failed`, and so on), so the look follows without any agent-specific code in the device layer. An empty slot arrives as the state `empty`.
+`showFromValue` means "show the look named after the state's value". The control has a visual for each status name (`running`, `failed`, and so on), so the look follows without any agent-specific code in the device layer. An empty slot has the value `empty`. A marker pad is `slot.focused` equals `true`, show `focused`; with no rule true it rests. A command pad reads `command.state` for its command.
 
 Pressing a pad runs `{"provider":"agent-control","action":"approve"}` or one of: `reject`, `pause`, `resume`, `cancel`, `retry`, `continue` (send "continue", or the text you set), `newTask` (task text in the args), `focusSlot`, `clearFocus`, `dismissSlot`, `runDemo`, `resetDemo`, `openApp`. The plugin turns an action into a command on the selected track and the service decides whether it is allowed. If it is not, the pad was already dim.
 
 ### One state, three views
 
-The desktop app, the virtual Launchpad and a physical Launchpad all derive from the single `AgentControl` state through the same events and renderer. They cannot disagree. State survives UI rerenders and switching surfaces because it lives in Rust: switch to another surface and back and the tracks are exactly where you left them.
+The desktop app, the virtual Launchpad and a physical Launchpad all derive from the single `AgentControl` state through the same state hub and renderer. They cannot disagree. State survives UI rerenders and switching surfaces because it lives in Rust, and a pad that is created or shown later reads the current value from the hub: nothing is replayed to repaint it.
 
 ## Device capabilities
 
@@ -111,13 +112,13 @@ The surface is laid out for an 8x8 grid. There is no dedicated small-grid layout
 
 ## Make your own
 
-Copy the surface in the editor, or write one as a surface file. A control binds to events and picks its look by state name. The editor changes positions, actions and looks; the `bindings` list itself is written in the surface file and the inspector shows it read-only. Two recipes cover most needs.
+Copy the surface in the editor, or write one as a surface file. A control reads states or reacts to events and picks its look by name. The editor changes positions, actions and looks; the `feedback` list itself is written in the surface file and the inspector shows it read-only. Two recipes cover most needs.
 
-**A pad that mirrors one track.** Give the control a visual for each status name you care about (`running`, `approval_required`, `failed`, plus a default look). Add a binding with `source: "agent-control"`, event `slot.changed`, a `when` of `slot` equals the track number, and `setState` of `$payload.status`. This is exactly how the built-in track pads work, and it follows the track through every state, including `empty`.
+**A pad that mirrors one track.** Give the control a visual for each status name you care about (`running`, `approval_required`, `failed`, plus a default look). Add a state rule on `agent-control` `slot.status` with the argument `slot` set to the track number, the test `hasValue` and `showFromValue`. This is exactly how the built-in track pads work, and it follows the track through every state, including `empty`.
 
-**A pad that reacts to a moment.** Bind to a [semantic event](domain-model.md#events) such as `session.failed` or `approval.created`, set a state, and clear it with a second rule on the event that ends it (`approval.resolved`). Pressing can run `plugin: "agent-control"`, action `openApp`. Keep these for a single known agent: with several sessions, one session finishing would clear a light another still needs.
+**A pad that reacts to a moment.** Add an event rule for a [semantic event](domain-model.md#events) such as `session.failed` or `approval.created` with a look and a hold, for example `{ "ms": 5000 }`; the pad returns to what its state rules say when the hold ends. Pressing can run `plugin: "agent-control"`, action `openApp`. Keep these for a single known agent: with several sessions, one session finishing would end a light another still needs.
 
-An aggregate "anything needs me" light is not published yet. Surfaces should not count sessions themselves, and the projection events (`slot.changed`, `focus.changed`, `command.state`) describe tracks and the selected command state, not totals. See [Known limitations](overview.md#known-limitations).
+An aggregate "anything needs me" light is not published yet. Surfaces should not count sessions themselves, and the states (`slot.status`, `slot.focused`, `command.state`) describe tracks and the selected command state, not totals. See [Known limitations](overview.md#known-limitations).
 
 ## Editing and accessibility
 

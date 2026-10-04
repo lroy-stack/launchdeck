@@ -16,6 +16,7 @@ use serde_json::{json, Value};
 use super::{str_arg, ActionDef, ActionError, Plugin, PluginContext, PluginManifest, StateDef};
 use crate::actions::definition::ProviderKind;
 use crate::actions::params::ParamDef;
+use crate::state::definition::{ObservableDefinition, Role};
 
 pub const ID: &str = "demo";
 pub const AGENTS: [&str; 3] = ["alpha", "beta", "gamma"];
@@ -146,6 +147,31 @@ fn task_action(id: &str, label: &str, description: &str) -> ActionDef {
 }
 
 impl Plugin for DemoPlugin {
+    /// One state per simulated agent: where its task is.
+    fn observables(&self) -> Vec<ObservableDefinition> {
+        AGENTS
+            .iter()
+            .map(|agent| {
+                ObservableDefinition::state(
+                    ID,
+                    agent,
+                    &format!("Demo agent {agent}"),
+                    &format!("Task state of the simulated `{agent}` agent."),
+                )
+                .category("Demo")
+                .keywords(&["simulated", "sample", "task", "status"])
+                .one_of(&[
+                    ("idle", "Idle", Some(Role::Inactive)),
+                    ("running", "Running", Some(Role::Active)),
+                    ("waiting", "Waiting", Some(Role::Warning)),
+                    ("approval-required", "Needs approval", Some(Role::Attention)),
+                    ("success", "Succeeded", Some(Role::Ok)),
+                    ("error", "Failed", Some(Role::Error)),
+                ])
+            })
+            .collect()
+    }
+
     fn manifest(&self) -> PluginManifest {
         PluginManifest {
             id: ID.into(),

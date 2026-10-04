@@ -6,7 +6,7 @@
 //! * [`discovery`] finds plugin directories and reads them safely.
 //! * [`sandbox`] runs a module with strict limits (the only Wasmtime user).
 //! * [`wasm_plugin`] puts a sandboxed module behind the existing `Plugin`
-//!   trait, so the registry, action engine, event bus and bindings are reused
+//!   trait, so the registry, action engine, event bus and feedback rules are reused
 //!   unchanged.
 //! * [`host`] owns discovery results, enabled flags, configuration and
 //!   lifecycle, and registers plugins into the shared registry.

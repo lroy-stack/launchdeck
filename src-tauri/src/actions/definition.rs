@@ -13,6 +13,7 @@ use serde_json::{Map, Value};
 
 use super::params::ParamDef;
 use crate::core::model::Rgb;
+use crate::state::ObservableDefinition;
 
 /// One problem found while checking an assignment. Names the parameter when
 /// the problem is about a single field, so a form can mark it.
@@ -214,6 +215,10 @@ pub struct ProviderInfo {
 pub struct Catalog {
     pub providers: Vec<ProviderInfo>,
     pub actions: Vec<ActionDefinition>,
+    /// What a control can observe: states (and events) offered by providers.
+    /// Definitions only; the values are in the state hub and change far more
+    /// often than the catalog does.
+    pub observables: Vec<ObservableDefinition>,
     /// Definitions that were left out and why (a duplicate id, a bad schema).
     pub issues: Vec<String>,
 }

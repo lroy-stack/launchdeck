@@ -20,7 +20,8 @@ Workspace (schemaVersion, surfaces[], preferences)
 | `visual` | Idle look: `{color:"#rrggbb", animation:"none"|"pulse"|"flash"}`. |
 | `states` | Map of state name to visual. The state picks the look. |
 | `press`, `longPress` | An [assignment](#actions): `{provider, action, args}`. Long press fires after 500 ms. |
-| `bindings` | Event to state rules (see [architecture](architecture.md#bindings)). |
+| `feedback` | Ordered rules that decide which look the pad shows: state rules read a provider's value, event rules show a look for a while (see [state-and-feedback](state-and-feedback.md)). |
+| `legacyBindings` | Schema 3 bindings that could not be converted, kept as they were. Inert. |
 
 Validation (Rust, on every save): label 1 to 40 characters, no overlaps (spans included), positions in range, spans 1x1 to 8x8, and every slot that changed holds a well formed assignment (the provider and action exist, the arguments fit the action's parameters). A slot that did not change is not re-checked, so a surface whose plugin is missing can still be edited and saved.
 
@@ -59,15 +60,15 @@ The top row on every surface switches surfaces, so a Launchpad works without the
 
 ### Pads that follow events
 
-The Agent Control surface shows how a surface follows outside state. Its track pads are driven by bindings on events with `source: "agent-control"`, and the colour of each of the eleven normalized statuses is defined once in `agents/visual.rs` (see [agent-control/surfaces.md](agent-control/surfaces.md#the-mapping-state-to-appearance)). A pad driven by bindings keeps its state until the next event. Controls *without* bindings (for example a Development build pad) use the automatic cycle instead: running while the action runs, then success for 2.5 s or error for 4 s, then idle.
+The Agent Control surface shows how a surface follows outside state. Its track pads have a state rule on the states Agent Control keeps (`agent-control.slot.status`, `slot.focused`, `command.state`), and the colour of each of the eleven normalized statuses is defined once in `agents/visual.rs` (see [agent-control/surfaces.md](agent-control/surfaces.md#the-mapping-state-to-appearance)). A pad driven by state rules is right whenever it is shown, because it reads the value rather than waiting for an event. Controls *without* feedback rules (for example a Development build pad) use the automatic cycle instead: running while the action runs, then success for 2.5 s or error for 4 s, then idle.
 
 ## Authoring tips
 
 * Keep a surface to one job. Use pages for depth, not for unrelated jobs.
 * Use colour as meaning (green good, red bad) and animation for things that need attention.
 * For accessibility surfaces prefer spans of 2x2 or larger, high-contrast colours and labels as well as icons.
-* To react to an outside tool, add a binding for its `source` and map its event names to state names, then give the control a look for each state. Bindings are written in the surface file; the inspector shows them read-only.
-* To react to agents, bind to the `agent-control` events described in [agent-control/surfaces.md](agent-control/surfaces.md#make-your-own) and call the `agent-control` plugin actions on press. Never count or address sessions in a surface; the platform publishes what a pad needs.
+* To react to an outside tool, add an event rule for its `source` and event, name the look to show and how long it lasts, then give the control that look. Rules are written in the surface file; the inspector shows them read-only. A provider that reports a *state* is better read with a state rule: it is right even for a pad created after the value was reported.
+* To react to agents, read the `agent-control` states described in [agent-control/surfaces.md](agent-control/surfaces.md#make-your-own) and call the `agent-control` plugin actions on press. Never count or address sessions in a surface; the platform publishes what a pad needs.
 
 ## Files
 

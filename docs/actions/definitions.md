@@ -80,7 +80,7 @@ What a pad's slot does. The only action data that is persisted.
 * Defaults are written explicitly when the assignment is saved, so the saved file says what will run.
 * A control has two slots, `press` and `longPress`. Either may be empty.
 
-An assignment stores no label. A pad's label, icon, colour, state looks and bindings are properties of the pad, and assigning or replacing an action does not change them.
+An assignment stores no label. A pad's label, icon, colour, state looks and feedback rules are properties of the pad, and assigning or replacing an action does not change them.
 
 ### The gate
 

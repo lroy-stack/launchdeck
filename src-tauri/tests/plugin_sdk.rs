@@ -18,8 +18,8 @@ use std::time::{Duration, Instant};
 use futures_util::{SinkExt, StreamExt};
 use launchdeck_lib::actions::ActionEngine;
 use launchdeck_lib::core::model::{
-    Assignment, Binding, BindingRule, Control, ControlPos, Page, Preferences, Rgb, Surface, Visual,
-    Workspace, SCHEMA_VERSION,
+    Assignment, Control, ControlPos, Page, Preferences, Rgb, Surface, Visual, Workspace,
+    SCHEMA_VERSION,
 };
 use launchdeck_lib::core::runtime::{NullEmitter, Runtime, RuntimeConfig};
 use launchdeck_lib::devices::Led;
@@ -28,6 +28,7 @@ use launchdeck_lib::persistence::Store;
 use launchdeck_lib::plugins::external::PluginStatus;
 use launchdeck_lib::plugins::keyboard::{Combo, Keyboard};
 use launchdeck_lib::plugins::ActionError;
+use launchdeck_lib::state::feedback::{FeedbackRule, Hold};
 use serde_json::{json, Value};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
@@ -62,15 +63,15 @@ fn plugin(id: &str, action: &str, args: Value) -> Assignment {
     Assignment::new(id, action, args)
 }
 
-fn bind(source: &str, event: &str, set_state: &str) -> Vec<Binding> {
-    vec![Binding {
-        source: source.into(),
-        rules: vec![BindingRule {
-            event: event.into(),
-            when: vec![],
-            set_state: set_state.into(),
-        }],
-    }]
+/// What a schema 3 binding became: an event rule that keeps its look until the
+/// next event (`$payload.x` names the look from a payload field).
+fn bind(source: &str, event: &str, set_state: &str) -> Vec<FeedbackRule> {
+    let rule = FeedbackRule::event(source, event);
+    let rule = match set_state.strip_prefix("$payload.") {
+        Some(field) => rule.show_from_field(field),
+        None => rule.show(set_state),
+    };
+    vec![rule.hold(Hold::Latch)]
 }
 
 fn pad(col: u8, row: u8, label: &str, press: Option<Assignment>) -> Control {
@@ -95,7 +96,7 @@ fn workspace() -> Workspace {
         )),
     );
     hello.states.insert("greeted".into(), Visual::solid(GREEN));
-    hello.bindings = bind("example.hello", "hello.completed", "greeted");
+    hello.feedback = bind("example.hello", "hello.completed", "greeted");
 
     let plus = pad(
         1,
@@ -121,7 +122,7 @@ fn workspace() -> Workspace {
     level.states.insert("low".into(), Visual::solid(BLUE));
     level.states.insert("high".into(), Visual::solid(AMBER));
     level.states.insert("max".into(), Visual::flash(RED));
-    level.bindings = bind("example.counter", "counter.changed", "$payload.level");
+    level.feedback = bind("example.counter", "counter.changed", "$payload.level");
 
     let mut ping = pad(
         0,
@@ -130,7 +131,7 @@ fn workspace() -> Workspace {
         Some(plugin("example.ping", "ping.send", json!({}))),
     );
     ping.states.insert("sent".into(), Visual::pulse(GREEN));
-    ping.bindings = bind("example.ping", "ping.sent", "sent");
+    ping.feedback = bind("example.ping", "ping.sent", "sent");
 
     let crash = pad(0, 2, "Crash", Some(plugin("test.crash", "a", json!({}))));
     let mut off = pad(0, 3, "Off", Some(plugin("test.off", "a", json!({}))));

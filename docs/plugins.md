@@ -11,7 +11,7 @@ There are two kinds, behind the same `Plugin` trait, registry and Action Engine:
 | **Built in** | Native Rust, inside LaunchDeck | The LaunchDeck team (System, Demo, Agent Control) | This page |
 | **Installed** | A WebAssembly sandbox, from a folder on disk | Anyone, in any language that compiles to WebAssembly | [plugin-sdk](plugin-sdk/README.md) |
 
-Installed plugins need no recompiling of LaunchDeck and no Node, Rust or compiler on the machine that runs them. They are discovered, validated, loaded and registered at startup and on **Rescan**, and what they publish travels the same Event Bus and bindings as everything else. They can be enabled, disabled, configured and reloaded from the Plugins screen. The rest of this page covers the native contract and the built-in plugins.
+Installed plugins need no recompiling of LaunchDeck and no Node, Rust or compiler on the machine that runs them. They are discovered, validated, loaded and registered at startup and on **Rescan**, and what they publish travels the same Event Bus and feedback rules as everything else. They can be enabled, disabled, configured and reloaded from the Plugins screen. The rest of this page covers the native contract and the built-in plugins.
 
 ## The runtime contract
 
@@ -26,7 +26,7 @@ pub trait Plugin: Send + Sync {
 * `PluginContext::spawn_after(delay, f)` schedules follow-up work on the runtime (used by the Demo plugin).
 * The context contains no device handle and no shell.
 
-A control calls a plugin with the assignment `{ "provider": "demo", "action": "startTask", "args": {"agent":"alpha"} }` and reacts to its state with a binding on `source: "demo"`. Every plugin, built in or installed, is a *provider* in the [Action Library](actions/overview.md): its actions are found, configured and assigned there, so nothing here needs an id typed by hand.
+A control calls a plugin with the assignment `{ "provider": "demo", "action": "startTask", "args": {"agent":"alpha"} }` and reacts to its state with a state rule on the `demo` provider (one state per simulated agent: `alpha`, `beta`, `gamma`). Every plugin, built in or installed, is a *provider* in the [Action Library](actions/overview.md): its actions are found, configured and assigned there, so nothing here needs an id typed by hand.
 
 Two methods have defaults, so a plugin only writes them when it needs them:
 
@@ -119,6 +119,6 @@ The rules for that future: the person grants each capability per install and can
 1. Implement `Plugin` in `src-tauri/src/plugins/yours.rs` and return a `PluginManifest` (id, actions, states, permissions).
 2. Register it in `PluginRegistry` where the runtime is started.
 3. Add tests that call `invoke` with a `PluginContext` built on a test `EventBus` and assert on published events, and that check `availability` and the catalog entries for the actions it declares.
-4. Reference its actions from controls and its state from bindings. Its actions appear in the Action Library automatically, with the form its parameters describe.
+4. Reference its actions from controls and what it publishes from feedback rules. Its actions appear in the Action Library automatically, with the form its parameters describe.
 
 To write a plugin anyone can install instead, follow [plugin-sdk/getting-started.md](plugin-sdk/getting-started.md).

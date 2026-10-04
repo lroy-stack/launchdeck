@@ -3,6 +3,7 @@ import { api } from "../../lib/ipc";
 import { isMissingIssue, isPrivileged, normalizeArgs } from "../../lib/actions";
 import { SLOTS, describePos, lookHints, newControl, planAssign, replaceWarning, setSlot, withLook, type Slot } from "../../lib/assign";
 import { SWATCHES, normalizeHex } from "../../lib/color";
+import { describeRule } from "../../lib/feedback";
 import type { ActionDefinition, Animation, Assignment, Control, Issue, Page, Surface, Visual } from "../../lib/schema";
 import { definitionId } from "../../lib/schema";
 import { controlAt, useStore } from "../../stores/runtime";
@@ -180,7 +181,7 @@ function ControlEditor({ surface, page, surfaces, base, isNew }: { surface: Surf
           <div className="notice suggest" role="note">
             <p>
               <b>{suggester.name}</b> suggests a look:{" "}
-              {[hints.label && `label “${hints.label}”`, hints.color && `colour ${hints.color}`, hints.icon && `icon ${hints.icon}`].filter(Boolean).join(", ")}. Your label, colour and icon stay as they are unless you use it. State looks and bindings are never touched.
+              {[hints.label && `label “${hints.label}”`, hints.color && `colour ${hints.color}`, hints.icon && `icon ${hints.icon}`].filter(Boolean).join(", ")}. Your label, colour and icon stay as they are unless you use it. Looks and feedback rules are never touched.
             </p>
             <button type="button" className="btn small" onClick={() => setDraft(withLook(draft, suggester))}>
               Use suggested look
@@ -228,29 +229,32 @@ function ControlEditor({ surface, page, surfaces, base, isNew }: { surface: Surf
 
         <StatesEditor states={draft.states} onChange={(states) => patch({ states })} />
 
-        {draft.bindings.length > 0 && (
+        {draft.feedback.length > 0 && (
           <section className="field-group">
-            <h4>State bindings</h4>
-            <p className="hint">This control follows events from other sources. Defined in the surface file; shown read-only here.</p>
-            <ul className="bindings">
-              {draft.bindings.map((b, i) => (
-                <li key={i}>
-                  <code>{b.source}</code>
-                  {b.rules.map((r, j) => (
-                    <div key={j} className="binding-rule">
-                      <code>{r.event}</code>
-                      {r.when.map((w) => (
-                        <code key={w.field}>
-                          {w.field}={String(w.equals)}
-                        </code>
-                      ))}
-                      <span>→</span>
-                      <code>{r.setState}</code>
-                    </div>
-                  ))}
-                </li>
-              ))}
-            </ul>
+            <h4>Feedback</h4>
+            <p className="hint">The first state rule that is true decides the look; an event rule shows its look for a while. Read-only here.</p>
+            <ol className="bindings">
+              {draft.feedback.map((rule, i) => {
+                const { when, show } = describeRule(rule);
+                return (
+                  <li key={i} className="binding-rule">
+                    <span>When</span>
+                    <code>{when}</code>
+                    <span>show</span>
+                    <code>{show}</code>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        )}
+
+        {draft.legacyBindings.length > 0 && (
+          <section className="field-group">
+            <h4>Old bindings</h4>
+            <p className="hint">
+              {draft.legacyBindings.length === 1 ? "One binding" : `${draft.legacyBindings.length} bindings`} from an older version could not become a feedback rule. They are kept as they were and do nothing.
+            </p>
           </section>
         )}
       </div>

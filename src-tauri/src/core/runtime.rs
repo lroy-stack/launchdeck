@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::mpsc::unbounded_channel;
 
-use super::model::{Assignment, Binding, Control, Page, Preferences, Surface, Workspace};
+use super::model::{Assignment, Control, Page, Preferences, Surface, Workspace};
 use super::validate::validate_control;
 use crate::actions::builtin::{
     HttpProvider, NavigationProvider, ShellProvider, NAVIGATION, OPEN_PAGE, OPEN_SURFACE,
@@ -40,6 +40,10 @@ use crate::plugins::keyboard::Keyboard;
 use crate::plugins::system::SystemPlugin;
 use crate::plugins::{PluginManifest, PluginRegistry};
 use crate::renderer;
+use crate::state::eval::{self, Examination};
+use crate::state::feedback::{prepare_rules, Hold, When, IDLE};
+use crate::state::index::{ControlRef, FeedbackIndex};
+use crate::state::{Changes, Scalar, StateHub};
 use crate::surfaces::{blank_surface, default_workspace};
 
 const LONG_PRESS: Duration = Duration::from_millis(500);
@@ -112,7 +116,9 @@ pub struct RuntimeState {
     pub active_surface_id: String,
     pub active_page_id: String,
     pub mode: Mode,
-    /// `surface/page/control` to state name. Absent means idle.
+    /// `surface/page/control` to the name of the look it shows now: a
+    /// temporary one (an action running, an event's look) over the one its
+    /// state rules give. Absent means the resting look.
     pub control_states: BTreeMap<String, String>,
     pub devices: Vec<DeviceInfo>,
     pub external: ExternalStatus,
@@ -145,6 +151,8 @@ pub struct RuntimeConfig {
     pub plugin_dirs: Vec<std::path::PathBuf>,
 }
 
+/// A temporary look: an unbound pad running an action, or an event rule's look
+/// while its hold lasts. The token lets a later change cancel an older timer.
 struct StateEntry {
     name: String,
     token: u64,
@@ -160,7 +168,13 @@ struct Inner {
     active_surface: String,
     active_page: String,
     mode: Mode,
-    states: HashMap<String, StateEntry>,
+    /// Layer 1, temporary looks. Wins over `derived` while it lasts.
+    overlay: HashMap<String, StateEntry>,
+    /// Layer 2, the look each control's state rules give from the values the
+    /// hub holds now. A function of the hub and the rules: recomputed when
+    /// either changes, never an event's last word, never saved.
+    derived: HashMap<String, String>,
+    index: FeedbackIndex,
     devices: DeviceManager,
     held: HashMap<String, Held>,
     recent: VecDeque<Event>,
@@ -169,6 +183,109 @@ struct Inner {
 
 pub fn control_key(surface: &str, page: &str, control: &str) -> String {
     format!("{surface}/{page}/{control}")
+}
+
+fn find_control<'a>(ws: &'a Workspace, r: &ControlRef) -> Option<&'a Control> {
+    ws.surface(&r.surface)?
+        .page(&r.page)?
+        .controls
+        .iter()
+        .find(|c| c.id == r.control)
+}
+
+/// The look every control shows: a temporary one over the one its state rules
+/// give. A control at rest is absent.
+fn looks_of(inner: &Inner) -> BTreeMap<String, String> {
+    let mut looks: BTreeMap<String, String> = inner
+        .derived
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    for (k, e) in &inner.overlay {
+        looks.insert(k.clone(), e.name.clone());
+    }
+    looks
+}
+
+/// An event rule's payload test: equal as values, so `2` equals `2.0`.
+fn payload_matches(payload: &Value, test: &crate::state::feedback::FieldTest) -> bool {
+    payload
+        .get(&test.field)
+        .and_then(|v| Scalar::from_json(v).ok())
+        .is_some_and(|v| v.same_as(&test.equals))
+}
+
+/// The look and hold of the first event rule of `control` that `event` matches.
+fn event_look(control: &Control, event: &Event) -> Option<(String, Hold)> {
+    for rule in &control.feedback {
+        let When::Event(c) = &rule.when else {
+            continue;
+        };
+        if c.event.provider != event.source
+            || c.event.id != event.kind
+            || !c.where_.iter().all(|t| payload_matches(&event.payload, t))
+        {
+            continue;
+        }
+        let look = match (&rule.show, &rule.show_from_field) {
+            (Some(name), _) => name.clone(),
+            (None, Some(field)) => match event
+                .payload
+                .get(field)
+                .and_then(|v| Scalar::from_json(v).ok())
+            {
+                Some(v) => v.look_name(),
+                // The event lacks the field this rule names its look from.
+                None => continue,
+            },
+            (None, None) => continue,
+        };
+        return Some((look, rule.hold_or_default()));
+    }
+    None
+}
+
+fn describe_issues(issues: &[crate::state::feedback::RuleIssue]) -> String {
+    issues
+        .iter()
+        .map(|i| format!("Feedback rule {}: {}", i.rule + 1, i.message))
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+/// What the feedback machinery has done, for tests and diagnostics. Counters
+/// only; nothing here affects behaviour.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedbackStats {
+    /// Controls whose state rules were evaluated.
+    pub evaluations: u64,
+    /// Events that reached an event rule.
+    pub events_routed: u64,
+    /// Events the bus dropped because this runtime read it too slowly. State
+    /// is not affected (it never travels on the bus); event rules can miss one.
+    pub bus_lagged: u64,
+}
+
+#[derive(Default)]
+struct Counters {
+    evaluations: AtomicU64,
+    events_routed: AtomicU64,
+    bus_lagged: AtomicU64,
+}
+
+/// Why a control looks the way it does right now.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ControlExplanation {
+    /// The look on screen: `None` is the resting look.
+    pub shown: Option<String>,
+    /// `overlay`, `state` or `rest`.
+    pub layer: &'static str,
+    /// The temporary look, if one is on.
+    pub overlay: Option<String>,
+    /// The state rules, rule by rule.
+    pub state_rules: Examination,
 }
 
 pub struct Runtime {
@@ -182,6 +299,8 @@ pub struct Runtime {
     demo: Arc<DemoAgentAdapter>,
     hooks: Arc<HookManager>,
     plugin_host: PluginHost,
+    hub: StateHub,
+    counters: Counters,
     epoch: Instant,
     counter: AtomicU64,
     handle: tokio::runtime::Handle,
@@ -192,8 +311,18 @@ impl Runtime {
     // Startup
     // -----------------------------------------------------------------------
 
+    /// Start order (STATE_FEEDBACK_PLAN.md, section 8.3):
+    ///
+    /// 1. providers declare their states and report what they know (Agent
+    ///    Control writes its whole projection, the plugin host registers every
+    ///    plugin: running ones `unknown`, the rest `unavailable`);
+    /// 2. every control is evaluated once;
+    /// 3. only then do the loops start.
+    ///
+    /// Step 2 before step 3 is why the very first frame is already right.
     pub async fn start(config: RuntimeConfig) -> Arc<Runtime> {
         let bus = EventBus::new();
+        let hub = StateHub::new();
         let storage = config
             .store
             .as_ref()
@@ -204,6 +333,7 @@ impl Runtime {
             Arc::new(UiAgentsSink(config.emitter.clone())),
             storage,
             Timing::default(),
+            hub.clone(),
         );
         let demo = DemoAgentAdapter::new(config.demo_pace);
         agents.register_adapter(demo.clone());
@@ -220,8 +350,20 @@ impl Runtime {
             agents.clone(),
             demo.clone(),
         )));
+        // The states of what ships with the app. These providers are always
+        // running; anything they report later replaces the `unknown` they start with.
+        for plugin in registry.all() {
+            let defs = plugin.observables();
+            if defs.is_empty() {
+                continue;
+            }
+            let id = plugin.manifest().id;
+            if let Err(e) = hub.ensure_provider(&id, defs) {
+                log::error!("could not declare the states of `{id}`: {e}");
+            }
+        }
         // External plugins: found on disk, sandboxed, registered next to the built-ins.
-        let plugin_host = PluginHost::new(
+        let plugin_host = PluginHost::with_hub(
             config.plugin_dirs.clone(),
             config
                 .store
@@ -230,6 +372,7 @@ impl Runtime {
                 .map(|dir| dir.join("plugins.json")),
             registry.clone(),
             PluginLimits::default(),
+            hub.clone(),
         );
         {
             // Compiling modules is blocking work.
@@ -242,7 +385,7 @@ impl Runtime {
                 );
             }
         }
-        let engine = ActionEngine::new(registry, bus.clone());
+        let engine = ActionEngine::with_hub(registry, bus.clone(), hub.clone());
 
         let (input_tx, mut input_rx) = unbounded_channel::<DeviceInput>();
         let mut devices = DeviceManager::new(input_tx);
@@ -282,13 +425,16 @@ impl Runtime {
             error: None,
         };
 
+        let index = FeedbackIndex::build(&workspace);
         let rt = Arc::new(Runtime {
             inner: Mutex::new(Inner {
                 workspace,
                 active_surface,
                 active_page,
                 mode: Mode::Live,
-                states: HashMap::new(),
+                overlay: HashMap::new(),
+                derived: HashMap::new(),
+                index,
                 devices,
                 held: HashMap::new(),
                 recent: VecDeque::new(),
@@ -303,11 +449,22 @@ impl Runtime {
             demo,
             hooks: hooks.clone(),
             plugin_host,
+            hub,
+            counters: Counters::default(),
             epoch: Instant::now(),
             counter: AtomicU64::new(1),
             handle: tokio::runtime::Handle::current(),
         });
 
+        // Every control is evaluated once, from the states the providers
+        // already hold, before anything can draw or react.
+        {
+            let mut inner = rt.lock();
+            // What the providers declared so far is already in the evaluation
+            // below; anything they write from now on is drained later.
+            let _ = rt.hub.drain();
+            rt.evaluate_all(&mut inner);
+        }
         // Input loop: devices (any thread) -> runtime.
         {
             let rt = rt.clone();
@@ -317,7 +474,22 @@ impl Runtime {
                 }
             });
         }
-        // Event loop: bus -> binding routing + UI log.
+        // State loop: the hub says what changed, the runtime re-evaluates only
+        // the controls that read it. Writes are coalesced, so a burst on one
+        // state is one evaluation per control.
+        {
+            let rt = rt.clone();
+            tokio::spawn(async move {
+                loop {
+                    rt.hub.changed().await;
+                    let changes = rt.hub.drain();
+                    if !changes.is_empty() {
+                        rt.apply_hub_changes(&changes);
+                    }
+                }
+            });
+        }
+        // Event loop: bus -> event rules (temporary looks) + UI log.
         {
             let rt = rt.clone();
             let mut rx = bus.subscribe();
@@ -325,7 +497,9 @@ impl Runtime {
                 loop {
                     match rx.recv().await {
                         Ok(event) => rt.on_event(event),
-                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(missed)) => {
+                            rt.bus_lagged(missed);
+                        }
                         Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                     }
                 }
@@ -347,8 +521,6 @@ impl Runtime {
         if let Err(e) = hooks.apply().await {
             log::warn!("{e}");
         }
-        // Make every Agent Control surface show the current state from the first frame.
-        rt.agents.republish();
         // Hardware discovery loop.
         if config.scan_hardware {
             let rt = rt.clone();
@@ -413,6 +585,11 @@ impl Runtime {
         self.counter.fetch_add(1, Ordering::Relaxed)
     }
 
+    /// The index follows the workspace: rebuilt after any edit of the rules.
+    fn rebuild_index(&self, inner: &mut Inner) {
+        inner.index = FeedbackIndex::build(&inner.workspace);
+    }
+
     // -----------------------------------------------------------------------
     // Observation
     // -----------------------------------------------------------------------
@@ -457,11 +634,7 @@ impl Runtime {
             active_surface_id: inner.active_surface.clone(),
             active_page_id: inner.active_page.clone(),
             mode: inner.mode,
-            control_states: inner
-                .states
-                .iter()
-                .map(|(k, v)| (k.clone(), v.name.clone()))
-                .collect(),
+            control_states: looks_of(inner),
             devices: inner.devices.list(),
             external: inner.external.clone(),
         }
@@ -561,9 +734,8 @@ impl Runtime {
                 json!({ "surfaceId": surface_id, "pageId": page }),
             );
         }
-        // A surface may have missed projection events while it was not shown
-        // (for example one created after the last agent change).
-        self.agents.republish();
+        // Nothing is replayed to repaint the surface: every control's look is
+        // already derived from the states the hub holds, shown or not.
         self.emit_state();
         Ok(())
     }
@@ -790,9 +962,9 @@ impl Runtime {
             };
         }
 
-        // Bound controls get their state from their bindings; the automatic
-        // running/success/error states only apply to unbound ones.
-        let auto = control.as_ref().filter(|c| c.bindings.is_empty());
+        // A control with feedback rules gets its look from them; the automatic
+        // running/success/error looks only apply to one without.
+        let auto = control.as_ref().filter(|c| c.feedback.is_empty());
         let key = control
             .as_ref()
             .map(|c| control_key(&surface_id, &page_id, &c.id));
@@ -800,7 +972,7 @@ impl Runtime {
 
         self.publish("runtime", types::ACTION_STARTED, ctx.clone());
         if let (Some(key), true) = (&key, has("running")) {
-            self.set_control_state(key, Some("running"), None);
+            self.set_overlay(key, Some("running"), None);
         }
         match self.engine.execute(&action).await {
             Ok(result) => {
@@ -812,9 +984,9 @@ impl Runtime {
                 if let Some(key) = &key {
                     if auto.is_some() {
                         if has("success") {
-                            self.set_control_state(key, Some("success"), Some(SUCCESS_RESET));
+                            self.set_overlay(key, Some("success"), Some(SUCCESS_RESET));
                         } else {
-                            self.set_control_state(key, None, None);
+                            self.set_overlay(key, None, None);
                         }
                     }
                 }
@@ -829,9 +1001,9 @@ impl Runtime {
                 if let Some(key) = &key {
                     if auto.is_some() {
                         if has("error") {
-                            self.set_control_state(key, Some("error"), Some(ERROR_RESET));
+                            self.set_overlay(key, Some("error"), Some(ERROR_RESET));
                         } else {
-                            self.set_control_state(key, None, None);
+                            self.set_overlay(key, None, None);
                         }
                     }
                 }
@@ -844,21 +1016,16 @@ impl Runtime {
     // State and events
     // -----------------------------------------------------------------------
 
-    /// Set (or clear, with `None` / `"idle"`) a control's state. Optionally
-    /// auto-reset to idle after `reset_after`, unless something else changed
-    /// the state in the meantime (tracked with a token).
-    fn set_control_state(
-        self: &Arc<Self>,
-        key: &str,
-        state: Option<&str>,
-        reset_after: Option<Duration>,
-    ) {
+    /// Put a temporary look on a control, or take it off with `None`.
+    /// Optionally it ends by itself after `reset_after`, unless something else
+    /// replaced it in the meantime (tracked with a token).
+    fn set_overlay(self: &Arc<Self>, key: &str, look: Option<&str>, reset_after: Option<Duration>) {
         let token = self.next_token();
         {
             let mut inner = self.lock();
-            match state {
-                Some(name) if name != "idle" => {
-                    inner.states.insert(
+            match look {
+                Some(name) => {
+                    inner.overlay.insert(
                         key.to_string(),
                         StateEntry {
                             name: name.to_string(),
@@ -866,37 +1033,164 @@ impl Runtime {
                         },
                     );
                 }
-                _ => {
-                    inner.states.remove(key);
+                None => {
+                    inner.overlay.remove(key);
                 }
             }
         }
         self.emit_state();
-        if let (Some(after), Some(name)) = (reset_after, state) {
-            if name != "idle" {
-                let rt = self.clone();
-                let key = key.to_string();
-                self.handle.spawn(async move {
-                    tokio::time::sleep(after).await;
-                    let removed = {
-                        let mut i = rt.lock();
-                        if i.states.get(&key).is_some_and(|e| e.token == token) {
-                            i.states.remove(&key);
-                            true
-                        } else {
-                            false
-                        }
-                    };
-                    if removed {
-                        rt.emit_state();
+        if let (Some(after), Some(_)) = (reset_after, look) {
+            let rt = self.clone();
+            let key = key.to_string();
+            self.handle.spawn(async move {
+                tokio::time::sleep(after).await;
+                let removed = {
+                    let mut i = rt.lock();
+                    if i.overlay.get(&key).is_some_and(|e| e.token == token) {
+                        i.overlay.remove(&key);
+                        true
+                    } else {
+                        false
                     }
-                });
-            }
+                };
+                if removed {
+                    rt.emit_state();
+                }
+            });
         }
     }
 
-    fn on_event(&self, event: Event) {
-        // Projection events exist for bindings; they would drown the event log.
+    /// Evaluate the state rules of every control that has any, from the values
+    /// the hub holds now. Used at start and whenever the rules change as a
+    /// whole.
+    fn evaluate_all(&self, inner: &mut Inner) {
+        inner.derived.clear();
+        let refs: Vec<ControlRef> = inner.index.stateful().cloned().collect();
+        for r in &refs {
+            self.derive_into(inner, r);
+        }
+    }
+
+    /// Re-evaluate one control and store what its state rules give. Returns
+    /// whether the derived look changed.
+    fn derive_into(&self, inner: &mut Inner, r: &ControlRef) -> bool {
+        let key = r.key();
+        // A control with only event rules has nothing to derive.
+        if !find_control(&inner.workspace, r)
+            .is_some_and(|c| c.feedback.iter().any(|r| r.is_state()))
+        {
+            return inner.derived.remove(&key).is_some();
+        }
+        let evaluation = find_control(&inner.workspace, r).map(|c| {
+            eval::evaluate(&c.feedback, &|k| self.hub.read(k), &|name| {
+                c.states.contains_key(name)
+            })
+        });
+        self.counters.evaluations.fetch_add(1, Ordering::Relaxed);
+        let Some(evaluation) = evaluation else {
+            return inner.derived.remove(&key).is_some();
+        };
+        let before = inner.derived.get(&key).cloned();
+        match &evaluation.look {
+            Some(look) => {
+                inner.derived.insert(key.clone(), look.clone());
+            }
+            None => {
+                inner.derived.remove(&key);
+            }
+        }
+        let changed = before != evaluation.look;
+        if changed {
+            for d in &evaluation.diagnostics {
+                log::warn!("feedback of `{key}`: {d:?}");
+            }
+        }
+        changed
+    }
+
+    /// The hub says these states changed: re-evaluate the controls that read
+    /// them, and only those.
+    fn apply_hub_changes(&self, changes: &Changes) {
+        let changed = {
+            let mut inner = self.lock();
+            let refs: Vec<ControlRef> = inner
+                .index
+                .dependents(changes)
+                .into_iter()
+                .cloned()
+                .collect();
+            let mut any = false;
+            for r in &refs {
+                any |= self.derive_into(&mut inner, r);
+            }
+            any
+        };
+        if changed {
+            self.emit_state();
+        }
+    }
+
+    /// The event loop fell behind and the bus dropped events. States are not
+    /// affected (they never travel on the bus); an event rule can have missed
+    /// its event.
+    fn bus_lagged(&self, missed: u64) {
+        self.counters
+            .bus_lagged
+            .fetch_add(missed, Ordering::Relaxed);
+        log::warn!("the event loop missed {missed} events; states are unaffected");
+    }
+
+    /// What the feedback machinery has done so far.
+    pub fn feedback_stats(&self) -> FeedbackStats {
+        FeedbackStats {
+            evaluations: self.counters.evaluations.load(Ordering::Relaxed),
+            events_routed: self.counters.events_routed.load(Ordering::Relaxed),
+            bus_lagged: self.counters.bus_lagged.load(Ordering::Relaxed),
+        }
+    }
+
+    /// The current values every provider holds.
+    pub fn state_hub(&self) -> &StateHub {
+        &self.hub
+    }
+
+    /// Why a control looks the way it does: the overlay if one is on, then the
+    /// state rules rule by rule against the values now.
+    pub fn explain_control(
+        &self,
+        surface_id: &str,
+        page_id: &str,
+        control_id: &str,
+    ) -> Result<ControlExplanation, String> {
+        let inner = self.lock();
+        let control = inner
+            .workspace
+            .surface(surface_id)
+            .and_then(|s| s.page(page_id))
+            .and_then(|p| p.controls.iter().find(|c| c.id == control_id))
+            .ok_or_else(|| format!("unknown control `{surface_id}/{page_id}/{control_id}`"))?;
+        let key = control_key(surface_id, page_id, control_id);
+        let state_rules = eval::examine(&control.feedback, &|k| self.hub.read(k), &|name| {
+            control.states.contains_key(name)
+        });
+        let overlay = inner.overlay.get(&key).map(|e| e.name.clone());
+        let derived = inner.derived.get(&key).cloned();
+        let (shown, layer) = match (&overlay, &derived) {
+            (Some(o), _) => (Some(o.clone()), "overlay"),
+            (None, Some(d)) => (Some(d.clone()), "state"),
+            (None, None) => (None, "rest"),
+        };
+        Ok(ControlExplanation {
+            shown,
+            layer,
+            overlay,
+            state_rules,
+        })
+    }
+
+    fn on_event(self: &Arc<Self>, event: Event) {
+        // Projection events are for event rules and external listeners; they
+        // would drown the event log.
         if !is_projection(&event) {
             {
                 let mut inner = self.lock();
@@ -910,72 +1204,42 @@ impl Runtime {
                 serde_json::to_value(&event).unwrap_or(Value::Null),
             );
         }
-        self.route_bindings(&event);
+        self.route_events(&event);
     }
 
-    /// Resolve which state (if any) a binding sets for `event`.
-    fn binding_state(binding: &Binding, event: &Event) -> Option<String> {
-        if binding.source != event.source {
-            return None;
-        }
-        for rule in &binding.rules {
-            if rule.event != event.kind {
-                continue;
-            }
-            let matches = rule
-                .when
-                .iter()
-                .all(|c| event.payload.get(&c.field) == Some(&c.equals));
-            if !matches {
-                continue;
-            }
-            if let Some(field) = rule.set_state.strip_prefix("$payload.") {
-                match event.payload.get(field).and_then(Value::as_str) {
-                    Some(s) => return Some(s.to_string()),
-                    None => continue,
-                }
-            }
-            return Some(rule.set_state.clone());
-        }
-        None
-    }
-
-    fn route_bindings(&self, event: &Event) {
-        let mut changed = false;
+    /// Event rules: the first matching rule of each control shows its look as
+    /// a temporary overlay. The event is not stored anywhere else.
+    fn route_events(self: &Arc<Self>, event: &Event) {
+        // (key, look, hold, the control has a look called `idle` of its own)
+        let mut matched: Vec<(String, String, Hold, bool)> = Vec::new();
         {
-            let mut inner = self.lock();
-            // (key, state, whether the control draws its own `idle` state)
-            let mut updates: Vec<(String, String, bool)> = Vec::new();
-            for surface in &inner.workspace.surfaces {
-                for page in &surface.pages {
-                    for control in &page.controls {
-                        for binding in &control.bindings {
-                            if let Some(state) = Self::binding_state(binding, event) {
-                                updates.push((
-                                    control_key(&surface.id, &page.id, &control.id),
-                                    state,
-                                    control.states.contains_key("idle"),
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
-            for (key, state, has_idle_visual) in updates {
-                let token = self.next_token();
-                // `idle` means "back to the resting look" unless the control
-                // defines an explicit `idle` state of its own.
-                if state == "idle" && !has_idle_visual {
-                    changed |= inner.states.remove(&key).is_some();
-                } else {
-                    let same = inner.states.get(&key).is_some_and(|e| e.name == state);
-                    inner.states.insert(key, StateEntry { name: state, token });
-                    changed |= !same;
+            let inner = self.lock();
+            for r in inner.index.for_event(&event.source, &event.kind) {
+                let Some(control) = find_control(&inner.workspace, r) else {
+                    continue;
+                };
+                if let Some((look, hold)) = event_look(control, event) {
+                    matched.push((r.key(), look, hold, control.states.contains_key(IDLE)));
                 }
             }
         }
-        if changed {
-            self.emit_state();
+        if matched.is_empty() {
+            return;
+        }
+        self.counters
+            .events_routed
+            .fetch_add(matched.len() as u64, Ordering::Relaxed);
+        for (key, look, hold, own_idle) in matched {
+            // `idle` means "no temporary look" unless the control draws one.
+            if look == IDLE && !own_idle {
+                self.set_overlay(&key, None, None);
+                continue;
+            }
+            let after = match hold {
+                Hold::For(ms) => Some(Duration::from_millis(u64::from(ms))),
+                Hold::Latch => None,
+            };
+            self.set_overlay(&key, Some(&look), after);
         }
     }
 
@@ -992,7 +1256,8 @@ impl Runtime {
                 workspace,
                 active_surface,
                 active_page,
-                states,
+                overlay,
+                derived,
                 devices,
                 ..
             } = &mut *inner;
@@ -1000,10 +1265,13 @@ impl Runtime {
                 .surface(active_surface)
                 .and_then(|s| s.page(active_page));
             for (id, caps) in devices.connected_capabilities() {
+                // A temporary look over the one the state rules give.
                 let state_of = |cid: &str| {
-                    states
-                        .get(&control_key(active_surface, active_page, cid))
+                    let key = control_key(active_surface, active_page, cid);
+                    overlay
+                        .get(&key)
                         .map(|e| e.name.clone())
+                        .or_else(|| derived.get(&key).cloned())
                 };
                 let frame = renderer::compose(page, &state_of, &caps, t_ms);
                 if let Some(change) = devices.render(&id, &frame) {
@@ -1098,6 +1366,15 @@ impl Runtime {
             validate_control(page, &control)?;
             let mut control = control;
             let stored = page.controls.iter().find(|c| c.id == control.id);
+            // Rules that are new or changed must name a state something
+            // offers, with arguments that fit it. Saved ones stay as they are.
+            let hub = &self.hub;
+            control.feedback = prepare_rules(
+                &control.feedback,
+                stored.map_or(&[][..], |c| &c.feedback[..]),
+                &|provider, id| hub.definition(provider, id),
+            )
+            .map_err(|issues| describe_issues(&issues))?;
             // Only an assignment that changed is checked. One that is saved
             // already stays editable even when its provider is gone, so a pad
             // can still be relabelled while its plugin is uninstalled.
@@ -1124,10 +1401,23 @@ impl Runtime {
                 stored.and_then(|c| c.long_press.as_ref()),
                 "Long press",
             )?;
+            let control_id = control.id.clone();
+            let key = control_key(surface_id, page_id, &control_id);
             match page.controls.iter_mut().find(|c| c.id == control.id) {
                 Some(slot) => *slot = control,
                 None => page.controls.push(control),
             }
+            // An edit starts the control over: no temporary look survives it,
+            // and its look is derived again from the values the hub holds.
+            inner.overlay.remove(&key);
+            self.rebuild_index(&mut inner);
+            let r = ControlRef {
+                surface: surface_id.to_string(),
+                page: page_id.to_string(),
+                control: control_id,
+            };
+            inner.derived.remove(&key);
+            self.derive_into(&mut inner, &r);
             self.persist(&inner);
         }
         self.emit_workspace();
@@ -1156,9 +1446,10 @@ impl Runtime {
             if page.controls.len() == before {
                 return Err(format!("unknown control `{control_id}`"));
             }
-            inner
-                .states
-                .remove(&control_key(surface_id, page_id, control_id));
+            let key = control_key(surface_id, page_id, control_id);
+            inner.overlay.remove(&key);
+            inner.derived.remove(&key);
+            self.rebuild_index(&mut inner);
             self.persist(&inner);
         }
         self.emit_workspace();
@@ -1258,11 +1549,12 @@ impl Runtime {
             inner.active_surface = first;
             ws.last_active_surface = Some(inner.active_surface.clone());
             inner.workspace = ws;
-            inner.states.clear();
+            inner.overlay.clear();
             inner.held.clear();
+            self.rebuild_index(&mut inner);
+            self.evaluate_all(&mut inner);
             self.persist(&inner);
         }
-        self.agents.republish();
         self.emit_workspace();
     }
 
@@ -1287,6 +1579,7 @@ mod tests {
     use crate::core::model::{Animation, ControlPos, Rgb, Visual};
     use crate::plugins::keyboard::{Combo, Keyboard};
     use crate::plugins::ActionError;
+    use crate::state::feedback::FeedbackRule;
 
     struct NoKeyboard;
     impl Keyboard for NoKeyboard {
@@ -1295,30 +1588,27 @@ mod tests {
         }
     }
 
-    /// A generic surface for the runtime tests: one pad driven by the demo
-    /// plugin, one by an external source, and a big approval pad. Nothing
-    /// here depends on a shipped surface.
+    /// A generic surface for the runtime tests: one pad that mirrors a demo
+    /// agent, one that also listens to an external source, and a big approval
+    /// pad. Nothing here depends on a shipped surface.
     fn bound_workspace() -> Workspace {
-        use crate::core::model::{BindingRule, Condition, Span};
+        use crate::core::model::Span;
+        use crate::state::feedback::Test;
+        use crate::state::StateAddress;
         let blue = Rgb::new(40, 110, 255);
         let green = Rgb::new(30, 220, 90);
         let red = Rgb::new(255, 40, 50);
         let white = Rgb::new(255, 255, 255);
-        let rule = |event: &str, set: &str| BindingRule {
-            event: event.into(),
-            when: vec![],
-            set_state: set.into(),
+        // The look named after the agent's state, resting when it is idle.
+        let mirror = |agent: &str| {
+            FeedbackRule::state(StateAddress::new("demo", agent), Test::HasValue).show_from_value()
         };
-        let demo_binding = |agent: &str| Binding {
-            source: "demo".into(),
-            rules: vec![BindingRule {
-                event: "plugin.state.changed".into(),
-                when: vec![Condition {
-                    field: "key".into(),
-                    equals: json!(agent),
-                }],
-                set_state: "$payload.value".into(),
-            }],
+        // An external source's events, which the pad keeps showing until the
+        // next one (the behaviour schema 3 bindings had).
+        let on = |kind: &str, look: &str| {
+            FeedbackRule::event("beta", kind)
+                .show(look)
+                .hold(Hold::Latch)
         };
         let look = |c: &mut Control| {
             c.states.insert("running".into(), Visual::pulse(green));
@@ -1339,31 +1629,22 @@ mod tests {
             json!({ "agent": "alpha" }),
         ));
         look(&mut alpha);
-        alpha.bindings = vec![demo_binding("alpha")];
+        alpha.feedback = vec![mirror("alpha")];
 
         let mut beta = Control::new(ControlPos::grid(1, 0), "Beta", blue);
         beta.press = Some(start("beta"));
         look(&mut beta);
-        beta.bindings = vec![
-            demo_binding("beta"),
-            Binding {
-                source: "beta".into(),
-                rules: vec![
-                    rule("task.started", "running"),
-                    rule("task.waiting", "waiting"),
-                    // The first matching rule wins: the explicit failure goes first.
-                    BindingRule {
-                        event: "task.completed".into(),
-                        when: vec![Condition {
-                            field: "success".into(),
-                            equals: json!(false),
-                        }],
-                        set_state: "error".into(),
-                    },
-                    rule("task.completed", "success"),
-                    rule("task.failed", "error"),
-                ],
-            },
+        beta.feedback = vec![
+            mirror("beta"),
+            on("task.started", "running"),
+            on("task.waiting", "waiting"),
+            // The first matching rule wins: the explicit failure goes first.
+            FeedbackRule::event("beta", "task.completed")
+                .where_field("success", false)
+                .show("error")
+                .hold(Hold::Latch),
+            on("task.completed", "success"),
+            on("task.failed", "error"),
         ];
 
         let mut approve = Control::new(ControlPos::grid(6, 2), "Approve", white.scaled(0.25));
@@ -1372,27 +1653,13 @@ mod tests {
         approve
             .states
             .insert("pending".into(), Visual::flash(white));
-        approve.bindings = vec![Binding {
-            source: "demo".into(),
-            rules: vec![
-                BindingRule {
-                    event: "plugin.state.changed".into(),
-                    when: vec![Condition {
-                        field: "value".into(),
-                        equals: json!("approval-required"),
-                    }],
-                    set_state: "pending".into(),
-                },
-                BindingRule {
-                    event: "plugin.state.changed".into(),
-                    when: vec![Condition {
-                        field: "value".into(),
-                        equals: json!("running"),
-                    }],
-                    set_state: "idle".into(),
-                },
-            ],
-        }];
+        approve.feedback = vec![FeedbackRule::state(
+            StateAddress::new("demo", "alpha"),
+            Test::Equals {
+                value: "approval-required".into(),
+            },
+        )
+        .show("pending")];
 
         Workspace {
             schema_version: crate::core::model::SCHEMA_VERSION,

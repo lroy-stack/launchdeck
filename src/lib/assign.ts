@@ -1,7 +1,7 @@
 // Putting an action on a control. Pure functions, unit tested.
 //
 // Assigning only ever changes the assignment. A control's label, colour, icon,
-// state looks and bindings belong to the person; an action's appearance is a
+// state looks and feedback rules belong to the person; an action's appearance is a
 // hint that is applied when a person asks for it, or when the control is new.
 
 import type { CatalogIndex } from "./actions";
@@ -44,7 +44,8 @@ export function newControl(pos: ControlPos): Control {
     states: {},
     press: null,
     longPress: null,
-    bindings: [],
+    feedback: [],
+    legacyBindings: [],
   };
 }
 
@@ -59,7 +60,7 @@ export function lookHints(control: Control, def: ActionDefinition | undefined): 
   return out;
 }
 
-/** The control with the suggested label, colour and icon. Looks for states, bindings and everything else stay. */
+/** The control with the suggested label, colour and icon. Looks for states, feedback rules and everything else stay. */
 export function withLook(control: Control, def: ActionDefinition | undefined): Control {
   const h = lookHints(control, def);
   return {
@@ -93,7 +94,7 @@ export function replaceWarning(index: CatalogIndex, current: Assignment, next: A
   const was = index.byId.get(definitionId(current))?.name ?? definitionId(current);
   const settings = Object.keys(current.args).length;
   const lost = settings > 0 ? ` and its ${settings === 1 ? "setting" : `${settings} settings`}` : "";
-  return `This replaces “${was}”${lost} with “${next.name}”. The pad’s label, colour, icon, state looks and bindings are not changed.`;
+  return `This replaces “${was}”${lost} with “${next.name}”. The pad’s label, colour, icon, looks and feedback rules are not changed.`;
 }
 
 /**

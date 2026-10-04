@@ -21,6 +21,7 @@ use crate::agents::model::*;
 use crate::agents::service::{AgentControl, NullSink, Target, Timing};
 use crate::agents::settings::HooksSettings;
 use crate::events::{Event, EventBus};
+use crate::state::StateHub;
 
 const SESSION: &str = "11111111-2222-3333-4444-555555555555";
 
@@ -200,7 +201,13 @@ struct Rig {
 fn rig_with(dialect: &'static Dialect) -> Rig {
     let bus = EventBus::new();
     let rx = bus.subscribe();
-    let ctl = AgentControl::new(bus, Arc::new(NullSink), None, Timing::default());
+    let ctl = AgentControl::new(
+        bus,
+        Arc::new(NullSink),
+        None,
+        Timing::default(),
+        StateHub::new(),
+    );
     let adapter = HookAdapter::new(dialect);
     ctl.register_adapter(adapter.clone());
     adapter.set_enabled(true, AdapterState::Active, "test", Duration::from_secs(5));
@@ -631,7 +638,13 @@ fn body_of(response: &str) -> &str {
 
 fn manager() -> (Arc<AgentControl>, Arc<HookManager>) {
     let bus = EventBus::new();
-    let ctl = AgentControl::new(bus, Arc::new(NullSink), None, Timing::default());
+    let ctl = AgentControl::new(
+        bus,
+        Arc::new(NullSink),
+        None,
+        Timing::default(),
+        StateHub::new(),
+    );
     let manager = HookManager::new(ctl.clone());
     (ctl, manager)
 }

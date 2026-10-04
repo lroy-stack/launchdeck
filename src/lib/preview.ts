@@ -76,7 +76,7 @@ export async function createPreviewTransport() {
     if (events.length > 100) events.shift();
     emit("runtime-event", e);
   };
-  // The real runtime drives these pads through bindings. Here the captured snapshot
+  // The real runtime drives these pads from the states Agent Control keeps. Here the captured snapshot
   // stands in so the preview shows the same picture (still, not live).
   const COMMAND_PADS: Record<string, string> = { approve: "g.0.2", reject: "g.2.2", pause: "g.4.2", resume: "g.5.2", retry: "g.6.2", cancel: "g.7.2", send_instruction: "g.4.3" };
   const agentPadStates = (): Record<string, string> => {

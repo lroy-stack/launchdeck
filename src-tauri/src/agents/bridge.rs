@@ -631,6 +631,7 @@ mod tests {
     use super::*;
     use crate::agents::service::{AgentControl, NullSink, Target, Timing};
     use crate::events::{Event, EventBus};
+    use crate::state::StateHub;
     use std::time::Duration;
     use tokio::sync::broadcast::Receiver;
 
@@ -643,7 +644,13 @@ mod tests {
     fn rig() -> Rig {
         let bus = EventBus::new();
         let rx = bus.subscribe();
-        let ctl = AgentControl::new(bus, Arc::new(NullSink), None, Timing::default());
+        let ctl = AgentControl::new(
+            bus,
+            Arc::new(NullSink),
+            None,
+            Timing::default(),
+            StateHub::new(),
+        );
         let bridge = BridgeAdapter::new();
         ctl.register_adapter(bridge.clone());
         Rig { ctl, bridge, rx }

@@ -16,15 +16,14 @@ use launchdeck_lib::actions::definition::{
 };
 use launchdeck_lib::actions::definition::{ProviderKind, ProviderStatus};
 use launchdeck_lib::actions::params::validate_defs;
-use launchdeck_lib::core::model::{
-    Binding, BindingRule, Control, ControlPos, Rgb, Visual, Workspace,
-};
+use launchdeck_lib::core::model::{Control, ControlPos, Rgb, Visual, Workspace};
 use launchdeck_lib::core::runtime::{NullEmitter, Runtime, RuntimeConfig};
 use launchdeck_lib::devices::Led;
 use launchdeck_lib::events::Event;
 use launchdeck_lib::persistence::Store;
 use launchdeck_lib::plugins::keyboard::{Combo, Keyboard};
 use launchdeck_lib::plugins::ActionError;
+use launchdeck_lib::state::feedback::{FeedbackRule, Hold};
 use launchdeck_lib::surfaces::default_workspace;
 use serde_json::{json, Value};
 
@@ -110,15 +109,15 @@ const AMBER: Rgb = Rgb::new(255, 170, 0);
 const GREY: Rgb = Rgb::new(60, 60, 60);
 const RED: Rgb = Rgb::new(255, 40, 50);
 
-fn bind(source: &str, event: &str, set_state: &str) -> Vec<Binding> {
-    vec![Binding {
-        source: source.into(),
-        rules: vec![BindingRule {
-            event: event.into(),
-            when: vec![],
-            set_state: set_state.into(),
-        }],
-    }]
+/// What a schema 3 binding became: an event rule that keeps its look until the
+/// next event (`$payload.x` names the look from a payload field).
+fn bind(source: &str, event: &str, set_state: &str) -> Vec<FeedbackRule> {
+    let rule = FeedbackRule::event(source, event);
+    let rule = match set_state.strip_prefix("$payload.") {
+        Some(field) => rule.show_from_field(field),
+        None => rule.show(set_state),
+    };
+    vec![rule.hold(Hold::Latch)]
 }
 
 /// A blank surface to work on, made the way the editor makes one, and made active.
@@ -284,14 +283,14 @@ async fn a_plugin_action_found_in_the_catalog_runs_from_a_pad_and_its_event_ligh
     level.visual = Visual::solid(GREY);
     level.states.insert("low".into(), Visual::solid(BLUE));
     level.states.insert("high".into(), Visual::solid(AMBER));
-    level.bindings = bind("example.counter", "counter.changed", "$payload.level");
+    level.feedback = bind("example.counter", "counter.changed", "$payload.level");
     rt.update_control(&at.0, &at.1, level).unwrap();
 
     // And a third runs Hello with a setting from the generated form.
     let say = find(&catalog, "example.hello.hello.say");
     let mut hello = pad(2, 0, "Hello");
     hello.states.insert("greeted".into(), Visual::solid(GREEN));
-    hello.bindings = bind("example.hello", "hello.completed", "greeted");
+    hello.feedback = bind("example.hello", "hello.completed", "greeted");
     assign(&rt, &at, hello, say, json!({ "name": "Leroy" }));
 
     wait_until("the level pad starts idle", || {
@@ -457,7 +456,7 @@ async fn replacing_an_assignment_changes_only_the_assignment() {
     control
         .states
         .insert("success".into(), Visual::solid(GREEN));
-    control.bindings = bind("demo", "plugin.state.changed", "success");
+    control.feedback = bind("demo", "plugin.state.changed", "success");
     control.long_press = Some(Assignment::new("demo", "resetAll", json!({})));
     let first = assign(
         &rt,

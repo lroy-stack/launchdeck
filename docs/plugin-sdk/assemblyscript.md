@@ -77,7 +77,7 @@ The setters return the object, so they chain: `Json.object().setString("name", n
 ## Writing good actions
 
 * **Return a result a surface can use.** Return what happened (`{ "level": "high" }`), not how it should look. Colours and pads belong to the surface.
-* **Publish what changed, once.** One event per meaningful change, with the data a binding needs in the payload (`$payload.level`).
+* **Publish what changed, once.** One event per meaningful change, with the data a feedback rule needs in the payload (`showFromField: "level"`).
 * **Fail with a sentence.** `fail("the counter is at its maximum", "at_limit")` appears on the pad's failure and in the log. Do not trap on expected conditions.
 * **Keep state in globals.** The module lives as long as the plugin is running, so a counter survives between presses. Restarting the plugin (disable and enable, changing a setting, **Reload**) starts again from zero. Nothing is saved for you; if a value matters across restarts, make it a setting.
 * **Stay short.** A call has 2 seconds and 100 million instructions. Long work does not belong in a plugin yet (there are no timers and no network).
