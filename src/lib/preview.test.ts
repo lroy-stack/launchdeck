@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createPreviewTransport } from "./preview";
-import { frameSchema, observableCatalogSchema, snapshotSchema, type RuntimeState } from "./schema";
+import { feedbackReviewSchema, frameSchema, observableCatalogSchema, snapshotSchema, type RuntimeState } from "./schema";
 import { agentsSnapshotSchema } from "./agents";
 
 // The browser preview mirrors the commands of the Rust runtime closely enough
@@ -67,5 +67,19 @@ describe("preview transport", () => {
     await t.listen("agents-changed", (p) => seen.push(agentsSnapshotSchema.parse(p).rev));
     await t.invoke("agents_focus", { slot: 2 });
     expect(seen).toEqual([before.rev + 1]);
+  });
+});
+
+describe("the editor's questions in a browser", () => {
+  it("answers review_feedback with Rust's limits and nothing to report, so no draft is refused or praised", async () => {
+    const t = await createPreviewTransport();
+    const review = feedbackReviewSchema.parse(await t.invoke("review_feedback", { surfaceId: "development", pageId: "home", control: {} }));
+    expect(review.issues).toEqual([]);
+    expect(review.limits.maxRules).toBe(32);
+  });
+
+  it("says plainly that explanations need the desktop app", async () => {
+    const t = await createPreviewTransport();
+    await expect(t.invoke("explain_control", { surfaceId: "development", pageId: "home", controlId: "x" })).rejects.toMatch(/desktop app/);
   });
 });

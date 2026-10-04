@@ -80,4 +80,50 @@ async fn the_observables_fixture_has_every_field_the_runtime_emits() {
         "missingLook"
     );
     assert_eq!(fixture["messages"]["catalog"]["catalog"], true);
+
+    // The review of a draft: a saved control has nothing to say and no preview;
+    // a changed one has a preview, an issue on each part of a rule that can be
+    // wrong in this scenario, and a note of every kind.
+    let review = &fixture["review"];
+    let clean = &review["clean"];
+    assert!(clean["issues"].as_array().unwrap().is_empty());
+    assert!(clean["notes"].as_array().unwrap().is_empty());
+    assert!(clean["preview"].is_null());
+    assert!(clean["limits"]["maxRules"].as_u64().unwrap() > 0);
+    let draft = &review["draft"];
+    assert!(draft["preview"]["rules"].is_array());
+    assert_eq!(draft["preview"]["layer"], "state");
+    let issues = draft["issues"].as_array().unwrap();
+    let fields: BTreeSet<_> = issues
+        .iter()
+        .map(|i| i["field"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(
+        fields,
+        BTreeSet::from(["args", "look", "state", "test"].map(String::from))
+    );
+    assert!(
+        issues
+            .iter()
+            .any(|i| i["field"] == "args" && i["param"] == "channel"),
+        "an argument problem names its argument: {issues:?}"
+    );
+    let notes: BTreeSet<_> = draft["notes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["kind"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(
+        notes,
+        BTreeSet::from(
+            [
+                "missingLook",
+                "shadowed",
+                "missingObservable",
+                "providerUnavailable"
+            ]
+            .map(String::from)
+        )
+    );
 }

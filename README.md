@@ -38,6 +38,7 @@ Agents you connect start read-only. You grant control per agent, in the app. See
 | Launchpad X over USB (discovery, Programmer mode, press/release, RGB LEDs, clear) | Implemented and byte-tested. Untested on a physical unit. |
 | Surfaces, pages, controls, spans, per-state looks | Working, persisted as versioned JSON. |
 | Live / Edit modes, inspector | Working. |
+| Feedback editor: make a pad follow a state or react to an event from the inspector, with one searchable picker for every provider, numbered rules you can reorder, looks you can create in place, and a live explanation of why the pad looks as it does | Working. Tested against the real Counter plugin and in the real desktop app. [Guide](docs/feedback-editor.md) |
 | Action Library: every built-in, Agent Control and installed-plugin action in one searchable panel, assigned by selecting or dragging, configured in a form generated from a declared schema, with availability, replacement warnings and test runs | Working. Tested end to end with a real compiled plugin. [Guide](docs/actions/overview.md) |
 | Agent Control: agents, sessions, approvals, commands, surface, Agents section in the app | Working. Demo agents, Agent Bridge, hook adapters. |
 | Starter surfaces: Agent Control, Development, Productivity, Accessibility, Smart Home | Included. |
@@ -107,7 +108,7 @@ The same socket also takes generic events that change how pads look:
 {"type":"event","source":"build","event":"run.failed","payload":{"code":2}}
 ```
 
-Make a control react to an event with an event rule in the `feedback` list of the surface file (the inspector shows the rules read-only), as described in [docs/surfaces.md](docs/surfaces.md) and [docs/state-and-feedback.md](docs/state-and-feedback.md). Try it with **Settings, External events, Send test event**, or with any WebSocket client:
+Make a control react to an event with an event rule: **Feedback, Add feedback, An event** in the inspector (see [docs/feedback-editor.md](docs/feedback-editor.md)), or by writing it in the `feedback` list of the surface file, as described in [docs/surfaces.md](docs/surfaces.md) and [docs/state-and-feedback.md](docs/state-and-feedback.md). Try it with **Settings, External events, Send test event**, or with any WebSocket client:
 
 ```bash
 npx wscat -c ws://127.0.0.1:47821 -x '{"type":"event","source":"build","event":"run.started"}'
@@ -175,8 +176,7 @@ examples/             default-workspace.json, agents-snapshot.json, plugins-over
 * **Installed plugins cannot do I/O yet.** The sandbox gives them no network or files, and the capability mechanism that would grant them is reserved but not built. A plugin that must reach a service (Home Assistant, for example) has to wait for it.
 * **Plugins are not signed.** There is no signature, checksum check or revocation, and no marketplace. Install only plugins you trust; the sandbox protects LaunchDeck from the plugin, not you from a misleading one.
 * **Action settings use a closed set of field kinds.** Text, number, on/off, choice, and a surface or page. There is no list, colour or file picker kind, and a plugin cannot ship its own form. Anything else is a text field until the schema grows.
-* **Feedback rules have no editor yet, and installed plugins report events, not states.** A pad reads the states Agent Control and the Demo plugin keep in the state hub, or reacts to any plugin's events for a while, but the rules are written in the surface file and shown read-only in the inspector. Plugins cannot declare states until the next manifest schema. See [docs/state-and-feedback.md](docs/state-and-feedback.md).
-* **Actions do not suggest pad states yet.** An action can suggest a label, colour and icon, but not which states it usually drives, because that only pays off together with an editor for feedback rules, which is not built. Feedback rules are still written in the surface file.
+* **A feedback rule is one comparison on one state, or one event.** There is no AND / OR, no timer that marks a state stale, no scripting and no aggregate state ("anything needs me"). The editor reports a rule that can never be reached only when it can prove it. See [docs/feedback-editor.md](docs/feedback-editor.md#not-built).
 * **Library search is word-and-typo matching.** It covers names, keywords, categories, sources and descriptions. It does not understand meaning ("make it louder" will not find Volume up unless a keyword says so).
 * **Only AssemblyScript has an SDK.** Any language that emits a core WebAssembly module with the documented exports can write a plugin (a C one is included), but a Rust SDK is not built, and Rust-built plugins have not been tested here.
 * Changing the WebSocket port or turning it off takes effect on the next launch.

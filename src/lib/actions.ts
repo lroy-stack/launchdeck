@@ -34,7 +34,7 @@ export interface CatalogIndex {
   entries: Entry[];
 }
 
-const fold = (s: string): string =>
+export const fold = (s: string): string =>
   s
     .toLowerCase()
     .normalize("NFD")

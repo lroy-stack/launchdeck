@@ -1,0 +1,20 @@
+{
+  "id": "g.5.3",
+  "pos": { "kind": "grid", "col": 5, "row": 3 },
+  "span": { "w": 1, "h": 1 },
+  "label": "Alert",
+  "description": "",
+  "icon": null,
+  "visual": { "color": "#3b82f6", "animation": "none" },
+  "states": {
+    "active": { "color": "#22c55e", "animation": "none" },
+    "error": { "color": "#ef4444", "animation": "flash" }
+  },
+  "press": null,
+  "longPress": null,
+  "feedback": [
+    { "when": { "state": { "provider": "example.channels", "id": "status", "args": { "channel": "alpha" } }, "is": { "op": "equals", "value": "up" } }, "show": "active" },
+    { "when": { "event": { "provider": "example.counter", "id": "counter.changed" }, "where": [ { "field": "level", "equals": "high" } ] }, "show": "error", "hold": { "ms": 700 } }
+  ],
+  "legacyBindings": []
+}

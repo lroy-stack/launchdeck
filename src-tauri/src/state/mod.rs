@@ -17,6 +17,7 @@
 //! * [`hub`]: the current values, the provider lifecycle and the invalidation.
 //! * [`feedback`]: the rules a control carries, and the gate they pass.
 //! * [`eval`]: the pure evaluator and its explanation.
+//! * [`lint`]: what can be proved about a list of rules without any value.
 //! * [`index`]: which controls depend on which state or event.
 
 pub mod address;
@@ -26,6 +27,7 @@ pub mod eval;
 pub mod feedback;
 pub mod hub;
 pub mod index;
+pub mod lint;
 pub mod value;
 
 pub use address::{StateAddress, StateKey};

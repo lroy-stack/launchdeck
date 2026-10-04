@@ -16,6 +16,7 @@ use tokio::sync::mpsc::unbounded_channel;
 use super::explain::{self, ControlExplanation, OverlayExplanation, OverlaySource};
 use super::model::{Assignment, Control, Page, Preferences, Surface, Workspace};
 use super::observables as native;
+use super::review::{self, FeedbackReview};
 use super::validate::validate_control;
 use crate::actions::builtin::{
     HttpProvider, NavigationProvider, ShellProvider, NAVIGATION, OPEN_PAGE, OPEN_SURFACE,
@@ -1309,6 +1310,36 @@ impl Runtime {
             inner.derived.get(&key).cloned(),
             &self.hub,
             &sources,
+        ))
+    }
+
+    /// What a draft of a control's feedback comes to, without saving it: the
+    /// issues `update_control` would refuse, what Rust can prove about the
+    /// rules, the limits, and what the draft would explain right now. Reads the
+    /// workspace and the hub and changes neither.
+    pub fn review_feedback(
+        &self,
+        surface_id: &str,
+        page_id: &str,
+        control: &Control,
+    ) -> Result<FeedbackReview, String> {
+        let stored = {
+            let inner = self.lock();
+            let surface = inner
+                .workspace
+                .surface(surface_id)
+                .ok_or_else(|| format!("unknown surface `{surface_id}`"))?;
+            let page = surface
+                .page(page_id)
+                .ok_or_else(|| format!("unknown page `{page_id}`"))?;
+            page.controls.iter().find(|c| c.id == control.id).cloned()
+        };
+        Ok(review::review(
+            (surface_id, page_id),
+            control,
+            stored.as_ref(),
+            &self.hub,
+            &self.observable_sources(),
         ))
     }
 

@@ -196,6 +196,21 @@ fn explain_control(
         .explain_control(&surface_id, &page_id, &control_id)
 }
 
+/// What a draft of a control's feedback comes to, without saving it: the
+/// issues saving would refuse (with the field each is about), what Rust can
+/// prove about the rules, the limits, and the draft's explanation. Read-only.
+#[tauri::command]
+fn review_feedback(
+    state: State<'_, AppState>,
+    surface_id: String,
+    page_id: String,
+    control: Control,
+) -> CmdResult<crate::core::review::FeedbackReview> {
+    state
+        .runtime
+        .review_feedback(&surface_id, &page_id, &control)
+}
+
 #[derive(serde::Serialize)]
 struct ValidationOutcome {
     ok: bool,
@@ -523,6 +538,7 @@ pub fn run() {
             observables_catalog,
             observable_state,
             explain_control,
+            review_feedback,
             connect_device,
             disconnect_device,
             rescan_devices,

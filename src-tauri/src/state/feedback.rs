@@ -301,17 +301,89 @@ impl FeedbackRule {
 // The gate: checking rules before they are saved
 // ---------------------------------------------------------------------------
 
+/// Which part of a rule a [`RuleIssue`] is about, so an editor can put the
+/// message next to the input that causes it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IssueField {
+    /// Which look the rule shows, and the look's name.
+    Look,
+    /// The state a rule reads: its address, or nothing offers it.
+    State,
+    /// The state's arguments (the scope). See [`RuleIssue::param`].
+    Args,
+    /// The operator of a state rule.
+    Test,
+    /// The value a state rule compares with.
+    Value,
+    /// The event an event rule waits for.
+    Event,
+    /// The payload conditions of an event rule, and the field it shows a look from.
+    Where,
+    /// How long an event's look lasts.
+    Hold,
+    /// The list as a whole.
+    Rules,
+}
+
 /// One problem found in one rule (0-based position in the list).
+///
+/// `field` and `param` only say where the problem is; the message is the same
+/// with or without them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RuleIssue {
     pub rule: usize,
     pub message: String,
+    /// The part of the rule the problem is about.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<IssueField>,
+    /// For `args`: the name of the argument, when the problem is about one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub param: Option<String>,
 }
 
-fn issue(rule: usize, message: impl Into<String>) -> RuleIssue {
+fn issue(rule: usize, field: IssueField, message: impl Into<String>) -> RuleIssue {
     RuleIssue {
         rule,
         message: message.into(),
+        field: Some(field),
+        param: None,
+    }
+}
+
+/// The limits the gate enforces, so an editor shows them without copying them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedbackLimits {
+    /// Rules in one control.
+    pub max_rules: usize,
+    /// Characters in a look name.
+    pub max_look_name: usize,
+    /// Payload conditions on one event rule.
+    pub max_where: usize,
+    /// How long an event's look lasts when the rule does not say.
+    pub default_hold_ms: u32,
+    pub min_hold_ms: u32,
+    pub max_hold_ms: u32,
+}
+
+impl FeedbackLimits {
+    pub const fn new() -> Self {
+        Self {
+            max_rules: MAX_RULES,
+            max_look_name: MAX_LOOK_NAME,
+            max_where: MAX_WHERE,
+            default_hold_ms: DEFAULT_HOLD_MS,
+            min_hold_ms: MIN_HOLD_MS,
+            max_hold_ms: MAX_HOLD_MS,
+        }
+    }
+}
+
+impl Default for FeedbackLimits {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -336,6 +408,7 @@ pub fn prepare_rules(
     if rules.len() > MAX_RULES {
         issues.push(issue(
             MAX_RULES,
+            IssueField::Rules,
             format!("a control has at most {MAX_RULES} feedback rules"),
         ));
     }
@@ -370,7 +443,11 @@ fn prepare_rule(
         + usize::from(rule.show_from_value)
         + usize::from(rule.show_from_field.is_some());
     if ways != 1 {
-        issues.push(issue(i, "choose exactly one look to show"));
+        issues.push(issue(
+            i,
+            IssueField::Look,
+            "choose exactly one look to show",
+        ));
     }
     if rule
         .show
@@ -379,6 +456,7 @@ fn prepare_rule(
     {
         issues.push(issue(
             i,
+            IssueField::Look,
             format!("a look name has 1-{MAX_LOOK_NAME} characters"),
         ));
     }
@@ -387,24 +465,27 @@ fn prepare_rule(
             if rule.show_from_field.is_some() {
                 issues.push(issue(
                     i,
+                    IssueField::Look,
                     "a state rule cannot show a look from an event field",
                 ));
             }
             if rule.hold.is_some() {
-                issues.push(issue(i, "only an event rule has a hold"));
+                issues.push(issue(i, IssueField::Hold, "only an event rule has a hold"));
             }
             if rule.show_from_value && matches!(c.is, Test::NoValue | Test::Unavailable) {
                 issues.push(issue(
                     i,
+                    IssueField::Look,
                     "a look from the value needs a test that has a value, not \"no value yet\" or \"not available\"",
                 ));
             }
             if let Err(e) = c.state.validate() {
-                issues.push(issue(i, e.to_string()));
+                issues.push(issue(i, IssueField::State, e.to_string()));
             } else {
                 match state_def(&c.state.provider, &c.state.id) {
                     None => issues.push(issue(
                         i,
+                        IssueField::State,
                         format!("`{}` is not a state anything offers right now", c.state),
                     )),
                     Some(def) => {
@@ -415,11 +496,14 @@ fn prepare_rule(
                                 &args,
                             ) {
                                 Ok(a) => c.state = a,
-                                Err(e) => issues.push(issue(i, e)),
+                                Err(e) => issues.push(issue(i, IssueField::Args, e)),
                             },
                             Err(found) => {
                                 for f in found {
-                                    issues.push(issue(i, f.message));
+                                    issues.push(RuleIssue {
+                                        param: f.param,
+                                        ..issue(i, IssueField::Args, f.message)
+                                    });
                                 }
                             }
                         }
@@ -434,35 +518,47 @@ fn prepare_rule(
             if rule.show_from_value {
                 issues.push(issue(
                     i,
+                    IssueField::Look,
                     "an event rule cannot show a look from a state value",
                 ));
             }
             if !plain(&c.event.provider, 64) || !plain(&c.event.id, 64) {
                 issues.push(issue(
                     i,
+                    IssueField::Event,
                     "an event is a source and a type of 1-64 characters",
                 ));
             }
             if c.where_.len() > MAX_WHERE {
                 issues.push(issue(
                     i,
+                    IssueField::Where,
                     format!("at most {MAX_WHERE} conditions on an event"),
                 ));
             }
             if c.where_.iter().any(|w| !plain(&w.field, 64)) {
-                issues.push(issue(i, "a payload field name has 1-64 characters"));
+                issues.push(issue(
+                    i,
+                    IssueField::Where,
+                    "a payload field name has 1-64 characters",
+                ));
             }
             if rule
                 .show_from_field
                 .as_deref()
                 .is_some_and(|f| !plain(f, 64))
             {
-                issues.push(issue(i, "a payload field name has 1-64 characters"));
+                issues.push(issue(
+                    i,
+                    IssueField::Where,
+                    "a payload field name has 1-64 characters",
+                ));
             }
             if let Some(Hold::For(ms)) = rule.hold {
                 if !(MIN_HOLD_MS..=MAX_HOLD_MS).contains(&ms) {
                     issues.push(issue(
                         i,
+                        IssueField::Hold,
                         format!("a hold lasts {MIN_HOLD_MS}-{MAX_HOLD_MS} ms, or latch"),
                     ));
                 }
@@ -486,6 +582,7 @@ fn check_test(
     if test.is_numeric() && kind != ValueType::Number {
         issues.push(issue(
             i,
+            IssueField::Test,
             format!(
                 "`{}` is not a number, so it cannot be compared with below, above or at",
                 def.name
@@ -503,6 +600,7 @@ fn check_test(
         if !right {
             issues.push(issue(
                 i,
+                IssueField::Value,
                 format!("`{}` cannot be compared with {}", def.name, value.kind()),
             ));
         } else if kind == ValueType::Enum {
@@ -513,6 +611,7 @@ fn check_test(
             if !listed {
                 issues.push(issue(
                     i,
+                    IssueField::Value,
                     format!("`{value}` is not one of the values of `{}`", def.name),
                 ));
             }
@@ -863,6 +962,224 @@ mod tests {
         assert!(prepare_rules(&rules, &[], &defs).is_err());
         let rules = vec![level_rule(Test::HasValue); MAX_RULES];
         assert!(prepare_rules(&rules, &[], &defs).is_ok());
+    }
+
+    /// Where each problem is, for one rule that has them.
+    fn where_is(rules: &[FeedbackRule]) -> Vec<(usize, Option<IssueField>, Option<String>)> {
+        prepare_rules(rules, &[], &defs)
+            .unwrap_err()
+            .into_iter()
+            .map(|i| (i.rule, i.field, i.param))
+            .collect()
+    }
+
+    fn only_field(rule: FeedbackRule) -> Option<IssueField> {
+        let found = where_is(&[rule]);
+        assert_eq!(found.len(), 1, "{found:?}");
+        found[0].1
+    }
+
+    #[test]
+    fn every_issue_says_which_part_of_the_rule_it_is_about() {
+        use IssueField as F;
+        let addr = || StateAddress::new("example.counter", "level");
+        let unnamed = FeedbackRule::state(addr(), Test::HasValue);
+        // The look.
+        assert_eq!(only_field(unnamed), Some(F::Look));
+        assert_eq!(
+            only_field(level_rule(Test::HasValue).show_from_value()),
+            Some(F::Look)
+        );
+        assert_eq!(
+            only_field(FeedbackRule::event("ci", "done").show(&"x".repeat(41))),
+            Some(F::Look)
+        );
+        assert_eq!(
+            only_field(FeedbackRule::state(addr(), Test::HasValue).show_from_field("x")),
+            Some(F::Look)
+        );
+        assert_eq!(
+            only_field(FeedbackRule::state(addr(), Test::NoValue).show_from_value()),
+            Some(F::Look)
+        );
+        assert_eq!(
+            only_field(FeedbackRule::event("ci", "done").show_from_value()),
+            Some(F::Look)
+        );
+        // The state.
+        assert_eq!(
+            only_field(
+                FeedbackRule::state(StateAddress::new("gone.plugin", "x"), Test::HasValue)
+                    .show("a")
+            ),
+            Some(F::State)
+        );
+        assert_eq!(
+            only_field(
+                FeedbackRule::state(StateAddress::new("Example", "x"), Test::HasValue).show("a")
+            ),
+            Some(F::State)
+        );
+        // The test and the value.
+        assert_eq!(
+            only_field(level_rule(Test::LessThan { value: 3.0 })),
+            Some(F::Test)
+        );
+        assert_eq!(
+            only_field(level_rule(Test::Equals {
+                value: Scalar::Num(3.0)
+            })),
+            Some(F::Value)
+        );
+        assert_eq!(
+            only_field(level_rule(Test::NotEquals {
+                value: Scalar::text("overflowing")
+            })),
+            Some(F::Value)
+        );
+        // Hold, on a state rule and out of range on an event rule.
+        assert_eq!(
+            only_field(level_rule(Test::HasValue).hold(Hold::Latch)),
+            Some(F::Hold)
+        );
+        let hold = |ms| {
+            FeedbackRule::event("ci", "done")
+                .show("ok")
+                .hold(Hold::For(ms))
+        };
+        assert_eq!(only_field(hold(100)), Some(F::Hold));
+        assert_eq!(only_field(hold(60_001)), Some(F::Hold));
+        // The event and its conditions.
+        assert_eq!(
+            only_field(FeedbackRule::event("", "done").show("ok")),
+            Some(F::Event)
+        );
+        assert_eq!(
+            only_field(FeedbackRule::event("ci", &"x".repeat(65)).show("ok")),
+            Some(F::Event)
+        );
+        let mut many = FeedbackRule::event("ci", "done").show("ok");
+        for n in 0..=MAX_WHERE {
+            many = many.where_field(&format!("f{n}"), "x");
+        }
+        assert_eq!(only_field(many), Some(F::Where));
+        assert_eq!(
+            only_field(
+                FeedbackRule::event("ci", "done")
+                    .show("ok")
+                    .where_field("", "x")
+            ),
+            Some(F::Where)
+        );
+        assert_eq!(
+            only_field(FeedbackRule::event("ci", "done").show_from_field("")),
+            Some(F::Where)
+        );
+    }
+
+    #[test]
+    fn an_argument_problem_names_the_argument() {
+        let slot = |args: StateAddress| FeedbackRule::state(args, Test::HasValue).show_from_value();
+        let status = || StateAddress::new("agent-control", "slot.status");
+        // Missing, out of range, and one the state does not take.
+        for (address, param) in [
+            (status(), "slot"),
+            (status().with("slot", 9i64), "slot"),
+            (status().with("slot", 2.0).with("extra", "x"), "extra"),
+        ] {
+            let found = where_is(&[slot(address)]);
+            assert_eq!(found.len(), 1, "{found:?}");
+            assert_eq!(found[0].1, Some(IssueField::Args));
+            assert_eq!(found[0].2.as_deref(), Some(param));
+        }
+        // Several at once, each in its own place.
+        let both = where_is(&[
+            slot(status().with("slot", 9i64)),
+            slot(status()),
+            level_rule(Test::LessThan { value: 1.0 }),
+        ]);
+        assert_eq!(
+            both,
+            vec![
+                (0, Some(IssueField::Args), Some("slot".into())),
+                (1, Some(IssueField::Args), Some("slot".into())),
+                (2, Some(IssueField::Test), None),
+            ]
+        );
+    }
+
+    #[test]
+    fn too_many_rules_is_about_the_list_and_sits_after_the_last_rule() {
+        let rules = vec![level_rule(Test::HasValue); MAX_RULES + 1];
+        let found = prepare_rules(&rules, &[], &defs).unwrap_err();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].rule, MAX_RULES);
+        assert_eq!(found[0].field, Some(IssueField::Rules));
+        assert_eq!(
+            found[0].message,
+            format!("a control has at most {MAX_RULES} feedback rules")
+        );
+    }
+
+    #[test]
+    fn an_issue_is_written_in_camel_case_without_what_it_does_not_have() {
+        let issue = RuleIssue {
+            rule: 3,
+            message: "m".into(),
+            field: Some(IssueField::Where),
+            param: None,
+        };
+        assert_eq!(
+            serde_json::to_value(&issue).unwrap(),
+            json!({ "rule": 3, "message": "m", "field": "where" })
+        );
+        let with_param = RuleIssue {
+            field: Some(IssueField::Args),
+            param: Some("slot".into()),
+            ..issue.clone()
+        };
+        assert_eq!(
+            serde_json::to_value(&with_param).unwrap(),
+            json!({ "rule": 3, "message": "m", "field": "args", "param": "slot" })
+        );
+        let bare = RuleIssue {
+            field: None,
+            ..issue
+        };
+        assert_eq!(
+            serde_json::to_value(&bare).unwrap(),
+            json!({ "rule": 3, "message": "m" })
+        );
+        for (field, word) in [
+            (IssueField::Look, "look"),
+            (IssueField::State, "state"),
+            (IssueField::Args, "args"),
+            (IssueField::Test, "test"),
+            (IssueField::Value, "value"),
+            (IssueField::Event, "event"),
+            (IssueField::Where, "where"),
+            (IssueField::Hold, "hold"),
+            (IssueField::Rules, "rules"),
+        ] {
+            assert_eq!(serde_json::to_value(field).unwrap(), json!(word));
+        }
+    }
+
+    #[test]
+    fn the_limits_are_the_constants_of_the_gate() {
+        let limits = FeedbackLimits::default();
+        assert_eq!(limits, FeedbackLimits::new());
+        assert_eq!(
+            serde_json::to_value(limits).unwrap(),
+            json!({
+                "maxRules": MAX_RULES,
+                "maxLookName": MAX_LOOK_NAME,
+                "maxWhere": MAX_WHERE,
+                "defaultHoldMs": DEFAULT_HOLD_MS,
+                "minHoldMs": MIN_HOLD_MS,
+                "maxHoldMs": MAX_HOLD_MS,
+            })
+        );
     }
 
     #[test]

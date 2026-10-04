@@ -14,6 +14,7 @@ import {
 import {
   catalogSchema,
   controlExplanationSchema,
+  feedbackReviewSchema,
   frameSchema,
   observableCatalogSchema,
   observablesDeltaSchema,
@@ -31,6 +32,7 @@ import {
   type Catalog,
   type Control,
   type ControlExplanation,
+  type FeedbackReview,
   type ControlPos,
   type Frame,
   type Mode,
@@ -149,6 +151,12 @@ export const api = {
   /** Why a control shows the look it shows, as the runtime's own evaluator reports it. */
   explainControl: (surfaceId: string, pageId: string, controlId: string): Promise<ControlExplanation> =>
     call("explain_control", controlExplanationSchema, { surfaceId, pageId, controlId }),
+  /**
+   * A draft of a control's feedback, judged by Rust without saving it: what saving would
+   * refuse, what Rust can prove about each rule, and what the draft would show right now.
+   */
+  reviewFeedback: (surfaceId: string, pageId: string, control: Control): Promise<FeedbackReview> =>
+    call("review_feedback", feedbackReviewSchema, { surfaceId, pageId, control }),
   connectDevice: (id: string): Promise<void> => call("connect_device", null, { id }),
   disconnectDevice: (id: string): Promise<void> => call("disconnect_device", null, { id }),
   rescanDevices: (): Promise<void> => call("rescan_devices", null),

@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/ipc";
 import { isMissingIssue, isPrivileged, normalizeArgs } from "../../lib/actions";
 import { SLOTS, describePos, lookHints, newControl, planAssign, replaceWarning, setSlot, withLook, type Slot } from "../../lib/assign";
-import { SWATCHES, normalizeHex } from "../../lib/color";
-import { describeRule } from "../../lib/feedback";
+import { mergeIssues, problemsOf } from "../../lib/feedbackEdit";
 import type { ActionDefinition, Animation, Assignment, Control, Issue, Page, Surface, Visual } from "../../lib/schema";
 import { definitionId } from "../../lib/schema";
 import { controlAt, useStore } from "../../stores/runtime";
 import { AssignmentEditor } from "./AssignmentEditor";
+import { ColorField } from "./ColorField";
+import { FeedbackEditor } from "../feedback/FeedbackEditor";
+import { useFeedbackReview } from "../feedback/useReview";
 
 interface Props {
   surface: Surface;
@@ -112,7 +114,26 @@ function ControlEditor({ surface, page, surfaces, base, isNew }: { surface: Surf
   const pressIssues = useIssues(draft.press, base.press);
   const longIssues = useIssues(draft.longPress, base.longPress);
   const issues: Record<Slot, Issue[]> = { press: pressIssues, longPress: longIssues };
-  const blocked = pressIssues.length > 0 || longIssues.length > 0;
+
+  // Rust judges the feedback draft (what saving would refuse, what it can prove); the local check only marks what is plainly unfinished, at once.
+  const observables = useStore((s) => s.observables);
+  const review = useFeedbackReview(surface.id, page.id, draft, isNew ? null : base);
+  const feedbackProblems = useMemo(() => mergeIssues(problemsOf(draft.feedback, observables), review.review?.issues ?? []), [draft.feedback, observables, review.review]);
+  const settings = [...pressIssues, ...longIssues];
+  const blocked = settings.length > 0 || feedbackProblems.length > 0;
+  const allNeeded = settings.every(isMissingIssue) && feedbackProblems.every((p) => p.needed);
+  const blockedText =
+    settings.length > 0 && feedbackProblems.length > 0
+      ? allNeeded
+        ? "Fill in what is marked (needed) to save."
+        : "Fix what is highlighted to save."
+      : settings.length > 0
+        ? allNeeded
+          ? "Fill in the settings marked (needed) to save."
+          : "Fix the highlighted settings to save."
+        : allNeeded
+          ? "Finish the feedback rules marked (needed) to save."
+          : "Fix the highlighted feedback rules to save.";
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(base);
   const patch = (p: Partial<Control>) => setDraft({ ...draft, ...p });
@@ -153,66 +174,10 @@ function ControlEditor({ surface, page, surfaces, base, isNew }: { surface: Surf
           <span>Label</span>
           <input value={draft.label} maxLength={40} onChange={(e) => patch({ label: e.target.value })} />
         </label>
-
-        {SLOTS.map((slot) => (
-          <AssignmentEditor
-            key={slot}
-            slot={slot}
-            value={draft[slot]}
-            onChange={(next) => {
-              setDraft((d) => setSlot(d, slot, next));
-              if (pending?.slot === slot && next === null) setPending(null);
-            }}
-            pending={pending?.slot === slot ? pending.def : null}
-            replaceWarning={pending?.slot === slot && draft[slot] ? replaceWarning(index, draft[slot]!, pending.def) : null}
-            onConfirmReplace={confirmReplace}
-            onCancelReplace={() => setPending(null)}
-            onDropAction={(id) => {
-              const def = index.byId.get(id);
-              if (def) apply(slot, def);
-            }}
-            issues={issues[slot]}
-            surfaces={surfaces}
-            currentSurface={surface}
-          />
-        ))}
-
-        {hasHints && suggester && (
-          <div className="notice suggest" role="note">
-            <p>
-              <b>{suggester.name}</b> suggests a look:{" "}
-              {[hints.label && `label “${hints.label}”`, hints.color && `colour ${hints.color}`, hints.icon && `icon ${hints.icon}`].filter(Boolean).join(", ")}. Your label, colour and icon stay as they are unless you use it. Looks and feedback rules are never touched.
-            </p>
-            <button type="button" className="btn small" onClick={() => setDraft(withLook(draft, suggester))}>
-              Use suggested look
-            </button>
-          </div>
-        )}
-
-        <section className="field-group" aria-label="Look">
-          <h4>Look</h4>
         <label className="field">
           <span>Description</span>
           <textarea rows={2} value={draft.description} onChange={(e) => patch({ description: e.target.value })} />
         </label>
-
-        <div className="row">
-          <label className="field narrow">
-            <span>Icon</span>
-            <input value={draft.icon ?? ""} maxLength={4} placeholder="▶" onChange={(e) => patch({ icon: e.target.value || null })} />
-          </label>
-          <label className="field grow">
-            <span>Animation</span>
-            <select value={draft.visual.animation} onChange={(e) => setVisual({ animation: e.target.value as Animation })}>
-              <option value="none">Solid</option>
-              <option value="pulse">Pulse</option>
-              <option value="flash">Flash</option>
-            </select>
-          </label>
-        </div>
-
-        <ColorField label="Colour" value={draft.visual.color} onChange={(color) => setVisual({ color })} />
-
         {draft.pos.kind === "grid" && (
           <div className="row">
             <label className="field grow">
@@ -225,29 +190,76 @@ function ControlEditor({ surface, page, surfaces, base, isNew }: { surface: Surf
             </label>
           </div>
         )}
+
+        <section className="field-group section" aria-label="Action">
+          <h3 className="section-title">Action</h3>
+          <p className="hint">What happens when the pad is pressed. Give it one from the Action Library.</p>
+          {SLOTS.map((slot) => (
+            <AssignmentEditor
+              key={slot}
+              slot={slot}
+              value={draft[slot]}
+              onChange={(next) => {
+                setDraft((d) => setSlot(d, slot, next));
+                if (pending?.slot === slot && next === null) setPending(null);
+              }}
+              pending={pending?.slot === slot ? pending.def : null}
+              replaceWarning={pending?.slot === slot && draft[slot] ? replaceWarning(index, draft[slot]!, pending.def) : null}
+              onConfirmReplace={confirmReplace}
+              onCancelReplace={() => setPending(null)}
+              onDropAction={(id) => {
+                const def = index.byId.get(id);
+                if (def) apply(slot, def);
+              }}
+              issues={issues[slot]}
+              surfaces={surfaces}
+              currentSurface={surface}
+            />
+          ))}
+
+          {hasHints && suggester && (
+            <div className="notice suggest" role="note">
+              <p>
+                <b>{suggester.name}</b> suggests a look:{" "}
+                {[hints.label && `label “${hints.label}”`, hints.color && `colour ${hints.color}`, hints.icon && `icon ${hints.icon}`].filter(Boolean).join(", ")}. Your label, colour and icon stay as they are unless you use it. Looks and feedback rules are never touched.
+              </p>
+              <button type="button" className="btn small" onClick={() => setDraft(withLook(draft, suggester))}>
+                Use suggested look
+              </button>
+            </div>
+          )}
         </section>
 
-        <StatesEditor states={draft.states} onChange={(states) => patch({ states })} />
+        <section className="field-group" aria-label="Resting look">
+          <h4>Resting look</h4>
+          <p className="hint">How the pad looks when no feedback rule applies. Rules in Feedback show other looks over it.</p>
+          <div className="row">
+            <label className="field narrow">
+              <span>Icon</span>
+              <input value={draft.icon ?? ""} maxLength={4} placeholder="▶" onChange={(e) => patch({ icon: e.target.value || null })} />
+            </label>
+            <label className="field grow">
+              <span>Animation</span>
+              <select value={draft.visual.animation} onChange={(e) => setVisual({ animation: e.target.value as Animation })}>
+                <option value="none">Solid</option>
+                <option value="pulse">Pulse</option>
+                <option value="flash">Flash</option>
+              </select>
+            </label>
+          </div>
+          <ColorField label="Colour" value={draft.visual.color} onChange={(color) => setVisual({ color })} />
+        </section>
 
-        {draft.feedback.length > 0 && (
-          <section className="field-group">
-            <h4>Feedback</h4>
-            <p className="hint">The first state rule that is true decides the look; an event rule shows its look for a while. Read-only here.</p>
-            <ol className="bindings">
-              {draft.feedback.map((rule, i) => {
-                const { when, show } = describeRule(rule);
-                return (
-                  <li key={i} className="binding-rule">
-                    <span>When</span>
-                    <code>{when}</code>
-                    <span>show</span>
-                    <code>{show}</code>
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        )}
+        <FeedbackEditor
+          control={draft}
+          saved={isNew ? null : base}
+          review={review}
+          problems={feedbackProblems}
+          actions={[draft.press, draft.longPress].map((a) => (a ? index.byId.get(definitionId(a)) : undefined))}
+          surfaces={surfaces}
+          currentSurface={surface}
+          onChange={setDraft}
+        />
 
         {draft.legacyBindings.length > 0 && (
           <section className="field-group">
@@ -261,8 +273,8 @@ function ControlEditor({ surface, page, surfaces, base, isNew }: { surface: Surf
 
       <footer className="inspector-foot">
         {blocked && (
-          <p className={`foot-note ${[...pressIssues, ...longIssues].every(isMissingIssue) ? "hint" : "field-error"}`} id="save-blocked">
-            {[...pressIssues, ...longIssues].every(isMissingIssue) ? "Fill in the settings marked (needed) to save." : "Fix the highlighted settings to save."}
+          <p className={`foot-note ${allNeeded ? "hint" : "field-error"}`} id="save-blocked">
+            {blockedText}
           </p>
         )}
         <div className="foot-buttons">
@@ -284,80 +296,3 @@ function ControlEditor({ surface, page, surfaces, base, isNew }: { surface: Surf
 }
 
 const clamp = (n: number): number => Math.max(1, Math.min(8, Number.isFinite(n) ? Math.round(n) : 1));
-
-function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (hex: string) => void }) {
-  const [text, setText] = useState(value);
-  useEffect(() => setText(value), [value]);
-  return (
-    <div className="field">
-      <span>{label}</span>
-      <div className="color-row">
-        <input type="color" aria-label={`${label} picker`} value={value} onChange={(e) => onChange(e.target.value)} />
-        <input
-          className="mono"
-          value={text}
-          spellCheck={false}
-          onChange={(e) => {
-            setText(e.target.value);
-            const hex = normalizeHex(e.target.value);
-            if (hex) onChange(hex);
-          }}
-        />
-        <div className="swatches">
-          {SWATCHES.map((c) => (
-            <button key={c} type="button" className={`swatch${c === value ? " on" : ""}`} style={{ background: c }} aria-label={c} onClick={() => onChange(c)} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatesEditor({ states, onChange }: { states: Record<string, Visual>; onChange: (s: Record<string, Visual>) => void }) {
-  const [name, setName] = useState("");
-  const entries = Object.entries(states);
-  return (
-    <section className="field-group">
-      <h4>State appearances</h4>
-      <p className="hint">How this control looks while it is in a named state. The base colour above is the idle look.</p>
-      {entries.map(([key, v]) => (
-        <div key={key} className="state-row">
-          <code>{key}</code>
-          <input type="color" aria-label={`${key} colour`} value={v.color} onChange={(e) => onChange({ ...states, [key]: { ...v, color: e.target.value } })} />
-          <select aria-label={`${key} animation`} value={v.animation} onChange={(e) => onChange({ ...states, [key]: { ...v, animation: e.target.value as Animation } })}>
-            <option value="none">Solid</option>
-            <option value="pulse">Pulse</option>
-            <option value="flash">Flash</option>
-          </select>
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label={`Remove ${key}`}
-            onClick={() => {
-              const next = { ...states };
-              delete next[key];
-              onChange(next);
-            }}
-          >
-            ×
-          </button>
-        </div>
-      ))}
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const k = name.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
-          if (!k || k in states) return;
-          onChange({ ...states, [k]: { color: "#22c55e", animation: "none" } });
-          setName("");
-        }}
-      >
-        <input className="grow" placeholder="Add a state, e.g. running" value={name} onChange={(e) => setName(e.target.value)} />
-        <button type="submit" className="btn small" disabled={!name.trim()}>
-          Add
-        </button>
-      </form>
-    </section>
-  );
-}

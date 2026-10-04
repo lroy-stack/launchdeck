@@ -3545,5 +3545,250 @@
       ],
       "providers": []
     }
+  },
+  "review": {
+    "clean": {
+      "issues": [],
+      "limits": {
+        "defaultHoldMs": 3000,
+        "maxHoldMs": 60000,
+        "maxLookName": 40,
+        "maxRules": 32,
+        "maxWhere": 8,
+        "minHoldMs": 200
+      },
+      "notes": [],
+      "preview": null
+    },
+    "draft": {
+      "issues": [
+        {
+          "field": "state",
+          "message": "`acme.missing.thing` is not a state anything offers right now",
+          "rule": 3
+        },
+        {
+          "field": "test",
+          "message": "`Channel status` is not a number, so it cannot be compared with below, above or at",
+          "rule": 5
+        },
+        {
+          "field": "look",
+          "message": "choose exactly one look to show",
+          "rule": 6
+        },
+        {
+          "field": "args",
+          "message": "Channel is required",
+          "param": "channel",
+          "rule": 7
+        }
+      ],
+      "limits": {
+        "defaultHoldMs": 3000,
+        "maxHoldMs": 60000,
+        "maxLookName": 40,
+        "maxRules": 32,
+        "maxWhere": 8,
+        "minHoldMs": 200
+      },
+      "notes": [
+        {
+          "by": 0,
+          "kind": "shadowed",
+          "rule": 1
+        },
+        {
+          "kind": "missingLook",
+          "look": "ghost",
+          "rule": 2
+        },
+        {
+          "id": "thing",
+          "kind": "missingObservable",
+          "observableKind": "state",
+          "provider": "acme.missing",
+          "rule": 3
+        },
+        {
+          "kind": "providerUnavailable",
+          "provider": "example.hello",
+          "providerName": "Hello Plugin",
+          "reason": "The plugin is turned off in Plugins.",
+          "rule": 4
+        }
+      ],
+      "preview": {
+        "controlId": "g.0.0",
+        "derived": "warm",
+        "diagnostics": [],
+        "layer": "state",
+        "overlay": null,
+        "pageId": "home",
+        "rules": [
+          {
+            "decided": true,
+            "holds": true,
+            "index": 0,
+            "kind": "state",
+            "look": "warm",
+            "lookExists": true,
+            "observable": {
+              "address": "example.counter.level",
+              "id": "example.counter.level",
+              "kind": "state",
+              "name": "Counter level",
+              "provider": "example.counter",
+              "providerName": "Counter Plugin"
+            },
+            "observed": {
+              "status": "known",
+              "updatedAt": 1791135964515,
+              "value": "low"
+            },
+            "valueLabel": "Low"
+          },
+          {
+            "decided": false,
+            "holds": false,
+            "index": 1,
+            "kind": "state",
+            "look": "blink",
+            "lookExists": true,
+            "observable": {
+              "address": "example.counter.level",
+              "id": "example.counter.level",
+              "kind": "state",
+              "name": "Counter level",
+              "provider": "example.counter",
+              "providerName": "Counter Plugin"
+            },
+            "observed": {
+              "status": "known",
+              "updatedAt": 1791135964515,
+              "value": "low"
+            },
+            "valueLabel": "Low"
+          },
+          {
+            "decided": false,
+            "holds": false,
+            "index": 2,
+            "kind": "event",
+            "look": "ghost",
+            "lookExists": false,
+            "observable": {
+              "address": "example.counter.counter.changed",
+              "id": "example.counter.counter.changed",
+              "kind": "event",
+              "name": "Counter changed",
+              "provider": "example.counter",
+              "providerName": "Counter Plugin"
+            }
+          },
+          {
+            "decided": false,
+            "holds": false,
+            "index": 3,
+            "kind": "state",
+            "look": "warm",
+            "lookExists": true,
+            "observable": {
+              "address": "acme.missing.thing",
+              "id": "acme.missing.thing",
+              "kind": "state",
+              "provider": "acme.missing"
+            },
+            "observed": {
+              "status": "unavailable",
+              "updatedAt": null,
+              "value": null
+            },
+            "reason": "Nothing named `acme.missing` is installed."
+          },
+          {
+            "decided": false,
+            "holds": false,
+            "index": 4,
+            "kind": "event",
+            "look": "warm",
+            "lookExists": true,
+            "observable": {
+              "address": "example.hello.hello.completed",
+              "id": "example.hello.hello.completed",
+              "kind": "event",
+              "name": "hello.completed",
+              "provider": "example.hello",
+              "providerName": "Hello Plugin"
+            }
+          },
+          {
+            "decided": false,
+            "holds": false,
+            "index": 5,
+            "kind": "state",
+            "look": "warm",
+            "lookExists": true,
+            "observable": {
+              "address": "example.channels.status(channel=alpha)",
+              "id": "example.channels.status",
+              "kind": "state",
+              "name": "Channel status",
+              "provider": "example.channels",
+              "providerName": "Channels"
+            },
+            "observed": {
+              "status": "known",
+              "updatedAt": 1791135964516,
+              "value": "up"
+            },
+            "valueLabel": "Up"
+          },
+          {
+            "decided": false,
+            "holds": false,
+            "index": 6,
+            "kind": "state",
+            "observable": {
+              "address": "example.counter.level",
+              "id": "example.counter.level",
+              "kind": "state",
+              "name": "Counter level",
+              "provider": "example.counter",
+              "providerName": "Counter Plugin"
+            },
+            "observed": {
+              "status": "known",
+              "updatedAt": 1791135964515,
+              "value": "low"
+            },
+            "valueLabel": "Low"
+          },
+          {
+            "decided": false,
+            "holds": false,
+            "index": 7,
+            "kind": "state",
+            "observable": {
+              "address": "example.channels.status",
+              "id": "example.channels.status",
+              "kind": "state",
+              "name": "Channel status",
+              "provider": "example.channels",
+              "providerName": "Channels"
+            },
+            "observed": {
+              "status": "unknown",
+              "updatedAt": null,
+              "value": null
+            },
+            "reason": "Channels is running but has not reported `status` yet."
+          }
+        ],
+        "shown": "warm",
+        "surfaceId": "scenario",
+        "winner": 0
+      }
+    }
   }
 }

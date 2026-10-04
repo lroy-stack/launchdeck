@@ -114,4 +114,4 @@ A schema 4 file holds rules only: never a value, a frame or a device.
 
 ## Not built yet
 
-A rule editor and a rule explanation drawn in the inspector (the inspector lists the rules read-only; the explanation is available through `explain_control`), staleness timers, `and` / `or`, scripting and aggregate states ("anything needs me").
+Staleness timers, `and` / `or`, scripting and aggregate states ("anything needs me"). The rules are written and explained in the Inspector: see [feedback-editor.md](feedback-editor.md).

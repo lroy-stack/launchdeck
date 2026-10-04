@@ -5,7 +5,7 @@
 
 import { agentsSnapshotSchema, type AgentsSnapshot } from "./agents";
 import { indexCatalog, normalizeArgs } from "./actions";
-import { catalogSchema, definitionId, observableCatalogSchema, posKey, snapshotSchema, workspaceSchema } from "./schema";
+import { catalogSchema, definitionId, feedbackReviewSchema, observableCatalogSchema, posKey, snapshotSchema, workspaceSchema } from "./schema";
 import type { Assignment, Control, ControlPos, Frame, Issue, Mode, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Workspace } from "./schema";
 
 type Handler = (payload: unknown) => void;
@@ -46,6 +46,7 @@ export async function createPreviewTransport() {
   // And the Observable Catalog (examples/observables.json): every state and event with what it read when captured.
   // A still picture: nothing here changes, because no provider runs in the browser.
   const observables = observableCatalogSchema.parse((await import("../../examples/observables.json")).default.catalog);
+  const review = feedbackReviewSchema.parse((await import("../../examples/observables.json")).default.review.clean);
   const handlers = new Map<string, Set<Handler>>();
   const emit = (event: string, payload: unknown) => handlers.get(event)?.forEach((h) => h(payload));
 
@@ -247,6 +248,10 @@ export async function createPreviewTransport() {
       case "observable_state":
       case "explain_control":
         throw OBSERVABLES_IN_PREVIEW;
+      case "review_feedback":
+        // Rust's own reply for a control with nothing to report: the limits are real, the rest is empty.
+        // Nothing is judged in a browser, so a draft is never refused here either.
+        return review;
       case "actions_validate": {
         const { assignment, issues } = check(args.assignment as Assignment);
         return { ok: issues.length === 0, assignment, issues };

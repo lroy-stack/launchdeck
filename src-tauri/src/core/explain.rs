@@ -231,6 +231,26 @@ pub fn explain(
     }
 }
 
+/// What a control would explain if it were saved as `control` and nothing else
+/// had happened: no temporary look, and the look the state rules give right
+/// now is the one on screen. The same [`explain`] code; only what sits on top
+/// differs, because a draft has no overlay and no stored look yet.
+pub fn preview(
+    ids: (&str, &str, &str),
+    control: &Control,
+    hub: &StateHub,
+    sources: &[Source],
+) -> ControlExplanation {
+    let mut explanation = explain(ids, control, None, None, hub, sources);
+    explanation.shown = explanation.derived.clone();
+    explanation.layer = if explanation.derived.is_some() {
+        "state"
+    } else {
+        "rest"
+    };
+    explanation
+}
+
 fn explain_rule(
     rule: &FeedbackRule,
     report: &eval::RuleReport,

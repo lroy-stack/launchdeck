@@ -1,0 +1,23 @@
+{
+  "id": "g.3.3",
+  "pos": { "kind": "grid", "col": 3, "row": 3 },
+  "span": { "w": 1, "h": 1 },
+  "label": "Plus",
+  "description": "",
+  "icon": "+",
+  "visual": { "color": "#2f81f7", "animation": "none" },
+  "states": {
+    "active": { "color": "#22c55e", "animation": "none" },
+    "warning": { "color": "#f59e0b", "animation": "none" },
+    "error": { "color": "#ef4444", "animation": "none" }
+  },
+  "press": { "provider": "example.counter", "action": "counter.increment", "args": {} },
+  "longPress": null,
+  "feedback": [
+    { "when": { "state": { "provider": "example.counter", "id": "level" }, "is": { "op": "equals", "value": "zero" } }, "show": "idle" },
+    { "when": { "state": { "provider": "example.counter", "id": "level" }, "is": { "op": "equals", "value": "low" } }, "show": "active" },
+    { "when": { "state": { "provider": "example.counter", "id": "level" }, "is": { "op": "equals", "value": "high" } }, "show": "warning" },
+    { "when": { "state": { "provider": "example.counter", "id": "level" }, "is": { "op": "equals", "value": "max" } }, "show": "error" }
+  ],
+  "legacyBindings": []
+}

@@ -120,6 +120,7 @@ Messages are coalesced for 50 ms, so a burst is one message that holds each obse
 | `observables_catalog` | The complete catalog, as above. |
 | `observable_state(provider, id, args?)` | What one state reads at one address: `{ status, value, updatedAt }`. The arguments are checked against the definition first, so a wrong or missing argument is an error, not `unknown`. |
 | `explain_control(surfaceId, pageId, controlId)` | Why the control looks the way it does. See below. |
+| `review_feedback(surfaceId, pageId, control)` | What Rust says about an unsaved draft of a control: what saving would refuse, what it can prove about each rule, the limits, and the draft's own explanation. Read-only. See [feedback-editor.md](feedback-editor.md#what-rust-says-about-a-draft). |
 | `get_snapshot` | Now includes `observables`. |
 
 And one event, `observables-changed`, described above. There is nothing to poll.

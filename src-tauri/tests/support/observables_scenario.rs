@@ -7,7 +7,9 @@
 //! unknown and unavailable; a scoped state with instances; a plugin that is
 //! off and one that failed to load; the three kinds of message the UI hears;
 //! and an explanation with a temporary look on top, one with a look that does
-//! not exist, and one whose states are unknown or gone.
+//! not exist, and one whose states are unknown or gone. It also takes two
+//! reviews of a control's feedback: one of a saved control as it is (nothing to
+//! say) and one of a draft that has every kind of issue and note.
 
 use std::fs;
 use std::path::Path;
@@ -22,7 +24,7 @@ use launchdeck_lib::core::runtime::{ui, Runtime, RuntimeConfig, UiEmitter};
 use launchdeck_lib::plugins::keyboard::{Combo, Keyboard};
 use launchdeck_lib::plugins::ActionError;
 use launchdeck_lib::state::feedback::{FeedbackRule, Hold, Test};
-use launchdeck_lib::state::StateAddress;
+use launchdeck_lib::state::{Scalar, StateAddress};
 use serde_json::{json, Value};
 
 struct NoKeyboard;
@@ -131,6 +133,67 @@ fn id_at(rt: &Runtime, col: u8) -> String {
         .clone()
 }
 
+/// The control the scenario saved at `col`, as the editor would hold it.
+fn saved(rt: &Runtime, col: u8) -> Control {
+    rt.snapshot().workspace.surfaces[0].pages[0]
+        .control_at(ControlPos::grid(col, 0))
+        .unwrap()
+        .clone()
+}
+
+fn review(rt: &Runtime, draft: &Control) -> Value {
+    serde_json::to_value(rt.review_feedback("scenario", "home", draft).unwrap()).unwrap()
+}
+
+/// The saved "Level" control after an editor changed its rules and looks. Each
+/// rule is there to make the review say one thing:
+///
+/// 0. reads Level and shows `warm`: fine, and it covers rule 1
+/// 1. shadowed by rule 0
+/// 2. an event rule that shows a look the control does not have
+/// 3. a state nothing installed offers (a note, and an issue because it is new)
+/// 4. an event of the plugin that is switched off
+/// 5. an operator that does not fit an enum (issue on the test)
+/// 6. no look chosen (issue on the look)
+/// 7. a scoped state without its argument (issue on the arguments)
+fn draft_of(level: &Control) -> Control {
+    let mut draft = level.clone();
+    draft
+        .states
+        .insert("warm".into(), Visual::solid(Rgb::new(255, 170, 0)));
+    let counter = || StateAddress::new("example.counter", "level");
+    draft.feedback = vec![
+        FeedbackRule::state(counter(), Test::HasValue).show("warm"),
+        FeedbackRule::state(
+            counter(),
+            Test::Equals {
+                value: Scalar::text("high"),
+            },
+        )
+        .show("blink"),
+        FeedbackRule::event("example.counter", "counter.changed")
+            .show("ghost")
+            .hold(Hold::For(2_000)),
+        FeedbackRule::state(StateAddress::new("acme.missing", "thing"), Test::HasValue)
+            .show("warm"),
+        FeedbackRule::event("example.hello", "hello.completed")
+            .show("warm")
+            .hold(Hold::For(2_000)),
+        FeedbackRule::state(
+            StateAddress::new("example.channels", "status").with("channel", "alpha"),
+            Test::LessThan { value: 3.0 },
+        )
+        .show("warm"),
+        FeedbackRule::state(counter(), Test::NoValue),
+        FeedbackRule::state(
+            StateAddress::new("example.channels", "status"),
+            Test::HasValue,
+        )
+        .show_from_value(),
+    ];
+    draft
+}
+
 pub async fn capture() -> Value {
     let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/plugins");
     let root = tempfile::tempdir().unwrap();
@@ -193,6 +256,10 @@ pub async fn capture() -> Value {
         })
         .expect("a message about the counter");
 
+    // A saved control reviewed as it is has nothing to say.
+    let level_control = saved(&rt, 0);
+    let clean = review(&rt, &level_control);
+
     // The explanations are taken while the event's look is still on.
     let explain = |col: u8| {
         let id = id_at(&rt, col);
@@ -213,6 +280,9 @@ pub async fn capture() -> Value {
         .find(|m| m["providers"].as_array().is_some_and(|p| !p.is_empty()))
         .expect("a lifecycle message");
     let silent = explain(2);
+
+    // A draft with a problem or a remark of every kind, while the plugin is off.
+    let draft = review(&rt, &draft_of(&level_control));
 
     // The catalog as it is now: one plugin off, one failed, the rest running.
     let catalog = serde_json::to_value(rt.observables()).unwrap();
@@ -238,6 +308,10 @@ pub async fn capture() -> Value {
             "overlay": overlay,
             "missingLook": missing_look,
             "unknown": silent,
+        },
+        "review": {
+            "clean": clean,
+            "draft": draft,
         },
     });
     // Keep the fixture free of machine paths.

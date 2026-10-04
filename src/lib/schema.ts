@@ -348,6 +348,55 @@ export const controlExplanationSchema = z.object({
 });
 export type ControlExplanation = z.infer<typeof controlExplanationSchema>;
 
+// ---------------------------------------------------------------------------
+// review_feedback: a draft of a control's feedback, judged by Rust without
+// saving it (src-tauri/src/core/review.rs). Issues are what saving would
+// refuse; notes are what Rust can prove about a rule; the preview is the
+// explanation of the draft against the values the hub holds now.
+// ---------------------------------------------------------------------------
+
+/** The part of a rule an issue is about, so the message can sit next to it. */
+export const issueFieldSchema = z.enum(["look", "state", "args", "test", "value", "event", "where", "hold", "rules"]);
+export type IssueField = z.infer<typeof issueFieldSchema>;
+
+export const ruleIssueSchema = z.object({
+  /** Position in the control's list (0-based). For `rules` it is the list's limit. */
+  rule: z.number().int(),
+  message: z.string(),
+  field: issueFieldSchema.optional(),
+  /** The setting an `args` issue is about. */
+  param: z.string().optional(),
+});
+export type RuleIssue = z.infer<typeof ruleIssueSchema>;
+
+export const ruleNoteSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("missingLook"), rule: z.number().int(), look: z.string() }),
+  z.object({ kind: z.literal("shadowed"), rule: z.number().int(), by: z.number().int() }),
+  z.object({ kind: z.literal("missingObservable"), rule: z.number().int(), observableKind: observableKindSchema, provider: z.string(), id: z.string() }),
+  z.object({ kind: z.literal("providerUnavailable"), rule: z.number().int(), provider: z.string(), providerName: z.string(), reason: z.string() }),
+]);
+export type RuleNote = z.infer<typeof ruleNoteSchema>;
+
+/** The numbers the runtime enforces, so the editor does not copy them. */
+export const feedbackLimitsSchema = z.object({
+  maxRules: z.number().int(),
+  maxLookName: z.number().int(),
+  maxWhere: z.number().int(),
+  defaultHoldMs: z.number().int(),
+  minHoldMs: z.number().int(),
+  maxHoldMs: z.number().int(),
+});
+export type FeedbackLimits = z.infer<typeof feedbackLimitsSchema>;
+
+export const feedbackReviewSchema = z.object({
+  issues: z.array(ruleIssueSchema).default([]),
+  notes: z.array(ruleNoteSchema).default([]),
+  limits: feedbackLimitsSchema,
+  /** Only when the draft's rules or looks differ from the saved control. */
+  preview: controlExplanationSchema.nullish(),
+});
+export type FeedbackReview = z.infer<typeof feedbackReviewSchema>;
+
 export const controlSchema = z.object({
   id: z.string(),
   pos: controlPosSchema,
