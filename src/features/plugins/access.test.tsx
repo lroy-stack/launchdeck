@@ -226,3 +226,143 @@ describe("settings and secrets", () => {
     expect(secrets.textContent).toContain("It has no destination until the address above is set.");
   });
 });
+
+describe("a computer without a secure credential store", () => {
+  const noStore = (): PluginsOverview => ({
+    ...asking(),
+    secretStore: { kind: "unavailable", available: false, name: "Secret Service keyring", reason: "No Secret Service answered in this session. Install and unlock one, then restart LaunchDeck." },
+    legacySecrets: { entries: [], unreadable: false },
+  });
+
+  it("says secrets are unavailable and why, and offers no way to type one", async () => {
+    const user = userEvent.setup();
+    const spies = await open(noStore());
+    const secrets = within(card("Home Assistant")).getByRole("region", { name: "Secrets of Home Assistant" });
+    expect(within(secrets).getByText("Unavailable")).toBeTruthy();
+    const why = within(secrets).getByRole("note", { name: "Why secrets are unavailable" });
+    expect(why.textContent).toContain("Secrets cannot be saved on this computer.");
+    expect(why.textContent).toContain("No Secret Service answered in this session.");
+    // It says what it will not do instead, and what still works.
+    expect(why.textContent).toContain("never written to a plain file");
+    expect(why.textContent).toContain("Everything else does.");
+    // Not "Not set": that would read as something the person could fix by typing.
+    expect(within(secrets).queryByText("Not set")).toBeNull();
+    const input = within(secrets).getByLabelText("Long-lived access token", { selector: "input" }) as HTMLInputElement;
+    expect(input.disabled).toBe(true);
+    expect((within(secrets).getByRole("button", { name: "Save Long-lived access token" }) as HTMLButtonElement).disabled).toBe(true);
+    await user.type(input, "abc{Enter}");
+    expect(spies.setSecret).not.toHaveBeenCalled();
+    // The rest of the card is as usable as ever.
+    expect(within(network("Home Assistant")).getByRole("button", { name: `Allow ${ADDRESS}` })).toBeTruthy();
+  });
+
+  it("names the store in use when there is one", async () => {
+    await open({ ...asking(), secretStore: { kind: "keychain", available: true, name: "Keychain" } });
+    const secrets = within(card("Home Assistant")).getByRole("region", { name: "Secrets of Home Assistant" });
+    expect(secrets.textContent).toContain("Kept in your system's credential store (Keychain).");
+    expect(within(secrets).queryByRole("note")).toBeNull();
+  });
+});
+
+describe("secrets an earlier version kept in plain text", () => {
+  const legacy = (store: PluginsOverview["secretStore"]): PluginsOverview => ({
+    ...asking(),
+    secretStore: store,
+    legacySecrets: {
+      file: "/home/me/.local/share/dev.launchdeck.app/secrets.json",
+      unreadable: false,
+      entries: [
+        { plugin: HA, pluginName: "Home Assistant", key: "token", source: "file" },
+        { plugin: "gone.plugin", key: "apiKey", source: "file" },
+      ],
+    },
+  });
+  const KEYCHAIN = { kind: "keychain" as const, available: true, name: "Keychain" };
+  const notice = () => screen.getByRole("region", { name: "Secrets kept in plain text" });
+
+  it("is silent on a clean installation", async () => {
+    await open({ ...asking(), legacySecrets: { entries: [], unreadable: false } });
+    expect(screen.queryByRole("region", { name: "Secrets kept in plain text" })).toBeNull();
+  });
+
+  it("lists them by name, says they are not used, and moves them only when asked", async () => {
+    const user = userEvent.setup();
+    await open(legacy(KEYCHAIN));
+    const move = vi.spyOn(api.plugins, "migrateLegacySecrets").mockImplementation(async () => {
+      current = { ...current, legacySecrets: { entries: [], unreadable: false } };
+      return { moved: 2, kept: 0, failed: [], fileRemoved: true };
+    });
+    expect(notice().textContent).toContain("They are not used");
+    expect(notice().textContent).toContain("/home/me/.local/share/dev.launchdeck.app/secrets.json");
+    // By the name the plugin gives it when the plugin is here, by its key when it is not.
+    const rows = within(notice()).getAllByRole("listitem").map((li) => li.textContent);
+    expect(rows[0]).toContain("Home Assistant");
+    expect(rows[0]).toContain("Long-lived access token");
+    expect(rows[1]).toContain("gone.plugin");
+    expect(rows[1]).toContain("plugin not installed");
+    // It is honest about what removing a file can and cannot do.
+    expect(notice().textContent).toContain("a backup or the disk itself may still hold an older copy");
+    expect(move).not.toHaveBeenCalled();
+
+    await user.click(within(notice()).getByRole("button", { name: "Move to Keychain" }));
+    expect(move).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Secrets kept in plain text" })).toBeNull());
+    expect(useStore.getState().toasts.at(-1)?.text).toBe("2 secrets were moved into Keychain. The plain file was overwritten and removed.");
+  });
+
+  it("says which ones could not be moved, and that they are still there", async () => {
+    const user = userEvent.setup();
+    await open(legacy(KEYCHAIN));
+    vi.spyOn(api.plugins, "migrateLegacySecrets").mockResolvedValue({
+      moved: 1,
+      kept: 0,
+      failed: [{ plugin: "gone.plugin", key: "apiKey", reason: "the value is longer than 4096 bytes" }],
+      fileRemoved: false,
+    });
+    await user.click(within(notice()).getByRole("button", { name: "Move to Keychain" }));
+    await waitFor(() => expect(useStore.getState().toasts.at(-1)?.tone).toBe("error"));
+    expect(useStore.getState().toasts.at(-1)?.text).toBe(
+      "1 secret was moved into Keychain. 1 secret could not be moved and is still where it was: the value is longer than 4096 bytes.",
+    );
+    expect(notice()).toBeTruthy();
+  });
+
+  it("cannot move them without a credential store, and says so", async () => {
+    await open(legacy({ kind: "unavailable", available: false, name: "Secret Service keyring", reason: "No Secret Service answered in this session." }));
+    expect(within(notice()).queryByRole("button", { name: /^Move to/ })).toBeNull();
+    expect(notice().textContent).toContain("They cannot be moved, because this computer has no secure credential store. No Secret Service answered in this session.");
+    expect(notice().textContent).toContain("They are not used");
+    expect(within(notice()).getByRole("button", { name: "Delete without moving" })).toBeTruthy();
+  });
+
+  it("deletes them only after a second, explicit answer", async () => {
+    const user = userEvent.setup();
+    await open(legacy(KEYCHAIN));
+    const discard = vi.spyOn(api.plugins, "discardLegacySecrets").mockImplementation(async () => {
+      current = { ...current, legacySecrets: { entries: [], unreadable: false } };
+      return 2;
+    });
+    await user.click(within(notice()).getByRole("button", { name: "Delete without moving" }));
+    expect(discard).not.toHaveBeenCalled();
+    expect(notice().textContent).toContain("This cannot be undone.");
+    await user.click(within(notice()).getByRole("button", { name: "Cancel" }));
+    expect(discard).not.toHaveBeenCalled();
+    await user.click(within(notice()).getByRole("button", { name: "Delete without moving" }));
+    await user.click(within(notice()).getByRole("button", { name: "Yes, delete" }));
+    expect(discard).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Secrets kept in plain text" })).toBeNull());
+    expect(useStore.getState().toasts.at(-1)?.text).toBe("2 plain secrets were deleted.");
+  });
+
+  it("flags a secret setting of an older plugin without changing how it works", async () => {
+    await open(fixture);
+    const hello = card("Hello Plugin");
+    const note = within(hello).getByRole("note");
+    expect(note.textContent).toContain("An older kind of secret");
+    expect(note.textContent).toContain("stored on this computer without encryption and is handed to the plugin");
+    expect(note.textContent).toContain("It keeps working as it did.");
+    // Still a field the person can type into.
+    expect(within(hello).getByPlaceholderText("Enter a new value to replace it")).toBeTruthy();
+  });
+});
+

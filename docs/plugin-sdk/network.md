@@ -60,6 +60,7 @@ Compare `r.error` with `HttpError.…`.
 | `too_many_redirects` | More than 5 redirects. |
 | `rate_limited` | Too many requests in one call, or in one minute. |
 | `secret_missing` | `.bearer("token")` names a secret the person has not entered. Nothing was sent. |
+| `secret_unavailable` | The secret cannot be read: this computer has no secure credential store, or it is locked. Nothing was sent. See [where secrets are kept](../security/secrets.md). |
 | `invalid_response` | What came back is not HTTP, or not text. |
 
 Pass the code on when you fail an action, `fail(r.message, r.error)`: the person then reads the reason on the pad's failure and on the plugin's card.

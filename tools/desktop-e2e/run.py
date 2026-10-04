@@ -11,6 +11,7 @@ See README.md next to this file.
 import argparse
 import importlib
 import os
+import tempfile
 import shutil
 import signal
 import socket
@@ -26,7 +27,9 @@ sys.path.insert(0, HERE)
 from lib.desk import Desk  # noqa: E402
 from lib.webdriver import DriverError, DriverGone  # noqa: E402
 
-SUITES = ["feedback", "home_assistant"]
+SUITES = ["feedback", "home_assistant", "secrets"]
+# The password of the throwaway keyring a suite may ask for. It protects nothing.
+KEYRING_PASSWORD = "launchdeck-desktop-e2e"
 DEV_URL = "http://127.0.0.1:1420/"
 
 
@@ -68,6 +71,13 @@ class Environment:
         self.driver_port = None
         self.driver = None
         self.extra_env = {}
+        # Whether the next launch gets a credential store (a private D-Bus
+        # session with an unlocked GNOME Keyring). Set per suite or per step.
+        self.keyring = False
+        # The session's sockets, and whatever the desktop portals mount there.
+        # Not under `.work/`: that kind of folder belongs in the system's
+        # temporary space, and a mount inside the repository helps nobody.
+        self.runtime_dir = None
         self.app = self.find_app(args.app)
         for d in (self.work, self.shots, self.logs):
             os.makedirs(d, exist_ok=True)
@@ -98,6 +108,10 @@ class Environment:
             missing.append("WebKitWebDriver (Debian/Ubuntu: apt install webkit2gtk-driver)")
         if not self.args.display and not os.environ.get("DISPLAY") and not which("Xvfb"):
             missing.append("Xvfb (apt install xvfb), or a DISPLAY to use")
+        if self.needs_keyring:
+            for tool, package in (("dbus-run-session", "dbus"), ("gnome-keyring-daemon", "gnome-keyring")):
+                if not which(tool):
+                    missing.append(f"{tool} (apt install {package}), for the suites that need a credential store")
         if missing:
             sys.exit("Missing:\n  " + "\n  ".join(missing))
 
@@ -156,7 +170,20 @@ class Environment:
         env = dict(os.environ)
         env.update({"DISPLAY": self.display, "XDG_DATA_HOME": self.data, "XDG_CACHE_HOME": self.cache, "LAUNCHDECK_PLUGINS": self.plugins})
         env.update(self.extra_env)
-        self.driver = self.spawn("tauri-driver", [self.tauri_driver, "--port", str(self.driver_port), "--native-port", str(native_port), "--native-driver", self.native_driver], env=env)
+        command = [self.tauri_driver, "--port", str(self.driver_port), "--native-port", str(native_port), "--native-driver", self.native_driver]
+        # Without a session bus the app finds no credential store, which is a state worth testing too.
+        for name in ("DBUS_SESSION_BUS_ADDRESS", "GNOME_KEYRING_CONTROL"):
+            env.pop(name, None)
+        if self.keyring:
+            # A bus of its own and a keyring unlocked on it: a real Secret Service
+            # that keeps its (encrypted) files under the run's data folder.
+            if not self.runtime_dir:
+                self.runtime_dir = tempfile.mkdtemp(prefix="launchdeck-e2e-run-")
+            os.chmod(self.runtime_dir, 0o700)
+            env.update({"XDG_RUNTIME_DIR": self.runtime_dir, "LD_E2E_KEYRING_PASSWORD": KEYRING_PASSWORD})
+            unlock = 'printf %s "$LD_E2E_KEYRING_PASSWORD" | gnome-keyring-daemon --unlock --components=secrets >/dev/null 2>&1; exec "$@"'
+            command = ["dbus-run-session", "--", "sh", "-c", unlock, "sh", *command]
+        self.driver = self.spawn("tauri-driver", command, env=env)
         for _ in range(80):
             if port_open(self.driver_port):
                 return
@@ -171,6 +198,9 @@ class Environment:
     def stop_all(self):
         for _, process in list(self.processes):
             self.stop(process)
+        if self.runtime_dir:
+            shutil.rmtree(self.runtime_dir, ignore_errors=True)
+            self.runtime_dir = None
 
     # -- the app's world -----------------------------------------------------
 
@@ -229,6 +259,7 @@ def run_suite(env, suite, first=None, only=None):
         for name, step in steps[start:]:
             title = (step.__doc__ or name).strip().splitlines()[0]
             print(f"\n  {suite.NAME} / {name}: {title}", flush=True)
+            env.keyring = getattr(step, "keyring", getattr(suite, "KEYRING", False))
             desk = env.open(f"{suite.NAME}-{name}")
             try:
                 step(desk)
@@ -278,6 +309,7 @@ def main():
         sys.exit("--from and --only need exactly one suite")
 
     env = Environment(args)
+    env.needs_keyring = any(getattr(m, "KEYRING", False) or any(getattr(f, "keyring", False) for f in m.STEPS) for m in modules)
     env.check_tools()
     results = []
     try:

@@ -22,6 +22,7 @@ import {
   pluginInfoSchema,
   pluginLogSchema,
   pluginsOverviewSchema,
+  legacyMigrationSchema,
   runtimeEventSchema,
   runtimeStateSchema,
   scanReportSchema,
@@ -39,6 +40,7 @@ import {
   type ObservableCatalog,
   type ObservablesDelta,
   type Observed,
+  type LegacyMigration,
   type PluginInfo,
   type PluginLog,
   type PluginsOverview,
@@ -178,6 +180,10 @@ export const api = {
     /** The value goes to the credential store and is never sent back. */
     setSecret: (id: string, key: string, value: string): Promise<PluginInfo> => call("plugins_set_secret", pluginInfoSchema, { id, key, value }),
     clearSecret: (id: string, key: string): Promise<PluginInfo> => call("plugins_clear_secret", pluginInfoSchema, { id, key }),
+    /** Move the secrets an earlier version kept in plain text into the credential store. */
+    migrateLegacySecrets: (): Promise<LegacyMigration> => call("plugins_migrate_legacy_secrets", legacyMigrationSchema),
+    /** Delete them without moving them. Resolves with how many there were. */
+    discardLegacySecrets: (): Promise<number> => call("plugins_discard_legacy_secrets", z.number()),
   },
   agents: {
     /** Resolves with the request id; the outcome arrives in the next snapshot. */

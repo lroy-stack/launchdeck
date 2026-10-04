@@ -56,6 +56,7 @@ Independently of presses, every 5 seconds LaunchDeck asks the plugin for the ent
 | The pad shows its resting look, not On or Off | Home Assistant has not answered: the address is not granted, the token is missing, or the server cannot be reached. The plugin clears the state instead of showing the last value. |
 | A press shows the Failed look; the card says `(permission_denied)` | The address is waiting for **Allow**, or was denied or revoked. |
 | `(secret_missing)` | No token has been entered. |
+| `(secret_unavailable)`, and the Secrets section says **Unavailable** | This computer has no secure credential store that answers, so the token cannot be kept. See [where secrets are kept](../../../docs/security/secrets.md). |
 | *Home Assistant refused the access token* | The token is wrong or was deleted in Home Assistant (`401`). |
 | *Home Assistant does not know that entity or service* | A typo in the entity id (`404`). |
 | `(network_error)` or `(timeout)` | Nothing answers at that address. |

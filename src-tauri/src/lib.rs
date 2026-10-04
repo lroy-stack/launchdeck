@@ -480,6 +480,28 @@ async fn plugins_clear_secret(
         .map_err(|e| e.to_string())
 }
 
+/// Move the secrets an earlier version kept in plain text into the credential store.
+#[tauri::command]
+async fn plugins_migrate_legacy_secrets(
+    state: State<'_, AppState>,
+) -> CmdResult<plugins::external::LegacyMigration> {
+    let host = state.runtime.plugin_host().clone();
+    tauri::async_runtime::spawn_blocking(move || host.migrate_legacy_secrets())
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+/// Delete the plain secrets without moving them. Returns how many there were.
+#[tauri::command]
+async fn plugins_discard_legacy_secrets(state: State<'_, AppState>) -> CmdResult<usize> {
+    let host = state.runtime.plugin_host().clone();
+    tauri::async_runtime::spawn_blocking(move || host.discard_legacy_secrets())
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
 // ---------------------------------------------------------------------------
 // Tray
 // ---------------------------------------------------------------------------
@@ -608,6 +630,8 @@ pub fn run() {
             plugins_set_permission,
             plugins_set_secret,
             plugins_clear_secret,
+            plugins_migrate_legacy_secrets,
+            plugins_discard_legacy_secrets,
         ])
         .run(tauri::generate_context!())
         .expect("error while running LaunchDeck");

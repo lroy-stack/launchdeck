@@ -54,7 +54,7 @@ Two more things belong to an installed plugin and are kept apart from its settin
 | | Kept in | Travels with a surface or a plugin folder? |
 | --- | --- | --- |
 | Network grants | `permissions.json` in the app data folder (owner-only) | No. See [plugin permissions](../plugins/permissions.md). |
-| Secrets | The system's credential store, or `secrets.json` (owner-only) when there is none | No. See [secrets](secrets.md). |
+| Secrets | The system's credential store. Never a file: without a store they are unavailable | No. See [secrets](secrets.md). |
 
 Changing a setting that a network address comes from asks for the new address; the grant for the old one stays on file and allows nothing.
 

@@ -24,7 +24,7 @@ http.request(new HttpRequest("GET", base + "/api/states/" + entity).bearer("toke
 | | Example | Declared in | Stored in | Does the plugin see it? |
 | --- | --- | --- | --- | --- |
 | **Setting** | The server's address | `config` | `plugins.json` (private file) | Yes, at `init` |
-| **Secret** | The access token | `secrets` | The system's credential store | **No** |
+| **Secret** | The access token | `secrets` | The system's credential store, and nowhere else | **No** |
 | **Action argument** | Which light | An action's `params` | The surface, in the workspace | Yes, at each call |
 
 A token is not a setting, and an entity id is not a secret. Put each where it belongs: the surface can then be exported and shared without carrying an address or a token.
@@ -49,25 +49,33 @@ A schema 4 manifest may not mark a `config` field `"secret": true`: that older f
 * **Dropped on a redirect to another address**, together with any `Authorization` and `Cookie` header.
 * **Only as `Authorization: Bearer`.** There is no other scheme, no way to put a secret in a URL, a body or another header, and no way to read one back.
 * **Missing means nothing is sent.** If the person has not entered it, the request fails with `secret_missing` and a sentence that says where to enter it.
+* **No credential store means nothing is sent.** On a computer without a secure credential store, or with one that is locked, the request fails with `secret_unavailable`. LaunchDeck never falls back to a file. Pass the message on (`fail(r.message, r.error)`): it tells the person what is wrong.
 * **Never written down elsewhere.** Not in the workspace, the manifest, `plugins.json`, `permissions.json`, the audit trail, a snapshot, an event or a log. The plugin's log names the method, the origin and the path of a request, never its query, headers or bodies.
 
 A plugin could still learn a token that the *server* echoes back in a response; that is the server's doing. What LaunchDeck guarantees is that it does not hand the value over and does not send it anywhere but the address the person saw.
 
 ## Where the value is kept
 
-| Store | When | Where |
-| --- | --- | --- |
-| System credential store | Whenever the system has one | Keychain on macOS, Credential Manager on Windows, the Secret Service (GNOME Keyring, KWallet) on Linux. One entry per plugin and key, under the service name `LaunchDeck plugin <plugin id>`. |
-| Private file | When no credential store answers (a Linux session without a keyring, for example), or with `LAUNCHDECK_SECRET_STORE=file` | `secrets.json` in the app data folder, readable by your account only (0600), written atomically. **Not encrypted.** |
+In the operating system's credential store, or not at all:
 
-The Plugins screen says which one is in use. A value is at most 4 KiB.
+| System | Store |
+| --- | --- |
+| macOS | Keychain |
+| Windows | Credential Manager |
+| Linux | The Secret Service (GNOME Keyring, KWallet and others) |
+
+One entry per plugin and key, under the service name `LaunchDeck plugin <plugin id>`. A value is at most 4 KiB.
+
+There is **no file fallback**. On a system where no credential store answers, secrets are *unavailable*: the Plugins screen says so and why, a secret cannot be saved, and a request that names one is not sent. Everything about this, including what happens to the plain `secrets.json` an earlier version could write and to the `secret` settings of older manifests, is in [Where secrets are kept](../security/secrets.md).
 
 ## On the Plugins screen
 
 Each secret is a password field with **Save**, and **Remove** once it is set. The screen shows *Set* or *Not set* and never the value, not even masked. Saving a new value replaces the old one. Setting or removing a secret makes the plugin refresh at once, so a pad recovers, or says why it cannot, without a restart.
 
+Without a credential store the section shows **Unavailable** with the reason, and the field is disabled.
+
 ## Limits of this version
 
 * Bearer tokens only. No basic auth, no query-string keys, no OAuth flow and no token refresh.
 * A secret is not removed when its plugin's folder is deleted. Remove the secret on the Plugins screen first; otherwise the entry stays in the credential store, unused, until you delete it there.
-* The file fallback is protected by file permissions, not by encryption.
+* Whether a credential store answers is checked once, when LaunchDeck starts. Starting a keyring afterwards needs a restart.

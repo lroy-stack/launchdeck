@@ -7,7 +7,8 @@
 
 import { useState } from "react";
 import { api } from "../../lib/ipc";
-import type { GrantStatus, NetworkHost, PluginInfo, PluginSecret, Reach, SecretStoreKind } from "../../lib/schema";
+import type { GrantStatus, LegacySecrets, NetworkHost, PluginInfo, PluginSecret, PluginsOverview, Reach, SecretStoreStatus } from "../../lib/schema";
+import { useStore } from "../../stores/runtime";
 
 type Change = (fn: () => Promise<unknown>) => Promise<boolean>;
 
@@ -23,11 +24,9 @@ const STATUS: Record<GrantStatus, string> = {
   needsApproval: "Needs approval",
 };
 
-const STORE: Record<SecretStoreKind, string> = {
-  keychain: "Kept in your system's credential store.",
-  file: "Kept in a private file on this computer, readable by your account only: no system credential store is in use.",
-  memory: "Kept in memory only, and forgotten when LaunchDeck closes.",
-};
+/** Where a secret is kept, in a sentence. Only for a store that can be used. */
+const kept = (store: SecretStoreStatus): string =>
+  store.kind === "memory" ? "Kept in memory only, and forgotten when LaunchDeck closes." : `Kept in your system's credential store (${store.name}).`;
 
 export function StatusPill({ status }: { status: GrantStatus }) {
   return <span className={`pill grant ${status}`}>{STATUS[status]}</span>;
@@ -160,33 +159,46 @@ function HostLine({ info, host, bare }: { info: PluginInfo; host: NetworkHost; b
 }
 
 /** The secrets of a plugin: set, replace, remove. A value is typed here and never shown again. */
-export function Secrets({ info, change }: { info: PluginInfo; change: Change }) {
+export function Secrets({ info, store, change }: { info: PluginInfo; store: SecretStoreStatus; change: Change }) {
   if (info.secrets.length === 0) return null;
   return (
     <section className="plugin-access" aria-label={`Secrets of ${info.plugin.name}`}>
-      <h4>Secrets</h4>
-      <p className="hint">
-        A secret is used by LaunchDeck on the plugin's behalf and is never handed to the plugin. {STORE[info.secretStore]}
-      </p>
+      <div className="field-head">
+        <h4>Secrets</h4>
+        {!store.available && <span className="pill grant denied">Unavailable</span>}
+      </div>
+      {store.available ? (
+        <p className="hint">A secret is used by LaunchDeck on the plugin's behalf and is never handed to the plugin. {kept(store)}</p>
+      ) : (
+        <div className="store-unavailable" role="note" aria-label="Why secrets are unavailable">
+          <p>
+            <b>Secrets cannot be saved on this computer.</b> {store.reason}
+          </p>
+          <p className="hint">
+            LaunchDeck keeps a secret in the system's credential store or not at all: it is never written to a plain file. Until a credential store is available,
+            what {info.plugin.name} does with {info.secrets.length === 1 ? "this secret" : "these secrets"} will not work. Everything else does.
+          </p>
+        </div>
+      )}
       {info.secrets.map((s) => (
-        <SecretField key={`${info.plugin.id}/${s.key}/${s.isSet}`} pluginId={info.plugin.id} secret={s} change={change} />
+        <SecretField key={`${info.plugin.id}/${s.key}/${s.isSet}`} pluginId={info.plugin.id} secret={s} available={store.available} change={change} />
       ))}
     </section>
   );
 }
 
-function SecretField({ pluginId, secret, change }: { pluginId: string; secret: PluginSecret; change: Change }) {
+function SecretField({ pluginId, secret, available, change }: { pluginId: string; secret: PluginSecret; available: boolean; change: Change }) {
   const [text, setText] = useState("");
   const id = `secret-${pluginId}-${secret.key}`;
   const save = () => {
-    if (text === "") return;
+    if (text === "" || !available) return;
     void change(() => api.plugins.setSecret(pluginId, secret.key, text)).then((ok) => ok && setText(""));
   };
   return (
     <div className="field secret">
       <div className="secret-head">
         <label htmlFor={id}>{secret.label}</label>
-        <span className={`pill ${secret.isSet ? "live" : "ghost"}`}>{secret.isSet ? "Set" : "Not set"}</span>
+        {available && <span className={`pill ${secret.isSet ? "live" : "ghost"}`}>{secret.isSet ? "Set" : "Not set"}</span>}
       </div>
       <small className="hint" id={`${id}-about`}>
         {secret.description} {secret.origin ? <>Only ever sent to <code>{secret.origin}</code>.</> : "It has no destination until the address above is set."}
@@ -199,19 +211,124 @@ function SecretField({ pluginId, secret, change }: { pluginId: string; secret: P
           autoComplete="off"
           spellCheck={false}
           aria-describedby={`${id}-about`}
-          placeholder={secret.isSet ? "Enter a new value to replace it" : "Paste the value"}
+          disabled={!available}
+          placeholder={!available ? "No secure credential store" : secret.isSet ? "Enter a new value to replace it" : "Paste the value"}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && save()}
         />
-        <button type="button" className="btn small primary" disabled={text === ""} aria-label={`Save ${secret.label}`} onClick={save}>
+        <button type="button" className="btn small primary" disabled={text === "" || !available} aria-label={`Save ${secret.label}`} onClick={save}>
           Save
         </button>
-        {secret.isSet && (
+        {available && secret.isSet && (
           <button type="button" className="btn small" aria-label={`Remove ${secret.label}`} onClick={() => void change(() => api.plugins.clearSecret(pluginId, secret.key))}>
             Remove
           </button>
         )}
       </div>
     </div>
+  );
+}
+
+/** What the person calls a legacy secret: the label its plugin gives it, when the plugin is installed. */
+function legacyName(overview: PluginsOverview, plugin: string, key: string): string {
+  const info = overview.plugins.find((p) => p.plugin.id === plugin);
+  return info?.secrets.find((s) => s.key === key)?.label ?? key;
+}
+
+const count = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * Secrets an earlier version kept in plain text. They are not used. The person
+ * moves them into the credential store, or deletes them; nothing happens to
+ * them by itself.
+ */
+export function LegacySecretsNotice({ overview, change }: { overview: PluginsOverview; change: Change }) {
+  const legacy: LegacySecrets = overview.legacySecrets;
+  const store = overview.secretStore;
+  const toast = useStore((s) => s.toast);
+  const [confirming, setConfirming] = useState(false);
+  if (legacy.entries.length === 0 && !legacy.file) return null;
+
+  const move = () =>
+    void change(async () => {
+      const r = await api.plugins.migrateLegacySecrets();
+      const said: string[] = [];
+      if (r.moved > 0) said.push(`${count(r.moved, "secret was", "secrets were")} moved into ${store.name}.`);
+      if (r.kept > 0) said.push(`${count(r.kept, "secret was", "secrets were")} already there and kept.`);
+      if (r.fileRemoved) said.push("The plain file was overwritten and removed.");
+      if (r.failed.length > 0) {
+        const one = r.failed.length === 1;
+        said.push(`${count(r.failed.length, "secret", "secrets")} could not be moved and ${one ? "is" : "are"} still where ${one ? "it was" : "they were"}: ${r.failed[0]?.reason ?? "unknown reason"}.`);
+      }
+      toast(said.join(" ") || "There was nothing to move.", r.failed.length > 0 ? "error" : "info");
+    });
+  const discard = () =>
+    void change(async () => {
+      const n = await api.plugins.discardLegacySecrets();
+      toast(`${count(n, "plain secret was", "plain secrets were")} deleted.`);
+    }).then(() => setConfirming(false));
+
+  return (
+    <section className="panel legacy-secrets" role="region" aria-label="Secrets kept in plain text">
+      <h4>Secrets kept in plain text by an earlier version</h4>
+      <p>
+        An earlier version of LaunchDeck kept {legacy.entries.length === 1 ? "this secret" : "these secrets"} without encryption
+        {legacy.file ? (
+          <>
+            {" "}
+            in <code>{legacy.file}</code>
+          </>
+        ) : (
+          " with the plugin's settings"
+        )}
+        . <b>{legacy.entries.length === 1 ? "It is" : "They are"} not used</b>: a secret is now read from the system's credential store only.
+      </p>
+      {legacy.unreadable && <p className="hint warn">The file is there, but this version cannot read it, so nothing in it can be moved. It can be deleted.</p>}
+      {legacy.entries.length > 0 && (
+        <ul className="plain">
+          {legacy.entries.map((e) => (
+            <li key={`${e.source}/${e.plugin}/${e.key}`}>
+              <b>{e.pluginName ?? e.plugin}</b>
+              <span>{legacyName(overview, e.plugin, e.key)}</span>
+              <span className="hint">
+                {e.source === "file" ? "in the plain file" : "left in the plugin's settings by an older version of it"}
+                {!e.pluginName && ", plugin not installed"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!store.available && (
+        <p className="hint warn">
+          {legacy.entries.length === 1 ? "It" : "They"} cannot be moved, because this computer has no secure credential store. {store.reason}
+        </p>
+      )}
+      <div className="row wrap">
+        {store.available && legacy.entries.length > 0 && (
+          <button type="button" className="btn small primary" onClick={move}>
+            Move to {store.name}
+          </button>
+        )}
+        {confirming ? (
+          <>
+            <span className="hint">Delete {legacy.entries.length === 1 ? "it" : "them"} without moving? This cannot be undone.</span>
+            <button type="button" className="btn small danger" onClick={discard}>
+              Yes, delete
+            </button>
+            <button type="button" className="btn small" onClick={() => setConfirming(false)}>
+              Cancel
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn small" onClick={() => setConfirming(true)}>
+            Delete without moving
+          </button>
+        )}
+      </div>
+      <p className="hint">
+        Moving writes each value to the credential store, reads it back, and only then overwrites and removes the plain copy. Overwriting is the most a program
+        can do: a backup or the disk itself may still hold an older copy, so replace a token that matters.
+      </p>
+    </section>
   );
 }

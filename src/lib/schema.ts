@@ -599,8 +599,44 @@ export const pluginSecretSchema = z.object({
 });
 export type PluginSecret = z.infer<typeof pluginSecretSchema>;
 
-export const secretStoreSchema = z.enum(["keychain", "file", "memory"]);
+/** `unavailable`: this system has no secure credential store, so secrets cannot be kept at all. */
+export const secretStoreSchema = z.enum(["keychain", "memory", "unavailable"]);
 export type SecretStoreKind = z.infer<typeof secretStoreSchema>;
+
+/** Where secrets are kept on this computer, and when they cannot be, why. */
+export const secretStoreStatusSchema = z.object({
+  kind: secretStoreSchema,
+  available: z.boolean(),
+  /** What this system calls its credential store. */
+  name: z.string(),
+  reason: z.string().optional(),
+});
+export type SecretStoreStatus = z.infer<typeof secretStoreStatusSchema>;
+
+/** A secret an earlier version kept in plain text: its name, never its value. */
+export const legacySecretSchema = z.object({
+  plugin: z.string(),
+  pluginName: z.string().optional(),
+  key: z.string(),
+  /** `file`: the old `secrets.json`. `settings`: a setting an older version of the plugin kept in `plugins.json`. */
+  source: z.enum(["file", "settings"]),
+});
+export type LegacySecret = z.infer<typeof legacySecretSchema>;
+
+export const legacySecretsSchema = z.object({
+  entries: z.array(legacySecretSchema),
+  file: z.string().optional(),
+  unreadable: z.boolean(),
+});
+export type LegacySecrets = z.infer<typeof legacySecretsSchema>;
+
+export const legacyMigrationSchema = z.object({
+  moved: z.number(),
+  kept: z.number(),
+  failed: z.array(z.object({ plugin: z.string(), key: z.string(), reason: z.string() })),
+  fileRemoved: z.boolean(),
+});
+export type LegacyMigration = z.infer<typeof legacyMigrationSchema>;
 
 export const pluginInfoSchema = z.object({
   plugin: pluginManifestSchema,
@@ -622,6 +658,9 @@ export const pluginsOverviewSchema = z.object({
   plugins: z.array(pluginInfoSchema),
   issues: z.array(z.object({ dir: z.string(), error: z.string() })),
   folders: z.array(z.string()),
+  secretStore: secretStoreStatusSchema,
+  /** Secrets an earlier version left in plain text. They are not used. */
+  legacySecrets: legacySecretsSchema,
 });
 export type PluginsOverview = z.infer<typeof pluginsOverviewSchema>;
 

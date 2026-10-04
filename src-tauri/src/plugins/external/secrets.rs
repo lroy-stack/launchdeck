@@ -7,13 +7,17 @@
 //! module, never written to the workspace, a manifest, `plugins.json`, an
 //! event, a snapshot or a log.
 //!
-//! Three stores sit behind one small interface:
+//! There is one place a secret may be kept: the operating system's credential
+//! store ([`KeychainStore`]: Keychain on macOS, Credential Manager on Windows,
+//! the Secret Service on Linux). When the system has none that answers, the
+//! store is [`UnavailableStore`]: nothing can be saved, nothing is read, and
+//! the interface says why. **There is no plain-file fallback.**
 //!
-//! * [`KeychainStore`]: the operating system's credential store (Keychain on
-//!   macOS, Credential Manager on Windows, the Secret Service on Linux);
-//! * [`FileStore`]: `secrets.json`, readable by the owner only, for a system
-//!   without a credential store. The interface says which one is in use;
-//! * [`MemoryStore`]: for tests.
+//! An earlier version did fall back to `secrets.json`. That file is never
+//! read to authenticate anything now. [`LegacyFile`] only lists what is in it
+//! so the person can move it into the credential store or delete it.
+//!
+//! [`MemoryStore`] is for tests and for a runtime without a data folder.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -21,12 +25,10 @@ use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
-use crate::persistence::write_private;
-
 /// Longest secret value kept.
 pub const MAX_SECRET_BYTES: usize = 4096;
-/// Forces a store: `file` or `keychain`. For tests and headless machines.
-pub const STORE_ENV: &str = "LAUNCHDECK_SECRET_STORE";
+/// The plain file an earlier version wrote when the system had no credential store.
+pub const LEGACY_FILE: &str = "secrets.json";
 const FILE_SCHEMA: u32 = 1;
 
 /// A secret by name: whose it is and what the manifest calls it. This is all
@@ -54,6 +56,9 @@ pub enum SecretError {
     TooLong,
     #[error("the credential store refused: {0}")]
     Store(String),
+    /// This system has no secure credential store LaunchDeck can use.
+    #[error("no secure credential store is available")]
+    Unavailable,
 }
 
 /// Where secrets are kept, as the interface says it.
@@ -62,10 +67,23 @@ pub enum SecretError {
 pub enum StoreKind {
     /// The operating system's credential store.
     Keychain,
-    /// A private file, because the system has no credential store.
-    File,
-    /// Nowhere durable (tests).
+    /// Nowhere durable (tests, a runtime without a data folder).
     Memory,
+    /// Nowhere: the system has no secure store, so secrets cannot be kept.
+    Unavailable,
+}
+
+/// What the interface says about the store: which one, whether it can be
+/// used, and when it cannot, why and what would change that.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoreStatus {
+    pub kind: StoreKind,
+    pub available: bool,
+    /// What this system calls its credential store.
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 pub trait SecretStore: Send + Sync {
@@ -75,6 +93,39 @@ pub trait SecretStore: Send + Sync {
     /// Removing what is not there is not an error.
     fn delete(&self, secret: &SecretRef) -> Result<(), SecretError>;
     fn kind(&self) -> StoreKind;
+    fn status(&self) -> StoreStatus {
+        StoreStatus {
+            kind: self.kind(),
+            available: self.kind() != StoreKind::Unavailable,
+            name: match self.kind() {
+                StoreKind::Memory => "memory".to_string(),
+                _ => system_store_name().to_string(),
+            },
+            reason: None,
+        }
+    }
+}
+
+/// What this operating system calls its credential store.
+pub fn system_store_name() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "Keychain"
+    } else if cfg!(target_os = "windows") {
+        "Credential Manager"
+    } else {
+        "Secret Service keyring"
+    }
+}
+
+/// Why the system's store cannot be used, and what would change that.
+fn unavailable_reason() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "The login keychain could not be reached. Unlock it in Keychain Access, then restart LaunchDeck."
+    } else if cfg!(target_os = "windows") {
+        "Windows Credential Manager could not be reached. Check that the Credential Manager service is running, then restart LaunchDeck."
+    } else {
+        "No Secret Service answered in this session. LaunchDeck keeps secrets in the system keyring (GNOME Keyring, KWallet or another Secret Service provider). Install and unlock one, then restart LaunchDeck."
+    }
 }
 
 fn check_value(value: &str) -> Result<(), SecretError> {
@@ -129,7 +180,53 @@ impl SecretStore for MemoryStore {
 }
 
 // ---------------------------------------------------------------------------
-// A private file
+// No store
+// ---------------------------------------------------------------------------
+
+/// The store of a system that has no secure credential store. It holds
+/// nothing and says so: a secret cannot be saved, and a request that needs one
+/// fails with a reason instead of going out without it.
+pub struct UnavailableStore {
+    reason: String,
+}
+
+impl UnavailableStore {
+    pub fn new(reason: &str) -> UnavailableStore {
+        UnavailableStore {
+            reason: reason.to_string(),
+        }
+    }
+}
+
+impl SecretStore for UnavailableStore {
+    fn get(&self, _: &SecretRef) -> Result<Option<String>, SecretError> {
+        Err(SecretError::Unavailable)
+    }
+
+    fn set(&self, _: &SecretRef, _: &str) -> Result<(), SecretError> {
+        Err(SecretError::Unavailable)
+    }
+
+    fn delete(&self, _: &SecretRef) -> Result<(), SecretError> {
+        Err(SecretError::Unavailable)
+    }
+
+    fn kind(&self) -> StoreKind {
+        StoreKind::Unavailable
+    }
+
+    fn status(&self) -> StoreStatus {
+        StoreStatus {
+            kind: StoreKind::Unavailable,
+            available: false,
+            name: system_store_name().to_string(),
+            reason: Some(self.reason.clone()),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The plain file of an earlier version
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -142,81 +239,109 @@ struct SecretFile {
     secrets: BTreeMap<String, BTreeMap<String, String>>,
 }
 
-/// `secrets.json` in the app data folder: owner-only, written atomically. The
-/// values are not encrypted; this is the fallback for a system that offers
-/// nothing better, and the interface says so.
-pub struct FileStore {
+/// What `secrets.json` holds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LegacyContents {
+    /// There is no such file.
+    Absent,
+    /// There is one and this version cannot read it. It is left alone.
+    Unreadable,
+    /// Its secrets, in a fixed order (plugin, then key).
+    Secrets(Vec<(SecretRef, String)>),
+}
+
+/// `secrets.json`, written by an earlier version when the system had no
+/// credential store. It is **not a store**: nothing here reads a value from it
+/// to use it. It can be listed, moved into a real store, and removed.
+pub struct LegacyFile {
     path: PathBuf,
-    lock: Mutex<()>,
 }
 
-impl FileStore {
-    pub fn new(path: PathBuf) -> FileStore {
-        FileStore {
-            path,
-            lock: Mutex::new(()),
+impl LegacyFile {
+    pub fn in_dir(dir: &Path) -> LegacyFile {
+        LegacyFile {
+            path: dir.join(LEGACY_FILE),
         }
     }
 
-    fn read(&self) -> Result<SecretFile, SecretError> {
-        match std::fs::read_to_string(&self.path) {
-            Ok(text) => serde_json::from_str::<SecretFile>(&text)
-                .ok()
-                .filter(|f| f.schema_version <= FILE_SCHEMA)
-                // A file this version cannot read is left alone and nothing is found in it.
-                .ok_or_else(|| SecretError::Store("secrets.json could not be read".into())),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(SecretFile::default()),
-            Err(e) => Err(SecretError::Store(e.to_string())),
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn read(&self) -> LegacyContents {
+        let text = match std::fs::read_to_string(&self.path) {
+            Ok(text) => text,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return LegacyContents::Absent,
+            Err(_) => return LegacyContents::Unreadable,
+        };
+        match serde_json::from_str::<SecretFile>(&text) {
+            Ok(file) if file.schema_version <= FILE_SCHEMA => LegacyContents::Secrets(
+                file.secrets
+                    .into_iter()
+                    .flat_map(|(plugin, keys)| {
+                        keys.into_iter()
+                            .filter(|(_, value)| !value.is_empty())
+                            .map(move |(key, value)| (SecretRef::new(&plugin, &key), value))
+                    })
+                    .collect(),
+            ),
+            _ => LegacyContents::Unreadable,
         }
     }
 
-    fn write(&self, mut file: SecretFile) -> Result<(), SecretError> {
-        file.schema_version = FILE_SCHEMA;
-        file.secrets.retain(|_, keys| !keys.is_empty());
-        let bytes =
-            serde_json::to_vec_pretty(&file).map_err(|e| SecretError::Store(e.to_string()))?;
-        write_private(&self.path, &bytes).map_err(|e| SecretError::Store(e.to_string()))
+    /// Remove the file. Its bytes are overwritten first, which is the most a
+    /// program can do and **not a guarantee**: a journaling or copy-on-write
+    /// filesystem, an SSD and any backup may still hold an older copy.
+    pub fn remove(&self) -> std::io::Result<()> {
+        use std::io::Write as _;
+        let len = match std::fs::metadata(&self.path) {
+            Ok(meta) => meta.len() as usize,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(e) => return Err(e),
+        };
+        if let Ok(mut file) = std::fs::OpenOptions::new().write(true).open(&self.path) {
+            let _ = file.write_all(&vec![0u8; len]);
+            let _ = file.sync_all();
+        }
+        std::fs::remove_file(&self.path)
     }
 }
 
-impl SecretStore for FileStore {
-    fn get(&self, s: &SecretRef) -> Result<Option<String>, SecretError> {
-        let _guard = self.lock.lock().unwrap_or_else(|e| e.into_inner());
-        Ok(self
-            .read()?
-            .secrets
-            .get(&s.plugin)
-            .and_then(|k| k.get(&s.key))
-            .cloned())
-    }
+/// What moving plain values into a store did.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Moved {
+    /// Written to the store and read back equal.
+    pub moved: Vec<SecretRef>,
+    /// The store already held a value for it. That value was kept: it is the
+    /// one entered after the plain file stopped being used.
+    pub kept: Vec<SecretRef>,
+    /// Not moved, and why. Nothing was lost: the plain value is where it was.
+    pub failed: Vec<(SecretRef, String)>,
+}
 
-    fn set(&self, s: &SecretRef, value: &str) -> Result<(), SecretError> {
-        check_value(value)?;
-        let _guard = self.lock.lock().unwrap_or_else(|e| e.into_inner());
-        let mut file = self.read()?;
-        file.secrets
-            .entry(s.plugin.clone())
-            .or_default()
-            .insert(s.key.clone(), value.to_string());
-        self.write(file)
-    }
-
-    fn delete(&self, s: &SecretRef) -> Result<(), SecretError> {
-        let _guard = self.lock.lock().unwrap_or_else(|e| e.into_inner());
-        let mut file = self.read()?;
-        let removed = file
-            .secrets
-            .get_mut(&s.plugin)
-            .and_then(|k| k.remove(&s.key));
-        if removed.is_none() {
-            return Ok(());
+/// Move plain values into `store`, one at a time, each read back before it
+/// counts as moved. Nothing is removed here; the caller removes a plain value
+/// only when it is not in `failed`.
+pub fn move_into(store: &dyn SecretStore, entries: &[(SecretRef, String)]) -> Moved {
+    let mut out = Moved::default();
+    for (secret, value) in entries {
+        match store.get(secret) {
+            Err(e) => out.failed.push((secret.clone(), e.to_string())),
+            Ok(Some(_)) => out.kept.push(secret.clone()),
+            Ok(None) => match store.set(secret, value) {
+                Err(e) => out.failed.push((secret.clone(), e.to_string())),
+                Ok(()) => match store.get(secret) {
+                    Ok(Some(back)) if &back == value => out.moved.push(secret.clone()),
+                    Ok(_) => out.failed.push((
+                        secret.clone(),
+                        "the store did not return what was written".into(),
+                    )),
+                    Err(e) => out.failed.push((secret.clone(), e.to_string())),
+                },
+            },
         }
-        self.write(file)
     }
-
-    fn kind(&self) -> StoreKind {
-        StoreKind::File
-    }
+    out
 }
 
 // ---------------------------------------------------------------------------
@@ -230,7 +355,7 @@ pub struct KeychainStore;
 
 impl KeychainStore {
     /// The store, if this system has one that answers. A system without one
-    /// (a headless Linux session with no Secret Service, for example) gives `None`.
+    /// (a Linux session with no Secret Service, for example) gives `None`.
     pub fn open() -> Option<KeychainStore> {
         if keyring::Entry::store_status().is_err() {
             return None;
@@ -286,22 +411,20 @@ impl SecretStore for KeychainStore {
 }
 
 /// The store this installation uses: the system's credential store when it
-/// has one, a private file in `dir` otherwise, memory when there is no folder.
+/// answers, and otherwise none at all (never a file). Without a data folder
+/// there is nothing durable to protect and values live in memory.
 pub fn open_store(dir: Option<&Path>) -> Arc<dyn SecretStore> {
-    let forced = std::env::var(STORE_ENV).ok();
-    let Some(dir) = dir else {
+    if dir.is_none() {
         return Arc::new(MemoryStore::new());
-    };
-    let file = || -> Arc<dyn SecretStore> { Arc::new(FileStore::new(dir.join("secrets.json"))) };
-    match forced.as_deref() {
-        Some("file") => file(),
-        _ => match KeychainStore::open() {
-            Some(keychain) => Arc::new(keychain),
-            None => {
-                log::info!("no system credential store answered; plugin secrets are kept in a private file");
-                file()
-            }
-        },
+    }
+    match KeychainStore::open() {
+        Some(keychain) => Arc::new(keychain),
+        None => {
+            log::warn!(
+                "no secure credential store answered; plugin secrets cannot be saved or used"
+            );
+            Arc::new(UnavailableStore::new(unavailable_reason()))
+        }
     }
 }
 
@@ -360,56 +483,145 @@ mod tests {
         behaves_like_a_store(&MemoryStore::new());
     }
 
-    #[test]
-    fn the_file_store_keeps_the_contract_and_is_private() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("secrets.json");
-        let store = FileStore::new(path.clone());
-        behaves_like_a_store(&store);
+    fn write_legacy(dir: &Path, json: &str) -> LegacyFile {
+        std::fs::write(dir.join(LEGACY_FILE), json).unwrap();
+        LegacyFile::in_dir(dir)
+    }
 
-        store.set(&token(), "s3cret-value").unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mode = std::fs::metadata(&path).unwrap().permissions().mode();
-            assert_eq!(
-                mode & 0o077,
-                0,
-                "secrets.json is readable by its owner only"
-            );
-        }
-        // A new process finds it.
+    const TWO: &str = r#"{"schemaVersion":1,"secrets":{"acme.lights":{"token":"plain-one"},"acme.music":{"key":"plain-two","empty":""}}}"#;
+
+    #[test]
+    fn a_system_without_a_store_keeps_nothing_and_says_why() {
+        let store = UnavailableStore::new("No Secret Service answered.");
+        assert_eq!(store.get(&token()), Err(SecretError::Unavailable));
+        assert_eq!(store.set(&token(), "value"), Err(SecretError::Unavailable));
+        assert_eq!(store.delete(&token()), Err(SecretError::Unavailable));
+        let status = store.status();
         assert_eq!(
-            FileStore::new(path.clone())
-                .get(&token())
-                .unwrap()
-                .as_deref(),
-            Some("s3cret-value")
+            (status.kind, status.available),
+            (StoreKind::Unavailable, false)
         );
-        // Removing the last secret leaves no trace of the plugin.
-        store.delete(&token()).unwrap();
-        let text = std::fs::read_to_string(&path).unwrap();
-        assert!(
-            !text.contains("s3cret-value") && !text.contains("acme.lights"),
-            "{text}"
+        assert_eq!(
+            status.reason.as_deref(),
+            Some("No Secret Service answered.")
+        );
+        // The other stores say they can be used and give no reason.
+        let memory = MemoryStore::new().status();
+        assert!(memory.available && memory.reason.is_none());
+    }
+
+    #[test]
+    fn the_old_plain_file_is_listed_in_a_fixed_order_and_never_written() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            LegacyFile::in_dir(dir.path()).read(),
+            LegacyContents::Absent
+        );
+        let legacy = write_legacy(dir.path(), TWO);
+        let LegacyContents::Secrets(found) = legacy.read() else {
+            panic!("the file is readable");
+        };
+        assert_eq!(
+            found,
+            vec![
+                (SecretRef::new("acme.lights", "token"), "plain-one".into()),
+                (SecretRef::new("acme.music", "key"), "plain-two".into()),
+            ],
+            "an empty value is not a secret"
+        );
+        assert_eq!(
+            std::fs::read_to_string(legacy.path()).unwrap(),
+            TWO,
+            "reading changes nothing"
         );
     }
 
     #[test]
-    fn a_file_this_version_cannot_read_is_left_alone() {
+    fn a_plain_file_this_version_cannot_read_is_left_alone() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("secrets.json");
-        std::fs::write(&path, r#"{"schemaVersion": 99, "secrets": {}}"#).unwrap();
-        let store = FileStore::new(path.clone());
-        assert!(matches!(store.get(&token()), Err(SecretError::Store(_))));
-        assert!(matches!(
-            store.set(&token(), "x"),
-            Err(SecretError::Store(_))
-        ));
-        assert!(
-            std::fs::read_to_string(&path).unwrap().contains("99"),
-            "nothing was overwritten"
+        for text in [r#"{"schemaVersion": 99, "secrets": {}}"#, "not json"] {
+            let legacy = write_legacy(dir.path(), text);
+            assert_eq!(legacy.read(), LegacyContents::Unreadable);
+            assert_eq!(std::fs::read_to_string(legacy.path()).unwrap(), text);
+        }
+    }
+
+    #[test]
+    fn moving_plain_values_verifies_each_one_and_keeps_what_the_store_already_has() {
+        let dir = tempfile::tempdir().unwrap();
+        let LegacyContents::Secrets(entries) = write_legacy(dir.path(), TWO).read() else {
+            panic!()
+        };
+        let store = MemoryStore::new();
+        // A value entered after the file stopped being used wins over the file's.
+        store
+            .set(&SecretRef::new("acme.music", "key"), "newer")
+            .unwrap();
+
+        let moved = move_into(&store, &entries);
+        assert_eq!(moved.moved, vec![SecretRef::new("acme.lights", "token")]);
+        assert_eq!(moved.kept, vec![SecretRef::new("acme.music", "key")]);
+        assert!(moved.failed.is_empty());
+        assert_eq!(store.get(&token()).unwrap().as_deref(), Some("plain-one"));
+        assert_eq!(
+            store
+                .get(&SecretRef::new("acme.music", "key"))
+                .unwrap()
+                .as_deref(),
+            Some("newer")
         );
+        // Doing it again changes nothing.
+        let again = move_into(&store, &entries);
+        assert!(again.moved.is_empty() && again.failed.is_empty());
+        assert_eq!(again.kept.len(), 2);
+    }
+
+    #[test]
+    fn nothing_moves_into_a_store_that_is_not_there_or_refuses() {
+        let entries = vec![
+            (token(), "plain-one".to_string()),
+            (
+                SecretRef::new("acme.music", "key"),
+                "x".repeat(MAX_SECRET_BYTES + 1),
+            ),
+        ];
+        let none = move_into(&UnavailableStore::new("none"), &entries);
+        assert!(none.moved.is_empty() && none.kept.is_empty());
+        assert_eq!(none.failed.len(), 2);
+        assert!(
+            none.failed
+                .iter()
+                .all(|(_, why)| !why.contains("plain-one")),
+            "a reason never repeats a value"
+        );
+
+        // One value the store refuses does not stop the others.
+        let store = MemoryStore::new();
+        let some = move_into(&store, &entries);
+        assert_eq!(some.moved, vec![token()]);
+        assert_eq!(some.failed.len(), 1);
+        assert_eq!(some.failed[0].0, SecretRef::new("acme.music", "key"));
+    }
+
+    #[test]
+    fn removing_the_plain_file_overwrites_it_first_and_is_fine_when_it_is_gone() {
+        let dir = tempfile::tempdir().unwrap();
+        let legacy = write_legacy(dir.path(), TWO);
+        // A second name for the same file sees what is done to its bytes.
+        let link = dir.path().join("same-file");
+        let linked = std::fs::hard_link(legacy.path(), &link).is_ok();
+        legacy.remove().unwrap();
+        assert!(!legacy.path().exists());
+        if linked {
+            let left = std::fs::read(&link).unwrap();
+            assert_eq!(left.len(), TWO.len());
+            assert!(
+                left.iter().all(|b| *b == 0),
+                "the bytes were overwritten before the name was removed"
+            );
+        }
+        legacy.remove().unwrap();
+        assert_eq!(legacy.read(), LegacyContents::Absent);
     }
 
     #[test]
@@ -418,6 +630,7 @@ mod tests {
             SecretError::Empty,
             SecretError::TooLong,
             SecretError::Store("it is locked".into()),
+            SecretError::Unavailable,
         ] {
             assert!(!e.to_string().contains("s3cret"));
         }

@@ -7,13 +7,14 @@ permission checks, the broker and the secret store are the app's own.
 
 import glob
 import os
-import stat
 import time
 
 from lib.mock_home_assistant import MockHomeAssistant
 
 NAME = "home_assistant"
 PLUGINS = ["home-assistant"]
+# The token goes into a real credential store: the run's own keyring, not yours.
+KEYRING = True
 
 PLUGIN = "Home Assistant"
 TOKEN = "desktop-e2e-long-lived-token"
@@ -32,8 +33,6 @@ def setup(env):
     env.ha = MockHomeAssistant(TOKEN, {LIGHT: "off"}, port)
     with open(remembered, "w") as f:
         f.write(str(env.ha.port))
-    # A machine that runs this may have a keychain; the run must not write to it.
-    env.extra_env = {"LAUNCHDECK_SECRET_STORE": "file"}
 
 
 def teardown(env):
@@ -48,6 +47,20 @@ def data_file(d, name):
 def read(d, name):
     path = data_file(d, name)
     return open(path).read() if path else ""
+
+
+def files_holding(d, text):
+    """Every file under the run's data folder (the keyring's files included) that holds `text` in the clear."""
+    found = []
+    for folder, _, names in os.walk(d.env.data):
+        for name in names:
+            path = os.path.join(folder, name)
+            try:
+                if text.encode() in open(path, "rb").read():
+                    found.append(os.path.relpath(path, d.env.data))
+            except OSError:
+                pass
+    return found
 
 
 def network(d):
@@ -142,7 +155,7 @@ def secret(d):
     d.sidebar("Plugins")
     text = secrets(d)
     d.check("the secret is listed by its name, as Not set", "Long-lived access token" in text and "Not set" in text, text[:300])
-    d.check("it says the plugin never receives it and where it is kept", "never handed to the plugin" in text and "private file" in text, text[:300])
+    d.check("it says the plugin never receives it and where it is kept", "never handed to the plugin" in text and "system's credential store (Secret Service keyring)" in text, text[:300])
     d.check("it says the only place it is sent", f"Only ever sent to {d.env.ha.origin}" in text, text[:300])
     field = d.find("article.card.plugin .field.secret input[type=password]")
     d.send(field, TOKEN)
@@ -152,11 +165,10 @@ def secret(d):
     d.check("the value is nowhere on the page", TOKEN not in d.js("return document.documentElement.innerHTML"))
     d.shot("secret")
 
-    path = data_file(d, "secrets.json")
-    d.check("the secret store is a private file here (the run asks for it, so no keychain is touched)", path is not None and TOKEN in open(path).read())
-    d.check("readable by its owner only", path is not None and stat.S_IMODE(os.stat(path).st_mode) & 0o077 == 0)
-    leaks = [name for name in ("workspace.json", "plugins.json", "permissions.json", "audit.jsonl") if TOKEN in read(d, name)]
-    d.check("the token is in no other file", leaks == [], leaks)
+    d.check("no plain secrets file was written", data_file(d, "secrets.json") is None)
+    keyring = os.path.join(d.env.data, "keyrings")
+    d.check("the system keyring holds something now", os.path.isdir(keyring) and any(os.path.getsize(os.path.join(keyring, f)) > 0 for f in os.listdir(keyring)), keyring)
+    d.check("the token is readable in no file at all: not the workspace, the settings, the grants, the audit trail or the keyring's own files", files_holding(d, TOKEN) == [], files_holding(d, TOKEN))
     logs = "".join(open(p, errors="replace").read() for p in glob.glob(os.path.join(d.env.logs, "*.log")))
     d.check("nor in any log", TOKEN not in logs)
 
@@ -276,7 +288,6 @@ def remove_secret(d):
     d.click_css("button[aria-label='Remove Long-lived access token']")
     wait_for(d, "Not set", lambda: "Not set" in secrets(d))
     d.check("Remove leaves the secret Not set", "Not set" in secrets(d))
-    d.check("and takes it out of the store", TOKEN not in read(d, "secrets.json"))
     time.sleep(0.8)
     before = ha.hits()
     d.sidebar(SURFACE)

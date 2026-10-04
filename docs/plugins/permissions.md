@@ -62,7 +62,9 @@ Each decision is also written to the audit trail (`audit.jsonl`, same folder): `
 
 ## Secrets
 
-A plugin that needs a token declares a **secret**. You type it once on the plugin's card. LaunchDeck keeps it in your system's credential store (or says so plainly when it has to use a private file instead), adds it to the plugin's requests to the one address it belongs to, and never hands it to the plugin or shows it again. See [Secrets](../plugin-sdk/secrets.md).
+A plugin that needs a token declares a **secret**. You type it once on the plugin's card. LaunchDeck keeps it in your system's credential store (Keychain, Credential Manager, or the Secret Service keyring on Linux), adds it to the plugin's requests to the one address it belongs to, and never hands it to the plugin or shows it again. See [Secrets](../plugin-sdk/secrets.md).
+
+If your system has no credential store that answers, the card says **Unavailable** and why. LaunchDeck does not keep a secret in a plain file instead, so what needs the secret does not work until a store is available. See [where secrets are kept](../security/secrets.md).
 
 A sensible order for a new plugin: set its address, **Allow** the address, then enter the token.
 

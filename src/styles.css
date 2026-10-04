@@ -571,6 +571,12 @@ textarea { resize: vertical; }
 .secret-head { display: flex; align-items: center; gap: 8px; }
 .secret-head label { font-weight: 600; }
 .stale { border-top: 1px dashed var(--line-2); padding-top: 8px; }
+.store-unavailable { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid #6a2b2b; border-radius: 8px; background: #1f1416; }
+.store-unavailable p { margin: 0; }
+.legacy-secrets { max-width: none; border-color: #4a3a14; background: #1c1a12; }
+.legacy-secrets p { margin: 0; }
+.legacy-secrets ul li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.field small.hint.warn { display: block; }
 
 /* An action in flight: the runtime says so, the pad shows a thin moving ring. */
 .pad.acting::after { content: ""; position: absolute; inset: 2px; border-radius: inherit; border: 2px solid transparent; border-top-color: #ffffffcc; animation: pad-acting 0.9s linear infinite; pointer-events: none; }

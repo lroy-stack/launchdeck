@@ -108,6 +108,15 @@ describe("plugins contract with Rust", () => {
       },
     ]);
     expect(ha.secretStore).toBe("memory");
+    // Where secrets are kept is said once for the whole screen, with whether it can be used.
+    expect(pluginsOverviewSchema.parse(fixture).secretStore).toEqual({ kind: "memory", available: true, name: "memory" });
+    // What an earlier version left in a plain file is listed by name only.
+    expect(pluginsOverviewSchema.parse(fixture).legacySecrets).toEqual({
+      entries: [{ plugin: "example.home-assistant-unset", pluginName: "Home Assistant (not set up)", key: "token", source: "file" }],
+      file: "<data>/secrets.json",
+      unreadable: false,
+    });
+    expect(JSON.stringify(fixture)).not.toContain("a-token-from-the-plain-file-era");
     expect(ha.refreshSeconds).toBe(5);
     expect(JSON.stringify(fixture)).not.toContain("a-long-lived-access-token");
     // The address is a setting, shown with the name its manifest gives it.
@@ -124,9 +133,15 @@ describe("plugins contract with Rust", () => {
 describe("preview transport and plugins", () => {
   it("shows an empty plugin list and refuses to manage plugins without the desktop runtime", async () => {
     const t = await createPreviewTransport();
-    expect(pluginsOverviewSchema.parse(await t.invoke("plugins_list"))).toEqual({ plugins: [], issues: [], folders: [] });
+    expect(pluginsOverviewSchema.parse(await t.invoke("plugins_list"))).toEqual({
+      plugins: [],
+      issues: [],
+      folders: [],
+      secretStore: { kind: "memory", available: true, name: "memory" },
+      legacySecrets: { entries: [], unreadable: false },
+    });
     await expect(t.invoke("plugins_rescan")).rejects.toMatch(/desktop app/);
-    for (const command of ["plugins_set_permission", "plugins_set_secret", "plugins_clear_secret"]) {
+    for (const command of ["plugins_set_permission", "plugins_set_secret", "plugins_clear_secret", "plugins_migrate_legacy_secrets", "plugins_discard_legacy_secrets"]) {
       await expect(t.invoke(command, { id: "x" })).rejects.toMatch(/desktop app/);
     }
   });

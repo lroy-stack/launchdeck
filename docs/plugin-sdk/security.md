@@ -19,7 +19,7 @@ A plugin whose manifest declares `capabilities.network` gets two more imports, `
 | Headers | `Host`, `Content-Length`, `Connection`, `Transfer-Encoding`, `Upgrade`, `Accept-Encoding`, `User-Agent` and `Proxy-…` belong to the host. A value with a control character is refused. |
 | Size and time | Request body 256 KiB, response 1 MiB after decompression, 10 s per request (30 s at most), 24 requests and 30 s of network per call, 600 requests a minute per plugin, one request in flight per plugin. |
 | Proxies | None is used, including one from the environment, because the checks are about where the connection goes. |
-| Secrets | Kept by the host (the system credential store when there is one), bound to one origin in the manifest, added by the host as `Authorization: Bearer`, and never copied into the module's memory. See [secrets](secrets.md). |
+| Secrets | Kept by the host in the system's credential store and nowhere else: without one, secrets are unavailable and a request that needs one is not sent. Bound to one origin in the manifest, added by the host as `Authorization: Bearer`, and never copied into the module's memory. See [secrets](secrets.md) and [where secrets are kept](../security/secrets.md). |
 | While starting | The network is closed during `init`. |
 | Audit | `permission.requested`, `.granted`, `.denied` and `.revoked` are written to `audit.jsonl` with the plugin and the origin. |
 | Logs | A request is logged as its method, origin and path. Never the query, the headers, a body or a secret. |
@@ -41,7 +41,7 @@ Details and the exact order of the checks: [network](network.md). The person's v
 | Files and paths | `main` must be a plain file name in the plugin folder. Symlinks are refused. Plugin ids use a strict grammar and cannot collide with built-in ids. |
 | Spoofing from outside | The localhost WebSocket refuses events that claim to come from an installed plugin, as it does for `runtime`, `device` and `agent-control`. |
 | Settings | Stored in `plugins.json` (atomic write, owner-only on Unix), never in a workspace or surface file. Only keys declared in the manifest are accepted. |
-| The old `secret` setting flag | In manifests of schemas 1 to 3, a setting marked `"secret": true` is hidden from the plugin list, snapshots and the UI and never logged by the host, but it **is** handed to the module at `init` and stored in clear in `plugins.json`. Schema 4 refuses the flag; use [`secrets`](secrets.md), which the module never receives. |
+| The old `secret` setting flag | In manifests of schemas 1 to 3, a setting marked `"secret": true` is hidden from the plugin list, snapshots and the UI and never logged by the host, but it **is** handed to the module at `init` and stored in clear in `plugins.json`. Schema 4 refuses the flag; use [`secrets`](secrets.md), which the module never receives. Such a setting keeps working and is flagged on the plugin's card and in its log; see [secrets of older plugins](../security/secrets.md#secrets-of-older-plugins). |
 | Capabilities | Only `network` exists. A manifest that asks for anything else, in the array of schemas 1 to 3 or as an unknown key in schema 4, is refused, so a host that cannot provide a capability never runs a plugin that needs it. Grants live in `permissions.json`, outside the workspace and outside plugin folders. |
 
 Shell commands are still a **core action** that only a person can attach to a pad, and so is the built-in *HTTP request* action. A plugin cannot run a command, and the only requests it can cause are the ones described above. There is no API that takes a string to execute.
@@ -53,7 +53,7 @@ Shell commands are still a **core action** that only a person can attach to a pa
 * The sandbox is only as strong as Wasmtime. The host pins the LTS line (48) and the patch floor that fixes the advisories known on 2026-10-04 (RUSTSEC-2026-0315 and -0327 need 48.0.4 or newer); keep it updated. `Cargo.toml` documents the rule.
 * A plugin cannot read your pads, but it can be slow within its limits: it can use up to 2 seconds of one thread per call, plus up to 30 seconds waiting on the network if it has that capability. Calls to different plugins run in parallel, and calls to one plugin are serialized.
 * A granted address is trusted with what the plugin knows: its settings and the arguments of the actions you press. The grant limits *where* data can go, not *what* the plugin sends there.
-* A secret is safe from the plugin, not from the server it is sent to, and the file fallback for secrets is protected by file permissions, not encryption.
+* A secret is safe from the plugin, not from the server it is sent to. It is as safe at rest as the system's credential store makes it: another program running as you can usually ask that store too.
 * DNS answers are checked, not authenticated. For an `http` origin, someone who controls the network path can still read or change the traffic; prefer `https` where the server offers it.
 
 ## Reporting a problem

@@ -35,6 +35,9 @@ export namespace HttpError {
   export const RateLimited: string = "rate_limited";
   // The secret the request names has no value: the person has not entered it.
   export const SecretMissing: string = "secret_missing";
+  // The secret cannot be read: this computer has no secure credential store, or
+  // it is locked. Nothing was sent. The person is told why in Plugins.
+  export const SecretUnavailable: string = "secret_unavailable";
   export const InvalidResponse: string = "invalid_response";
 }
 

@@ -30,14 +30,17 @@ mod testkit;
 use serde::Serialize;
 
 pub use discovery::Issue;
-pub use host::{HostError, PluginHost, PluginInfo, PluginsOverview, ScanReport};
+pub use host::{
+    HostError, LegacyMigration, LegacySecretsView, PluginHost, PluginInfo, PluginsOverview,
+    ScanReport,
+};
 pub use log::LogEntry;
 pub use sandbox::Limits;
 
 /// Protocol (ABI) version between host and module.
 pub const ABI_VERSION: u32 = 1;
 /// SDK version this host understands.
-pub const SDK_VERSION: &str = "0.2.0";
+pub const SDK_VERSION: &str = "0.2.1";
 
 /// Environment variable with extra plugin folders (path list), for development.
 pub const PLUGINS_ENV: &str = "LAUNCHDECK_PLUGINS";

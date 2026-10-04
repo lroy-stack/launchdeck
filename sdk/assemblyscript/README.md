@@ -1,6 +1,6 @@
 # @launchdeck/plugin-sdk (AssemblyScript)
 
-Write a LaunchDeck plugin as a few TypeScript-like functions. Implements protocol (ABI) 1, SDK version 0.2.0.
+Write a LaunchDeck plugin as a few TypeScript-like functions. Implements protocol (ABI) 1, SDK version 0.2.1.
 
 ```ts
 import { action, ok, publish, Json, Call, Reply } from "@launchdeck/plugin-sdk/assembly";

@@ -131,7 +131,7 @@ Three scopes, never mixed: a **setting** (the server's URL; `plugins.json`; give
 
 * Schema 4 adds `"secrets": [{ "key", "label", "description", "host" }]`. `host` is one of the plugin's network hosts: the only origin the secret is ever sent to.
 * The plugin names a secret (`auth: { secret: "token", scheme: "bearer" }`); the broker adds `Authorization: Bearer …` when the request goes to that origin with a grant. The value never enters WebAssembly memory.
-* `SecretStore` (get, set, delete) has three implementations: the operating system's credential store through `keyring` (Keychain, Credential Manager, Secret Service); a private file (`secrets.json`, 0600) when the system has no credential store, said plainly in the UI; and an in-memory one for tests.
+* `SecretStore` (get, set, delete) has three implementations: the operating system's credential store through `keyring` (Keychain, Credential Manager, Secret Service); none at all when the system has no credential store, said plainly in the UI; and an in-memory one for tests. (The first version of this plan fell back to a private file, `secrets.json`. That was removed: see `docs/security/secrets.md`.)
 * A schema 4 manifest may not mark a `config` field `secret`. Older manifests keep working as before.
 * Not written anywhere: the value in logs, events, snapshots, the workspace or the audit trail. Logs name the method, the origin and the path, never the query, the headers or the bodies.
 
@@ -151,7 +151,7 @@ Nothing in LaunchDeck knows the plugin's id.
 | Protocol | ABI 1, unchanged: two optional imports, one optional request. |
 | SDK | 0.2.0: `http`, `onRefresh`. |
 | Workspace | Schema 4, unchanged. |
-| New files | `permissions.json`, and `secrets.json` only without a credential store. |
+| New files | `permissions.json`. |
 
 ## 13. Tests
 

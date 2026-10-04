@@ -32,7 +32,7 @@ use super::capabilities::{
     reach_allows, reach_of_ip, Decision, Grants, NetworkRequest, Origin, OriginError, Reach,
 };
 use super::log::{clean_line, Level, PluginLog};
-use super::secrets::{SecretRef, SecretStore};
+use super::secrets::{SecretError, SecretRef, SecretStore};
 use crate::events::now_ms;
 
 pub const MAX_REQUEST_BODY: usize = 256 * 1024;
@@ -107,6 +107,9 @@ pub mod code {
     pub const TOO_MANY_REDIRECTS: &str = "too_many_redirects";
     pub const RATE_LIMITED: &str = "rate_limited";
     pub const SECRET_MISSING: &str = "secret_missing";
+    /// The secret may exist, but the credential store cannot be read: there is
+    /// none on this system, or it is locked.
+    pub const SECRET_UNAVAILABLE: &str = "secret_unavailable";
     pub const INVALID_RESPONSE: &str = "invalid_response";
 }
 
@@ -411,9 +414,17 @@ impl Broker {
                         format!("the secret `{key}` is not set; enter it in Plugins"),
                     ))
                 }
+                // The store exists and did not answer (locked, for example), or
+                // there is none. Either way the request does not go out without it.
+                Err(SecretError::Unavailable) => {
+                    return Err(NetError::new(
+                        code::SECRET_UNAVAILABLE,
+                        format!("the secret `{key}` cannot be used: this system has no secure credential store. See Plugins"),
+                    ))
+                }
                 Err(e) => {
                     return Err(NetError::new(
-                        code::SECRET_MISSING,
+                        code::SECRET_UNAVAILABLE,
                         format!("the secret `{key}` could not be read: {e}"),
                     ))
                 }
@@ -1519,6 +1530,57 @@ mod tests {
         rig.store.delete(&SecretRef::new(PLUGIN, "token")).unwrap();
         assert_eq!(refused(ask(&rig, with_auth)).code, code::SECRET_MISSING);
         assert_eq!(server.hits(), 1);
+    }
+
+    #[test]
+    fn without_a_credential_store_an_authenticated_request_is_not_sent() {
+        use crate::plugins::external::secrets::UnavailableStore;
+        let server = hello();
+        let origin = Origin::of(&server.origin()).unwrap();
+        let grants = Arc::new(Grants::new(None, None));
+        grants
+            .decide(PLUGIN, &origin, Some(Decision::Granted))
+            .unwrap();
+        let mut secrets = HashMap::new();
+        secrets.insert(
+            "token".to_string(),
+            SecretBinding {
+                origin: Some(origin.clone()),
+            },
+        );
+        let broker = Broker::new(
+            PLUGIN,
+            NetworkRequest {
+                purpose: "Testing.".into(),
+                hosts: vec![RequestedHost {
+                    origin,
+                    source: HostSource::Declared,
+                }],
+                unresolved: vec![],
+            },
+            secrets,
+            grants,
+            Arc::new(UnavailableStore::new("none here")),
+            Arc::new(PluginLog::new(PLUGIN)),
+        );
+        let ask = |v: serde_json::Value| broker.run(v.to_string().as_bytes(), ROOMY);
+        let e =
+            ask(json!({ "method": "GET", "url": server.url("/"), "auth": { "secret": "token" } }))
+                .unwrap_err();
+        assert_eq!(e.code, code::SECRET_UNAVAILABLE);
+        assert!(
+            e.message.contains("no secure credential store"),
+            "{}",
+            e.message
+        );
+        assert_eq!(server.hits(), 0, "it did not go out without its credential");
+        // A request that needs no secret is not affected.
+        assert_eq!(
+            ask(json!({ "method": "GET", "url": server.url("/") }))
+                .unwrap()
+                .status,
+            200
+        );
     }
 
     #[test]

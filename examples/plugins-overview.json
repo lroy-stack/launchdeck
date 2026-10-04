@@ -8,6 +8,18 @@
       "error": "invalid manifest: `schemaVersion` is required"
     }
   ],
+  "legacySecrets": {
+    "entries": [
+      {
+        "key": "token",
+        "plugin": "example.home-assistant-unset",
+        "pluginName": "Home Assistant (not set up)",
+        "source": "file"
+      }
+    ],
+    "file": "<data>/secrets.json",
+    "unreadable": false
+  },
   "plugins": [
     {
       "config": [],
@@ -262,7 +274,7 @@
       "network": {
         "hosts": [
           {
-            "decidedAt": 1791144530770,
+            "decidedAt": 1791148870960,
             "origin": "http://192.168.1.20:8123",
             "reach": "local",
             "source": {
@@ -451,7 +463,7 @@
         ]
       },
       "networkFailure": {
-        "at": 1791144531709,
+        "at": 1791148871733,
         "code": "invalid_request",
         "message": "`homeassistant/api/states/light.kitchen` is not a URL"
       },
@@ -595,5 +607,10 @@
         }
       ]
     }
-  ]
+  ],
+  "secretStore": {
+    "available": true,
+    "kind": "memory",
+    "name": "memory"
+  }
 }

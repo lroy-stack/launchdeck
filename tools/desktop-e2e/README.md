@@ -13,6 +13,7 @@ They are slow (minutes), need a Linux desktop stack, and are **not** part of `np
 | `WebKitWebDriver` | The web view's own driver | Debian/Ubuntu: `apt install webkit2gtk-driver` |
 | `Xvfb` | A display when there is none | `apt install xvfb` |
 | Python 3.9+ | Runs the steps. Standard library only. | |
+| `dbus-run-session`, `gnome-keyring-daemon` | A real credential store for the suites that keep a secret (`home_assistant`, `secrets`) | `apt install dbus gnome-keyring` |
 
 Linux only: `tauri-driver` has no macOS support, and on Windows it needs a different native driver that this harness does not set up.
 
@@ -41,16 +42,18 @@ python3 tools/desktop-e2e/run.py feedback --display :0       # in a window you c
 
 ## What a run touches
 
-Everything a run writes is in `tools/desktop-e2e/.work/` (ignored by git), and nothing outside the repository:
+Everything a run keeps is in `tools/desktop-e2e/.work/` (ignored by git). The one thing outside the repository is the private session's runtime folder (its sockets), which a run that uses a credential store creates in the system's temporary folder and deletes when it ends:
 
 | Folder | Holds |
 | --- | --- |
-| `data/`, `cache/` | The app's data folder (`XDG_DATA_HOME`, `XDG_CACHE_HOME`): workspace, settings, grants. Emptied at the start of a suite. |
+| `data/`, `cache/` | The app's data folder (`XDG_DATA_HOME`, `XDG_CACHE_HOME`): workspace, settings, grants, and the run's own keyring. Emptied at the start of a suite. |
 | `plugins/` | The plugins the suite installs, copied from `examples/plugins` (`LAUNCHDECK_PLUGINS`). |
 | `shots/` | Screenshots, named `<suite>-<step>-<name>.png`. A step that cannot go on leaves `…-failed.png`. |
 | `logs/` | Output of Xvfb, the driver and the app. |
 
-The run starts its own Xvfb on a free display and its own driver on free ports, and stops them when it ends. Your own LaunchDeck data is never read. Two things are shared with the machine: the app's WebSocket port (47821), so close a LaunchDeck that is running, and port 1420 for `--app debug`. The `home_assistant` suite also listens on one free loopback port for its stand-in server.
+The run starts its own Xvfb on a free display and its own driver on free ports, and stops them when it ends. Your own LaunchDeck data is never read.
+
+**Your keychain is never touched.** A suite (`KEYRING = True`) or a single step (`step.keyring = True`) that needs a credential store gets the app started inside a private D-Bus session with a GNOME Keyring unlocked by a throwaway password, whose files live under `.work/data/keyrings`. Every other launch has no session bus at all, so the app finds no credential store, which is how the unavailable state is tested. Two things are shared with the machine: the app's WebSocket port (47821), so close a LaunchDeck that is running, and port 1420 for `--app debug`. The `home_assistant` suite also listens on one free loopback port for its stand-in server.
 
 ## How it is laid out
 
@@ -93,5 +96,6 @@ def live(d):
 
 | Suite | What it covers |
 | --- | --- |
-| `home_assistant` | Plugin capabilities with the Home Assistant example and a stand-in server (`lib/mock_home_assistant.py`, on a loopback port): the permission prompt with the exact address and how far it reaches, an address that comes from a setting, Deny, Allow and Revoke and what `permissions.json` and `audit.jsonl` hold afterwards, entering and removing the token and proof that it is in the secret store and in no other file or log, a pad that goes Off, Pending, On against the server, a change made on the server arriving by itself, a revoked grant (the Failed look, no request reaching the server, the reason on the card) and recovery. The run sets `LAUNCHDECK_SECRET_STORE=file`, so it never writes to a keychain. |
+| `home_assistant` | Plugin capabilities with the Home Assistant example and a stand-in server (`lib/mock_home_assistant.py`, on a loopback port): the permission prompt with the exact address and how far it reaches, an address that comes from a setting, Deny, Allow and Revoke and what `permissions.json` and `audit.jsonl` hold afterwards, entering and removing the token and proof that it is in the secret store and in no other file or log, a pad that goes Off, Pending, On against the server, a change made on the server arriving by itself, a revoked grant (the Failed look, no request reaching the server, the reason on the card) and recovery. Runs with a real credential store of its own (see below). |
+| `secrets` | Where a secret may be kept. Without a credential store: the Secrets section says Unavailable and why, nothing can be typed, a press that needs the secret sends nothing, and no file is written. A plain `secrets.json` such as an earlier version left behind: reported by name, not used, untouched. Then with a real credential store: still not used until **Move** is pressed, after which it is in the keyring, the file is gone, the token is readable in no file, and the pad works; and after a restart it still does. |
 | `feedback` | The feedback editor with the Counter and Channels plugins: authoring from an empty pad, saving, the virtual Launchpad following a state, a plugin turned off and on and taken away, an event's temporary look, scoped states, reordering by button and by Alt+arrows, and the whole authoring again with the keyboard only (which also covers the grid's arrow-key navigation). |

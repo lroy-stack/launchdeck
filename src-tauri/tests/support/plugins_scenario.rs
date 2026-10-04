@@ -2,8 +2,8 @@
 //! healthy, one with a secret setting, one that failed to load, one folder
 //! that is not a plugin, and two copies of the Home Assistant example: one
 //! set up (an address, a grant, a token, and a decision left over from the
-//! address it had before), one whose address is not usable and whose last
-//! request was refused. Shared by the `dump_plugins` example and the contract
+//! address it had before), one whose address is not usable, whose last
+//! request was refused and whose token an earlier version left in a plain file. Shared by the `dump_plugins` example and the contract
 //! test, so the TypeScript schemas are checked against what Rust emits.
 
 use std::fs;
@@ -80,6 +80,14 @@ pub fn capture() -> Value {
     unset["id"] = json!("example.home-assistant-unset");
     unset["name"] = json!("Home Assistant (not set up)");
     fs::write(&unset_path, serde_json::to_string_pretty(&unset).unwrap()).unwrap();
+
+    // What an earlier version left behind when the system had no credential
+    // store: a plain file. It is listed, by name only, and not used.
+    fs::write(
+        root.path().join("secrets.json"),
+        r#"{"schemaVersion":1,"secrets":{"example.home-assistant-unset":{"token":"a-token-from-the-plain-file-era"}}}"#,
+    )
+    .unwrap();
 
     let host = PluginHost::new(
         vec![plugins.clone()],

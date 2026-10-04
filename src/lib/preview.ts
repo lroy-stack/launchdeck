@@ -291,7 +291,13 @@ export async function createPreviewTransport() {
       case "agents_demo":
         return undefined;
       case "plugins_list":
-        return { plugins: [], issues: [], folders: [] };
+        return {
+          plugins: [],
+          issues: [],
+          folders: [],
+          secretStore: { kind: "memory", available: true, name: "memory" },
+          legacySecrets: { entries: [], unreadable: false },
+        };
       case "plugins_logs":
         return [];
       case "plugins_set_enabled":
@@ -301,6 +307,8 @@ export async function createPreviewTransport() {
       case "plugins_set_permission":
       case "plugins_set_secret":
       case "plugins_clear_secret":
+      case "plugins_migrate_legacy_secrets":
+      case "plugins_discard_legacy_secrets":
         throw PLUGINS_IN_PREVIEW;
       case "agents_command":
       case "agents_set_access":

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/ipc";
-import type { PluginConfig, PluginInfo, PluginLog, PluginManifest, PluginsOverview } from "../../lib/schema";
+import type { PluginConfig, PluginInfo, PluginLog, PluginManifest, PluginsOverview, SecretStoreStatus } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
-import { NetworkAccess, Secrets } from "./Access";
+import { LegacySecretsNotice, NetworkAccess, Secrets } from "./Access";
 
 const PERMISSION_NOTES: Record<string, string> = {
   automation: "Sends keystrokes and opens apps on your behalf.",
@@ -99,9 +99,11 @@ export function PluginsView() {
         {overview && installed.length === 0 && overview.issues.length === 0 && <p className="hint">Nothing installed yet. See docs/plugin-sdk/getting-started.md.</p>}
       </section>
 
+      {overview && <LegacySecretsNotice overview={overview} change={change} />}
+
       <div className="cards wide">
         {installed.map((info) => (
-          <InstalledCard key={info.plugin.id} info={info} change={change} />
+          <InstalledCard key={info.plugin.id} info={info} store={overview?.secretStore ?? NO_STORE} change={change} />
         ))}
         {bundled.map((p) => (
           <article key={p.id} className="card plugin">
@@ -177,7 +179,10 @@ function StateList({ plugin }: { plugin: PluginManifest }) {
   );
 }
 
-function InstalledCard({ info, change }: { info: PluginInfo; change: (fn: () => Promise<unknown>) => Promise<boolean> }) {
+/** Until the host has answered, nothing is said to be available. */
+const NO_STORE: SecretStoreStatus = { kind: "unavailable", available: false, name: "", reason: "" };
+
+function InstalledCard({ info, store, change }: { info: PluginInfo; store: SecretStoreStatus; change: (fn: () => Promise<unknown>) => Promise<boolean> }) {
   const p = info.plugin;
   const ext = p.external;
   const status = ext?.status ?? "disabled";
@@ -250,7 +255,7 @@ function InstalledCard({ info, change }: { info: PluginInfo; change: (fn: () => 
           ))}
         </>
       )}
-      <Secrets info={info} change={change} />
+      <Secrets info={info} store={store} change={change} />
       {logs && <LogView logs={logs} />}
     </article>
   );
@@ -279,6 +284,12 @@ function ConfigField({ pluginId, item, change }: { pluginId: string; item: Plugi
         {item.label !== item.key ? <b>{item.label}</b> : <code>{item.key}</code>} {item.description}
         {item.secret && <> ({item.isSet ? "set" : "not set"}, never shown)</>}
       </span>
+      {item.secret && (
+        <small className="hint warn" role="note">
+          An older kind of secret: this plugin was written before LaunchDeck kept secrets in the system's credential store. The value is stored on this computer
+          without encryption and is handed to the plugin. It keeps working as it did.
+        </small>
+      )}
       {item.type === "boolean" ? (
         <input type="checkbox" checked={item.value === true} onChange={(e) => save(e.target.checked)} />
       ) : (

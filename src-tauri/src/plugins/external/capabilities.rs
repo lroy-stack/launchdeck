@@ -712,6 +712,12 @@ impl Grants {
         Ok(())
     }
 
+    /// Add a security event about plugins that is not a permission decision
+    /// (plain secrets moved into the credential store, for example).
+    pub fn record(&self, entry: AuditEntry) {
+        self.lock().audit.record(entry);
+    }
+
     /// Security events recorded since this process started, newest last.
     pub fn recent_audit(&self, limit: usize) -> Vec<AuditEntry> {
         self.lock().audit.recent(limit)
