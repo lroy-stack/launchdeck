@@ -1,6 +1,6 @@
 {
   "name": "@launchdeck/plugin-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Write LaunchDeck plugins in AssemblyScript. Protocol (ABI) 1.",
   "license": "MIT",
   "type": "module",

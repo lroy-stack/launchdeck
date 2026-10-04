@@ -72,7 +72,7 @@ export function indexCatalog(catalog: Catalog): CatalogIndex {
   return { catalog, byId, providers, entries };
 }
 
-export const emptyIndex: CatalogIndex = indexCatalog({ providers: [], actions: [], observables: [], issues: [] });
+export const emptyIndex: CatalogIndex = indexCatalog({ providers: [], actions: [], issues: [] });
 
 export const sourceOf = (index: CatalogIndex, def: ActionDefinition): string => sourceLabel(index.providers.get(def.provider), def.provider);
 

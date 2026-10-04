@@ -6,7 +6,10 @@
 //! touching anything else.
 //!
 //! What a module can do is exactly what is linked here and nothing else:
-//! `launchdeck.log`, `launchdeck.publish` and `launchdeck.respond`. No WASI, so
+//! `launchdeck.log`, `launchdeck.publish` and `launchdeck.respond`. `publish`
+//! carries two kinds of message, an event (`{"type": ...}`) and a state
+//! (`{"state": ...}`); there is no fourth function, so the protocol is still
+//! ABI 1. No WASI, so
 //! no files, clock, random, environment, sockets or processes exist inside.
 //! A module that imports anything else does not load.
 //!
@@ -27,6 +30,7 @@ use wasmtime::{
 
 use super::log::{clean_line, Level, Origin, PluginLog, MAX_LINE_BYTES};
 use crate::events::external::valid_ident;
+use crate::state::definition::Write;
 
 /// Namespace of the host functions a module may import.
 pub const HOST_MODULE: &str = "launchdeck";
@@ -36,6 +40,11 @@ pub const MAX_REQUEST_BYTES: usize = 64 * 1024;
 pub const MAX_RESPONSE_BYTES: usize = 64 * 1024;
 pub const MAX_EVENT_BYTES: usize = 16 * 1024;
 pub const MAX_EVENTS_PER_CALL: usize = 32;
+/// A state message is a name, a few arguments and one scalar.
+pub const MAX_STATE_BYTES: usize = 2 * 1024;
+/// Distinct state instances one call may write. The hub bounds what a plugin
+/// holds; this bounds what one call can ask for.
+pub const MAX_STATES_PER_CALL: usize = 64;
 pub const MAX_LOG_LINES_PER_CALL: u32 = 50;
 
 /// Codes `launchdeck.publish` returns to the module.
@@ -44,7 +53,38 @@ pub mod publish_code {
     pub const MALFORMED: i32 = 1;
     pub const TOO_LARGE: i32 = 2;
     pub const TOO_MANY: i32 = 3;
+    /// An event type or a state the manifest does not declare.
     pub const NOT_ALLOWED: i32 = 4;
+    /// A declared state, but the arguments or the value do not fit its
+    /// declaration (wrong type, an enum value it does not list, a scope it
+    /// does not have).
+    pub const INVALID: i32 = 5;
+}
+
+/// Why a state write was not accepted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Refusal {
+    /// The manifest declares no such state.
+    NotDeclared,
+    /// It does, and the write does not fit it.
+    Invalid(String),
+}
+
+/// Decides whether a state write is allowed. The sandbox does not know what a
+/// manifest is; whoever loads the module hands it the one thing it needs, which
+/// is a way to ask "may this module write this state, and what is its
+/// canonical address and value?".
+pub trait StateGate: Send + Sync {
+    fn check(&self, id: &str, args: &Value, value: Option<&Value>) -> Result<Write, Refusal>;
+}
+
+/// A gate that declares nothing: every state write is refused.
+pub struct NoStates;
+
+impl StateGate for NoStates {
+    fn check(&self, _: &str, _: &Value, _: Option<&Value>) -> Result<Write, Refusal> {
+        Err(Refusal::NotDeclared)
+    }
 }
 
 /// How often the epoch advances. Wall-clock deadlines have this resolution.
@@ -83,6 +123,10 @@ pub struct PendingEvent {
 pub struct CallOutput {
     pub response: Vec<u8>,
     pub events: Vec<PendingEvent>,
+    /// States the module asked to write, checked against the manifest and
+    /// merged so each instance appears once with its last value. Applied by the
+    /// caller only if the call ends well.
+    pub states: Vec<Write>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -98,6 +142,7 @@ pub enum CallError {
 #[derive(Default)]
 struct CallState {
     events: Vec<PendingEvent>,
+    states: Vec<Write>,
     response: Option<Vec<u8>>,
     violation: Option<String>,
     log_lines: u32,
@@ -108,6 +153,7 @@ struct HostState {
     limits: StoreLimits,
     log: Arc<PluginLog>,
     declared_events: Arc<HashSet<String>>,
+    gate: Arc<dyn StateGate>,
     call: CallState,
 }
 
@@ -264,6 +310,8 @@ fn reject_publish(state: &HostState, code: i32, why: &str) -> wasmtime::Result<i
 
 fn host_publish(mut caller: Caller<'_, HostState>, ptr: i32, len: i32) -> wasmtime::Result<i32> {
     use publish_code::*;
+    // Both kinds of message are small; the larger bound applies to events, the
+    // smaller one to a state, once we know which one this is.
     if len as u32 as usize > MAX_EVENT_BYTES {
         return reject_publish(
             caller.data(),
@@ -271,18 +319,34 @@ fn host_publish(mut caller: Caller<'_, HostState>, ptr: i32, len: i32) -> wasmti
             &format!("larger than {MAX_EVENT_BYTES} bytes"),
         );
     }
-    if caller.data().call.events.len() >= MAX_EVENTS_PER_CALL {
-        return reject_publish(
-            caller.data(),
-            TOO_MANY,
-            &format!("more than {MAX_EVENTS_PER_CALL} events in one call"),
-        );
-    }
     let bytes = read_guest(&mut caller, ptr, len, "publish")?;
     let state = caller.data_mut();
     let Ok(Value::Object(mut obj)) = serde_json::from_slice::<Value>(&bytes) else {
         return reject_publish(state, MALFORMED, "not a JSON object");
     };
+    match (obj.contains_key("type"), obj.contains_key("state")) {
+        (true, true) => reject_publish(
+            state,
+            MALFORMED,
+            "a message is an event (`type`) or a state (`state`), not both",
+        ),
+        (false, true) => publish_state(state, obj, bytes.len()),
+        _ => publish_event(state, &mut obj),
+    }
+}
+
+fn publish_event(
+    state: &mut HostState,
+    obj: &mut serde_json::Map<String, Value>,
+) -> wasmtime::Result<i32> {
+    use publish_code::*;
+    if state.call.events.len() >= MAX_EVENTS_PER_CALL {
+        return reject_publish(
+            state,
+            TOO_MANY,
+            &format!("more than {MAX_EVENTS_PER_CALL} events in one call"),
+        );
+    }
     // Anything the module says about the source is ignored: the host decides it.
     let Some(Value::String(kind)) = obj.remove("type") else {
         return reject_publish(state, MALFORMED, "missing string `type`");
@@ -300,6 +364,96 @@ fn host_publish(mut caller: Caller<'_, HostState>, ptr: i32, len: i32) -> wasmti
     let payload = obj.remove("payload").unwrap_or(Value::Null);
     state.call.events.push(PendingEvent { kind, payload });
     Ok(ACCEPTED)
+}
+
+/// `{"state": "level", "args": {...}, "value": "high"}` sets one state;
+/// `{"state": "level", "args": {...}, "clear": true}` says it has no value now.
+/// The provider is never in the message: it is the plugin, always.
+fn publish_state(
+    state: &mut HostState,
+    mut obj: serde_json::Map<String, Value>,
+    size: usize,
+) -> wasmtime::Result<i32> {
+    use publish_code::*;
+    if size > MAX_STATE_BYTES {
+        return reject_state(
+            state,
+            TOO_LARGE,
+            &format!("a state message is larger than {MAX_STATE_BYTES} bytes"),
+        );
+    }
+    let Some(Value::String(id)) = obj.remove("state") else {
+        return reject_state(state, MALFORMED, "`state` must be a string");
+    };
+    let args = obj.remove("args").unwrap_or(Value::Null);
+    let value = obj.remove("value");
+    let clear = obj.remove("clear");
+    if let Some(extra) = obj.keys().next() {
+        return reject_state(
+            state,
+            MALFORMED,
+            &format!(
+                "unknown field `{}` (a state message has `state`, `args`, and `value` or `clear`)",
+                clean_line(extra.as_bytes())
+            ),
+        );
+    }
+    let clearing = match (&value, &clear) {
+        (Some(_), None) => false,
+        (None, Some(Value::Bool(true))) => true,
+        _ => {
+            return reject_state(
+                state,
+                MALFORMED,
+                "give either a `value` or `\"clear\": true`",
+            )
+        }
+    };
+    let write = match state
+        .gate
+        .check(&id, &args, value.as_ref().filter(|_| !clearing))
+    {
+        Ok(w) => w,
+        Err(Refusal::NotDeclared) => {
+            return reject_state(
+                state,
+                NOT_ALLOWED,
+                &format!(
+                    "state `{}` is not declared in the manifest",
+                    clean_line(id.as_bytes())
+                ),
+            )
+        }
+        Err(Refusal::Invalid(why)) => {
+            return reject_state(state, INVALID, &clean_line(why.as_bytes()))
+        }
+    };
+    // One instance is one entry: the last write of this call wins.
+    let key = write.address.key();
+    let slot = state
+        .call
+        .states
+        .iter()
+        .position(|w| w.address.key() == key);
+    match slot {
+        Some(at) => state.call.states[at] = write,
+        None if state.call.states.len() >= MAX_STATES_PER_CALL => {
+            return reject_state(
+                state,
+                TOO_MANY,
+                &format!("more than {MAX_STATES_PER_CALL} states in one call"),
+            )
+        }
+        None => state.call.states.push(write),
+    }
+    Ok(ACCEPTED)
+}
+
+fn reject_state(state: &HostState, code: i32, why: &str) -> wasmtime::Result<i32> {
+    state
+        .log
+        .host(Level::Warn, &format!("state rejected: {why}"));
+    Ok(code)
 }
 
 fn host_respond(mut caller: Caller<'_, HostState>, ptr: i32, len: i32) -> wasmtime::Result<()> {
@@ -346,6 +500,7 @@ impl Sandbox {
         wasm: &[u8],
         abi: u32,
         declared_events: Arc<HashSet<String>>,
+        gate: Arc<dyn StateGate>,
         log: Arc<PluginLog>,
         limits: &Limits,
     ) -> Result<Sandbox, String> {
@@ -387,6 +542,7 @@ impl Sandbox {
                 .build(),
             log,
             declared_events,
+            gate,
             call: CallState::default(),
         };
         let mut store = Store::new(engine, state);
@@ -473,6 +629,7 @@ impl Sandbox {
             Some(response) => Ok(CallOutput {
                 response,
                 events: call.events,
+                states: call.states,
             }),
             None => Err(CallError::Rejected("returned without a response".into())),
         }

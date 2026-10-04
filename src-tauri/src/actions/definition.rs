@@ -13,7 +13,6 @@ use serde_json::{Map, Value};
 
 use super::params::ParamDef;
 use crate::core::model::Rgb;
-use crate::state::ObservableDefinition;
 
 /// One problem found while checking an assignment. Names the parameter when
 /// the problem is about a single field, so a form can mark it.
@@ -194,6 +193,11 @@ pub struct ActionDefinition {
     pub privileged: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub appearance: Option<Appearance>,
+    /// Ids (`provider.local`) of the observables a control for this action
+    /// usually shows, from the Observable Catalog. A hint for the editor; it
+    /// makes nothing happen and is empty for most actions.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub suggests: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -215,10 +219,6 @@ pub struct ProviderInfo {
 pub struct Catalog {
     pub providers: Vec<ProviderInfo>,
     pub actions: Vec<ActionDefinition>,
-    /// What a control can observe: states (and events) offered by providers.
-    /// Definitions only; the values are in the state hub and change far more
-    /// often than the catalog does.
-    pub observables: Vec<ObservableDefinition>,
     /// Definitions that were left out and why (a duplicate id, a bad schema).
     pub issues: Vec<String>,
 }

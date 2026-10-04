@@ -16,11 +16,18 @@ use crate::actions::definition::Appearance;
 use crate::actions::params::{normalize, validate_defs, ParamDef};
 use crate::events::external::valid_ident;
 use crate::plugins::ActionError;
+use crate::state::address::valid_ident as valid_state_id;
+use crate::state::definition::{
+    observable_id, EventField, ObservableDefinition, ObservableKind, ValueOption, ValueSpec,
+    ValueType, MAX_LABEL,
+};
+use crate::state::hub::MAX_STATES_PER_PROVIDER;
 
 pub const MANIFEST_FILE: &str = "plugin.json";
-/// The newest manifest schema this host reads. Schema 1 is still read: its
-/// `args` become parameters, and the host needs no change to the module.
-pub const MANIFEST_SCHEMA: u32 = 2;
+/// The newest manifest schema this host reads. Schemas 1 and 2 are still read:
+/// schema 1 `args` become parameters, and schema 2 plugins simply declare no
+/// states. The module and the protocol (ABI 1) are the same for all three.
+pub const MANIFEST_SCHEMA: u32 = 3;
 const OLDEST_SCHEMA: u32 = 1;
 const MAX_KEYWORDS: usize = 12;
 pub const MAX_MANIFEST_BYTES: usize = 64 * 1024;
@@ -28,6 +35,8 @@ pub const MAX_MANIFEST_BYTES: usize = 64 * 1024;
 const MAX_ACTIONS: usize = 64;
 const MAX_ARGS: usize = 16;
 const MAX_EVENTS: usize = 64;
+/// Observables one action may point at as "what a pad for this action usually shows".
+const MAX_SUGGESTS: usize = 8;
 const MAX_CONFIG: usize = 32;
 const MAX_TEXT: usize = 280;
 
@@ -173,6 +182,11 @@ pub struct ManifestAction {
     /// The settings of the action. Schema 1 `args` end up here too.
     #[serde(default)]
     pub params: Vec<ParamDef>,
+    // Schema 3.
+    /// Ids of the states or events of this plugin that a pad running this
+    /// action usually shows. A hint for the editor; it makes nothing happen.
+    #[serde(default)]
+    pub suggests: Vec<String>,
 }
 
 impl ManifestAction {
@@ -191,13 +205,51 @@ impl ManifestAction {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ManifestEvent {
     #[serde(rename = "type")]
     pub kind: String,
     #[serde(default)]
     pub description: String,
+    // Schema 3.
+    /// The name a person sees. The type when absent.
+    #[serde(default)]
+    pub name: Option<String>,
+    /// The payload fields a rule may test, with their types.
+    #[serde(default)]
+    pub fields: Vec<EventField>,
+}
+
+/// A state the plugin lets a pad observe (schema 3). It is the same thing as an
+/// [`ObservableDefinition`] of the hub, written the way a manifest author
+/// writes it: the type and its values at the top, the provider implied.
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ManifestState {
+    /// Local id: lowercase dotted (`level`, `channel.status`). The provider is
+    /// this plugin, so the id other parts of LaunchDeck use is `<plugin id>.<id>`.
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    /// Group in the editor's picker. The plugin's name when absent.
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
+    pub keywords: Vec<String>,
+    /// `enum`, `boolean`, `number` or `string`. A state is one scalar; anything
+    /// with structure is an event payload, not a state.
+    #[serde(rename = "type")]
+    pub kind: ValueType,
+    /// The values of an enum (required), or words for `true` and `false`.
+    #[serde(default)]
+    pub values: Vec<ValueOption>,
+    /// What picks one instance when the state has several (`session`, `channel`).
+    /// Same vocabulary as the settings of an action; only text, number, boolean
+    /// and enum parameters are allowed.
+    #[serde(default)]
+    pub params: Vec<ParamDef>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -237,6 +289,9 @@ pub struct ExternalManifest {
     pub actions: Vec<ManifestAction>,
     #[serde(default)]
     pub events: Vec<ManifestEvent>,
+    /// Schema 3.
+    #[serde(default)]
+    pub states: Vec<ManifestState>,
     #[serde(default)]
     pub config: Vec<ConfigField>,
     /// Reserved. Must be empty in schema 1; see PLUGIN_SDK_PLAN.md section 6.
@@ -385,6 +440,8 @@ impl ExternalManifest {
         }
         self.validate_actions()?;
         self.validate_events()?;
+        self.validate_states()?;
+        self.validate_suggests()?;
         self.validate_config()
     }
 
@@ -408,6 +465,12 @@ impl ExternalManifest {
             }
             if !valid_text(&a.description) {
                 return invalid(format!("action \"{}\" description is too long", a.id));
+            }
+            if self.schema_version < 3 && !a.suggests.is_empty() {
+                return invalid(format!(
+                    "action \"{}\" uses `suggests`, which needs \"schemaVersion\": 3",
+                    a.id
+                ));
             }
             if self.schema_version == 1 {
                 if a.category.is_some()
@@ -494,6 +557,86 @@ impl ExternalManifest {
             if !valid_text(&e.description) {
                 return invalid(format!("event \"{}\" description is too long", e.kind));
             }
+            if self.schema_version < 3 && (e.name.is_some() || !e.fields.is_empty()) {
+                return invalid(format!(
+                    "event \"{}\" uses `name` or `fields`, which need \"schemaVersion\": 3",
+                    e.kind
+                ));
+            }
+            if e.name.as_deref().is_some_and(|n| !valid_name(n)) {
+                return invalid(format!("event \"{}\" has an invalid name", e.kind));
+            }
+            // What the catalog will list must be well formed, so the manifest and
+            // the catalog can never disagree about it.
+            self.event_definition(e)
+                .check()
+                .map_err(|why| ManifestError::Invalid(format!("event \"{}\": {why}", e.kind)))?;
+        }
+        Ok(())
+    }
+
+    fn validate_states(&self) -> Result<(), ManifestError> {
+        if self.schema_version < 3 {
+            if !self.states.is_empty() {
+                return invalid("`states` needs \"schemaVersion\": 3");
+            }
+            return Ok(());
+        }
+        if self.states.len() > MAX_STATES_PER_PROVIDER {
+            return invalid(format!("more than {MAX_STATES_PER_PROVIDER} states"));
+        }
+        let mut seen = HashSet::new();
+        for s in &self.states {
+            if !valid_state_id(&s.id) {
+                return invalid(format!(
+                    "state id \"{}\" must be lowercase letters, digits and `-` in dotted parts, for example \"level\" or \"channel.status\"",
+                    s.id
+                ));
+            }
+            if !seen.insert(s.id.as_str()) {
+                return invalid(format!("state \"{}\" is declared twice", s.id));
+            }
+            if self.events.iter().any(|e| e.kind == s.id) {
+                return invalid(format!(
+                    "\"{}\" is declared as a state and as an event; a state is how things are now, an event is something that happened, so they need different ids",
+                    s.id
+                ));
+            }
+            if s.category
+                .as_deref()
+                .is_some_and(|c| !valid_name(c) || c.chars().count() > MAX_LABEL)
+            {
+                return invalid(format!("state \"{}\" has an invalid category", s.id));
+            }
+            self.state_definition(s)
+                .check()
+                .map_err(|why| ManifestError::Invalid(format!("state \"{}\": {why}", s.id)))?;
+        }
+        Ok(())
+    }
+
+    fn validate_suggests(&self) -> Result<(), ManifestError> {
+        for a in &self.actions {
+            if a.suggests.len() > MAX_SUGGESTS {
+                return invalid(format!(
+                    "action \"{}\" suggests more than {MAX_SUGGESTS} observables",
+                    a.id
+                ));
+            }
+            let mut seen = HashSet::new();
+            for target in &a.suggests {
+                let known = self.states.iter().any(|s| &s.id == target)
+                    || self.events.iter().any(|e| &e.kind == target);
+                if !known {
+                    return invalid(format!(
+                        "action \"{}\" suggests \"{target}\", which this plugin declares neither as a state nor as an event",
+                        a.id
+                    ));
+                }
+                if !seen.insert(target.as_str()) {
+                    return invalid(format!("action \"{}\" suggests \"{target}\" twice", a.id));
+                }
+            }
         }
         Ok(())
     }
@@ -543,6 +686,62 @@ impl ExternalManifest {
             }
             a.args.clear();
         }
+    }
+
+    /// The group a state or event is listed under when it names none: the
+    /// plugin's name, cut to what a category may hold.
+    fn default_category(&self) -> String {
+        self.name.trim().chars().take(MAX_LABEL).collect()
+    }
+
+    fn state_definition(&self, s: &ManifestState) -> ObservableDefinition {
+        ObservableDefinition {
+            id: observable_id(&self.id, &s.id),
+            provider: self.id.clone(),
+            local: s.id.clone(),
+            kind: ObservableKind::State,
+            name: s.name.clone(),
+            description: s.description.clone(),
+            category: s
+                .category
+                .clone()
+                .unwrap_or_else(|| self.default_category()),
+            keywords: s.keywords.clone(),
+            params: s.params.clone(),
+            value: Some(ValueSpec {
+                kind: s.kind,
+                values: s.values.clone(),
+            }),
+            fields: Vec::new(),
+        }
+    }
+
+    fn event_definition(&self, e: &ManifestEvent) -> ObservableDefinition {
+        let mut def = ObservableDefinition::event(
+            &self.id,
+            &e.kind,
+            e.name.as_deref().unwrap_or(&e.kind),
+            &e.description,
+        )
+        .category(&self.default_category());
+        def.fields = e.fields.clone();
+        def
+    }
+
+    /// The states this plugin declares, as the hub takes them.
+    pub fn state_definitions(&self) -> Vec<ObservableDefinition> {
+        self.states
+            .iter()
+            .map(|s| self.state_definition(s))
+            .collect()
+    }
+
+    /// Everything a pad can observe from this plugin: its states and its
+    /// events. They are different things and stay different in the catalog.
+    pub fn observables(&self) -> Vec<ObservableDefinition> {
+        let mut out = self.state_definitions();
+        out.extend(self.events.iter().map(|e| self.event_definition(e)));
+        out
     }
 
     pub fn action(&self, id: &str) -> Option<&ManifestAction> {
@@ -635,7 +834,7 @@ mod tests {
     #[test]
     fn schema_version_is_checked_before_anything_else() {
         let mut v = base();
-        v["schemaVersion"] = json!(3);
+        v["schemaVersion"] = json!(4);
         v["someFutureField"] = json!(true);
         assert!(matches!(
             parse(&v),
@@ -905,5 +1104,382 @@ mod tests {
         assert!(Version::plugin_sdk_ok(v("1.0.0"), v("2.0.0")));
         assert!(!Version::plugin_sdk_ok(v("2.0.0"), v("1.9.0")));
         assert!(Version::plugin_sdk_ok(v("1.3.0"), v("1.1.0")));
+    }
+
+    // ---- schema 3: states, event fields, suggestions ----------------------
+
+    fn v3() -> Value {
+        json!({
+            "schemaVersion": 3,
+            "id": "example.counter",
+            "name": "Counter",
+            "version": "1.0.0",
+            "author": "Acme",
+            "abi": 1,
+            "sdk": "0.1.0",
+            "main": "counter.wasm",
+            "actions": [{ "id": "counter.increment", "label": "Increment",
+                          "suggests": ["level"] }],
+            "events": [{ "type": "counter.changed", "name": "Counter changed",
+                         "fields": [
+                             { "name": "value", "label": "Value", "type": "number" },
+                             { "name": "level", "label": "Level", "type": "enum",
+                               "values": [{ "value": "zero", "label": "Empty" },
+                                          { "value": "high", "label": "High" }] }
+                         ] }],
+            "states": [
+                { "id": "level", "name": "Counter level", "description": "How full.",
+                  "type": "enum",
+                  "values": [
+                      { "value": "zero", "label": "Empty", "role": "inactive" },
+                      { "value": "low", "label": "Low", "role": "ok" },
+                      { "value": "high", "label": "High", "role": "warning" },
+                      { "value": "max", "label": "Full", "role": "error" }
+                  ] },
+                { "id": "channel.status", "name": "Channel status", "category": "Channels",
+                  "type": "enum",
+                  "values": [{ "value": "up", "label": "Up" }, { "value": "down", "label": "Down" }],
+                  "params": [{ "name": "channel", "label": "Channel", "type": "string",
+                               "required": true, "maxLength": 32 }] },
+                { "id": "muted", "name": "Muted", "type": "boolean",
+                  "values": [{ "value": true, "label": "Muted" }, { "value": false, "label": "Live" }] },
+                { "id": "volume", "name": "Volume", "type": "number" },
+                { "id": "title", "name": "Title", "type": "string" }
+            ]
+        })
+    }
+
+    fn v3_with(edit: impl FnOnce(&mut Value)) -> Result<ExternalManifest, ManifestError> {
+        let mut v = v3();
+        edit(&mut v);
+        parse(&v)
+    }
+
+    fn why(r: Result<ExternalManifest, ManifestError>) -> String {
+        match r {
+            Err(e) => e.to_string(),
+            Ok(_) => panic!("the manifest was accepted"),
+        }
+    }
+
+    #[test]
+    fn a_schema_3_manifest_declares_states_events_and_suggestions() {
+        let m = parse(&v3()).unwrap();
+        assert_eq!(m.states.len(), 5);
+        let defs = m.observables();
+        // States first, then events; the provider is the plugin and the id is `<plugin>.<local>`.
+        let level = defs
+            .iter()
+            .find(|d| d.id == "example.counter.level")
+            .unwrap();
+        assert_eq!(level.provider, "example.counter");
+        assert_eq!(level.kind, ObservableKind::State);
+        let spec = level.value.as_ref().unwrap();
+        assert_eq!(spec.kind, ValueType::Enum);
+        assert_eq!(spec.values.len(), 4);
+        assert_eq!(level.category, "Counter", "the plugin's name by default");
+        let channel = defs
+            .iter()
+            .find(|d| d.id == "example.counter.channel.status")
+            .unwrap();
+        assert_eq!(channel.category, "Channels");
+        assert_eq!(channel.params[0].name, "channel");
+        let event = defs
+            .iter()
+            .find(|d| d.id == "example.counter.counter.changed")
+            .unwrap();
+        assert_eq!(event.kind, ObservableKind::Event);
+        assert_eq!(event.name, "Counter changed");
+        assert_eq!(event.fields.len(), 2);
+        assert_eq!(m.actions[0].suggests, vec!["level".to_string()]);
+    }
+
+    #[test]
+    fn manifest_states_are_exactly_what_the_hub_accepts() {
+        // The agreement the milestone asks for: whatever the manifest accepts, the
+        // hub declares, and every type the core supports can be declared.
+        let m = parse(&v3()).unwrap();
+        let hub = crate::state::StateHub::new();
+        hub.declare("example.counter", m.state_definitions())
+            .unwrap();
+        for d in m.observables() {
+            d.check().unwrap();
+        }
+        let kinds: Vec<ValueType> = m
+            .state_definitions()
+            .iter()
+            .map(|d| d.value.as_ref().unwrap().kind)
+            .collect();
+        for k in [
+            ValueType::Enum,
+            ValueType::Boolean,
+            ValueType::Number,
+            ValueType::String,
+        ] {
+            assert!(kinds.contains(&k), "{k:?}");
+        }
+    }
+
+    #[test]
+    fn schema_1_and_2_manifests_still_load_and_declare_no_states() {
+        let one = parse(&base()).unwrap();
+        assert!(one.states.is_empty());
+        // Their events are still listed, under the name they have.
+        let defs = one.observables();
+        assert_eq!(defs.len(), 1);
+        assert_eq!(defs[0].id, "acme.notes.note.added");
+        assert_eq!(defs[0].name, "note.added");
+        assert!(defs[0].fields.is_empty());
+
+        let mut two = base();
+        two["schemaVersion"] = json!(2);
+        two["actions"] = json!([{
+            "id": "note.add", "label": "Add", "category": "Notes", "keywords": ["x"],
+            "params": [{ "name": "text", "label": "Text", "type": "string", "required": true }]
+        }]);
+        let m = parse(&two).unwrap();
+        assert!(m.states.is_empty() && m.actions[0].suggests.is_empty());
+        assert_eq!(m.observables().len(), 1);
+    }
+
+    #[test]
+    fn schema_3_features_need_schema_3() {
+        for edit in [
+            |v: &mut Value| v["states"] = json!([{ "id": "x", "name": "X", "type": "number" }]),
+            |v: &mut Value| v["actions"][0]["suggests"] = json!(["note.added"]),
+            |v: &mut Value| v["events"][0]["name"] = json!("Note added"),
+            |v: &mut Value| {
+                v["events"][0]["fields"] = json!([{ "name": "a", "label": "A", "type": "number" }])
+            },
+        ] {
+            for schema in [1, 2] {
+                let mut v = base();
+                v["schemaVersion"] = json!(schema);
+                if schema == 2 {
+                    // Schema 2 calls the arguments of an action `params`.
+                    v["actions"] = json!([{ "id": "note.add" }]);
+                }
+                edit(&mut v);
+                let msg = why(parse(&v));
+                assert!(msg.contains("schemaVersion"), "{msg}");
+            }
+        }
+    }
+
+    #[test]
+    fn duplicate_and_invalid_state_ids_are_refused() {
+        let msg = why(v3_with(|v| {
+            let first = v["states"][0].clone();
+            v["states"].as_array_mut().unwrap().push(first);
+        }));
+        assert!(msg.contains("declared twice"), "{msg}");
+        for bad in [
+            "Level",
+            "1level",
+            "a..b",
+            "a_b",
+            "has space",
+            "",
+            &"a".repeat(65),
+        ] {
+            let msg = why(v3_with(|v| v["states"][0]["id"] = json!(bad)));
+            assert!(msg.contains("state id"), "{bad:?}: {msg}");
+        }
+    }
+
+    #[test]
+    fn a_state_and_an_event_cannot_share_an_id() {
+        let msg = why(v3_with(|v| {
+            v["states"][0]["id"] = json!("counter.changed");
+        }));
+        assert!(msg.contains("state and as an event"), "{msg}");
+    }
+
+    #[test]
+    fn invalid_state_types_and_values_are_refused() {
+        // A type the core does not have (no JSON, no lists, no objects).
+        for t in ["json", "object", "array", "integer", "Enum"] {
+            assert!(
+                v3_with(|v| v["states"][0]["type"] = json!(t)).is_err(),
+                "{t}"
+            );
+        }
+        // An enum needs its values; the others do not list any.
+        let msg = why(v3_with(|v| v["states"][0]["values"] = json!([])));
+        assert!(msg.contains("enum lists"), "{msg}");
+        let msg = why(v3_with(|v| {
+            v["states"][3]["values"] = json!([{ "value": "a", "label": "A" }])
+        }));
+        assert!(
+            msg.contains("only an enum or a boolean lists values"),
+            "{msg}"
+        );
+        // Duplicates, a value of the wrong type, a missing label, an unknown role.
+        let msg = why(v3_with(|v| {
+            v["states"][0]["values"][1]["value"] = json!("zero");
+        }));
+        assert!(msg.contains("twice"), "{msg}");
+        let msg = why(v3_with(|v| v["states"][0]["values"][0]["value"] = json!(7)));
+        assert!(msg.contains("does not match the type"), "{msg}");
+        assert!(v3_with(|v| {
+            v["states"][0]["values"][0]
+                .as_object_mut()
+                .unwrap()
+                .remove("label");
+        })
+        .is_err());
+        assert!(v3_with(|v| v["states"][0]["values"][0]["role"] = json!("purple")).is_err());
+        // A colour is never part of a state.
+        assert!(v3_with(|v| v["states"][0]["values"][0]["color"] = json!("#ff0000")).is_err());
+        // Unknown fields on the state itself.
+        assert!(v3_with(|v| v["states"][0]["provider"] = json!("agent-control")).is_err());
+        // Too many values.
+        let msg = why(v3_with(|v| {
+            v["states"][0]["values"] = Value::Array(
+                (0..40)
+                    .map(|n| json!({ "value": format!("v{n}"), "label": "V" }))
+                    .collect(),
+            );
+        }));
+        assert!(msg.contains("enum lists"), "{msg}");
+    }
+
+    #[test]
+    fn invalid_scope_arguments_are_refused() {
+        let param = |extra: Value| {
+            let mut p = json!({ "name": "channel", "label": "Channel", "type": "string",
+                                "required": true, "maxLength": 32 });
+            for (k, val) in extra.as_object().unwrap() {
+                p[k] = val.clone();
+            }
+            p
+        };
+        // Structured arguments are not addresses.
+        for kind in ["json", "reference"] {
+            let msg = why(v3_with(|v| {
+                v["states"][1]["params"] = json!([param(json!({ "type": kind }))])
+            }));
+            assert!(
+                msg.contains("boolean, a number or a text") || msg.contains("parameter"),
+                "{msg}"
+            );
+        }
+        // A text argument must say how long it can be, and no longer than an address holds.
+        let msg = why(v3_with(|v| {
+            v["states"][1]["params"][0]
+                .as_object_mut()
+                .unwrap()
+                .remove("maxLength");
+        }));
+        assert!(msg.contains("maxLength"), "{msg}");
+        let msg = why(v3_with(|v| {
+            v["states"][1]["params"][0]["maxLength"] = json!(65)
+        }));
+        assert!(msg.contains("maxLength"), "{msg}");
+        // Names: plain, unique, at most four.
+        let msg = why(v3_with(|v| {
+            v["states"][1]["params"] = json!([param(json!({})), param(json!({}))])
+        }));
+        assert!(msg.contains("twice"), "{msg}");
+        assert!(v3_with(|v| v["states"][1]["params"][0]["name"] = json!("not valid")).is_err());
+        let msg = why(v3_with(|v| {
+            v["states"][1]["params"] = Value::Array(
+                ["a", "b", "c", "d", "e"]
+                    .iter()
+                    .map(|n| param(json!({ "name": n })))
+                    .collect(),
+            );
+        }));
+        assert!(msg.contains("at most 4 arguments"), "{msg}");
+        // A default has to fit its own type.
+        assert!(v3_with(|v| v["states"][1]["params"][0]["default"] = json!(5)).is_err());
+        // A number argument may have a range and a default.
+        assert!(v3_with(|v| {
+            v["states"][1]["params"] = json!([{ "name": "n", "label": "N", "type": "number",
+                "integer": true, "min": 0, "max": 7, "default": 0 }]);
+        })
+        .is_ok());
+    }
+
+    #[test]
+    fn state_limits_and_text_are_bounded() {
+        let msg = why(v3_with(|v| {
+            v["states"] = Value::Array(
+                (0..65)
+                    .map(|n| json!({ "id": format!("s{n}"), "name": "S", "type": "number" }))
+                    .collect(),
+            );
+        }));
+        assert!(msg.contains("more than 64 states"), "{msg}");
+        assert!(v3_with(|v| v["states"][0]["name"] = json!("")).is_err());
+        assert!(v3_with(|v| v["states"][0]["name"] = json!("x".repeat(65))).is_err());
+        assert!(v3_with(|v| v["states"][0]["description"] = json!("x".repeat(281))).is_err());
+        assert!(v3_with(|v| v["states"][0]["category"] = json!("x".repeat(41))).is_err());
+        assert!(v3_with(|v| {
+            v["states"][0]["keywords"] = json!(["a", "b", "c", "d", "e", "f", "g", "h", "i"])
+        })
+        .is_err());
+        assert!(v3_with(|v| v["states"][0]["keywords"] = json!(["x".repeat(33)])).is_err());
+        // A long plugin name still gives a legal default category.
+        let m = v3_with(|v| v["name"] = json!("N".repeat(64))).unwrap();
+        assert_eq!(m.state_definitions()[0].category.chars().count(), 40);
+    }
+
+    #[test]
+    fn event_fields_are_checked() {
+        let msg = why(v3_with(|v| {
+            let f = v["events"][0]["fields"][0].clone();
+            v["events"][0]["fields"].as_array_mut().unwrap().push(f);
+        }));
+        assert!(msg.contains("unique plain name"), "{msg}");
+        assert!(v3_with(|v| v["events"][0]["fields"][0]["type"] = json!("json")).is_err());
+        assert!(v3_with(|v| v["events"][0]["name"] = json!("")).is_err());
+        // An event keeps the grammar it has on the bus.
+        let m = v3_with(|v| v["events"][0]["type"] = json!("build_done:ok")).unwrap();
+        assert!(m.observables().iter().any(|d| d.local == "build_done:ok"));
+        // Event types under a LaunchDeck prefix are still refused.
+        assert!(v3_with(|v| v["events"][0]["type"] = json!("system.reboot")).is_err());
+    }
+
+    #[test]
+    fn suggestions_must_point_at_this_plugin() {
+        let ok = v3_with(|v| v["actions"][0]["suggests"] = json!(["level", "counter.changed"]));
+        assert!(ok.is_ok());
+        let msg = why(v3_with(|v| v["actions"][0]["suggests"] = json!(["nope"])));
+        assert!(msg.contains("neither as a state nor as an event"), "{msg}");
+        // Another plugin's state is not this plugin's to suggest.
+        let msg = why(v3_with(|v| {
+            v["actions"][0]["suggests"] = json!(["agent-control.slot.status"])
+        }));
+        assert!(msg.contains("neither"), "{msg}");
+        let msg = why(v3_with(|v| {
+            v["actions"][0]["suggests"] = json!(["level", "level"])
+        }));
+        assert!(msg.contains("twice"), "{msg}");
+        let msg = why(v3_with(|v| {
+            v["actions"][0]["suggests"] = Value::Array((0..9).map(|_| json!("level")).collect())
+        }));
+        assert!(msg.contains("more than 8"), "{msg}");
+    }
+
+    #[test]
+    fn an_incompatible_schema_3_manifest_is_still_refused_for_the_old_reasons() {
+        assert!(matches!(
+            v3_with(|v| v["abi"] = json!(2)),
+            Err(ManifestError::IncompatibleAbi { .. })
+        ));
+        assert!(matches!(
+            v3_with(|v| v["sdk"] = json!("9.0.0")),
+            Err(ManifestError::IncompatibleSdk { .. })
+        ));
+        assert!(matches!(
+            v3_with(|v| v["schemaVersion"] = json!(4)),
+            Err(ManifestError::UnsupportedSchema { .. })
+        ));
+        assert!(matches!(
+            v3_with(|v| v["capabilities"] = json!(["network"])),
+            Err(ManifestError::UnsupportedCapability(_))
+        ));
+        assert!(v3_with(|v| v["exec"] = json!("rm")).is_err());
     }
 }

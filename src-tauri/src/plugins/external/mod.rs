@@ -34,7 +34,7 @@ pub use sandbox::Limits;
 /// Protocol (ABI) version between host and module.
 pub const ABI_VERSION: u32 = 1;
 /// SDK version this host understands.
-pub const SDK_VERSION: &str = "0.1.0";
+pub const SDK_VERSION: &str = "0.1.1";
 
 /// Environment variable with extra plugin folders (path list), for development.
 pub const PLUGINS_ENV: &str = "LAUNCHDECK_PLUGINS";
@@ -86,5 +86,7 @@ pub struct ExternalInfo {
     pub events: Vec<EventInfo>,
 }
 
+#[cfg(test)]
+mod state_tests;
 #[cfg(test)]
 mod tests;

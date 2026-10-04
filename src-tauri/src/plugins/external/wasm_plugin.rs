@@ -6,7 +6,7 @@
 //! publishes the events the module emitted through the existing bus. Nothing
 //! here can crash the host: every failure is a value.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -14,11 +14,12 @@ use serde_json::{json, Map, Value};
 
 use super::log::{clean_line, Level, PluginLog};
 use super::manifest::{ConfigField, ExternalManifest};
-use super::sandbox::{CallError, Limits, Sandbox};
+use super::sandbox::{CallError, Limits, Refusal, Sandbox, StateGate};
 use super::{EventInfo, ExternalInfo, PluginStatus, ABI_VERSION, SDK_VERSION};
 use crate::actions::definition::ProviderKind;
 use crate::events::external::valid_ident;
 use crate::plugins::{ActionDef, ActionError, Plugin, PluginContext, PluginManifest};
+use crate::state::definition::{ObservableDefinition, Write};
 use crate::state::StateHub;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,11 +98,40 @@ pub fn effective_config(fields: &[ConfigField], saved: &Map<String, Value>) -> M
     out
 }
 
+/// What a module may write: the states its own manifest declares, and nothing
+/// else. This is the whole ownership rule: the provider is never named by the
+/// module, so there is no way to write as another provider, and an id that this
+/// manifest does not declare (`slot.status` of Agent Control, a state of
+/// another plugin) is simply not found.
+struct DeclaredStates {
+    defs: HashMap<String, ObservableDefinition>,
+}
+
+impl DeclaredStates {
+    fn of(manifest: &ExternalManifest) -> Arc<DeclaredStates> {
+        Arc::new(DeclaredStates {
+            defs: manifest
+                .state_definitions()
+                .into_iter()
+                .map(|d| (d.local.clone(), d))
+                .collect(),
+        })
+    }
+}
+
+impl StateGate for DeclaredStates {
+    fn check(&self, id: &str, args: &Value, value: Option<&Value>) -> Result<Write, Refusal> {
+        let def = self.defs.get(id).ok_or(Refusal::NotDeclared)?;
+        def.check_write(args, value).map_err(Refusal::Invalid)
+    }
+}
+
 pub struct WasmPlugin {
     manifest: ExternalManifest,
     dir: PathBuf,
     fingerprint: u64,
     declared_events: Arc<HashSet<String>>,
+    gate: Arc<DeclaredStates>,
     log: Arc<PluginLog>,
     limits: Limits,
     /// Kept apart from the sandbox so listing plugins never waits for a call.
@@ -135,11 +165,13 @@ impl WasmPlugin {
         hub: StateHub,
     ) -> Arc<WasmPlugin> {
         let declared_events = Arc::new(manifest.events.iter().map(|e| e.kind.clone()).collect());
+        let gate = DeclaredStates::of(&manifest);
         Arc::new(WasmPlugin {
             manifest,
             dir,
             fingerprint,
             declared_events,
+            gate,
             log,
             limits,
             status: RwLock::new(StatusInfo {
@@ -179,14 +211,65 @@ impl WasmPlugin {
     /// The only place the status changes, and therefore the only place the
     /// hub hears about it. Running again means everything this plugin said
     /// before is gone (`unknown`); not running means `unavailable`.
+    ///
+    /// The status lock is held while the hub is told, and a call applies its
+    /// states under the same lock (`apply_states`), so a write can never land
+    /// between "stopped" and "stopped, everything it said is gone".
     fn set_status(&self, status: PluginStatus, error: Option<String>) {
-        *self.status.write().unwrap_or_else(|e| e.into_inner()) = StatusInfo { status, error };
+        let mut guard = self.status.write().unwrap_or_else(|e| e.into_inner());
+        *guard = StatusInfo { status, error };
         match status {
             PluginStatus::Enabled => self.hub.provider_up(&self.manifest.id),
             PluginStatus::Disabled | PluginStatus::Error => {
                 self.hub.provider_down(&self.manifest.id)
             }
         }
+    }
+
+    /// Store what a finished call said about the plugin's states, if the plugin
+    /// is still the running one. A call that was in flight when the plugin was
+    /// disabled, failed or replaced by a newer copy must not leave a value
+    /// behind: "stopped" means everything it said is gone, and a restarted
+    /// plugin starts from `unknown`.
+    pub(crate) fn apply_states(&self, writes: Vec<Write>) {
+        if writes.is_empty() {
+            return;
+        }
+        let guard = self.status.read().unwrap_or_else(|e| e.into_inner());
+        if guard.status != PluginStatus::Enabled {
+            self.log.host(
+                Level::Warn,
+                "states from a call that ended after the plugin stopped were dropped",
+            );
+            return;
+        }
+        for write in writes {
+            // The gate already built the address from this manifest; this is the
+            // same rule once more, at the one place that touches the hub.
+            if write.address.provider != self.manifest.id {
+                continue;
+            }
+            match write.value {
+                Some(value) => {
+                    if let Err(e) = self.hub.set(&write.address, value) {
+                        self.log
+                            .host(Level::Warn, &format!("state was not stored: {e}"));
+                    }
+                }
+                None => {
+                    self.hub.clear(&write.address);
+                }
+            }
+        }
+    }
+
+    /// This copy has been replaced by a newer one (a reload, a changed setting):
+    /// stop it, so that nothing it still has in flight can reach the hub. The
+    /// provider is reported stopped, and the replacement then reports it
+    /// running again with every state `unknown`.
+    pub fn retire(&self) {
+        self.set_status(PluginStatus::Disabled, None);
+        *self.sandbox_slot() = None;
     }
 
     fn sandbox_slot(&self) -> std::sync::MutexGuard<'_, Option<Sandbox>> {
@@ -211,6 +294,7 @@ impl WasmPlugin {
             wasm,
             self.manifest.abi,
             self.declared_events.clone(),
+            self.gate.clone(),
             self.log.clone(),
             &self.limits,
         )
@@ -231,6 +315,12 @@ impl WasmPlugin {
                 self.log.host(
                     Level::Warn,
                     "events published during init are dropped; publish from an action instead",
+                );
+            }
+            if !out.states.is_empty() {
+                self.log.host(
+                    Level::Warn,
+                    "states set during init are dropped: a plugin that starts has not reported yet, so its states read unknown until an action sets them",
                 );
             }
             Ok(sandbox)
@@ -276,9 +366,12 @@ impl WasmPlugin {
 }
 
 impl Plugin for WasmPlugin {
-    // Manifest schema 3 (a later milestone) is where a plugin declares states.
-    // Until then an installed plugin offers none, but its lifecycle is already
-    // reported, so the day it declares one the hub is right from the start.
+    /// The states and the events the manifest declares. A plugin of schema 1 or 2
+    /// declares no states, and its events are listed with the name they have.
+    fn observables(&self) -> Vec<ObservableDefinition> {
+        self.manifest.observables()
+    }
+
     fn manifest(&self) -> PluginManifest {
         let (status, error) = self.status();
         PluginManifest {
@@ -300,6 +393,7 @@ impl Plugin for WasmPlugin {
                     params: a.params.clone(),
                     privileged: false,
                     appearance: a.appearance.clone(),
+                    suggests: a.suggests.clone(),
                 })
                 .collect(),
             states: vec![],
@@ -379,7 +473,10 @@ impl Plugin for WasmPlugin {
                 )));
             }
         };
-        // The call ended normally, so what the module published is real.
+        // The call ended normally, so what the module published is real. States
+        // first, then the events about them, so that anything listening to an
+        // event finds the value it is about already in the hub.
+        self.apply_states(output.states);
         for event in output.events {
             ctx.publish(&event.kind, event.payload);
         }

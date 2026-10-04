@@ -13,7 +13,11 @@ import {
 } from "./agents";
 import {
   catalogSchema,
+  controlExplanationSchema,
   frameSchema,
+  observableCatalogSchema,
+  observablesDeltaSchema,
+  observedSchema,
   pluginInfoSchema,
   pluginLogSchema,
   pluginsOverviewSchema,
@@ -26,9 +30,13 @@ import {
   type Assignment,
   type Catalog,
   type Control,
+  type ControlExplanation,
   type ControlPos,
   type Frame,
   type Mode,
+  type ObservableCatalog,
+  type ObservablesDelta,
+  type Observed,
   type PluginInfo,
   type PluginLog,
   type PluginsOverview,
@@ -127,6 +135,20 @@ export const api = {
     /** Checks an assignment the way saving does, without saving. */
     validate: (assignment: Assignment): Promise<Validation> => call("actions_validate", validationSchema, { assignment }),
   },
+  /**
+   * The Observable Catalog: every state and event a control can observe, from
+   * every provider, with what each reads now. Rust assembles it; updates arrive
+   * through `subscribe` as `onObservables`.
+   */
+  observables: {
+    catalog: (): Promise<ObservableCatalog> => call("observables_catalog", observableCatalogSchema),
+    /** What one state reads at one address, checked by Rust against the state's definition. */
+    read: (provider: string, id: string, args?: Record<string, string | number | boolean>): Promise<Observed> =>
+      call("observable_state", observedSchema, { provider, id, args: args ?? null }),
+  },
+  /** Why a control shows the look it shows, as the runtime's own evaluator reports it. */
+  explainControl: (surfaceId: string, pageId: string, controlId: string): Promise<ControlExplanation> =>
+    call("explain_control", controlExplanationSchema, { surfaceId, pageId, controlId }),
   connectDevice: (id: string): Promise<void> => call("connect_device", null, { id }),
   disconnectDevice: (id: string): Promise<void> => call("disconnect_device", null, { id }),
   rescanDevices: (): Promise<void> => call("rescan_devices", null),
@@ -164,6 +186,8 @@ export interface Listeners {
   onFrame: (f: Frame) => void;
   onAgents: (a: AgentsSnapshot) => void;
   onNotification: (n: AgentNotification) => void;
+  /** Only the providers and observables whose value or availability changed; `catalog: true` asks for a full fetch. */
+  onObservables: (d: ObservablesDelta) => void;
 }
 
 /** Subscribe to everything Rust pushes. Invalid payloads are dropped, not trusted. */
@@ -183,6 +207,7 @@ export async function subscribe(l: Listeners): Promise<() => void> {
     t.listen("virtual-frame", wrap(frameSchema, l.onFrame)),
     t.listen("agents-changed", wrap(agentsSnapshotSchema, l.onAgents)),
     t.listen("agent-notification", wrap(notificationSchema, l.onNotification)),
+    t.listen("observables-changed", wrap(observablesDeltaSchema, l.onObservables)),
   ]);
   return () => offs.forEach((off) => off());
 }

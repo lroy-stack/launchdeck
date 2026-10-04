@@ -85,7 +85,10 @@
             ],
             "label": "Increment",
             "params": [],
-            "privileged": false
+            "privileged": false,
+            "suggests": [
+              "level"
+            ]
           },
           {
             "appearance": {
@@ -105,7 +108,10 @@
             ],
             "label": "Decrement",
             "params": [],
-            "privileged": false
+            "privileged": false,
+            "suggests": [
+              "level"
+            ]
           },
           {
             "appearance": {
@@ -124,7 +130,10 @@
             ],
             "label": "Reset",
             "params": [],
-            "privileged": false
+            "privileged": false,
+            "suggests": [
+              "level"
+            ]
           }
         ],
         "description": "A counter that remembers its value between presses and reports a level, never a number of pads.",
@@ -137,7 +146,7 @@
               "type": "counter.changed"
             }
           ],
-          "sdk": "0.1.0",
+          "sdk": "0.1.1",
           "status": "enabled"
         },
         "id": "example.counter",
@@ -145,7 +154,7 @@
         "name": "Counter Plugin",
         "permissions": [],
         "states": [],
-        "version": "0.1.0"
+        "version": "0.2.0"
       }
     },
     {

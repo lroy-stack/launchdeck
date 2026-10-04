@@ -5,7 +5,7 @@
 //! through `UiEmitter` events and Tauri commands.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
@@ -13,7 +13,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::mpsc::unbounded_channel;
 
+use super::explain::{self, ControlExplanation, OverlayExplanation, OverlaySource};
 use super::model::{Assignment, Control, Page, Preferences, Surface, Workspace};
+use super::observables as native;
 use super::validate::validate_control;
 use crate::actions::builtin::{
     HttpProvider, NavigationProvider, ShellProvider, NAVIGATION, OPEN_PAGE, OPEN_SURFACE,
@@ -40,7 +42,8 @@ use crate::plugins::keyboard::Keyboard;
 use crate::plugins::system::SystemPlugin;
 use crate::plugins::{PluginManifest, PluginRegistry};
 use crate::renderer;
-use crate::state::eval::{self, Examination};
+use crate::state::catalog::{self, ObservableCatalog, ObservablesDelta, Source};
+use crate::state::eval;
 use crate::state::feedback::{prepare_rules, Hold, When, IDLE};
 use crate::state::index::{ControlRef, FeedbackIndex};
 use crate::state::{Changes, Scalar, StateHub};
@@ -52,6 +55,10 @@ const RESCAN_INTERVAL: Duration = Duration::from_secs(3);
 const SUCCESS_RESET: Duration = Duration::from_millis(2500);
 const ERROR_RESET: Duration = Duration::from_millis(4000);
 const RECENT_EVENTS: usize = 100;
+/// Changes to the Observable Catalog that arrive within this window reach the
+/// UI as one message. Feedback is not delayed by it: pads are re-evaluated as
+/// soon as the hub reports.
+const OBSERVABLES_COALESCE: Duration = Duration::from_millis(50);
 
 /// UI event names (Tauri events).
 pub mod ui {
@@ -63,6 +70,9 @@ pub mod ui {
     pub const AGENTS: &str = "agents-changed";
     /// A notification the app should surface (approval, failure, ...).
     pub const NOTIFICATION: &str = "agent-notification";
+    /// What changed in the Observable Catalog: values, a provider's status, or
+    /// "read the catalog again". Never the whole catalog.
+    pub const OBSERVABLES: &str = "observables-changed";
 }
 
 /// Forwards Agent Control state to the UI. It holds no state of its own.
@@ -132,6 +142,8 @@ pub struct Snapshot {
     pub plugins: Vec<PluginManifest>,
     /// Everything the Action Library offers, evaluated when the snapshot was taken.
     pub catalog: Catalog,
+    /// Everything a control can observe, with the values the hub holds now.
+    pub observables: ObservableCatalog,
     pub recent_events: Vec<Event>,
     pub agents: AgentsSnapshot,
 }
@@ -156,6 +168,27 @@ pub struct RuntimeConfig {
 struct StateEntry {
     name: String,
     token: u64,
+    origin: Origin,
+    /// When it ends by itself, if it does.
+    until: Option<Instant>,
+}
+
+/// What put a temporary look on a control.
+#[derive(Debug, Clone, Copy)]
+struct Origin {
+    source: OverlaySource,
+    /// The event rule, by position.
+    rule: Option<usize>,
+    /// The rule holds `latch`.
+    latched: bool,
+}
+
+impl Origin {
+    const ACTION: Origin = Origin {
+        source: OverlaySource::Action,
+        rule: None,
+        latched: false,
+    };
 }
 
 struct Held {
@@ -215,9 +248,10 @@ fn payload_matches(payload: &Value, test: &crate::state::feedback::FieldTest) ->
         .is_some_and(|v| v.same_as(&test.equals))
 }
 
-/// The look and hold of the first event rule of `control` that `event` matches.
-fn event_look(control: &Control, event: &Event) -> Option<(String, Hold)> {
-    for rule in &control.feedback {
+/// The look and hold of the first event rule of `control` that `event`
+/// matches, and the position of that rule.
+fn event_look(control: &Control, event: &Event) -> Option<(usize, String, Hold)> {
+    for (index, rule) in control.feedback.iter().enumerate() {
         let When::Event(c) = &rule.when else {
             continue;
         };
@@ -240,7 +274,7 @@ fn event_look(control: &Control, event: &Event) -> Option<(String, Hold)> {
             },
             (None, None) => continue,
         };
-        return Some((look, rule.hold_or_default()));
+        return Some((index, look, rule.hold_or_default()));
     }
     None
 }
@@ -274,20 +308,6 @@ struct Counters {
     bus_lagged: AtomicU64,
 }
 
-/// Why a control looks the way it does right now.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ControlExplanation {
-    /// The look on screen: `None` is the resting look.
-    pub shown: Option<String>,
-    /// `overlay`, `state` or `rest`.
-    pub layer: &'static str,
-    /// The temporary look, if one is on.
-    pub overlay: Option<String>,
-    /// The state rules, rule by rule.
-    pub state_rules: Examination,
-}
-
 pub struct Runtime {
     inner: Mutex<Inner>,
     bus: EventBus,
@@ -300,6 +320,10 @@ pub struct Runtime {
     hooks: Arc<HookManager>,
     plugin_host: PluginHost,
     hub: StateHub,
+    /// Hub changes the UI has not been told about yet, and whether a message
+    /// for them is already scheduled.
+    unannounced: Mutex<Changes>,
+    announce_scheduled: AtomicBool,
     counters: Counters,
     epoch: Instant,
     counter: AtomicU64,
@@ -353,7 +377,7 @@ impl Runtime {
         // The states of what ships with the app. These providers are always
         // running; anything they report later replaces the `unknown` they start with.
         for plugin in registry.all() {
-            let defs = plugin.observables();
+            let defs = plugin.states();
             if defs.is_empty() {
                 continue;
             }
@@ -361,6 +385,10 @@ impl Runtime {
             if let Err(e) = hub.ensure_provider(&id, defs) {
                 log::error!("could not declare the states of `{id}`: {e}");
             }
+        }
+        // What the app itself reports: which surface and page are on screen.
+        if let Err(e) = hub.ensure_provider(native::RUNTIME, native::states()) {
+            log::error!("could not declare the states of the runtime: {e}");
         }
         // External plugins: found on disk, sandboxed, registered next to the built-ins.
         let plugin_host = PluginHost::with_hub(
@@ -450,6 +478,8 @@ impl Runtime {
             hooks: hooks.clone(),
             plugin_host,
             hub,
+            unannounced: Mutex::new(Changes::default()),
+            announce_scheduled: AtomicBool::new(false),
             counters: Counters::default(),
             epoch: Instant::now(),
             counter: AtomicU64::new(1),
@@ -460,6 +490,7 @@ impl Runtime {
         // already hold, before anything can draw or react.
         {
             let mut inner = rt.lock();
+            rt.publish_navigation(&inner.active_surface, &inner.active_page);
             // What the providers declared so far is already in the evaluation
             // below; anything they write from now on is drained later.
             let _ = rt.hub.drain();
@@ -485,6 +516,7 @@ impl Runtime {
                     let changes = rt.hub.drain();
                     if !changes.is_empty() {
                         rt.apply_hub_changes(&changes);
+                        rt.announce_observables(changes);
                     }
                 }
             });
@@ -661,6 +693,7 @@ impl Runtime {
             state: Self::state_of(&inner),
             plugins: self.engine.plugins().manifests(),
             catalog: self.engine.registry().catalog(),
+            observables: self.observables(),
             recent_events: inner.recent.iter().rev().take(50).rev().cloned().collect(),
             agents: self.agents.snapshot(),
         }
@@ -668,6 +701,8 @@ impl Runtime {
 
     fn emit_state(&self) {
         let state = self.state();
+        // Every change of surface or page ends here, so the hub never lags it.
+        self.publish_navigation(&state.active_surface_id, &state.active_page_id);
         self.emitter.emit(
             ui::STATE,
             serde_json::to_value(state).unwrap_or(Value::Null),
@@ -923,6 +958,78 @@ impl Runtime {
         self.engine.registry().catalog()
     }
 
+    /// Who offers what to observe: the app itself first, then every registered
+    /// provider (built-in, Agent Control, installed plugins).
+    fn observable_sources(&self) -> Vec<Source> {
+        let mut sources = native::sources();
+        sources.extend(self.engine.registry().observable_sources());
+        sources
+    }
+
+    /// Everything a control can observe, states and events, with the values the
+    /// hub holds now. The one list the editor picks from.
+    pub fn observables(&self) -> ObservableCatalog {
+        catalog::build(self.observable_sources(), &self.hub)
+    }
+
+    /// What one state reads now, for an address the editor has built. The
+    /// arguments are checked against the definition, so `2` and `2.0` read the
+    /// same instance and a wrong argument is an error, not an `unknown`.
+    pub fn read_state(
+        &self,
+        provider: &str,
+        id: &str,
+        args: &Value,
+    ) -> Result<crate::state::Observed, String> {
+        let def = self
+            .hub
+            .definition(provider, id)
+            .ok_or_else(|| format!("`{provider}.{id}` is not a state anything offers right now"))?;
+        let address = def.address(args)?;
+        Ok(self.hub.read_address(&address))
+    }
+
+    /// The surface and page on screen are states like any other.
+    fn publish_navigation(&self, surface: &str, page: &str) {
+        for (address, value) in [
+            (native::surface_active(), surface),
+            (native::page_active(), page),
+        ] {
+            if let Err(e) = self.hub.set(&address, Scalar::text(value)) {
+                log::warn!("could not publish {address}: {e}");
+            }
+        }
+    }
+
+    /// Tell the UI what the hub reported, as one message for a burst. The
+    /// window starts at the first change; whatever arrives within it joins.
+    fn announce_observables(self: &Arc<Self>, changes: Changes) {
+        self.unannounced
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .merge(changes);
+        if self.announce_scheduled.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let rt = self.clone();
+        self.handle.spawn(async move {
+            tokio::time::sleep(OBSERVABLES_COALESCE).await;
+            // Cleared before the take: a change that lands after it schedules
+            // the next message and is never lost.
+            rt.announce_scheduled.store(false, Ordering::SeqCst);
+            let changes =
+                std::mem::take(&mut *rt.unannounced.lock().unwrap_or_else(|p| p.into_inner()));
+            let delta: ObservablesDelta =
+                catalog::delta(&rt.observable_sources(), &rt.hub, &changes);
+            if !delta.is_empty() {
+                rt.emitter.emit(
+                    ui::OBSERVABLES,
+                    serde_json::to_value(delta).unwrap_or(Value::Null),
+                );
+            }
+        });
+    }
+
     async fn run_action_async(
         self: Arc<Self>,
         surface_id: String,
@@ -972,7 +1079,7 @@ impl Runtime {
 
         self.publish("runtime", types::ACTION_STARTED, ctx.clone());
         if let (Some(key), true) = (&key, has("running")) {
-            self.set_overlay(key, Some("running"), None);
+            self.set_overlay(key, Some("running"), None, Origin::ACTION);
         }
         match self.engine.execute(&action).await {
             Ok(result) => {
@@ -984,9 +1091,14 @@ impl Runtime {
                 if let Some(key) = &key {
                     if auto.is_some() {
                         if has("success") {
-                            self.set_overlay(key, Some("success"), Some(SUCCESS_RESET));
+                            self.set_overlay(
+                                key,
+                                Some("success"),
+                                Some(SUCCESS_RESET),
+                                Origin::ACTION,
+                            );
                         } else {
-                            self.set_overlay(key, None, None);
+                            self.set_overlay(key, None, None, Origin::ACTION);
                         }
                     }
                 }
@@ -1001,9 +1113,9 @@ impl Runtime {
                 if let Some(key) = &key {
                     if auto.is_some() {
                         if has("error") {
-                            self.set_overlay(key, Some("error"), Some(ERROR_RESET));
+                            self.set_overlay(key, Some("error"), Some(ERROR_RESET), Origin::ACTION);
                         } else {
-                            self.set_overlay(key, None, None);
+                            self.set_overlay(key, None, None, Origin::ACTION);
                         }
                     }
                 }
@@ -1019,7 +1131,13 @@ impl Runtime {
     /// Put a temporary look on a control, or take it off with `None`.
     /// Optionally it ends by itself after `reset_after`, unless something else
     /// replaced it in the meantime (tracked with a token).
-    fn set_overlay(self: &Arc<Self>, key: &str, look: Option<&str>, reset_after: Option<Duration>) {
+    fn set_overlay(
+        self: &Arc<Self>,
+        key: &str,
+        look: Option<&str>,
+        reset_after: Option<Duration>,
+        origin: Origin,
+    ) {
         let token = self.next_token();
         {
             let mut inner = self.lock();
@@ -1030,6 +1148,8 @@ impl Runtime {
                         StateEntry {
                             name: name.to_string(),
                             token,
+                            origin,
+                            until: reset_after.map(|after| Instant::now() + after),
                         },
                     );
                 }
@@ -1154,14 +1274,16 @@ impl Runtime {
         &self.hub
     }
 
-    /// Why a control looks the way it does: the overlay if one is on, then the
-    /// state rules rule by rule against the values now.
+    /// Why a control looks the way it does: the temporary look if one is on,
+    /// then the state rules rule by rule against the values now, with what
+    /// each state is and why it may not answer.
     pub fn explain_control(
         &self,
         surface_id: &str,
         page_id: &str,
         control_id: &str,
     ) -> Result<ControlExplanation, String> {
+        let sources = self.observable_sources();
         let inner = self.lock();
         let control = inner
             .workspace
@@ -1170,22 +1292,24 @@ impl Runtime {
             .and_then(|p| p.controls.iter().find(|c| c.id == control_id))
             .ok_or_else(|| format!("unknown control `{surface_id}/{page_id}/{control_id}`"))?;
         let key = control_key(surface_id, page_id, control_id);
-        let state_rules = eval::examine(&control.feedback, &|k| self.hub.read(k), &|name| {
-            control.states.contains_key(name)
+        let now = Instant::now();
+        let overlay = inner.overlay.get(&key).map(|e| OverlayExplanation {
+            look: e.name.clone(),
+            source: e.origin.source,
+            rule: e.origin.rule,
+            remaining_ms: e
+                .until
+                .map(|t| t.saturating_duration_since(now).as_millis() as u64),
+            latched: e.origin.latched,
         });
-        let overlay = inner.overlay.get(&key).map(|e| e.name.clone());
-        let derived = inner.derived.get(&key).cloned();
-        let (shown, layer) = match (&overlay, &derived) {
-            (Some(o), _) => (Some(o.clone()), "overlay"),
-            (None, Some(d)) => (Some(d.clone()), "state"),
-            (None, None) => (None, "rest"),
-        };
-        Ok(ControlExplanation {
-            shown,
-            layer,
+        Ok(explain::explain(
+            (surface_id, page_id, control_id),
+            control,
             overlay,
-            state_rules,
-        })
+            inner.derived.get(&key).cloned(),
+            &self.hub,
+            &sources,
+        ))
     }
 
     fn on_event(self: &Arc<Self>, event: Event) {
@@ -1210,16 +1334,16 @@ impl Runtime {
     /// Event rules: the first matching rule of each control shows its look as
     /// a temporary overlay. The event is not stored anywhere else.
     fn route_events(self: &Arc<Self>, event: &Event) {
-        // (key, look, hold, the control has a look called `idle` of its own)
-        let mut matched: Vec<(String, String, Hold, bool)> = Vec::new();
+        // (key, rule, look, hold, the control has a look called `idle` of its own)
+        let mut matched: Vec<(String, usize, String, Hold, bool)> = Vec::new();
         {
             let inner = self.lock();
             for r in inner.index.for_event(&event.source, &event.kind) {
                 let Some(control) = find_control(&inner.workspace, r) else {
                     continue;
                 };
-                if let Some((look, hold)) = event_look(control, event) {
-                    matched.push((r.key(), look, hold, control.states.contains_key(IDLE)));
+                if let Some((rule, look, hold)) = event_look(control, event) {
+                    matched.push((r.key(), rule, look, hold, control.states.contains_key(IDLE)));
                 }
             }
         }
@@ -1229,17 +1353,22 @@ impl Runtime {
         self.counters
             .events_routed
             .fetch_add(matched.len() as u64, Ordering::Relaxed);
-        for (key, look, hold, own_idle) in matched {
+        for (key, rule, look, hold, own_idle) in matched {
+            let origin = Origin {
+                source: OverlaySource::Event,
+                rule: Some(rule),
+                latched: matches!(hold, Hold::Latch),
+            };
             // `idle` means "no temporary look" unless the control draws one.
             if look == IDLE && !own_idle {
-                self.set_overlay(&key, None, None);
+                self.set_overlay(&key, None, None, origin);
                 continue;
             }
             let after = match hold {
                 Hold::For(ms) => Some(Duration::from_millis(u64::from(ms))),
                 Hold::Latch => None,
             };
-            self.set_overlay(&key, Some(&look), after);
+            self.set_overlay(&key, Some(&look), after, origin);
         }
     }
 

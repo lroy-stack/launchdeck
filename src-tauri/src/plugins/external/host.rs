@@ -216,6 +216,12 @@ impl PluginHost {
     /// in the registry (replacing any earlier version of it).
     fn install(&self, data: &mut Data, cand: Candidate) {
         let id = cand.manifest.id.clone();
+        // The copy being replaced may still have a call in flight. Retiring it
+        // first means nothing it says afterwards can reach the hub, so the new
+        // copy starts from `unknown` and stays there until it reports.
+        if let Some(old) = data.plugins.get(&id) {
+            old.retire();
+        }
         let log = data
             .logs
             .entry(id.clone())
@@ -233,7 +239,7 @@ impl PluginHost {
         );
         // What the plugin offers is declared before it starts, so the first
         // thing the hub sees of it is a provider with states and no values.
-        let defs = plugin.observables();
+        let defs = plugin.states();
         if !defs.is_empty() || data.declared.contains(&id) {
             let has_any = !defs.is_empty();
             match self.inner.hub.declare(&id, defs) {
@@ -253,6 +259,9 @@ impl PluginHost {
         }
         let arc: Arc<dyn Plugin> = plugin.clone();
         self.inner.registry.register(arc);
+        // Said after the registry lists it, so whoever reads the catalog on this
+        // signal sees the new version (the declaration above came before).
+        self.inner.hub.catalog_changed(&id);
         data.plugins.insert(id, plugin);
     }
 

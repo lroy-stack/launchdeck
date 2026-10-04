@@ -171,7 +171,10 @@ async fn an_event_look_expires_and_the_pad_returns_to_its_state() {
     );
     let why = rt.explain_control(&s, &p, &id).unwrap();
     assert_eq!(why.layer, "overlay");
-    assert_eq!(why.overlay.as_deref(), Some("failed"));
+    assert_eq!(
+        why.overlay.as_ref().map(|o| o.look.as_str()),
+        Some("failed")
+    );
     assert_eq!(
         why.state_rules.result.look.as_deref(),
         Some("a"),

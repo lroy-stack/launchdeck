@@ -7,7 +7,7 @@ providers ──► StateHub (current values only) ──► feedback rules ─�
 events    ──► temporary look (with an expiry) ───────────────────────┘
 ```
 
-The design and its reasons are in [STATE_FEEDBACK_PLAN.md](../STATE_FEEDBACK_PLAN.md). This page describes what is built (phases 0 and 1).
+The design and its reasons are in [STATE_FEEDBACK_PLAN.md](../STATE_FEEDBACK_PLAN.md). This page describes what is built. Everything that can be observed, states and events from every provider, is listed in the [Observable Catalog](observables.md); installed plugins declare states in their manifest, see [plugin-sdk/states.md](plugin-sdk/states.md).
 
 ## State addresses
 
@@ -22,7 +22,7 @@ A state has a provider, a definition and, when one definition has many instances
 * `args` are checked against the definition's parameter schema, so an unknown argument is refused, defaults are filled in, and `2` and `2.0` name the same instance. At most four arguments of up to 64 bytes each.
 * A provider declares up to 64 definitions and holds up to 1,024 instances.
 
-A definition says what a state is for people: its name, a description, its value type (`enum`, `boolean`, `number`, `string`), the values of an enum with a label and a role (`active`, `ok`, `warning`, `attention`, `error`, `inactive`), and its parameters. It is what a future rule editor lists, and `catalog.observables` already carries it.
+A definition says what a state is for people: its name, a description, its value type (`enum`, `boolean`, `number`, `string`), the values of an enum with a label and a role (`active`, `ok`, `warning`, `attention`, `error`, `inactive`), and its parameters. It is what the Observable Catalog lists, together with what each state reads now.
 
 ## The hub
 
@@ -44,7 +44,7 @@ The hub keeps the current value, its status and when it was reported. It keeps n
 | Provider returns | `unknown` until it reports again. An old value is never shown as current. |
 | Provider is uninstalled | Declarations and values go with it. |
 
-For an installed plugin the lifecycle is applied where its status changes, so a crash reports the same thing as disabling it. Agent Control and the Demo plugin are always running.
+For an installed plugin the lifecycle is applied where its status changes, so a crash reports the same thing as disabling it. Agent Control, the Demo plugin and the runtime's own states are always running. Plugins write only the states their own manifest declares; the host checks the state, the arguments and the value against the declaration before the hub sees them, and the hub itself is never exposed to a plugin.
 
 Readers never block writers for long: the hub's lock is a leaf (nothing is called while it is held), writes wake a single waiter, and a burst of writes to one state is one entry in the next batch of changes.
 
@@ -82,15 +82,16 @@ What decides a pad's look, top to bottom: a temporary look (an event rule, or th
 
 ### Cost
 
-An index maps each state, provider and event to the controls that read it, and is rebuilt when the workspace changes. A change evaluates exactly the controls that read it; an event nobody listens to is one hash lookup. `Runtime::feedback_stats()` counts evaluations, routed events and events the bus dropped, and `Runtime::explain_control()` reports for one pad which layer shows, and for every rule what its state reads, whether it is true and whether its look exists.
+An index maps each state, provider and event to the controls that read it, and is rebuilt when the workspace changes. A change evaluates exactly the controls that read it; an event nobody listens to is one hash lookup. `Runtime::feedback_stats()` counts evaluations, routed events and events the bus dropped, and `Runtime::explain_control()` (the Tauri command `explain_control`) reports for one pad which layer shows, and for every rule the observable it reads, what it reads now, whether it is true, whether its look exists and, for a state that is not `known`, why. See [observables.md](observables.md#explain_control).
 
 ## Who provides states today
 
 | Provider | States |
 | --- | --- |
 | `agent-control` | `slot.status {slot}`, `slot.focused {slot}`, `command.state {command}`. The agent domain stays authoritative; its projection is written to the hub on every change, and the track, marker and command pads read it. Nothing is replayed to repaint a surface. |
+| `runtime` (LaunchDeck) | `surface.active`, `page.active`: the surface and page on screen. |
 | `demo` | One state per simulated agent (`alpha`, `beta`, `gamma`): `idle`, `running`, `waiting`, `approval-required`, `success`, `error`. |
-| Installed plugins | None yet. Their events keep working as event rules. Declaring states in the manifest is the next milestone. |
+| Installed plugins | The `states` of their manifest (schema 3), written with `setState`. The Counter reports `level`; Channels reports `status {channel}`. A plugin that declares none keeps working: its events work as event rules. |
 
 The event projection of Agent Control (`slot.changed`, `focus.changed`, `command.state`) is still published, for subscribers of the bus and the WebSocket.
 
@@ -113,4 +114,4 @@ A schema 4 file holds rules only: never a value, a frame or a device.
 
 ## Not built yet
 
-A rule editor and a rule explanation in the inspector (the inspector lists the rules read-only), states declared by installed plugins (manifest schema 3), staleness timers, `and` / `or`, scripting and aggregate states ("anything needs me"). The hub's definitions are already in the catalog, which is what the editor will list.
+A rule editor and a rule explanation drawn in the inspector (the inspector lists the rules read-only; the explanation is available through `explain_control`), staleness timers, `and` / `or`, scripting and aggregate states ("anything needs me").

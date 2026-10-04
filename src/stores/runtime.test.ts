@@ -1,7 +1,7 @@
 import fixture from "../../examples/default-workspace.json";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { api } from "../lib/ipc";
-import { workspaceSchema, type RuntimeState } from "../lib/schema";
+import { observablesDeltaSchema, workspaceSchema, type RuntimeState } from "../lib/schema";
 import { activePage, activeSurface, controlAt, controlState, useStore } from "./runtime";
 
 const workspace = workspaceSchema.parse(fixture);
@@ -82,5 +82,39 @@ describe("store and agents", () => {
     useStore.getState().showAgents();
     expect(useStore.getState().agentsTab).toBe("adapters");
     expect(useStore.getState().view).toBe("agents");
+  });
+});
+
+describe("store and the Observable Catalog", () => {
+  const level = () => useStore.getState().observables.observables.find((o) => o.id === "example.counter.level")!;
+
+  it("starts from the catalog in the snapshot and patches it with what Rust pushes", async () => {
+    const off = await useStore.getState().init();
+    const before = useStore.getState().observables;
+    expect(before.observables.length).toBeGreaterThan(0);
+    expect(level().instances[0]).toMatchObject({ status: "known", value: "low" });
+
+    useStore.getState().applyObservables(
+      observablesDeltaSchema.parse({
+        observables: [{ id: "example.counter.level", availability: { status: "available" }, instanceCount: 1, instances: [{ status: "known", value: "max", updatedAt: 1 }] }],
+      }),
+    );
+    expect(level().instances[0]).toMatchObject({ value: "max" });
+    // Nothing else moved.
+    expect(useStore.getState().observables.observables).toHaveLength(before.observables.length);
+    off();
+  });
+
+  it("fetches the whole catalog again when Rust says a definition changed", async () => {
+    const off = await useStore.getState().init();
+    useStore.getState().applyObservables(
+      observablesDeltaSchema.parse({
+        observables: [{ id: "example.counter.level", availability: { status: "available" }, instanceCount: 1, instances: [{ status: "known", value: "max", updatedAt: 1 }] }],
+      }),
+    );
+    expect(level().instances[0]).toMatchObject({ value: "max" });
+    useStore.getState().applyObservables(observablesDeltaSchema.parse({ catalog: true }));
+    await vi.waitFor(() => expect(level().instances[0]).toMatchObject({ value: "low" }));
+    off();
   });
 });

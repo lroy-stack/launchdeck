@@ -37,7 +37,6 @@ use tokio::sync::Notify;
 use super::address::{StateAddress, StateKey};
 use super::definition::{Fit, ObservableDefinition};
 use super::value::Scalar;
-use crate::actions::params::normalize;
 use crate::events::now_ms;
 
 /// States one provider may declare.
@@ -130,12 +129,33 @@ pub struct Changes {
     /// Providers whose lifecycle or declarations changed: every state of
     /// theirs may read differently now.
     pub providers: HashSet<String>,
+    /// Providers whose *definitions* changed (declared, replaced, removed, or
+    /// listed differently): the catalog has to be read again, not just the
+    /// values. Always a subset of what a reader of `providers` would also see
+    /// for a state provider, and the only signal for one that offers events only.
+    pub declared: HashSet<String>,
 }
 
 impl Changes {
     pub fn is_empty(&self) -> bool {
-        self.keys.is_empty() && self.providers.is_empty()
+        self.keys.is_empty() && self.providers.is_empty() && self.declared.is_empty()
     }
+
+    /// Fold `later` into `self`: one set of changes for both.
+    pub fn merge(&mut self, later: Changes) {
+        self.keys.extend(later.keys);
+        self.providers.extend(later.providers);
+        self.declared.extend(later.declared);
+    }
+}
+
+/// What the hub holds for one provider, for the observable catalog.
+#[derive(Debug, Clone)]
+pub struct ProviderView {
+    /// The provider is running.
+    pub up: bool,
+    /// Every instance that has a value, in key order. Empty when it is down.
+    pub values: Vec<(StateKey, Observed)>,
 }
 
 struct Stored {
@@ -227,9 +247,18 @@ impl StateHub {
         let defs = &p.defs;
         p.values.retain(|k, _| defs.contains_key(k.id()));
         g.dirty.providers.insert(provider.to_string());
+        g.dirty.declared.insert(provider.to_string());
         drop(g);
         self.wake();
         Ok(())
+    }
+
+    /// The catalog lists this provider differently now (an installed plugin was
+    /// added or replaced, one of its events changed) without the hub having
+    /// anything to say about it. Only the signal; nothing is stored.
+    pub fn catalog_changed(&self, provider: &str) {
+        self.lock().dirty.declared.insert(provider.to_string());
+        self.wake();
     }
 
     /// The provider is running. Every one of its states is `unknown` from now
@@ -264,9 +293,11 @@ impl StateHub {
         let mut g = self.lock();
         if g.providers.remove(provider).is_some() {
             g.dirty.providers.insert(provider.to_string());
-            drop(g);
-            self.wake();
         }
+        // Whether the hub knew it or not, the catalog no longer lists it.
+        g.dirty.declared.insert(provider.to_string());
+        drop(g);
+        self.wake();
     }
 
     /// Declare the states of a provider that is always running (Agent Control,
@@ -314,7 +345,7 @@ impl StateHub {
             Fit::WrongType => {
                 return Err(SetError::WrongType {
                     id: addr.id.clone(),
-                    expected: expected_of(spec.kind),
+                    expected: spec.kind.expects(),
                     got: value.kind(),
                 })
             }
@@ -387,6 +418,26 @@ impl StateHub {
         self.lock().providers.get(provider).map(|p| p.up)
     }
 
+    /// Whether the provider runs and the instances of one of its states that
+    /// have a value now. Costs one pass over that provider's instances (at most
+    /// [`MAX_INSTANCES_PER_PROVIDER`]) and clones only the ones asked for.
+    /// `None` when the hub has never heard of the provider.
+    pub fn state_view(&self, provider: &str, id: &str) -> Option<ProviderView> {
+        let g = self.lock();
+        let p = g.providers.get(provider)?;
+        let mut values: Vec<(StateKey, Observed)> = if p.up {
+            p.values
+                .iter()
+                .filter(|(k, _)| k.id() == id)
+                .map(|(k, s)| (k.clone(), Observed::known(s.value.clone(), s.at)))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        values.sort_by(|a, b| a.0.cmp(&b.0));
+        Some(ProviderView { up: p.up, values })
+    }
+
     /// Every state declared by every provider, whether it is running or not.
     pub fn definitions(&self) -> Vec<ObservableDefinition> {
         let g = self.lock();
@@ -441,39 +492,12 @@ impl StateHub {
     }
 }
 
-fn expected_of(kind: super::definition::ValueType) -> &'static str {
-    use super::definition::ValueType::*;
-    match kind {
-        Enum | String => "a text",
-        Boolean => "a boolean",
-        Number => "a number",
-    }
-}
-
 /// The key of an address after its arguments were checked against the
 /// definition's parameter schema (unknown arguments refused, defaults filled).
 fn canonical_key(def: &ObservableDefinition, addr: &StateAddress) -> Result<StateKey, SetError> {
-    if def.params.is_empty() {
-        if !addr.args.is_empty() {
-            return Err(SetError::BadArgs(format!(
-                "`{}` takes no arguments",
-                addr.id
-            )));
-        }
-        return Ok(addr.key());
-    }
-    let normalized = normalize(&def.params, &addr.args_json()).map_err(|issues| {
-        SetError::BadArgs(
-            issues
-                .into_iter()
-                .map(|i| i.message)
-                .collect::<Vec<_>>()
-                .join("; "),
-        )
-    })?;
-    let full = StateAddress::from_args_json(&addr.provider, &addr.id, &normalized)
-        .map_err(SetError::BadArgs)?;
-    Ok(full.key())
+    def.address(&addr.args_json())
+        .map(|a| a.key())
+        .map_err(SetError::BadArgs)
 }
 
 #[cfg(test)]
@@ -736,7 +760,7 @@ mod tests {
     fn a_provider_cannot_hold_unbounded_instances() {
         let hub = StateHub::new();
         let def = ObservableDefinition::state("big.one", "session", "Session", "")
-            .param(ParamDef::string("id", "Id").required())
+            .param(ParamDef::string("id", "Id").required().max_length(32))
             .text();
         hub.ensure_provider("big.one", vec![def]).unwrap();
         for n in 0..MAX_INSTANCES_PER_PROVIDER {

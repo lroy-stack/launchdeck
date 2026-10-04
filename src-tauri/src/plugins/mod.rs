@@ -70,6 +70,10 @@ pub struct ActionDef {
     pub privileged: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub appearance: Option<Appearance>,
+    /// Local ids of the provider's states or events that a control for this
+    /// action usually shows. A hint for the editor; it makes nothing happen.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub suggests: Vec<String>,
 }
 
 impl ActionDef {
@@ -83,6 +87,7 @@ impl ActionDef {
             params: vec![],
             privileged: false,
             appearance: None,
+            suggests: vec![],
         }
     }
 
@@ -228,6 +233,16 @@ pub trait Plugin: Send + Sync {
     /// the state hub.
     fn observables(&self) -> Vec<ObservableDefinition> {
         Vec::new()
+    }
+
+    /// The part of [`observables`](Plugin::observables) that is state: what the
+    /// hub is told to expect from this provider. Events are announced on the
+    /// bus and are never declared to the hub.
+    fn states(&self) -> Vec<ObservableDefinition> {
+        self.observables()
+            .into_iter()
+            .filter(ObservableDefinition::is_state)
+            .collect()
     }
 }
 

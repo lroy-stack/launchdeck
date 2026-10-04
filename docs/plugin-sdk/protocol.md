@@ -22,10 +22,29 @@ All live in the module `launchdeck`. Any other import makes the module fail to l
 | Import | Signature | Meaning |
 | --- | --- | --- |
 | `log` | `(level: i32, ptr: i32, len: i32)` | Add a line to the plugin's log. Levels: 0 debug, 1 info, 2 warn, 3 error. At most 50 lines per call; lines are cut at 1 KiB and stripped of control characters. |
-| `publish` | `(ptr: i32, len: i32) -> i32` | Publish an event (JSON below). Returns a code. |
+| `publish` | `(ptr: i32, len: i32) -> i32` | Publish an event, or write a state (JSON below). Returns a code. |
 | `respond` | `(ptr: i32, len: i32)` | Give the reply to the current request. The host copies the bytes at once. Calling it twice keeps the last reply. |
 
-`publish` returns `0` accepted, `1` malformed, `2` too large, `3` too many events in this call, `4` not allowed (undeclared type, or a type under a LaunchDeck prefix). The reason is also written to the plugin's log. An accepted event is queued and delivered to the bus only if the call ends normally, so a call that traps or exceeds a limit publishes nothing.
+`publish` returns `0` accepted, `1` malformed, `2` too large, `3` too many in this call, `4` not allowed (an event type or a state the manifest does not declare, or a type under a LaunchDeck prefix), `5` invalid (a declared state, but the arguments or the value do not fit its declaration). The reason is also written to the plugin's log. An accepted event or state write is queued and delivered only if the call ends normally, so a call that traps or exceeds a limit publishes nothing.
+
+### State messages
+
+Events and states share the one `publish` import, and the module tells them apart by the message. Nothing was added to the protocol to carry states: a message with a `state` key is a state write, and a host that predates states never sees one from a module that does not call `setState`.
+
+```json
+{"state":"level","value":"high"}
+{"state":"status","args":{"channel":"alpha"},"value":"up"}
+{"state":"status","args":{"channel":"alpha"},"clear":true}
+```
+
+| Key | Meaning |
+| --- | --- |
+| `state` | The id of a state declared in the manifest. The provider is never part of the message: it is the plugin that sent it, so a module cannot write a state it did not declare. |
+| `args` | The arguments that pick the instance, for a state declared with `params`. Omit it for a state without. |
+| `value` | One scalar: a boolean, a number or a string (at most 256 bytes). It must have the declared type and, for an enum, be one of the listed values. |
+| `clear` | `true` instead of `value`: this instance has no value now and reads `unknown` again. |
+
+A state message is at most 2 KiB, and one call may write at most 64 instances. Writing the value an instance already has is not a change. Writes are queued during the call, in order, and applied when it returns normally.
 
 Every pointer and length the module passes is checked against its memory before the host reads. A bad range is a trap-level failure of that plugin, never a read outside it.
 
@@ -38,7 +57,7 @@ JSON objects. `op` is written first, so a minimal module can tell requests apart
 {"op":"invoke","action":"hello.say","args":{"name":"Leroy"}}
 ```
 
-`init` is sent once, when the plugin starts or restarts, with its settings: the person's stored values where they still fit the declared type, the declared defaults otherwise (secrets included, since the plugin is the one that needs them). Events published during `init` are dropped. If `init` replies `failed`, traps or returns no usable reply, the plugin does not start and shows status *error* with the reason.
+`init` is sent once, when the plugin starts or restarts, with its settings: the person's stored values where they still fit the declared type, the declared defaults otherwise (secrets included, since the plugin is the one that needs them). Events published and states written during `init` are dropped, with a warning in the log. If `init` replies `failed`, traps or returns no usable reply, the plugin does not start and shows status *error* with the reason.
 
 `invoke` carries an action id declared in the manifest and arguments that already passed validation against it.
 
@@ -65,6 +84,8 @@ A reply the host cannot use (not JSON, not an object, unknown status, too large)
 | Wasm stack | 512 KiB | Trap. |
 | Request, reply | 64 KiB each | Reply too large fails the call only. |
 | Event | 16 KiB; 32 per call | `publish` returns 2 or 3. |
+| State write | 2 KiB; 64 per call | `publish` returns 2 or 3. |
+| States held | 64 declared, 1,024 instances | Declaration is refused at load; a write past the instance limit is dropped with a warning. |
 | Module file | 8 MiB | Refused at discovery. |
 
 A trap, a limit, a broken export or a bad pointer drops the instance (the module's memory is lost) and marks the plugin *error*. The log has the reason, other plugins keep running, and **Reload** on the Plugins screen starts it again.

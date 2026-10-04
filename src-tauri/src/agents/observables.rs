@@ -9,7 +9,7 @@
 //! derivation of these values; `publish_projection` writes what differs into
 //! the hub, and a surface reads them from there.
 
-use super::model::{CommandKind, Status};
+use super::model::{AccessLevel, CommandKind, OutcomeState, Status};
 use super::service::{SLOT_COUNT, SOURCE};
 use super::visual::{CommandState, EMPTY};
 use crate::actions::params::ParamDef;
@@ -176,6 +176,149 @@ pub fn definitions() -> Vec<ObservableDefinition> {
     });
 
     vec![status, focused, command]
+}
+
+/// What Agent Control announces on the bus, as an event a rule can name.
+///
+/// The three `*.changed` / `command.state` projection events are not listed:
+/// they exist for older subscribers of the bus, and the states above say the
+/// same thing as a current value, which is what a control should read.
+pub fn events() -> Vec<ObservableDefinition> {
+    let event = |kind: &str, name: &str, description: &str| {
+        ObservableDefinition::event(PROVIDER, kind, name, description)
+            .category("Agent Control")
+            .keywords(&["agent"])
+    };
+    let status_values: Vec<(&str, &str)> = Status::ALL
+        .iter()
+        .map(|s| (s.as_str(), status_label(s.as_str())))
+        .collect();
+    let commands: Vec<(&str, &str)> = CommandKind::ALL
+        .iter()
+        .map(|k| (k.as_str(), command_label(*k)))
+        .collect();
+
+    let mut out = vec![
+        event(
+            "agent.online",
+            "Agent came online",
+            "An agent connected or was registered.",
+        )
+        .field("agentId", "Agent"),
+        event(
+            "agent.offline",
+            "Agent went offline",
+            "An agent disconnected.",
+        )
+        .field("agentId", "Agent"),
+        event(
+            "agent.access",
+            "Agent access changed",
+            "The access an agent has was granted or revoked.",
+        )
+        .field("agentId", "Agent")
+        .field_one_of(
+            "access",
+            "Access",
+            &[
+                (AccessLevel::Monitor.as_str(), "Monitor only"),
+                (AccessLevel::Control.as_str(), "Can be controlled"),
+            ],
+        ),
+        event("session.created", "Session created", "A session appeared.")
+            .field("agentId", "Agent")
+            .field("sessionId", "Session"),
+        event(
+            "session.started",
+            "Session started working",
+            "A session began or resumed work.",
+        )
+        .field("agentId", "Agent")
+        .field("sessionId", "Session")
+        .field_one_of("status", "Status", &status_values)
+        .field_one_of("previous", "Previous status", &status_values),
+        event("session.ended", "Session ended", "A session was removed.")
+            .field("agentId", "Agent")
+            .field("sessionId", "Session")
+            .field("reason", "Reason"),
+        event(
+            "approval.created",
+            "Approval requested",
+            "An agent asked for permission to use a tool.",
+        )
+        .field("approvalId", "Approval")
+        .field("sessionId", "Session")
+        .field("agentId", "Agent")
+        .field("tool", "Tool"),
+        event(
+            "approval.resolved",
+            "Approval resolved",
+            "A request for permission was answered, withdrawn or replaced.",
+        )
+        .field("approvalId", "Approval")
+        .field("sessionId", "Session")
+        .field("agentId", "Agent")
+        .field_one_of(
+            "resolution",
+            "Resolution",
+            &[
+                ("approved", "Approved"),
+                ("rejected", "Rejected"),
+                ("withdrawn", "Withdrawn"),
+                ("superseded", "Superseded"),
+            ],
+        ),
+        event(
+            "command.sent",
+            "Command sent",
+            "A command was sent to an agent.",
+        )
+        .field("requestId", "Request")
+        .field_one_of("command", "Command", &commands)
+        .field("agentId", "Agent")
+        .field("sessionId", "Session"),
+        event(
+            "command.completed",
+            "Command finished",
+            "An agent answered a command.",
+        )
+        .field("requestId", "Request")
+        .field_one_of("command", "Command", &commands)
+        .field("agentId", "Agent")
+        .field("sessionId", "Session")
+        .field_one_of(
+            "state",
+            "Outcome",
+            &[
+                (OutcomeState::Pending.as_str(), "Working"),
+                (OutcomeState::Succeeded.as_str(), "Done"),
+                (OutcomeState::Failed.as_str(), "Failed"),
+            ],
+        )
+        .field("error", "Error"),
+    ];
+    // One event per status a session can enter: `session.running`, `session.failed`...
+    for s in Status::ALL {
+        out.push(
+            event(
+                &format!("session.{}", s.as_str()),
+                &format!("Session became {}", status_label(s.as_str()).to_lowercase()),
+                "A session entered this status.",
+            )
+            .field("agentId", "Agent")
+            .field("sessionId", "Session")
+            .field_one_of("status", "Status", &status_values)
+            .field_one_of("previous", "Previous status", &status_values),
+        );
+    }
+    out
+}
+
+/// Everything Agent Control offers to observe: its states and its events.
+pub fn all() -> Vec<ObservableDefinition> {
+    let mut all = definitions();
+    all.extend(events());
+    all
 }
 
 #[cfg(test)]

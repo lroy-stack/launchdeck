@@ -176,6 +176,7 @@ mod tests {
         Changes {
             keys: keys.iter().map(StateAddress::key).collect(),
             providers: providers.iter().map(|p| p.to_string()).collect(),
+            ..Changes::default()
         }
     }
 

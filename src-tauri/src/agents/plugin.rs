@@ -86,7 +86,7 @@ fn sentence(label: &str) -> String {
 
 impl Plugin for AgentControlPlugin {
     fn observables(&self) -> Vec<crate::state::ObservableDefinition> {
-        super::observables::definitions()
+        super::observables::all()
     }
 
     fn manifest(&self) -> PluginManifest {

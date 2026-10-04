@@ -12,6 +12,7 @@
 //!
 //! * [`value`]: the scalars a state can hold.
 //! * [`address`]: where a state lives (provider, definition, scope).
+//! * [`catalog`]: everything a control can observe, in one list, with the values.
 //! * [`definition`]: what a provider says it offers.
 //! * [`hub`]: the current values, the provider lifecycle and the invalidation.
 //! * [`feedback`]: the rules a control carries, and the gate they pass.
@@ -19,6 +20,7 @@
 //! * [`index`]: which controls depend on which state or event.
 
 pub mod address;
+pub mod catalog;
 pub mod definition;
 pub mod eval;
 pub mod feedback;

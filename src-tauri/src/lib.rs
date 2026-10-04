@@ -161,6 +161,41 @@ fn actions_catalog(state: State<'_, AppState>) -> Catalog {
     state.runtime.catalog()
 }
 
+/// Everything a control can observe, states and events, with what each state
+/// reads now. Updates arrive as `observables-changed`; this is the whole list.
+#[tauri::command]
+fn observables_catalog(state: State<'_, AppState>) -> crate::state::catalog::ObservableCatalog {
+    state.runtime.observables()
+}
+
+/// What one state reads now: `known`, `unknown` or `unavailable`. The address
+/// is checked against the state's definition, so a wrong argument is an error.
+#[tauri::command]
+fn observable_state(
+    state: State<'_, AppState>,
+    provider: String,
+    id: String,
+    args: Option<Value>,
+) -> CmdResult<crate::state::Observed> {
+    state
+        .runtime
+        .read_state(&provider, &id, &args.unwrap_or(Value::Null))
+}
+
+/// Why a control looks the way it does right now, with the rules, what each
+/// reads, which one decided and why a state may not answer.
+#[tauri::command]
+fn explain_control(
+    state: State<'_, AppState>,
+    surface_id: String,
+    page_id: String,
+    control_id: String,
+) -> CmdResult<crate::core::explain::ControlExplanation> {
+    state
+        .runtime
+        .explain_control(&surface_id, &page_id, &control_id)
+}
+
 #[derive(serde::Serialize)]
 struct ValidationOutcome {
     ok: bool,
@@ -485,6 +520,9 @@ pub fn run() {
             run_action,
             actions_catalog,
             actions_validate,
+            observables_catalog,
+            observable_state,
+            explain_control,
             connect_device,
             disconnect_device,
             rescan_devices,

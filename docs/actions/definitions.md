@@ -34,6 +34,7 @@ What a provider offers. It is computed from the registered providers each time t
 | `availability` | `available`, or `unavailable` with a `cause` and a `reason`. See [availability](availability.md). |
 | `privileged` | The action runs a command or a network request on the person's behalf. It is always labelled *Privileged* and only a pad the person configured can trigger it. |
 | `appearance` | Optional hint for a pad that runs this action: a `label`, a `color` and an `icon` (a glyph). Hints only: they are applied when a person asks, never over what they set. |
+| `suggests` | Optional. Ids (`provider.local`) of [observables](../observables.md) a pad for this action usually shows, such as the state the action changes. A hint: nothing is created from it. A plugin lists local ids in its manifest and the catalog makes them full ids. |
 
 ### Ids
 

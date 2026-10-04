@@ -6,12 +6,14 @@
 //
 //   function say(call: Call): Reply {
 //     publish("hello.completed", Json.object().setString("name", "world"));
+//     setState("greeted", true);
 //     return ok();
 //   }
 //   action("hello.say", say);
 //
-// A plugin only describes what happened (actions, events). It never learns
-// about pads, colours, MIDI or devices: surfaces decide what an event looks like.
+// A plugin only describes what happened (actions, events) and how things are
+// now (states). It never learns about pads, colours, MIDI or devices: surfaces
+// decide what an event or a state looks like.
 
 import { Json } from "./json";
 import { hostLog, hostPublish } from "./host";
@@ -51,6 +53,45 @@ export function publish(type: string, payload: Json | null = null): bool {
   const event = Json.object().setString("type", type);
   if (payload != null) event.set("payload", payload);
   return hostPublish(event.toString()) == 0;
+}
+
+// ---- states ----------------------------------------------------------------
+
+// Say how something is now. `id` is a state declared in the manifest's
+// `states`; the value must have its declared type, and for an enum it must be
+// one of the listed values. A state with arguments (`session`, `channel`) is
+// addressed by `args`, which must name every required argument:
+//
+//   setState("level", "high");
+//   setState("status", "up", Json.object().setString("channel", "alpha"));
+//
+// Writing the value a state already has is not a change. States are delivered
+// when the current call returns, and are dropped if the call traps. LaunchDeck
+// does not remember them: whenever the plugin starts (also after it was
+// disabled and enabled again) every state is unknown until an action reports
+// it, and a write made inside `onInit` is ignored. Returns false when the host
+// refused the write (the reason is in the plugin log).
+export function setState<T>(id: string, value: T, args: Json | null = null): bool {
+  const message = Json.object().setString("state", id);
+  if (args != null) message.set("args", args);
+  if (isString<T>()) {
+    message.setString("value", changetype<string>(value));
+  } else if (isBoolean<T>()) {
+    message.setBool("value", <bool>value);
+  } else if (isInteger<T>() || isFloat<T>()) {
+    message.setNumber("value", <f64>value);
+  } else {
+    ERROR("setState takes a string, a boolean or a number");
+  }
+  return hostPublish(message.toString()) == 0;
+}
+
+// Say that an instance of a state has no value now (a session ended): it reads
+// unknown again. For a state without arguments this is rarely what you want.
+export function clearState(id: string, args: Json | null = null): bool {
+  const message = Json.object().setString("state", id).setBool("clear", true);
+  if (args != null) message.set("args", args);
+  return hostPublish(message.toString()) == 0;
 }
 
 // ---- logging ---------------------------------------------------------------

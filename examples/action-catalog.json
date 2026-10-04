@@ -1155,7 +1155,10 @@
       "name": "Increment",
       "params": [],
       "privileged": false,
-      "provider": "example.counter"
+      "provider": "example.counter",
+      "suggests": [
+        "example.counter.level"
+      ]
     },
     {
       "action": "counter.decrement",
@@ -1182,7 +1185,10 @@
       "name": "Decrement",
       "params": [],
       "privileged": false,
-      "provider": "example.counter"
+      "provider": "example.counter",
+      "suggests": [
+        "example.counter.level"
+      ]
     },
     {
       "action": "counter.reset",
@@ -1208,7 +1214,10 @@
       "name": "Reset",
       "params": [],
       "privileged": false,
-      "provider": "example.counter"
+      "provider": "example.counter",
+      "suggests": [
+        "example.counter.level"
+      ]
     },
     {
       "action": "hello.say",
@@ -1279,392 +1288,6 @@
     }
   ],
   "issues": [],
-  "observables": [
-    {
-      "category": "Demo",
-      "description": "Task state of the simulated `alpha` agent.",
-      "id": "demo.alpha",
-      "keywords": [
-        "simulated",
-        "sample",
-        "task",
-        "status"
-      ],
-      "kind": "state",
-      "local": "alpha",
-      "name": "Demo agent alpha",
-      "provider": "demo",
-      "value": {
-        "type": "enum",
-        "values": [
-          {
-            "label": "Idle",
-            "role": "inactive",
-            "value": "idle"
-          },
-          {
-            "label": "Running",
-            "role": "active",
-            "value": "running"
-          },
-          {
-            "label": "Waiting",
-            "role": "warning",
-            "value": "waiting"
-          },
-          {
-            "label": "Needs approval",
-            "role": "attention",
-            "value": "approval-required"
-          },
-          {
-            "label": "Succeeded",
-            "role": "ok",
-            "value": "success"
-          },
-          {
-            "label": "Failed",
-            "role": "error",
-            "value": "error"
-          }
-        ]
-      }
-    },
-    {
-      "category": "Demo",
-      "description": "Task state of the simulated `beta` agent.",
-      "id": "demo.beta",
-      "keywords": [
-        "simulated",
-        "sample",
-        "task",
-        "status"
-      ],
-      "kind": "state",
-      "local": "beta",
-      "name": "Demo agent beta",
-      "provider": "demo",
-      "value": {
-        "type": "enum",
-        "values": [
-          {
-            "label": "Idle",
-            "role": "inactive",
-            "value": "idle"
-          },
-          {
-            "label": "Running",
-            "role": "active",
-            "value": "running"
-          },
-          {
-            "label": "Waiting",
-            "role": "warning",
-            "value": "waiting"
-          },
-          {
-            "label": "Needs approval",
-            "role": "attention",
-            "value": "approval-required"
-          },
-          {
-            "label": "Succeeded",
-            "role": "ok",
-            "value": "success"
-          },
-          {
-            "label": "Failed",
-            "role": "error",
-            "value": "error"
-          }
-        ]
-      }
-    },
-    {
-      "category": "Demo",
-      "description": "Task state of the simulated `gamma` agent.",
-      "id": "demo.gamma",
-      "keywords": [
-        "simulated",
-        "sample",
-        "task",
-        "status"
-      ],
-      "kind": "state",
-      "local": "gamma",
-      "name": "Demo agent gamma",
-      "provider": "demo",
-      "value": {
-        "type": "enum",
-        "values": [
-          {
-            "label": "Idle",
-            "role": "inactive",
-            "value": "idle"
-          },
-          {
-            "label": "Running",
-            "role": "active",
-            "value": "running"
-          },
-          {
-            "label": "Waiting",
-            "role": "warning",
-            "value": "waiting"
-          },
-          {
-            "label": "Needs approval",
-            "role": "attention",
-            "value": "approval-required"
-          },
-          {
-            "label": "Succeeded",
-            "role": "ok",
-            "value": "success"
-          },
-          {
-            "label": "Failed",
-            "role": "error",
-            "value": "error"
-          }
-        ]
-      }
-    },
-    {
-      "category": "Agent Control",
-      "description": "What the agent on one track is doing.",
-      "id": "agent-control.slot.status",
-      "keywords": [
-        "agent",
-        "session",
-        "track",
-        "status"
-      ],
-      "kind": "state",
-      "local": "slot.status",
-      "name": "Agent track status",
-      "params": [
-        {
-          "description": "Which of the eight tracks, counting from 0.",
-          "integer": true,
-          "label": "Track",
-          "max": 7.0,
-          "min": 0.0,
-          "monospace": false,
-          "multiline": false,
-          "name": "slot",
-          "required": true,
-          "type": "number"
-        }
-      ],
-      "provider": "agent-control",
-      "value": {
-        "type": "enum",
-        "values": [
-          {
-            "label": "Idle",
-            "role": "inactive",
-            "value": "idle"
-          },
-          {
-            "label": "Starting",
-            "role": "active",
-            "value": "starting"
-          },
-          {
-            "label": "Running",
-            "role": "active",
-            "value": "running"
-          },
-          {
-            "label": "Using a tool",
-            "role": "active",
-            "value": "tool_use"
-          },
-          {
-            "label": "Waiting",
-            "role": "warning",
-            "value": "waiting"
-          },
-          {
-            "label": "Needs approval",
-            "role": "attention",
-            "value": "approval_required"
-          },
-          {
-            "label": "Paused",
-            "role": "warning",
-            "value": "paused"
-          },
-          {
-            "label": "Completed",
-            "role": "ok",
-            "value": "completed"
-          },
-          {
-            "label": "Failed",
-            "role": "error",
-            "value": "failed"
-          },
-          {
-            "label": "Cancelled",
-            "role": "inactive",
-            "value": "cancelled"
-          },
-          {
-            "label": "Offline",
-            "role": "inactive",
-            "value": "offline"
-          },
-          {
-            "label": "Empty",
-            "role": "inactive",
-            "value": "empty"
-          }
-        ]
-      }
-    },
-    {
-      "category": "Agent Control",
-      "description": "Whether one track is the selected one.",
-      "id": "agent-control.slot.focused",
-      "keywords": [
-        "agent",
-        "focus",
-        "selected",
-        "track"
-      ],
-      "kind": "state",
-      "local": "slot.focused",
-      "name": "Agent track selected",
-      "params": [
-        {
-          "description": "Which of the eight tracks, counting from 0.",
-          "integer": true,
-          "label": "Track",
-          "max": 7.0,
-          "min": 0.0,
-          "monospace": false,
-          "multiline": false,
-          "name": "slot",
-          "required": true,
-          "type": "number"
-        }
-      ],
-      "provider": "agent-control",
-      "value": {
-        "type": "boolean",
-        "values": [
-          {
-            "label": "Selected",
-            "role": "active",
-            "value": true
-          },
-          {
-            "label": "Not selected",
-            "role": "inactive",
-            "value": false
-          }
-        ]
-      }
-    },
-    {
-      "category": "Agent Control",
-      "description": "Whether a command can be used on the selected track, and how it went.",
-      "id": "agent-control.command.state",
-      "keywords": [
-        "agent",
-        "approve",
-        "reject",
-        "command"
-      ],
-      "kind": "state",
-      "local": "command.state",
-      "name": "Agent command state",
-      "params": [
-        {
-          "description": "",
-          "integer": false,
-          "label": "Command",
-          "monospace": false,
-          "multiline": false,
-          "name": "command",
-          "options": [
-            {
-              "label": "Approve",
-              "value": "approve"
-            },
-            {
-              "label": "Reject",
-              "value": "reject"
-            },
-            {
-              "label": "Pause",
-              "value": "pause"
-            },
-            {
-              "label": "Resume",
-              "value": "resume"
-            },
-            {
-              "label": "Stop",
-              "value": "cancel"
-            },
-            {
-              "label": "Retry",
-              "value": "retry"
-            },
-            {
-              "label": "Continue",
-              "value": "send_instruction"
-            },
-            {
-              "label": "Start a task",
-              "value": "spawn"
-            }
-          ],
-          "required": true,
-          "type": "enum"
-        }
-      ],
-      "provider": "agent-control",
-      "value": {
-        "type": "enum",
-        "values": [
-          {
-            "label": "Not available",
-            "role": "inactive",
-            "value": "unavailable"
-          },
-          {
-            "label": "Available",
-            "role": "ok",
-            "value": "available"
-          },
-          {
-            "label": "Needs you",
-            "role": "attention",
-            "value": "attention"
-          },
-          {
-            "label": "Working",
-            "role": "active",
-            "value": "pending"
-          },
-          {
-            "label": "Done",
-            "role": "ok",
-            "value": "succeeded"
-          },
-          {
-            "label": "Failed",
-            "role": "error",
-            "value": "failed"
-          }
-        ]
-      }
-    }
-  ],
   "providers": [
     {
       "description": "Simulated agent tasks for demos and development. No network, no side effects.",
@@ -1721,7 +1344,7 @@
       "name": "Counter Plugin",
       "reason": "The plugin is turned off in Plugins.",
       "status": "disabled",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "description": "Says hello, tells the deck about it, and shows the smallest complete plugin.",

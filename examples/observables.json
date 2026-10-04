@@ -1,0 +1,3549 @@
+{
+  "catalog": {
+    "issues": [],
+    "observables": [
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "LaunchDeck",
+        "description": "The id of the surface on screen now.",
+        "id": "runtime.surface.active",
+        "instanceCount": 1,
+        "instances": [
+          {
+            "status": "known",
+            "updatedAt": 1791133107852,
+            "value": "scenario"
+          }
+        ],
+        "keywords": [
+          "surface",
+          "navigation",
+          "tab",
+          "current"
+        ],
+        "kind": "state",
+        "local": "surface.active",
+        "name": "Active surface",
+        "provider": "runtime",
+        "providerName": "LaunchDeck",
+        "value": {
+          "type": "string"
+        }
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "LaunchDeck",
+        "description": "The id of the page on screen now, within the active surface.",
+        "id": "runtime.page.active",
+        "instanceCount": 1,
+        "instances": [
+          {
+            "status": "known",
+            "updatedAt": 1791133107852,
+            "value": "home"
+          }
+        ],
+        "keywords": [
+          "page",
+          "navigation",
+          "current"
+        ],
+        "kind": "state",
+        "local": "page.active",
+        "name": "Active page",
+        "provider": "runtime",
+        "providerName": "LaunchDeck",
+        "value": {
+          "type": "string"
+        }
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "LaunchDeck",
+        "description": "A control began running its action.",
+        "fields": [
+          {
+            "label": "Action",
+            "name": "action",
+            "type": "string"
+          },
+          {
+            "label": "Control",
+            "name": "controlId",
+            "type": "string"
+          },
+          {
+            "label": "Surface",
+            "name": "surfaceId",
+            "type": "string"
+          },
+          {
+            "label": "Page",
+            "name": "pageId",
+            "type": "string"
+          }
+        ],
+        "id": "runtime.action.started",
+        "instanceCount": 0,
+        "keywords": [
+          "action",
+          "run"
+        ],
+        "kind": "event",
+        "local": "action.started",
+        "name": "Action started",
+        "provider": "runtime",
+        "providerName": "LaunchDeck"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "LaunchDeck",
+        "description": "A control's action finished without an error.",
+        "fields": [
+          {
+            "label": "Action",
+            "name": "action",
+            "type": "string"
+          },
+          {
+            "label": "Control",
+            "name": "controlId",
+            "type": "string"
+          },
+          {
+            "label": "Surface",
+            "name": "surfaceId",
+            "type": "string"
+          },
+          {
+            "label": "Page",
+            "name": "pageId",
+            "type": "string"
+          }
+        ],
+        "id": "runtime.action.completed",
+        "instanceCount": 0,
+        "keywords": [
+          "action",
+          "run"
+        ],
+        "kind": "event",
+        "local": "action.completed",
+        "name": "Action completed",
+        "provider": "runtime",
+        "providerName": "LaunchDeck"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "LaunchDeck",
+        "description": "A control's action ended with an error.",
+        "fields": [
+          {
+            "label": "Action",
+            "name": "action",
+            "type": "string"
+          },
+          {
+            "label": "Control",
+            "name": "controlId",
+            "type": "string"
+          },
+          {
+            "label": "Surface",
+            "name": "surfaceId",
+            "type": "string"
+          },
+          {
+            "label": "Page",
+            "name": "pageId",
+            "type": "string"
+          },
+          {
+            "label": "Error",
+            "name": "error",
+            "type": "string"
+          }
+        ],
+        "id": "runtime.action.failed",
+        "instanceCount": 0,
+        "keywords": [
+          "action",
+          "run"
+        ],
+        "kind": "event",
+        "local": "action.failed",
+        "name": "Action failed",
+        "provider": "runtime",
+        "providerName": "LaunchDeck"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "LaunchDeck",
+        "description": "Another surface came on screen.",
+        "fields": [
+          {
+            "label": "Surface",
+            "name": "surfaceId",
+            "type": "string"
+          },
+          {
+            "label": "Page",
+            "name": "pageId",
+            "type": "string"
+          }
+        ],
+        "id": "runtime.surface.changed",
+        "instanceCount": 0,
+        "keywords": [
+          "navigation"
+        ],
+        "kind": "event",
+        "local": "surface.changed",
+        "name": "Surface changed",
+        "provider": "runtime",
+        "providerName": "LaunchDeck"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "LaunchDeck",
+        "description": "Another page came on screen.",
+        "fields": [
+          {
+            "label": "Surface",
+            "name": "surfaceId",
+            "type": "string"
+          },
+          {
+            "label": "Page",
+            "name": "pageId",
+            "type": "string"
+          }
+        ],
+        "id": "runtime.page.changed",
+        "instanceCount": 0,
+        "keywords": [
+          "navigation"
+        ],
+        "kind": "event",
+        "local": "page.changed",
+        "name": "Page changed",
+        "provider": "runtime",
+        "providerName": "LaunchDeck"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "LaunchDeck",
+        "description": "A controller was connected.",
+        "fields": [
+          {
+            "label": "Device",
+            "name": "deviceId",
+            "type": "string"
+          }
+        ],
+        "id": "runtime.device.connected",
+        "instanceCount": 0,
+        "keywords": [
+          "hardware",
+          "launchpad"
+        ],
+        "kind": "event",
+        "local": "device.connected",
+        "name": "Device connected",
+        "provider": "runtime",
+        "providerName": "LaunchDeck"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "LaunchDeck",
+        "description": "A controller was disconnected.",
+        "fields": [
+          {
+            "label": "Device",
+            "name": "deviceId",
+            "type": "string"
+          }
+        ],
+        "id": "runtime.device.disconnected",
+        "instanceCount": 0,
+        "keywords": [
+          "hardware",
+          "launchpad"
+        ],
+        "kind": "event",
+        "local": "device.disconnected",
+        "name": "Device disconnected",
+        "provider": "runtime",
+        "providerName": "LaunchDeck"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Devices",
+        "description": "A control was pressed on a connected device.",
+        "fields": [
+          {
+            "label": "Device",
+            "name": "deviceId",
+            "type": "string"
+          },
+          {
+            "label": "Surface",
+            "name": "surfaceId",
+            "type": "string"
+          },
+          {
+            "label": "Page",
+            "name": "pageId",
+            "type": "string"
+          },
+          {
+            "label": "Control",
+            "name": "controlId",
+            "type": "string"
+          },
+          {
+            "label": "Label",
+            "name": "label",
+            "type": "string"
+          },
+          {
+            "label": "Velocity",
+            "name": "velocity",
+            "type": "number"
+          }
+        ],
+        "id": "device.control.pressed",
+        "instanceCount": 0,
+        "keywords": [
+          "press",
+          "button",
+          "pad"
+        ],
+        "kind": "event",
+        "local": "control.pressed",
+        "name": "Control pressed",
+        "provider": "device",
+        "providerName": "Devices"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Demo",
+        "description": "Task state of the simulated `alpha` agent.",
+        "id": "demo.alpha",
+        "instanceCount": 0,
+        "instances": [
+          {
+            "status": "unknown",
+            "updatedAt": null,
+            "value": null
+          }
+        ],
+        "keywords": [
+          "simulated",
+          "sample",
+          "task",
+          "status"
+        ],
+        "kind": "state",
+        "local": "alpha",
+        "name": "Demo agent alpha",
+        "provider": "demo",
+        "providerName": "Demo",
+        "value": {
+          "type": "enum",
+          "values": [
+            {
+              "label": "Idle",
+              "role": "inactive",
+              "value": "idle"
+            },
+            {
+              "label": "Running",
+              "role": "active",
+              "value": "running"
+            },
+            {
+              "label": "Waiting",
+              "role": "warning",
+              "value": "waiting"
+            },
+            {
+              "label": "Needs approval",
+              "role": "attention",
+              "value": "approval-required"
+            },
+            {
+              "label": "Succeeded",
+              "role": "ok",
+              "value": "success"
+            },
+            {
+              "label": "Failed",
+              "role": "error",
+              "value": "error"
+            }
+          ]
+        }
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Demo",
+        "description": "Task state of the simulated `beta` agent.",
+        "id": "demo.beta",
+        "instanceCount": 0,
+        "instances": [
+          {
+            "status": "unknown",
+            "updatedAt": null,
+            "value": null
+          }
+        ],
+        "keywords": [
+          "simulated",
+          "sample",
+          "task",
+          "status"
+        ],
+        "kind": "state",
+        "local": "beta",
+        "name": "Demo agent beta",
+        "provider": "demo",
+        "providerName": "Demo",
+        "value": {
+          "type": "enum",
+          "values": [
+            {
+              "label": "Idle",
+              "role": "inactive",
+              "value": "idle"
+            },
+            {
+              "label": "Running",
+              "role": "active",
+              "value": "running"
+            },
+            {
+              "label": "Waiting",
+              "role": "warning",
+              "value": "waiting"
+            },
+            {
+              "label": "Needs approval",
+              "role": "attention",
+              "value": "approval-required"
+            },
+            {
+              "label": "Succeeded",
+              "role": "ok",
+              "value": "success"
+            },
+            {
+              "label": "Failed",
+              "role": "error",
+              "value": "error"
+            }
+          ]
+        }
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Demo",
+        "description": "Task state of the simulated `gamma` agent.",
+        "id": "demo.gamma",
+        "instanceCount": 0,
+        "instances": [
+          {
+            "status": "unknown",
+            "updatedAt": null,
+            "value": null
+          }
+        ],
+        "keywords": [
+          "simulated",
+          "sample",
+          "task",
+          "status"
+        ],
+        "kind": "state",
+        "local": "gamma",
+        "name": "Demo agent gamma",
+        "provider": "demo",
+        "providerName": "Demo",
+        "value": {
+          "type": "enum",
+          "values": [
+            {
+              "label": "Idle",
+              "role": "inactive",
+              "value": "idle"
+            },
+            {
+              "label": "Running",
+              "role": "active",
+              "value": "running"
+            },
+            {
+              "label": "Waiting",
+              "role": "warning",
+              "value": "waiting"
+            },
+            {
+              "label": "Needs approval",
+              "role": "attention",
+              "value": "approval-required"
+            },
+            {
+              "label": "Succeeded",
+              "role": "ok",
+              "value": "success"
+            },
+            {
+              "label": "Failed",
+              "role": "error",
+              "value": "error"
+            }
+          ]
+        }
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "What the agent on one track is doing.",
+        "id": "agent-control.slot.status",
+        "instanceCount": 8,
+        "instances": [
+          {
+            "args": {
+              "slot": 0
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "idle"
+          },
+          {
+            "args": {
+              "slot": 1
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "idle"
+          },
+          {
+            "args": {
+              "slot": 2
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "idle"
+          },
+          {
+            "args": {
+              "slot": 3
+            },
+            "status": "known",
+            "updatedAt": 1791133105522,
+            "value": "idle"
+          },
+          {
+            "args": {
+              "slot": 4
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "empty"
+          },
+          {
+            "args": {
+              "slot": 5
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "empty"
+          },
+          {
+            "args": {
+              "slot": 6
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "empty"
+          },
+          {
+            "args": {
+              "slot": 7
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "empty"
+          }
+        ],
+        "keywords": [
+          "agent",
+          "session",
+          "track",
+          "status"
+        ],
+        "kind": "state",
+        "local": "slot.status",
+        "name": "Agent track status",
+        "params": [
+          {
+            "description": "Which of the eight tracks, counting from 0.",
+            "integer": true,
+            "label": "Track",
+            "max": 7.0,
+            "min": 0.0,
+            "monospace": false,
+            "multiline": false,
+            "name": "slot",
+            "required": true,
+            "type": "number"
+          }
+        ],
+        "provider": "agent-control",
+        "providerName": "Agent Control",
+        "value": {
+          "type": "enum",
+          "values": [
+            {
+              "label": "Idle",
+              "role": "inactive",
+              "value": "idle"
+            },
+            {
+              "label": "Starting",
+              "role": "active",
+              "value": "starting"
+            },
+            {
+              "label": "Running",
+              "role": "active",
+              "value": "running"
+            },
+            {
+              "label": "Using a tool",
+              "role": "active",
+              "value": "tool_use"
+            },
+            {
+              "label": "Waiting",
+              "role": "warning",
+              "value": "waiting"
+            },
+            {
+              "label": "Needs approval",
+              "role": "attention",
+              "value": "approval_required"
+            },
+            {
+              "label": "Paused",
+              "role": "warning",
+              "value": "paused"
+            },
+            {
+              "label": "Completed",
+              "role": "ok",
+              "value": "completed"
+            },
+            {
+              "label": "Failed",
+              "role": "error",
+              "value": "failed"
+            },
+            {
+              "label": "Cancelled",
+              "role": "inactive",
+              "value": "cancelled"
+            },
+            {
+              "label": "Offline",
+              "role": "inactive",
+              "value": "offline"
+            },
+            {
+              "label": "Empty",
+              "role": "inactive",
+              "value": "empty"
+            }
+          ]
+        }
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "Whether one track is the selected one.",
+        "id": "agent-control.slot.focused",
+        "instanceCount": 8,
+        "instances": [
+          {
+            "args": {
+              "slot": 0
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": false
+          },
+          {
+            "args": {
+              "slot": 1
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": false
+          },
+          {
+            "args": {
+              "slot": 2
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": false
+          },
+          {
+            "args": {
+              "slot": 3
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": false
+          },
+          {
+            "args": {
+              "slot": 4
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": false
+          },
+          {
+            "args": {
+              "slot": 5
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": false
+          },
+          {
+            "args": {
+              "slot": 6
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": false
+          },
+          {
+            "args": {
+              "slot": 7
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": false
+          }
+        ],
+        "keywords": [
+          "agent",
+          "focus",
+          "selected",
+          "track"
+        ],
+        "kind": "state",
+        "local": "slot.focused",
+        "name": "Agent track selected",
+        "params": [
+          {
+            "description": "Which of the eight tracks, counting from 0.",
+            "integer": true,
+            "label": "Track",
+            "max": 7.0,
+            "min": 0.0,
+            "monospace": false,
+            "multiline": false,
+            "name": "slot",
+            "required": true,
+            "type": "number"
+          }
+        ],
+        "provider": "agent-control",
+        "providerName": "Agent Control",
+        "value": {
+          "type": "boolean",
+          "values": [
+            {
+              "label": "Selected",
+              "role": "active",
+              "value": true
+            },
+            {
+              "label": "Not selected",
+              "role": "inactive",
+              "value": false
+            }
+          ]
+        }
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "Whether a command can be used on the selected track, and how it went.",
+        "id": "agent-control.command.state",
+        "instanceCount": 8,
+        "instances": [
+          {
+            "args": {
+              "command": "approve"
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "unavailable"
+          },
+          {
+            "args": {
+              "command": "cancel"
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "unavailable"
+          },
+          {
+            "args": {
+              "command": "pause"
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "unavailable"
+          },
+          {
+            "args": {
+              "command": "reject"
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "unavailable"
+          },
+          {
+            "args": {
+              "command": "resume"
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "unavailable"
+          },
+          {
+            "args": {
+              "command": "retry"
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "unavailable"
+          },
+          {
+            "args": {
+              "command": "send_instruction"
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "unavailable"
+          },
+          {
+            "args": {
+              "command": "spawn"
+            },
+            "status": "known",
+            "updatedAt": 1791133105521,
+            "value": "available"
+          }
+        ],
+        "keywords": [
+          "agent",
+          "approve",
+          "reject",
+          "command"
+        ],
+        "kind": "state",
+        "local": "command.state",
+        "name": "Agent command state",
+        "params": [
+          {
+            "description": "",
+            "integer": false,
+            "label": "Command",
+            "monospace": false,
+            "multiline": false,
+            "name": "command",
+            "options": [
+              {
+                "label": "Approve",
+                "value": "approve"
+              },
+              {
+                "label": "Reject",
+                "value": "reject"
+              },
+              {
+                "label": "Pause",
+                "value": "pause"
+              },
+              {
+                "label": "Resume",
+                "value": "resume"
+              },
+              {
+                "label": "Stop",
+                "value": "cancel"
+              },
+              {
+                "label": "Retry",
+                "value": "retry"
+              },
+              {
+                "label": "Continue",
+                "value": "send_instruction"
+              },
+              {
+                "label": "Start a task",
+                "value": "spawn"
+              }
+            ],
+            "required": true,
+            "type": "enum"
+          }
+        ],
+        "provider": "agent-control",
+        "providerName": "Agent Control",
+        "value": {
+          "type": "enum",
+          "values": [
+            {
+              "label": "Not available",
+              "role": "inactive",
+              "value": "unavailable"
+            },
+            {
+              "label": "Available",
+              "role": "ok",
+              "value": "available"
+            },
+            {
+              "label": "Needs you",
+              "role": "attention",
+              "value": "attention"
+            },
+            {
+              "label": "Working",
+              "role": "active",
+              "value": "pending"
+            },
+            {
+              "label": "Done",
+              "role": "ok",
+              "value": "succeeded"
+            },
+            {
+              "label": "Failed",
+              "role": "error",
+              "value": "failed"
+            }
+          ]
+        }
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "An agent connected or was registered.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          }
+        ],
+        "id": "agent-control.agent.online",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "agent.online",
+        "name": "Agent came online",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "An agent disconnected.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          }
+        ],
+        "id": "agent-control.agent.offline",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "agent.offline",
+        "name": "Agent went offline",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "The access an agent has was granted or revoked.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Access",
+            "name": "access",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Monitor only",
+                "value": "monitor"
+              },
+              {
+                "label": "Can be controlled",
+                "value": "control"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.agent.access",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "agent.access",
+        "name": "Agent access changed",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session appeared.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          }
+        ],
+        "id": "agent-control.session.created",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.created",
+        "name": "Session created",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session began or resumed work.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Status",
+            "name": "status",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          },
+          {
+            "label": "Previous status",
+            "name": "previous",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.session.started",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.started",
+        "name": "Session started working",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session was removed.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Reason",
+            "name": "reason",
+            "type": "string"
+          }
+        ],
+        "id": "agent-control.session.ended",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.ended",
+        "name": "Session ended",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "An agent asked for permission to use a tool.",
+        "fields": [
+          {
+            "label": "Approval",
+            "name": "approvalId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Tool",
+            "name": "tool",
+            "type": "string"
+          }
+        ],
+        "id": "agent-control.approval.created",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "approval.created",
+        "name": "Approval requested",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A request for permission was answered, withdrawn or replaced.",
+        "fields": [
+          {
+            "label": "Approval",
+            "name": "approvalId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Resolution",
+            "name": "resolution",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Approved",
+                "value": "approved"
+              },
+              {
+                "label": "Rejected",
+                "value": "rejected"
+              },
+              {
+                "label": "Withdrawn",
+                "value": "withdrawn"
+              },
+              {
+                "label": "Superseded",
+                "value": "superseded"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.approval.resolved",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "approval.resolved",
+        "name": "Approval resolved",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A command was sent to an agent.",
+        "fields": [
+          {
+            "label": "Request",
+            "name": "requestId",
+            "type": "string"
+          },
+          {
+            "label": "Command",
+            "name": "command",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Approve",
+                "value": "approve"
+              },
+              {
+                "label": "Reject",
+                "value": "reject"
+              },
+              {
+                "label": "Pause",
+                "value": "pause"
+              },
+              {
+                "label": "Resume",
+                "value": "resume"
+              },
+              {
+                "label": "Stop",
+                "value": "cancel"
+              },
+              {
+                "label": "Retry",
+                "value": "retry"
+              },
+              {
+                "label": "Continue",
+                "value": "send_instruction"
+              },
+              {
+                "label": "Start a task",
+                "value": "spawn"
+              }
+            ]
+          },
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          }
+        ],
+        "id": "agent-control.command.sent",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "command.sent",
+        "name": "Command sent",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "An agent answered a command.",
+        "fields": [
+          {
+            "label": "Request",
+            "name": "requestId",
+            "type": "string"
+          },
+          {
+            "label": "Command",
+            "name": "command",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Approve",
+                "value": "approve"
+              },
+              {
+                "label": "Reject",
+                "value": "reject"
+              },
+              {
+                "label": "Pause",
+                "value": "pause"
+              },
+              {
+                "label": "Resume",
+                "value": "resume"
+              },
+              {
+                "label": "Stop",
+                "value": "cancel"
+              },
+              {
+                "label": "Retry",
+                "value": "retry"
+              },
+              {
+                "label": "Continue",
+                "value": "send_instruction"
+              },
+              {
+                "label": "Start a task",
+                "value": "spawn"
+              }
+            ]
+          },
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Outcome",
+            "name": "state",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Working",
+                "value": "pending"
+              },
+              {
+                "label": "Done",
+                "value": "succeeded"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              }
+            ]
+          },
+          {
+            "label": "Error",
+            "name": "error",
+            "type": "string"
+          }
+        ],
+        "id": "agent-control.command.completed",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "command.completed",
+        "name": "Command finished",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session entered this status.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Status",
+            "name": "status",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          },
+          {
+            "label": "Previous status",
+            "name": "previous",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.session.idle",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.idle",
+        "name": "Session became idle",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session entered this status.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Status",
+            "name": "status",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          },
+          {
+            "label": "Previous status",
+            "name": "previous",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.session.starting",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.starting",
+        "name": "Session became starting",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session entered this status.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Status",
+            "name": "status",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          },
+          {
+            "label": "Previous status",
+            "name": "previous",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.session.running",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.running",
+        "name": "Session became running",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session entered this status.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Status",
+            "name": "status",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          },
+          {
+            "label": "Previous status",
+            "name": "previous",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.session.tool_use",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.tool_use",
+        "name": "Session became using a tool",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session entered this status.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Status",
+            "name": "status",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          },
+          {
+            "label": "Previous status",
+            "name": "previous",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.session.waiting",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.waiting",
+        "name": "Session became waiting",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session entered this status.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Status",
+            "name": "status",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          },
+          {
+            "label": "Previous status",
+            "name": "previous",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.session.approval_required",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.approval_required",
+        "name": "Session became needs approval",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session entered this status.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Status",
+            "name": "status",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          },
+          {
+            "label": "Previous status",
+            "name": "previous",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.session.paused",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.paused",
+        "name": "Session became paused",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session entered this status.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Status",
+            "name": "status",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          },
+          {
+            "label": "Previous status",
+            "name": "previous",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.session.completed",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.completed",
+        "name": "Session became completed",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session entered this status.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Status",
+            "name": "status",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          },
+          {
+            "label": "Previous status",
+            "name": "previous",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.session.failed",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.failed",
+        "name": "Session became failed",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session entered this status.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Status",
+            "name": "status",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          },
+          {
+            "label": "Previous status",
+            "name": "previous",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.session.cancelled",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.cancelled",
+        "name": "Session became cancelled",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Agent Control",
+        "description": "A session entered this status.",
+        "fields": [
+          {
+            "label": "Agent",
+            "name": "agentId",
+            "type": "string"
+          },
+          {
+            "label": "Session",
+            "name": "sessionId",
+            "type": "string"
+          },
+          {
+            "label": "Status",
+            "name": "status",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          },
+          {
+            "label": "Previous status",
+            "name": "previous",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Idle",
+                "value": "idle"
+              },
+              {
+                "label": "Starting",
+                "value": "starting"
+              },
+              {
+                "label": "Running",
+                "value": "running"
+              },
+              {
+                "label": "Using a tool",
+                "value": "tool_use"
+              },
+              {
+                "label": "Waiting",
+                "value": "waiting"
+              },
+              {
+                "label": "Needs approval",
+                "value": "approval_required"
+              },
+              {
+                "label": "Paused",
+                "value": "paused"
+              },
+              {
+                "label": "Completed",
+                "value": "completed"
+              },
+              {
+                "label": "Failed",
+                "value": "failed"
+              },
+              {
+                "label": "Cancelled",
+                "value": "cancelled"
+              },
+              {
+                "label": "Offline",
+                "value": "offline"
+              }
+            ]
+          }
+        ],
+        "id": "agent-control.session.offline",
+        "instanceCount": 0,
+        "keywords": [
+          "agent"
+        ],
+        "kind": "event",
+        "local": "session.offline",
+        "name": "Session became offline",
+        "provider": "agent-control",
+        "providerName": "Agent Control"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Channels",
+        "description": "Whether one channel works. There is one instance per channel.",
+        "id": "example.channels.status",
+        "instanceCount": 2,
+        "instances": [
+          {
+            "args": {
+              "channel": "alpha"
+            },
+            "status": "known",
+            "updatedAt": 1791133107853,
+            "value": "up"
+          },
+          {
+            "args": {
+              "channel": "beta"
+            },
+            "status": "known",
+            "updatedAt": 1791133107854,
+            "value": "down"
+          }
+        ],
+        "keywords": [
+          "channel",
+          "online",
+          "health"
+        ],
+        "kind": "state",
+        "local": "status",
+        "name": "Channel status",
+        "params": [
+          {
+            "description": "",
+            "integer": false,
+            "label": "Channel",
+            "maxLength": 32,
+            "monospace": false,
+            "multiline": false,
+            "name": "channel",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "provider": "example.channels",
+        "providerName": "Channels",
+        "value": {
+          "type": "enum",
+          "values": [
+            {
+              "label": "Up",
+              "role": "ok",
+              "value": "up"
+            },
+            {
+              "label": "Down",
+              "role": "error",
+              "value": "down"
+            }
+          ]
+        }
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Channels",
+        "description": "A channel went up or down. Payload: channel, status.",
+        "fields": [
+          {
+            "label": "Channel",
+            "name": "channel",
+            "type": "string"
+          },
+          {
+            "label": "Status",
+            "name": "status",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Up",
+                "value": "up"
+              },
+              {
+                "label": "Down",
+                "value": "down"
+              }
+            ]
+          }
+        ],
+        "id": "example.channels.channel.changed",
+        "instanceCount": 0,
+        "kind": "event",
+        "local": "channel.changed",
+        "name": "Channel changed",
+        "provider": "example.channels",
+        "providerName": "Channels"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Counter Plugin",
+        "description": "How full the counter is. Unknown until the counter has reported once after it starts.",
+        "id": "example.counter.level",
+        "instanceCount": 1,
+        "instances": [
+          {
+            "status": "known",
+            "updatedAt": 1791133107852,
+            "value": "low"
+          }
+        ],
+        "keywords": [
+          "count",
+          "level",
+          "full",
+          "value"
+        ],
+        "kind": "state",
+        "local": "level",
+        "name": "Counter level",
+        "provider": "example.counter",
+        "providerName": "Counter Plugin",
+        "value": {
+          "type": "enum",
+          "values": [
+            {
+              "label": "Empty",
+              "role": "inactive",
+              "value": "zero"
+            },
+            {
+              "label": "Low",
+              "role": "ok",
+              "value": "low"
+            },
+            {
+              "label": "High",
+              "role": "warning",
+              "value": "high"
+            },
+            {
+              "label": "Full",
+              "role": "attention",
+              "value": "max"
+            }
+          ]
+        }
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Counter Plugin",
+        "description": "The value changed. Payload: value (number), level (zero, low, high or max).",
+        "fields": [
+          {
+            "label": "Value",
+            "name": "value",
+            "type": "number"
+          },
+          {
+            "label": "Level",
+            "name": "level",
+            "type": "enum",
+            "values": [
+              {
+                "label": "Empty",
+                "value": "zero"
+              },
+              {
+                "label": "Low",
+                "value": "low"
+              },
+              {
+                "label": "High",
+                "value": "high"
+              },
+              {
+                "label": "Full",
+                "value": "max"
+              }
+            ]
+          }
+        ],
+        "id": "example.counter.counter.changed",
+        "instanceCount": 0,
+        "kind": "event",
+        "local": "counter.changed",
+        "name": "Counter changed",
+        "provider": "example.counter",
+        "providerName": "Counter Plugin"
+      },
+      {
+        "availability": {
+          "cause": "provider",
+          "reason": "The plugin is turned off in Plugins.",
+          "status": "unavailable"
+        },
+        "category": "Hello Plugin",
+        "description": "A greeting was produced. Payload: name, message.",
+        "id": "example.hello.hello.completed",
+        "instanceCount": 0,
+        "kind": "event",
+        "local": "hello.completed",
+        "name": "hello.completed",
+        "provider": "example.hello",
+        "providerName": "Hello Plugin"
+      },
+      {
+        "availability": {
+          "cause": "provider",
+          "reason": "The plugin could not start: the module imports `wasi_snapshot_preview1::fd_write`, which LaunchDeck does not provide (plugins have no system access)",
+          "status": "unavailable"
+        },
+        "category": "Ping Plugin (C)",
+        "description": "A ping was sent. Payload: from.",
+        "id": "example.broken.ping.sent",
+        "instanceCount": 0,
+        "kind": "event",
+        "local": "ping.sent",
+        "name": "ping.sent",
+        "provider": "example.broken",
+        "providerName": "Ping Plugin (C)"
+      },
+      {
+        "availability": {
+          "status": "available"
+        },
+        "category": "Ping Plugin (C)",
+        "description": "A ping was sent. Payload: from.",
+        "id": "example.ping.ping.sent",
+        "instanceCount": 0,
+        "kind": "event",
+        "local": "ping.sent",
+        "name": "ping.sent",
+        "provider": "example.ping",
+        "providerName": "Ping Plugin (C)"
+      }
+    ],
+    "providers": [
+      {
+        "description": "The app itself: navigation, running actions and devices.",
+        "id": "runtime",
+        "kind": "builtin",
+        "name": "LaunchDeck",
+        "status": "ready",
+        "version": "0.2.0"
+      },
+      {
+        "description": "Controls pressed on a connected device.",
+        "id": "device",
+        "kind": "builtin",
+        "name": "Devices",
+        "status": "ready",
+        "version": "0.2.0"
+      },
+      {
+        "description": "Simulated agent tasks for demos and development. No network, no side effects.",
+        "id": "demo",
+        "kind": "builtin",
+        "name": "Demo",
+        "status": "ready",
+        "version": "0.2.0"
+      },
+      {
+        "description": "Observe, intervene in and orchestrate agents from any surface. Commands act on the focused track and respect each agent's capabilities.",
+        "id": "agent-control",
+        "kind": "module",
+        "name": "Agent Control",
+        "status": "ready",
+        "version": "0.3.0"
+      },
+      {
+        "description": "Tracks any number of named channels. One state, `status`, has an instance for each channel: the state is scoped by the channel it is about.",
+        "id": "example.channels",
+        "kind": "plugin",
+        "name": "Channels",
+        "status": "ready",
+        "version": "0.1.0"
+      },
+      {
+        "description": "A counter that remembers its value between presses and reports a level, never a number of pads.",
+        "id": "example.counter",
+        "kind": "plugin",
+        "name": "Counter Plugin",
+        "status": "ready",
+        "version": "0.2.0"
+      },
+      {
+        "description": "Says hello, tells the deck about it, and shows the smallest complete plugin.",
+        "id": "example.hello",
+        "kind": "plugin",
+        "name": "Hello Plugin",
+        "reason": "The plugin is turned off in Plugins.",
+        "status": "disabled",
+        "version": "0.1.0"
+      },
+      {
+        "description": "The same contract from plain C, with no SDK. Proves the runtime does not depend on a language.",
+        "id": "example.broken",
+        "kind": "plugin",
+        "name": "Ping Plugin (C)",
+        "reason": "The plugin could not start: the module imports `wasi_snapshot_preview1::fd_write`, which LaunchDeck does not provide (plugins have no system access)",
+        "status": "error",
+        "version": "0.1.0"
+      },
+      {
+        "description": "The same contract from plain C, with no SDK. Proves the runtime does not depend on a language.",
+        "id": "example.ping",
+        "kind": "plugin",
+        "name": "Ping Plugin (C)",
+        "status": "ready",
+        "version": "0.1.0"
+      }
+    ]
+  },
+  "explain": {
+    "missingLook": {
+      "controlId": "g.1.0",
+      "derived": "nope",
+      "diagnostics": [
+        {
+          "kind": "missingLook",
+          "look": "nope",
+          "rule": 0
+        }
+      ],
+      "layer": "state",
+      "overlay": null,
+      "pageId": "home",
+      "rules": [
+        {
+          "decided": true,
+          "holds": true,
+          "index": 0,
+          "kind": "state",
+          "look": "nope",
+          "lookExists": false,
+          "observable": {
+            "address": "example.counter.level",
+            "id": "example.counter.level",
+            "kind": "state",
+            "name": "Counter level",
+            "provider": "example.counter",
+            "providerName": "Counter Plugin"
+          },
+          "observed": {
+            "status": "known",
+            "updatedAt": 1791133107852,
+            "value": "low"
+          },
+          "valueLabel": "Low"
+        }
+      ],
+      "shown": "nope",
+      "surfaceId": "scenario",
+      "winner": 0
+    },
+    "overlay": {
+      "controlId": "g.0.0",
+      "derived": "low",
+      "diagnostics": [
+        {
+          "kind": "missingLook",
+          "look": "low",
+          "rule": 0
+        }
+      ],
+      "layer": "overlay",
+      "overlay": {
+        "latched": false,
+        "look": "blink",
+        "remainingMs": 29743,
+        "rule": 1,
+        "source": "event"
+      },
+      "pageId": "home",
+      "rules": [
+        {
+          "decided": true,
+          "holds": true,
+          "index": 0,
+          "kind": "state",
+          "look": "low",
+          "lookExists": false,
+          "observable": {
+            "address": "example.counter.level",
+            "id": "example.counter.level",
+            "kind": "state",
+            "name": "Counter level",
+            "provider": "example.counter",
+            "providerName": "Counter Plugin"
+          },
+          "observed": {
+            "status": "known",
+            "updatedAt": 1791133107852,
+            "value": "low"
+          },
+          "valueLabel": "Low"
+        },
+        {
+          "decided": true,
+          "holds": false,
+          "index": 1,
+          "kind": "event",
+          "look": "blink",
+          "lookExists": true,
+          "observable": {
+            "address": "example.counter.counter.changed",
+            "id": "example.counter.counter.changed",
+            "kind": "event",
+            "name": "Counter changed",
+            "provider": "example.counter",
+            "providerName": "Counter Plugin"
+          }
+        }
+      ],
+      "shown": "blink",
+      "surfaceId": "scenario",
+      "winner": 0
+    },
+    "unknown": {
+      "controlId": "g.2.0",
+      "derived": null,
+      "diagnostics": [],
+      "layer": "rest",
+      "overlay": null,
+      "pageId": "home",
+      "rules": [
+        {
+          "decided": false,
+          "holds": false,
+          "index": 0,
+          "kind": "state",
+          "look": "x",
+          "lookExists": false,
+          "observable": {
+            "address": "acme.missing.thing",
+            "id": "acme.missing.thing",
+            "kind": "state",
+            "provider": "acme.missing"
+          },
+          "observed": {
+            "status": "unavailable",
+            "updatedAt": null,
+            "value": null
+          },
+          "reason": "Nothing named `acme.missing` is installed."
+        },
+        {
+          "decided": false,
+          "holds": false,
+          "index": 1,
+          "kind": "state",
+          "look": "x",
+          "lookExists": false,
+          "observable": {
+            "address": "example.channels.status(channel=zeta)",
+            "id": "example.channels.status",
+            "kind": "state",
+            "name": "Channel status",
+            "provider": "example.channels",
+            "providerName": "Channels"
+          },
+          "observed": {
+            "status": "unknown",
+            "updatedAt": null,
+            "value": null
+          },
+          "reason": "Channels is running but has not reported `status` for these arguments yet."
+        },
+        {
+          "decided": false,
+          "holds": false,
+          "index": 2,
+          "kind": "state",
+          "look": "x",
+          "lookExists": false,
+          "observable": {
+            "address": "example.hello.never",
+            "id": "example.hello.never",
+            "kind": "state",
+            "provider": "example.hello",
+            "providerName": "Hello Plugin"
+          },
+          "observed": {
+            "status": "unavailable",
+            "updatedAt": null,
+            "value": null
+          },
+          "reason": "The plugin is turned off in Plugins."
+        }
+      ],
+      "shown": null,
+      "surfaceId": "scenario",
+      "winner": null
+    }
+  },
+  "messages": {
+    "catalog": {
+      "catalog": true,
+      "observables": [],
+      "providers": []
+    },
+    "lifecycle": {
+      "catalog": false,
+      "observables": [
+        {
+          "availability": {
+            "cause": "provider",
+            "reason": "The plugin is turned off in Plugins.",
+            "status": "unavailable"
+          },
+          "id": "example.hello.hello.completed",
+          "instanceCount": 0
+        }
+      ],
+      "providers": [
+        {
+          "description": "Says hello, tells the deck about it, and shows the smallest complete plugin.",
+          "id": "example.hello",
+          "kind": "plugin",
+          "name": "Hello Plugin",
+          "reason": "The plugin is turned off in Plugins.",
+          "status": "disabled",
+          "version": "0.1.0"
+        }
+      ]
+    },
+    "values": {
+      "catalog": false,
+      "observables": [
+        {
+          "availability": {
+            "status": "available"
+          },
+          "id": "example.channels.status",
+          "instanceCount": 2,
+          "instances": [
+            {
+              "args": {
+                "channel": "alpha"
+              },
+              "status": "known",
+              "updatedAt": 1791133107853,
+              "value": "up"
+            },
+            {
+              "args": {
+                "channel": "beta"
+              },
+              "status": "known",
+              "updatedAt": 1791133107854,
+              "value": "down"
+            }
+          ]
+        },
+        {
+          "availability": {
+            "status": "available"
+          },
+          "id": "example.counter.level",
+          "instanceCount": 1,
+          "instances": [
+            {
+              "status": "known",
+              "updatedAt": 1791133107852,
+              "value": "low"
+            }
+          ]
+        }
+      ],
+      "providers": []
+    }
+  }
+}

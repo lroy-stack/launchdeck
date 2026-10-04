@@ -38,6 +38,30 @@ pub fn load(wasm: Vec<u8>, manifest: Value, limits: Limits) -> Arc<WasmPlugin> {
     plugin
 }
 
+/// Like [`load`], reporting to `hub`, with the plugin's states declared there
+/// first (what the host does at install).
+pub fn load_with_hub(
+    wasm: Vec<u8>,
+    manifest: Value,
+    limits: Limits,
+    hub: &crate::state::StateHub,
+) -> Arc<WasmPlugin> {
+    use crate::plugins::Plugin;
+    let m = ExternalManifest::parse(&manifest.to_string()).expect("test manifest");
+    let id = m.id.clone();
+    let plugin = WasmPlugin::with_hub(
+        m,
+        PathBuf::from("."),
+        0,
+        Arc::new(PluginLog::new(&id)),
+        limits,
+        hub.clone(),
+    );
+    hub.declare(&id, plugin.states()).expect("states declare");
+    plugin.activate(&wasm, &Map::new());
+    plugin
+}
+
 pub fn ctx(id: &str, bus: &EventBus) -> PluginContext {
     PluginContext::new(id, bus.clone(), tokio::runtime::Handle::current())
 }

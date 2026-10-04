@@ -12,9 +12,12 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
-use super::address::valid_ident;
+use serde_json::Value;
+
+use super::address::{valid_ident, StateAddress, MAX_ARGS, MAX_ARG_BYTES};
 use super::value::Scalar;
-use crate::actions::params::{validate_defs, ParamDef, ParamKind};
+use crate::actions::params::{normalize, validate_defs, ParamDef, ParamKind};
+use crate::events::external::valid_ident as valid_event_type;
 
 pub const MAX_NAME: usize = 64;
 pub const MAX_DESCRIPTION: usize = 280;
@@ -39,6 +42,17 @@ pub enum ValueType {
     Boolean,
     Number,
     String,
+}
+
+impl ValueType {
+    /// What a value of this type is called in an error message.
+    pub fn expects(self) -> &'static str {
+        match self {
+            ValueType::Enum | ValueType::String => "a text",
+            ValueType::Boolean => "a boolean",
+            ValueType::Number => "a number",
+        }
+    }
 }
 
 /// A suggestion a provider may attach to a value: an intent, never a colour.
@@ -201,6 +215,15 @@ pub fn observable_id(provider: &str, local: &str) -> String {
     format!("{provider}.{local}")
 }
 
+/// One write to a state, after it was checked against the definition.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Write {
+    /// The canonical address: arguments checked, defaults filled in.
+    pub address: StateAddress,
+    /// The new value, or `None` to say the instance has no value any more.
+    pub value: Option<Scalar>,
+}
+
 impl ObservableDefinition {
     pub fn state(provider: &str, local: &str, name: &str, description: &str) -> Self {
         Self {
@@ -279,15 +302,126 @@ impl ObservableDefinition {
         self
     }
 
+    /// An event's payload field a rule may test: free text.
+    pub fn field(self, name: &str, label: &str) -> Self {
+        self.field_of(name, label, ValueType::String, &[])
+    }
+
+    /// A payload field with a fixed set of values: `(value, label)` each.
+    pub fn field_one_of(self, name: &str, label: &str, values: &[(&str, &str)]) -> Self {
+        self.field_of(name, label, ValueType::Enum, values)
+    }
+
+    /// A payload field that is a number.
+    pub fn field_number(self, name: &str, label: &str) -> Self {
+        self.field_of(name, label, ValueType::Number, &[])
+    }
+
+    fn field_of(
+        mut self,
+        name: &str,
+        label: &str,
+        kind: ValueType,
+        values: &[(&str, &str)],
+    ) -> Self {
+        self.fields.push(EventField {
+            name: name.to_string(),
+            label: label.to_string(),
+            kind,
+            values: values
+                .iter()
+                .map(|(v, l)| ValueOption::new(*v, l, None))
+                .collect(),
+        });
+        self
+    }
+
     pub fn is_state(&self) -> bool {
         self.kind == ObservableKind::State
+    }
+
+    /// The address of one instance of this state, from the arguments a provider
+    /// or a rule gave: unknown arguments are refused and defaults are filled in,
+    /// so `2` and `2.0` name the same instance.
+    pub fn address(&self, args: &Value) -> Result<StateAddress, String> {
+        if self.params.is_empty() {
+            let none = match args {
+                Value::Null => true,
+                Value::Object(map) => map.is_empty(),
+                _ => return Err("arguments must be an object".into()),
+            };
+            if !none {
+                return Err(format!("`{}` takes no arguments", self.local));
+            }
+            return Ok(StateAddress::new(&self.provider, &self.local));
+        }
+        let normalized = normalize(&self.params, args).map_err(|issues| {
+            issues
+                .into_iter()
+                .map(|i| i.message)
+                .collect::<Vec<_>>()
+                .join("; ")
+        })?;
+        StateAddress::from_args_json(&self.provider, &self.local, &normalized)
+    }
+
+    /// Is this write allowed by the definition? Used where a provider is not
+    /// trusted (an installed plugin) so a bad write is refused with a reason
+    /// before it reaches the hub. The hub still checks what it stores.
+    ///
+    /// A value must have the declared type and, for an enum, be one of the
+    /// listed values: a plugin ships its manifest and its code together, so
+    /// there is no older host to protect with leniency.
+    pub fn check_write(&self, args: &Value, value: Option<&Value>) -> Result<Write, String> {
+        if !self.is_state() {
+            return Err(format!("`{}` is an event, not a state", self.local));
+        }
+        let address = self.address(args)?;
+        address.validate().map_err(|e| e.to_string())?;
+        let value = match value {
+            None => None,
+            Some(v) => {
+                let scalar = Scalar::from_json(v).map_err(|e| e.to_string())?;
+                let spec = self
+                    .value
+                    .as_ref()
+                    .ok_or_else(|| format!("`{}` declares no value type", self.local))?;
+                match spec.fit(&scalar) {
+                    Fit::Declared => {}
+                    Fit::Unlisted => {
+                        return Err(format!(
+                            "`{}` is not one of the values `{}` lists",
+                            scalar.look_name(),
+                            self.local
+                        ))
+                    }
+                    Fit::WrongType => {
+                        return Err(format!(
+                            "`{}` takes {}, not {}",
+                            self.local,
+                            spec.kind.expects(),
+                            scalar.kind()
+                        ))
+                    }
+                }
+                Some(scalar)
+            }
+        };
+        Ok(Write { address, value })
     }
 
     /// Is this definition well formed? Run when a provider declares it, so a
     /// bad definition is found there and not when someone uses it.
     pub fn check(&self) -> Result<(), String> {
         let id = &self.id;
-        if !valid_ident(&self.provider) || !valid_ident(&self.local) {
+        // A state is addressed by the hub, which is strict about names. An event
+        // keeps the name it has on the bus (`build_finished`, `ci:done`), because
+        // that is the name a rule has to match.
+        let local_ok = match self.kind {
+            ObservableKind::State => valid_ident(&self.local),
+            ObservableKind::Event => valid_event_type(&self.local),
+        };
+        if !valid_ident(&self.provider) || !local_ok {
             return Err(format!(
                 "{id}: provider and id must be lowercase dotted identifiers"
             ));
@@ -330,6 +464,29 @@ impl ObservableDefinition {
                 {
                     return Err(format!(
                         "{id}: an argument is a boolean, a number or a text"
+                    ));
+                }
+                if self.params.len() > MAX_ARGS {
+                    return Err(format!("{id}: at most {MAX_ARGS} arguments"));
+                }
+                // An address holds a text argument of at most MAX_ARG_BYTES, so a
+                // definition must not promise a longer one.
+                if let Some(p) = self.params.iter().find(|p| {
+                    p.kind == ParamKind::String
+                        && p.max_length.is_none_or(|m| m == 0 || m > MAX_ARG_BYTES)
+                }) {
+                    return Err(format!(
+                        "{id}: the text argument `{}` needs a maxLength of 1-{MAX_ARG_BYTES}",
+                        p.name
+                    ));
+                }
+                if let Some(p) = self.params.iter().find(|p| {
+                    p.kind == ParamKind::Enum
+                        && p.options.iter().any(|o| o.value.len() > MAX_ARG_BYTES)
+                }) {
+                    return Err(format!(
+                        "{id}: an option of `{}` is longer than {MAX_ARG_BYTES} bytes",
+                        p.name
                     ));
                 }
             }

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import catalogJson from "../../examples/action-catalog.json";
+import observablesJson from "../../examples/observables.json";
 import workspaceJson from "../../examples/default-workspace.json";
 import { describeRule, holdText } from "./feedback";
-import { catalogSchema, feedbackRuleSchema, isStateRule, workspaceSchema } from "./schema";
+import { feedbackRuleSchema, isStateRule, observableCatalogSchema, workspaceSchema } from "./schema";
 
 const ws = workspaceSchema.parse(workspaceJson);
 
@@ -62,9 +62,9 @@ describe("feedback rules from Rust", () => {
 });
 
 describe("the states providers offer, from Rust", () => {
-  const catalog = catalogSchema.parse(catalogJson);
+  const catalog = observableCatalogSchema.parse(observablesJson.catalog);
 
-  it("lists the Demo agents and the three Agent Control states with their arguments", () => {
+  it("lists the Demo states and the three Agent Control states with their arguments", () => {
     const ids = catalog.observables.map((o) => o.id);
     expect(ids).toEqual(expect.arrayContaining(["demo.alpha", "agent-control.slot.status", "agent-control.slot.focused", "agent-control.command.state"]));
     const status = catalog.observables.find((o) => o.id === "agent-control.slot.status")!;

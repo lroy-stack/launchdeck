@@ -15,6 +15,8 @@ use super::definition::{
 use super::params::{normalize, validate_defs};
 use crate::plugins::external::PluginStatus;
 use crate::plugins::{ActionDef, ActionError, Plugin, PluginManifest, PluginRegistry};
+use crate::state::catalog::Source;
+use crate::state::definition::observable_id;
 
 /// Why an assignment cannot be run or saved.
 #[derive(Debug, Clone, PartialEq)]
@@ -138,10 +140,8 @@ impl ActionRegistry {
     pub fn catalog(&self) -> Catalog {
         let mut providers = Vec::new();
         let mut actions = Vec::new();
-        let mut observables = Vec::new();
         let mut issues = Vec::new();
         let mut claimed: HashSet<String> = HashSet::new();
-        let mut claimed_observables: HashSet<String> = HashSet::new();
         for Entry { plugin, manifest } in self.ordered() {
             let (status, reason) = provider_state(&manifest);
             providers.push(ProviderInfo {
@@ -188,36 +188,43 @@ impl ActionRegistry {
                     availability,
                     privileged: def.privileged,
                     appearance: def.appearance.clone(),
+                    suggests: def
+                        .suggests
+                        .iter()
+                        .map(|local| observable_id(&manifest.id, local))
+                        .collect(),
                 });
-            }
-            for def in plugin.observables() {
-                if def.provider != manifest.id {
-                    issues.push(format!(
-                        "{} was left out: it is declared by `{}`",
-                        def.id, manifest.id
-                    ));
-                    continue;
-                }
-                if let Err(why) = def.check() {
-                    issues.push(format!("{} was left out: {why}", def.id));
-                    continue;
-                }
-                if !claimed_observables.insert(def.id.clone()) {
-                    issues.push(format!(
-                        "{} was left out: another provider already uses this id",
-                        def.id
-                    ));
-                    continue;
-                }
-                observables.push(def);
             }
         }
         Catalog {
             providers,
             actions,
-            observables,
             issues,
         }
+    }
+
+    /// What each provider offers to observe, in the order the catalog lists
+    /// providers. The Observable Catalog is built from this together with the
+    /// state hub; this registry only says who offers what.
+    pub fn observable_sources(&self) -> Vec<Source> {
+        self.ordered()
+            .into_iter()
+            .map(|Entry { plugin, manifest }| {
+                let (status, reason) = provider_state(&manifest);
+                Source {
+                    info: ProviderInfo {
+                        id: manifest.id.clone(),
+                        name: manifest.name.clone(),
+                        kind: manifest.kind,
+                        version: manifest.version.clone(),
+                        description: manifest.description.clone(),
+                        status,
+                        reason,
+                    },
+                    observables: plugin.observables(),
+                }
+            })
+            .collect()
     }
 
     /// The provider and its declaration of one action, if both exist and the

@@ -100,7 +100,7 @@ To make the pad react to what the plugin publishes, add a feedback rule to that 
 "states": { "greeted": { "color": "#1edc5a", "animation": "none" } }
 ```
 
-In Live mode, pressing the pad runs the plugin, the plugin publishes `hello.completed`, the rule shows the look `greeted` for three seconds, and the pad changes on the simulator and on a Launchpad, then returns to its resting look. To take the look from the event itself, name a payload field: `"showFromField": "level"` with `"hold": "latch"` (the Counter example does this: it publishes a level and the surface owns one look per level, kept until the next event). A pad with no feedback rules still gets the automatic running, success or error look from the action result. Installed plugins publish events for now; a plugin that reports a *state* (so that a pad created later is right at once) arrives with the next manifest schema.
+In Live mode, pressing the pad runs the plugin, the plugin publishes `hello.completed`, the rule shows the look `greeted` for three seconds, and the pad changes on the simulator and on a Launchpad, then returns to its resting look. To take the look from the event itself, name a payload field: `"showFromField": "level"` with `"hold": "latch"` (the Counter example does this: it publishes a level and the surface owns one look per level, kept until the next event). A pad with no feedback rules still gets the automatic running, success or error look from the action result. Hello publishes an event, which is the right tool for "this happened". A plugin that also wants a pad to be right at once when it is created, because the fact is true until it changes, reports a *state*; see [States](states.md).
 
 ## 5. Make your own
 

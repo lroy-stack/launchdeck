@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createPreviewTransport } from "./preview";
-import { frameSchema, snapshotSchema, type RuntimeState } from "./schema";
+import { frameSchema, observableCatalogSchema, snapshotSchema, type RuntimeState } from "./schema";
 import { agentsSnapshotSchema } from "./agents";
 
 // The browser preview mirrors the commands of the Rust runtime closely enough
@@ -11,6 +11,15 @@ describe("preview transport", () => {
     expect(snapshotSchema.safeParse(await t.invoke("get_snapshot")).success).toBe(true);
     const frame = frameSchema.parse(await t.invoke("virtual_frame"));
     expect(frame.leds.length).toBeGreaterThan(0);
+  });
+
+  it("serves the Observable Catalog captured from Rust, and says plainly what it cannot do without a runtime", async () => {
+    const t = await createPreviewTransport();
+    const catalog = observableCatalogSchema.parse(await t.invoke("observables_catalog"));
+    expect(catalog.observables.some((o) => o.id === "example.counter.level")).toBe(true);
+    expect(snapshotSchema.parse(await t.invoke("get_snapshot")).observables.observables).toHaveLength(catalog.observables.length);
+    await expect(t.invoke("explain_control", { surfaceId: "a", pageId: "b", controlId: "c" })).rejects.toMatch(/desktop app/);
+    await expect(t.invoke("observable_state", { provider: "example.counter", id: "level", args: null })).rejects.toMatch(/desktop app/);
   });
 
   it("switches pages and pushes state to listeners", async () => {

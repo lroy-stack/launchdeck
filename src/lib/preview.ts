@@ -5,13 +5,14 @@
 
 import { agentsSnapshotSchema, type AgentsSnapshot } from "./agents";
 import { indexCatalog, normalizeArgs } from "./actions";
-import { catalogSchema, definitionId, posKey, snapshotSchema, workspaceSchema } from "./schema";
+import { catalogSchema, definitionId, observableCatalogSchema, posKey, snapshotSchema, workspaceSchema } from "./schema";
 import type { Assignment, Control, ControlPos, Frame, Issue, Mode, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Workspace } from "./schema";
 
 type Handler = (payload: unknown) => void;
 
 const PLUGINS_IN_PREVIEW = "Browser preview: external plugins run in the desktop app.";
 const AGENTS_IN_PREVIEW = "Browser preview: agents are a still picture here. Run the desktop app to command them.";
+const OBSERVABLES_IN_PREVIEW = "Browser preview: states and explanations come from the desktop app's runtime.";
 
 /** The captured snapshot has timestamps from when it was recorded; move them to now so elapsed times look right. */
 function rebase(a: AgentsSnapshot, now: number): AgentsSnapshot {
@@ -42,6 +43,9 @@ export async function createPreviewTransport() {
   // and example plugin actions, with one plugin off and one broken so the unavailable states show.
   const catalog = catalogSchema.parse((await import("../../examples/action-catalog.json")).default);
   const index = indexCatalog(catalog);
+  // And the Observable Catalog (examples/observables.json): every state and event with what it read when captured.
+  // A still picture: nothing here changes, because no provider runs in the browser.
+  const observables = observableCatalogSchema.parse((await import("../../examples/observables.json")).default.catalog);
   const handlers = new Map<string, Set<Handler>>();
   const emit = (event: string, payload: unknown) => handlers.get(event)?.forEach((h) => h(payload));
 
@@ -160,7 +164,7 @@ export async function createPreviewTransport() {
         kind: p.kind,
         actions: catalog.actions
           .filter((a) => a.provider === p.id)
-          .map((a) => ({ id: a.action, label: a.name, description: a.description, category: a.category, keywords: a.keywords, params: a.params, privileged: a.privileged, appearance: a.appearance })),
+          .map((a) => ({ id: a.action, label: a.name, description: a.description, category: a.category, keywords: a.keywords, params: a.params, privileged: a.privileged, appearance: a.appearance, suggests: a.suggests })),
         states: [],
         permissions: [],
       }));
@@ -179,6 +183,7 @@ export async function createPreviewTransport() {
       state,
       plugins: bundledManifests(),
       catalog,
+      observables,
       recentEvents: events,
       agents,
     });
@@ -237,6 +242,11 @@ export async function createPreviewTransport() {
         return pushWorkspace();
       case "actions_catalog":
         return catalog;
+      case "observables_catalog":
+        return observables;
+      case "observable_state":
+      case "explain_control":
+        throw OBSERVABLES_IN_PREVIEW;
       case "actions_validate": {
         const { assignment, issues } = check(args.assignment as Assignment);
         return { ok: issues.length === 0, assignment, issues };

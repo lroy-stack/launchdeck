@@ -239,6 +239,15 @@ pub enum AccessLevel {
     Control,
 }
 
+impl AccessLevel {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            AccessLevel::Monitor => "monitor",
+            AccessLevel::Control => "control",
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Entities
 // ---------------------------------------------------------------------------
@@ -276,6 +285,16 @@ pub enum OutcomeState {
     Pending,
     Succeeded,
     Failed,
+}
+
+impl OutcomeState {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            OutcomeState::Pending => "pending",
+            OutcomeState::Succeeded => "succeeded",
+            OutcomeState::Failed => "failed",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -7,8 +7,9 @@ import { api, errorMessage, isPreview, subscribe } from "../lib/ipc";
 import { emptyAgents, newer, type AgentNotification, type AgentsSnapshot } from "../lib/agents";
 import { emptyIndex, indexCatalog, type CatalogIndex } from "../lib/actions";
 import type { Slot } from "../lib/assign";
-import type { Catalog, Control, ControlPos, Frame, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Surface, Workspace, Page } from "../lib/schema";
-import { posKey } from "../lib/schema";
+import { applyDelta } from "../lib/observables";
+import type { Catalog, Control, ControlPos, Frame, ObservableCatalog, ObservablesDelta, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Surface, Workspace, Page } from "../lib/schema";
+import { emptyObservableCatalog, posKey } from "../lib/schema";
 
 export type View = "home" | "agents" | "surface" | "plugins" | "settings";
 export type AgentsTab = "overview" | "sessions" | "adapters" | "surface";
@@ -38,6 +39,11 @@ interface Store {
   plugins: PluginManifest[];
   /** The Action Library's catalog as Rust evaluated it, indexed for local search. */
   catalog: CatalogIndex;
+  /**
+   * Every state and event a control can observe, with what each reads now.
+   * Kept current by the changes Rust pushes; never computed here.
+   */
+  observables: ObservableCatalog;
   events: RuntimeEvent[];
   frame: Frame;
   /** Agent Control as Rust derived it. Never edited here. */
@@ -73,6 +79,10 @@ interface Store {
   /** Re-read the plugin list (status changes after enable, disable, reload, rescan). Also refreshes the catalog. */
   refreshPlugins: () => Promise<void>;
   refreshCatalog: () => Promise<void>;
+  /** Take in what Rust pushed about the Observable Catalog: patch it, or fetch it again when definitions changed. */
+  applyObservables: (delta: ObservablesDelta) => void;
+  /** Fetch the Observable Catalog again. Runs once at a time; a request made meanwhile is covered by one more fetch. */
+  refreshObservables: () => Promise<void>;
   setCatalog: (c: Catalog) => void;
   setLibraryOpen: (open: boolean) => void;
   setLibraryQuery: (q: string) => void;
@@ -88,6 +98,10 @@ interface Store {
 let toastId = 0;
 let intentSeq = 0;
 let catalogTimer: ReturnType<typeof setTimeout> | undefined;
+let observablesFetching = false;
+let observablesAskedAgain = false;
+/** A change arrived before the first snapshot did: the snapshot may be older than it. */
+let observablesHeardEarly = false;
 
 /** Best effort: web notifications may be unavailable or denied. Never blocks. */
 function showSystemNotification(n: AgentNotification): void {
@@ -109,6 +123,7 @@ export const useStore = create<Store>((set, get) => ({
   state: null,
   plugins: [],
   catalog: emptyIndex,
+  observables: emptyObservableCatalog,
   events: [],
   frame: { leds: [] },
   agents: emptyAgents,
@@ -161,6 +176,7 @@ export const useStore = create<Store>((set, get) => ({
           }
         },
         onFrame: (frame) => set({ frame }),
+        onObservables: (delta) => get().applyObservables(delta),
       });
       const snap: Snapshot = await api.snapshot();
       const frame = await api.virtualFrame();
@@ -171,11 +187,16 @@ export const useStore = create<Store>((set, get) => ({
         state: snap.state,
         plugins: snap.plugins,
         catalog: indexCatalog(snap.catalog),
+        observables: snap.observables,
         events: snap.recentEvents.slice(-MAX_EVENTS),
         frame,
         agents: snap.agents,
         view: snap.workspace.preferences.onboardingDone ? "surface" : "home",
       });
+      if (observablesHeardEarly) {
+        observablesHeardEarly = false;
+        void get().refreshObservables();
+      }
       return off;
     } catch (e) {
       set({ fatal: errorMessage(e) });
@@ -216,7 +237,7 @@ export const useStore = create<Store>((set, get) => ({
   refreshPlugins: async () => {
     try {
       const snap = await api.snapshot();
-      set({ plugins: snap.plugins, catalog: indexCatalog(snap.catalog) });
+      set({ plugins: snap.plugins, catalog: indexCatalog(snap.catalog), observables: snap.observables });
     } catch (e) {
       get().toast(errorMessage(e), "error");
     }
@@ -230,6 +251,35 @@ export const useStore = create<Store>((set, get) => ({
     }
   },
   setCatalog: (c) => set({ catalog: indexCatalog(c) }),
+
+  applyObservables: (delta) => {
+    if (!get().ready) {
+      observablesHeardEarly = true;
+      return;
+    }
+    // A definition changed, or a fetch is under way whose answer this change may be newer than.
+    if (delta.catalog || observablesFetching) return void get().refreshObservables();
+    const next = applyDelta(get().observables, delta);
+    if (next !== get().observables) set({ observables: next });
+  },
+
+  refreshObservables: async () => {
+    if (observablesFetching) {
+      observablesAskedAgain = true;
+      return;
+    }
+    observablesFetching = true;
+    try {
+      do {
+        observablesAskedAgain = false;
+        set({ observables: await api.observables.catalog() });
+      } while (observablesAskedAgain);
+    } catch (e) {
+      get().toast(errorMessage(e), "error");
+    } finally {
+      observablesFetching = false;
+    }
+  },
 
   setLibraryOpen: (libraryOpen) => set({ libraryOpen }),
   setLibraryQuery: (libraryQuery) => set({ libraryQuery }),
