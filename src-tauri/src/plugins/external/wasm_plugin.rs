@@ -64,16 +64,37 @@ pub(crate) fn parse_reply(bytes: &[u8]) -> Result<Reply, String> {
     }
 }
 
+/// The keys under which `manifest` names a credential: its declared `secrets`
+/// (schema 4) and the settings it marks `secret` (schemas 1 to 3). No value
+/// under one of them is ever handed to the module.
+pub(super) fn credential_keys(manifest: &ExternalManifest) -> impl Iterator<Item = &str> {
+    let secrets = manifest.secrets.iter().map(|s| s.key.as_str());
+    let settings = manifest
+        .config
+        .iter()
+        .filter(|f| f.secret)
+        .map(|f| f.key.as_str());
+    secrets.chain(settings)
+}
+
 /// Requests are written with `op` first, so a minimal guest can tell them apart
 /// by looking at a fixed offset. serde_json would sort or keep insertion order
 /// depending on features, which is not a contract worth depending on.
+///
+/// This is where configuration crosses into the module, so a credential is
+/// dropped here whatever the caller passed.
 pub(crate) fn init_request(manifest: &ExternalManifest, config: &Map<String, Value>) -> String {
     let host =
         json!({ "name": "launchdeck", "version": env!("CARGO_PKG_VERSION"), "sdk": SDK_VERSION });
     let plugin = json!({ "id": manifest.id, "version": manifest.version });
+    let config: Map<String, Value> = config
+        .iter()
+        .filter(|(key, _)| !credential_keys(manifest).any(|c| c == key.as_str()))
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect();
     format!(
         r#"{{"op":"init","abi":{ABI_VERSION},"host":{host},"plugin":{plugin},"config":{}}}"#,
-        Value::Object(config.clone())
+        Value::Object(config)
     )
 }
 
@@ -99,10 +120,13 @@ pub(crate) fn refresh_request(watching: &[StateAddress]) -> String {
 }
 
 /// The configuration a module receives: declared keys only, saved values when
-/// they still fit the declared type, defaults otherwise.
+/// they still fit the declared type, defaults otherwise. A setting marked
+/// `secret` (schemas 1 to 3) is never part of it: its value could only come
+/// from plain text in `plugins.json`, which LaunchDeck hands to no plugin. The
+/// module reads it as not set, like an optional setting nobody filled in.
 pub fn effective_config(fields: &[ConfigField], saved: &Map<String, Value>) -> Map<String, Value> {
     let mut out = Map::new();
-    for f in fields {
+    for f in fields.iter().filter(|f| !f.secret) {
         let value = saved
             .get(&f.key)
             .filter(|v| f.kind.accepts(v))
@@ -674,5 +698,58 @@ mod tests {
             effective_config(&fields, &Map::new()).get("greeting"),
             Some(&json!("Hello"))
         );
+    }
+
+    #[test]
+    fn a_secret_setting_is_never_part_of_the_configuration() {
+        let fields = vec![ConfigField {
+            key: "token".into(),
+            kind: ConfigType::String,
+            default: None,
+            secret: true,
+            description: String::new(),
+            label: None,
+        }];
+        let mut saved = Map::new();
+        saved.insert("token".into(), json!("plain"));
+        assert!(effective_config(&fields, &saved).is_empty());
+    }
+
+    #[test]
+    fn the_init_request_drops_every_credential_whatever_it_is_given() {
+        let schema3 = ExternalManifest::parse(
+            &json!({
+                "schemaVersion": 3, "id": "t.old", "name": "Old", "version": "1.0.0",
+                "author": "t", "abi": 1, "main": "m.wasm", "actions": [], "events": [],
+                "config": [{ "key": "greeting", "type": "string" },
+                           { "key": "token", "type": "string", "secret": true }]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let schema4 = ExternalManifest::parse(
+            &json!({
+                "schemaVersion": 4, "id": "t.new", "name": "New", "version": "1.0.0",
+                "author": "t", "abi": 1, "main": "m.wasm", "actions": [], "events": [],
+                "config": [{ "key": "greeting", "type": "string" }],
+                "capabilities": { "network": { "purpose": "Testing.", "hosts": ["https://api.example.com"] } },
+                "secrets": [{ "key": "token", "label": "Token", "host": "https://api.example.com" }]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let mut given = Map::new();
+        given.insert("greeting".into(), json!("Hi"));
+        given.insert("token".into(), json!("plain"));
+        for manifest in [&schema3, &schema4] {
+            let request: Value = serde_json::from_str(&init_request(manifest, &given)).unwrap();
+            assert_eq!(
+                request["config"],
+                json!({ "greeting": "Hi" }),
+                "{}",
+                manifest.id
+            );
+            assert_eq!(credential_keys(manifest).collect::<Vec<_>>(), ["token"]);
+        }
     }
 }

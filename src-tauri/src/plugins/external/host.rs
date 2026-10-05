@@ -371,13 +371,13 @@ impl PluginHost {
             .clone();
         let settings = data.saved.plugins.get(&id).cloned().unwrap_or_default();
         let fields = cand.manifest.config.clone();
-        // Manifests before schema 4 could mark a setting `secret`. It keeps
-        // working as it did, which is not as a secret is kept now, and says so.
+        // Manifests before schema 4 could mark a setting `secret`, whose value
+        // lived in plain text in plugins.json. The module never receives it.
         for field in fields.iter().filter(|f| f.secret) {
             log.host(
                 Level::Warn,
                 &format!(
-                    "setting `{}` is marked secret by a manifest older than schema 4: its value is stored in plugins.json without encryption and handed to the plugin",
+                    "setting `{}` is marked secret by a manifest older than schema 4: LaunchDeck does not hand its value to the plugin, which reads it as not set; a version of the plugin that declares it under `secrets` can use it",
                     field.key
                 ),
             );
@@ -680,6 +680,14 @@ impl PluginHost {
                 "plugin `{id}` has no setting `{key}`"
             )));
         };
+        // Such a value could only be kept in plain text, and would never be
+        // used. A plain value an earlier version left is moved or removed by
+        // the person, on the plugin's card.
+        if field.secret {
+            return Err(HostError::Invalid(format!(
+                "setting `{key}` is a credential in an obsolete format: LaunchDeck no longer stores it in plain text or hands it to the plugin. The plugin needs a version that declares it under `secrets`"
+            )));
+        }
         if !value.is_null() && !field.kind.accepts(&value) {
             return Err(HostError::Invalid(format!(
                 "setting `{key}` must be a {}",
@@ -1318,6 +1326,13 @@ mod tests {
             ])),
             &good(),
         );
+        // An earlier version kept the secret setting in plain text.
+        std::fs::write(
+            &state,
+            json!({"schemaVersion": 1, "plugins": {"t.cfg": {"config": {"token": "s3cret"}}}})
+                .to_string(),
+        )
+        .unwrap();
         let (h, _) = host(root.path(), Some(state.clone()));
         h.scan();
         let view = |h: &PluginHost, key: &str| {
@@ -1332,7 +1347,10 @@ mod tests {
         assert_eq!(view(&h, "greeting").default, Some(json!("Hello")));
 
         h.set_config("t.cfg", "greeting", json!("Hi")).unwrap();
-        h.set_config("t.cfg", "token", json!("s3cret")).unwrap();
+        assert!(matches!(
+            h.set_config("t.cfg", "token", json!("typed")),
+            Err(HostError::Invalid(_))
+        ));
         assert_eq!(view(&h, "greeting").value, Some(json!("Hi")));
         let token = view(&h, "token");
         assert!(

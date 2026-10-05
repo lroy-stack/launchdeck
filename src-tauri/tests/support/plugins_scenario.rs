@@ -1,5 +1,6 @@
 //! A real Plugins screen payload, built from the real example plugins: one
-//! healthy, one with a secret setting, one that failed to load, one folder
+//! healthy, one with a secret setting whose value an earlier version left in
+//! plain text, one that failed to load, one folder
 //! that is not a plugin, and two copies of the Home Assistant example: one
 //! set up (an address, a grant, a token, and a decision left over from the
 //! address it had before), one whose address is not usable, whose last
@@ -89,6 +90,14 @@ pub fn capture() -> Value {
     )
     .unwrap();
 
+    // An earlier version kept Hello's secret setting in plugins.json, in plain
+    // text. It is reported by name, never used, and stays until the person acts.
+    fs::write(
+        root.path().join("plugins.json"),
+        r#"{"schemaVersion":1,"plugins":{"example.hello":{"enabled":true,"config":{"token":"super-secret-value"}}}}"#,
+    )
+    .unwrap();
+
     let host = PluginHost::new(
         vec![plugins.clone()],
         Some(root.path().join("plugins.json")),
@@ -96,8 +105,6 @@ pub fn capture() -> Value {
         Limits::default(),
     );
     host.scan();
-    host.set_config("example.hello", "token", json!("super-secret-value"))
-        .unwrap();
     host.set_config("example.hello", "greeting", json!("Hola"))
         .unwrap();
 

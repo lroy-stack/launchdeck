@@ -6,8 +6,9 @@
 //! * `secrets.json`, which an earlier version wrote as a fallback, is never
 //!   read to authenticate a request. It is listed, and moved or deleted when
 //!   the person asks.
-//! * A setting that a manifest older than schema 4 marks `secret` keeps
-//!   working exactly as it did, and is flagged.
+//! * A setting that a manifest older than schema 4 marks `secret` is never
+//!   handed to the plugin; its plain value stays where it is until the
+//!   person moves or removes it (`tests/legacy_plaintext_secrets.rs`).
 //!
 //! The plugin is the real Home Assistant example; the other end of the wire is
 //! a real local server that records what reaches it. The credential store is
@@ -455,9 +456,23 @@ fn hello_manifest(schema: u32, version: &str, extra: Value) -> Value {
     m
 }
 
+/// What an earlier version left in `plugins.json`: `key` of the Hello plugin,
+/// in plain text.
+fn plant_plain_setting(data: &Path, key: &str, value: &str) {
+    fs::write(
+        data.join("plugins.json"),
+        serde_json::to_vec_pretty(&json!({ "schemaVersion": 1, "plugins": {
+            HELLO: { "enabled": true, "config": { key: value } }
+        }}))
+        .unwrap(),
+    )
+    .unwrap();
+}
+
 #[tokio::test(flavor = "multi_thread")]
-async fn a_secret_setting_of_an_older_manifest_keeps_working_as_it_did_and_is_flagged() {
-    // Schema 3: `greeting` is a setting marked secret. The module reads it.
+async fn a_secret_setting_of_an_older_manifest_is_never_handed_to_the_plugin() {
+    // Schema 3: `greeting` is a setting marked secret, and an earlier version
+    // kept its value in plugins.json. The module would read it.
     let legacy = hello_manifest(
         3,
         "1.0.0",
@@ -465,38 +480,40 @@ async fn a_secret_setting_of_an_older_manifest_keeps_working_as_it_did_and_is_fl
     );
     let w = world(
         Arc::new(UnavailableStore::new("none here")),
-        |plugins, _| install_hello_as(plugins, &legacy),
+        |plugins, data| {
+            install_hello_as(plugins, &legacy);
+            plant_plain_setting(data, "greeting", "Sesame");
+        },
     );
-    w.host
-        .set_config(HELLO, "greeting", json!("Sesame"))
-        .unwrap();
 
-    // Unchanged: it is stored with the plugin's settings and handed to the
-    // module, even on a system without a credential store.
+    // The module reads it as not set and falls back to its own default.
     let said = w
         .invoke(HELLO, "hello.say", json!({ "name": "Ada" }))
         .unwrap();
-    assert_eq!(said["message"], "Sesame, Ada!");
+    assert_eq!(said["message"], "Hello, Ada!");
+    // The plain value is where it was, and no new one can be stored.
     assert!(fs::read_to_string(w.data.join("plugins.json"))
         .unwrap()
         .contains("Sesame"));
-    // Unchanged: the interface never gets the value back.
+    assert!(w.host.set_config(HELLO, "greeting", json!("Open")).is_err());
+    // The interface never gets the value back.
     let info = w.host.get(HELLO).unwrap();
     assert!(info.config[0].secret && info.config[0].is_set && info.config[0].value.is_none());
     assert!(!serde_json::to_string(&w.host.overview())
         .unwrap()
         .contains("Sesame"));
-    // New: it is said plainly what this is.
+    // It is said plainly what this is.
     let log = w.logs(HELLO);
     assert!(
         log.contains("marked secret by a manifest older than schema 4"),
         "{log}"
     );
-    assert!(log.contains("without encryption"), "{log}");
+    assert!(
+        log.contains("does not hand its value to the plugin"),
+        "{log}"
+    );
     assert!(!log.contains("Sesame"));
-    // It is not a secret of the new kind, so it is not something to move.
     assert!(info.secrets.is_empty());
-    assert!(w.host.overview().legacy_secrets.is_empty());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -508,10 +525,10 @@ async fn a_plugin_that_moves_a_setting_to_a_secret_has_the_plain_value_moved_on_
         json!({ "config": [{ "key": "token", "type": "string", "secret": true }] }),
     );
     let store = Arc::new(MemoryStore::new());
-    let w = world(store.clone(), |plugins, _| install_hello_as(plugins, &old));
-    w.host
-        .set_config(HELLO, "token", json!("typed-under-schema-3"))
-        .unwrap();
+    let w = world(store.clone(), |plugins, data| {
+        install_hello_as(plugins, &old);
+        plant_plain_setting(data, "token", "typed-under-schema-3");
+    });
 
     // The author moves to schema 4: `token` is now a secret, bound to a host.
     let new = hello_manifest(

@@ -170,3 +170,28 @@ pub fn dispatch(arms: &[(char, &str)]) -> String {
 pub fn respond_at(at: u32, len: usize) -> String {
     format!("(call $respond (i32.const {at}) (i32.const {len}))")
 }
+
+/// Where [`echo_init`] keeps the `init` request it was handed.
+pub const ECHO_AT: u32 = 16384;
+
+/// A module that answers every call after `init` with the `init` request it
+/// was handed: `{"status":"ok","value":<the request>}`. Whatever the module
+/// was given, its configuration included, is then the action's result.
+pub fn echo_init() -> Wat {
+    const PREFIX: &str = r#"{"status":"ok","value":"#;
+    let start = ECHO_AT - PREFIX.len() as u32;
+    Wat::new()
+        .funcs("(global $echo_len (mut i32) (i32.const 0))")
+        .data(start, PREFIX)
+        .init(&format!(
+            "(memory.copy (i32.const {ECHO_AT}) (local.get $ptr) (local.get $len))
+             (i32.store8 (i32.add (i32.const {ECHO_AT}) (local.get $len)) (i32.const 125))
+             (global.set $echo_len (i32.add (local.get $len) (i32.const {})))
+             (call $respond (i32.const 1000) (i32.const {})) (return (i32.const 0))",
+            PREFIX.len() + 1,
+            INIT_OK.len()
+        ))
+        .body(&format!(
+            "(call $respond (i32.const {start}) (global.get $echo_len)) (i32.const 0)"
+        ))
+}
