@@ -6,7 +6,7 @@
 //! * `state`       states and feedback: values, definitions, rules, evaluation, the state hub
 //! * `actions`     semantic actions: assignments, parameters, the registry, built-in providers
 //! * `context`     the Context Engine: the surface follows the application in front
-//! * `devices`     `SurfaceDevice` trait, virtual Launchpad X, Launchpad X (the only MIDI code)
+//! * `devices`     `SurfaceDevice` trait, virtual Launchpad X, Launchpad X, the MIDI transport
 //! * `renderer`    semantic visual state to capability-aware frames
 //! * `plugins`     plugin runtime, the System and Demo plugins, installed WebAssembly plugins
 //! * `agents`      Agent Control: autonomous agents on a physical control surface

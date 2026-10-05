@@ -31,7 +31,8 @@ Providers (the runtime, Agent Control, installed plugins) write *states* to the 
 | Device Manager | `devices/manager.rs` | Registers devices, connects and disconnects them, fans frames out to every connected device, drops a device that fails to render, rescans hardware every 3 s. |
 | Device abstraction | `devices/mod.rs` | `SurfaceDevice` trait, `DeviceCapabilities`, `DeviceInput`, `SurfaceFrame`. |
 | Virtual device | `devices/virtual_device.rs` | `VirtualLaunchpadX`, the simulator. It implements the same trait and is the device the UI drives. |
-| Launchpad X | `devices/launchpad_x.rs` | The **only** file with MIDI bytes. SysEx encoding, note and CC decoding, port classification, `midir` I/O. |
+| Launchpad X | `devices/launchpad_x.rs` | The **only** file with MIDI bytes. SysEx encoding, note and CC decoding, port classification. |
+| MIDI transport | `devices/midi/` | `MidiBackend` (list ports, open an input+output pair) and `MidiLink` (send, close), with no protocol knowledge. `system.rs` is the only `midir` file; `testkit.rs` is `FakeMidi`, the in-memory backend the adapter is tested against. |
 | Surface Runtime | `core/runtime/` (`navigation.rs`, `input.rs`) | Active surface and page, control lookup (span aware), navigation, Live and Edit modes, long press. |
 | State Hub | `state/` | The current value of every state a provider offers (`known`, `unknown`, `unavailable`), addressed by provider, definition and arguments. No history, nothing saved, not a bus. See [state-and-feedback.md](../state-and-feedback.md). |
 | State Engine | `core/runtime/feedback.rs`, `core/runtime/actions.rs`, `state/eval.rs`, `state/index.rs` | A control's look, keyed `surface/page/control`: its state rules evaluated from the hub (first true rule wins), under temporary looks (event rules, the `pending` and `failed` looks of the control's own action, the automatic running/success/error of a pad without rules, token-guarded expiry). The runtime keeps the set of actions in flight and publishes it in its state. An index re-evaluates only the controls that read what changed. |
@@ -48,7 +49,7 @@ Providers (the runtime, Agent Control, installed plugins) write *states* to the 
 
 ## Rules that keep it honest
 
-1. **No MIDI above the device layer.** `ControlPos` (`grid`, `top`, `side`, `logo`) is the only addressing the rest of the system knows. Raw notes and CCs live in `launchpad_x.rs`.
+1. **No MIDI above the device layer.** `ControlPos` (`grid`, `top`, `side`, `logo`) is the only addressing the rest of the system knows. Raw notes and CCs live in `devices/` (`launchpad_x.rs`); the MIDI transport in `devices/midi/system.rs`.
 2. **Plugins never see positions.** A plugin publishes an event (`plugin.state.changed {key, value}` for built-ins, a declared event type for installed ones). A control's *feedback rules* decide it cares: an event rule reacts to the event, a state rule to the value a provider reports.
 3. **UI state is not runtime state.** Zustand holds the selected pad, the current view and toasts. The workspace, active surface, page, mode and every control state arrive from Rust and are never written locally.
 4. **Everything crossing IPC is validated.** Rust validates edits (`core/validate.rs`), TypeScript parses payloads with Zod (`src/lib/schema.ts`).
@@ -56,7 +57,7 @@ Providers (the runtime, Agent Control, installed plugins) write *states* to the 
 
 ## One press, end to end
 
-1. A pad is pressed. On hardware, `midir` delivers bytes to `LaunchpadX`, which decodes them to `DeviceInput { device_id, pos, Pressed }`. In the simulator the UI calls `virtual_input`, which injects the same `DeviceInput`.
+1. A pad is pressed. On hardware, `midir` (in `devices/midi/system.rs`) delivers bytes through the `MidiLink` callback to `LaunchpadX`, which decodes them to `DeviceInput { device_id, pos, Pressed }`. In the simulator the UI calls `virtual_input`, which injects the same `DeviceInput`.
 2. The runtime finds the control at that position (honouring spans) and publishes `control.pressed`.
 3. In **Edit** mode it stops there, so the editor can select the control. In **Live** mode it picks the action: press, or long press if the pad is held 500 ms (the tap is deferred until release when a long press exists).
 4. The control's assignment is `{provider, action, args}`. Navigation (`navigation.openSurface`, `navigation.openPage`) is performed by the runtime. Everything else goes through the registry's `prepare` and then the Action Engine, with `action.started`, then `action.completed` or `action.failed` on the bus; the payload's `action` is `provider.action`.

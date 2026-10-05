@@ -5,9 +5,10 @@
 //! not). Static colours always use RGB colourspecs, which need no palette.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
-use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
-
+use super::midi::{MidiBackend, MidiLink, PortInfo};
 use super::{
     AnimationCaps, AuxCaps, DeviceCapabilities, DeviceError, DeviceIdentity, DeviceInput,
     DeviceKind, GridCaps, InputKind, InputSender, PortNames, PortSource, SurfaceDevice,
@@ -284,58 +285,71 @@ pub(crate) fn unsupported_id(port: &str) -> String {
     format!("unsupported:{}", slug(port))
 }
 
-/// The operating system's MIDI ports, through `midir`.
-pub(crate) struct SystemPorts;
+/// The operating system's MIDI ports, through a `MidiBackend`.
+pub(crate) struct SystemPorts {
+    midi: Arc<dyn MidiBackend>,
+}
+
+impl SystemPorts {
+    pub(crate) fn new(midi: Arc<dyn MidiBackend>) -> Self {
+        Self { midi }
+    }
+}
 
 impl PortSource for SystemPorts {
     fn list(&self) -> PortNames {
-        let (Ok(input), Ok(output)) = (
-            MidiInput::new("launchdeck-scan-in"),
-            MidiOutput::new("launchdeck-scan-out"),
-        ) else {
-            return PortNames::default();
-        };
+        let ports = self.midi.ports();
+        let names = |list: Vec<PortInfo>| list.into_iter().map(|p| p.name).collect();
         PortNames {
-            inputs: input
-                .ports()
-                .iter()
-                .filter_map(|p| input.port_name(p).ok())
-                .collect(),
-            outputs: output
-                .ports()
-                .iter()
-                .filter_map(|p| output.port_name(p).ok())
-                .collect(),
+            inputs: names(ports.inputs),
+            outputs: names(ports.outputs),
         }
     }
 
     fn launchpad_x(&self, found: DiscoveredDevice) -> Box<dyn SurfaceDevice> {
-        Box::new(LaunchpadX::new(found))
+        Box::new(LaunchpadX::new(found, self.midi.clone()))
     }
 }
 
 pub struct LaunchpadX {
     info: DiscoveredDevice,
-    out: Option<MidiOutputConnection>,
-    input: Option<MidiInputConnection<()>>,
+    midi: Arc<dyn MidiBackend>,
+    link: Option<Box<dyn MidiLink>>,
+    /// Shut until Programmer mode was asked for, so that what the unit sends
+    /// before is not read as pad presses.
+    input_open: Arc<AtomicBool>,
     /// Last colour sent per LED index, so only changes go over the wire.
     last: HashMap<u8, Rgb>,
 }
 
 impl LaunchpadX {
-    pub fn new(info: DiscoveredDevice) -> Self {
+    pub(crate) fn new(info: DiscoveredDevice, midi: Arc<dyn MidiBackend>) -> Self {
         Self {
             info,
-            out: None,
-            input: None,
+            midi,
+            link: None,
+            input_open: Arc::new(AtomicBool::new(false)),
             last: HashMap::new(),
         }
     }
 
     fn send(&mut self, bytes: &[u8]) -> Result<(), DeviceError> {
-        let out = self.out.as_mut().ok_or(DeviceError::NotConnected)?;
-        out.send(bytes)
-            .map_err(|e| DeviceError::Midi(e.to_string()))
+        let link = self.link.as_mut().ok_or(DeviceError::NotConnected)?;
+        link.send(bytes)
+    }
+
+    /// The listed ports with this unit's names. Discovery knows names only.
+    fn ports(&self) -> Result<(PortInfo, PortInfo), DeviceError> {
+        let ports = self.midi.ports();
+        let find = |list: Vec<PortInfo>, name: &str, role: &str| {
+            list.into_iter()
+                .find(|p| p.name == name)
+                .ok_or_else(|| DeviceError::Port(format!("{role} port `{name}` not found")))
+        };
+        Ok((
+            find(ports.inputs, &self.info.in_port, "input")?,
+            find(ports.outputs, &self.info.out_port, "output")?,
+        ))
     }
 }
 
@@ -354,79 +368,54 @@ impl SurfaceDevice for LaunchpadX {
     }
 
     fn connect(&mut self, sender: InputSender) -> Result<(), DeviceError> {
-        if self.out.is_some() {
+        if self.link.is_some() {
             return Ok(());
         }
-        let output =
-            MidiOutput::new("launchdeck-out").map_err(|e| DeviceError::Midi(e.to_string()))?;
-        let out_port = output
-            .ports()
-            .into_iter()
-            .find(|p| output.port_name(p).is_ok_and(|n| n == self.info.out_port))
-            .ok_or_else(|| {
-                DeviceError::Port(format!("output port `{}` not found", self.info.out_port))
-            })?;
-        let conn = output
-            .connect(&out_port, "launchdeck")
-            .map_err(|e| DeviceError::Port(e.to_string()))?;
-        self.out = Some(conn);
+        let (input, output) = self.ports()?;
+        self.input_open.store(false, Ordering::Release);
+        let open = self.input_open.clone();
+        let id = self.info.id.clone();
+        let on_bytes = Box::new(move |bytes: &[u8]| {
+            if !open.load(Ordering::Acquire) {
+                return;
+            }
+            if let Some((pos, kind)) = decode_message(bytes) {
+                let _ = sender.send(DeviceInput {
+                    device_id: id.clone(),
+                    pos,
+                    kind,
+                });
+            }
+        });
+        // Input and output together, or neither.
+        self.link = Some(self.midi.open(&input, &output, on_bytes)?);
         self.last.clear();
 
         // Programmer mode first, then start listening.
         self.send(&enter_programmer_mode())?;
-
-        let mut midi_in =
-            MidiInput::new("launchdeck-in").map_err(|e| DeviceError::Midi(e.to_string()))?;
-        midi_in.ignore(Ignore::All);
-        let in_port = midi_in
-            .ports()
-            .into_iter()
-            .find(|p| midi_in.port_name(p).is_ok_and(|n| n == self.info.in_port))
-            .ok_or_else(|| {
-                DeviceError::Port(format!("input port `{}` not found", self.info.in_port))
-            })?;
-        let id = self.info.id.clone();
-        let conn = midi_in
-            .connect(
-                &in_port,
-                "launchdeck",
-                move |_ts, bytes, _| {
-                    if let Some((pos, kind)) = decode_message(bytes) {
-                        let _ = sender.send(DeviceInput {
-                            device_id: id.clone(),
-                            pos,
-                            kind,
-                        });
-                    }
-                },
-                (),
-            )
-            .map_err(|e| DeviceError::Port(e.to_string()))?;
-        self.input = Some(conn);
+        self.input_open.store(true, Ordering::Release);
         self.clear()
     }
 
     fn disconnect(&mut self) -> Result<(), DeviceError> {
-        if self.out.is_some() {
+        if self.link.is_some() {
             let _ = self.clear();
             let _ = self.send(&exit_programmer_mode());
         }
-        if let Some(conn) = self.input.take() {
-            conn.close();
-        }
-        if let Some(conn) = self.out.take() {
-            conn.close();
+        self.input_open.store(false, Ordering::Release);
+        if let Some(link) = self.link.take() {
+            link.close();
         }
         self.last.clear();
         Ok(())
     }
 
     fn is_connected(&self) -> bool {
-        self.out.is_some()
+        self.link.is_some()
     }
 
     fn render(&mut self, frame: &SurfaceFrame) -> Result<(), DeviceError> {
-        if self.out.is_none() {
+        if self.link.is_none() {
             return Err(DeviceError::NotConnected);
         }
         let mut changes = Vec::new();

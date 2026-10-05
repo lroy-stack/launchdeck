@@ -1,11 +1,15 @@
 //! Device abstraction.
 //!
 //! The rest of the runtime only ever sees `SurfaceDevice`, `DeviceCapabilities`,
-//! `SurfaceFrame` and `DeviceInput`. Raw MIDI lives exclusively in
-//! `launchpad_x.rs`.
+//! `SurfaceFrame` and `DeviceInput`. Raw MIDI bytes live exclusively in
+//! `launchpad_x.rs`; the MIDI transport in `midi` (`midir` only in
+//! `midi/system.rs`).
 
 pub mod launchpad_x;
+#[cfg(test)]
+mod launchpad_x_tests;
 pub mod manager;
+mod midi;
 pub mod virtual_device;
 
 use serde::{Deserialize, Serialize};

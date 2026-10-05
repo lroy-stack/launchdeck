@@ -2,10 +2,12 @@
 //! and says what state each one is in.
 
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use serde::Serialize;
 
 use super::launchpad_x::{self, SystemPorts};
+use super::midi::SystemMidi;
 use super::{
     AnimationCaps, AuxCaps, DeviceCapabilities, DeviceError, DeviceIdentity, DeviceKind,
     InputSender, PortSource, SurfaceDevice, SurfaceFrame,
@@ -109,7 +111,7 @@ pub struct DeviceManager {
 
 impl DeviceManager {
     pub fn new(input: InputSender) -> Self {
-        Self::with_ports(input, Box::new(SystemPorts))
+        Self::with_ports(input, Box::new(SystemPorts::new(Arc::new(SystemMidi))))
     }
 
     pub(crate) fn with_ports(input: InputSender, ports: Box<dyn PortSource>) -> Self {
