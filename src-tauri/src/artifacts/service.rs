@@ -381,13 +381,14 @@ impl ArtifactService {
     /// in the exports folder. The name is taken by creating the file, so a
     /// file that appears meanwhile is never replaced; a name whose
     /// temporary file (`<name>.tmp`, which `write_atomic` uses) exists is
-    /// skipped for the same reason.
+    /// skipped for the same reason, also when it is a link, even to
+    /// nothing: `write_atomic` would follow it.
     fn write_new(&self, name: &str, bytes: &[u8]) -> Result<PathBuf, FileError> {
         let dir = &self.exports_dir;
         fs::create_dir_all(dir).map_err(|e| self.not_saved(&e))?;
         for candidate in candidates(name) {
             let path = dir.join(&candidate);
-            if dir.join(format!("{candidate}.tmp")).exists() {
+            if fs::symlink_metadata(dir.join(format!("{candidate}.tmp"))).is_ok() {
                 continue;
             }
             match OpenOptions::new().write(true).create_new(true).open(&path) {

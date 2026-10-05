@@ -132,6 +132,29 @@ async fn an_export_never_replaces_a_file() {
     assert_eq!(last, Some(dir.path().join("studio-1.0.0-4.ldpack")));
 }
 
+/// A link where the temporary file would go (an archive unpacked in
+/// Downloads can leave one) is a taken name too, even when it points at
+/// nothing: `write_atomic` would follow it and write elsewhere.
+#[cfg(unix)]
+#[tokio::test]
+async fn an_export_never_writes_through_a_link_left_at_its_temporary_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let target = elsewhere.path().join("planted");
+    let link = dir.path().join("studio-1.0.0.ldpack.tmp");
+    std::os::unix::fs::symlink(&target, &link).unwrap();
+    let artifacts = service(dir.path()).await;
+
+    let saved = artifacts.export_save(&request("development")).unwrap();
+    assert_eq!(saved.file_name, "studio-1.0.0-2.ldpack");
+    assert!(!target.exists(), "the export was written through the link");
+    assert!(fs::symlink_metadata(&link)
+        .unwrap()
+        .file_type()
+        .is_symlink());
+    assert!(!dir.path().join("studio-1.0.0.ldpack").exists());
+}
+
 #[tokio::test]
 async fn an_export_that_is_refused_writes_nothing_and_there_is_nothing_to_show() {
     let dir = tempfile::tempdir().unwrap();
