@@ -1,28 +1,17 @@
-import { Fragment, useEffect, useState } from "react";
-import { api, errorMessage } from "../../lib/ipc";
+import { Fragment, useState } from "react";
 import type { AppInfo } from "../../lib/schema";
 import { aboutRows, bugReport, releaseOf } from "./text";
 
 const COPIED_FOR_MS = 1500;
 
-/** Settings > About: what Rust's `app_info` says this build is, and a copy of it for a bug report. */
-export function AboutPanel() {
-  const [info, setInfo] = useState<AppInfo | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
+/**
+ * Settings > About: what Rust's `app_info` says this build is (`info`, or the reason it
+ * could not be read in `problem`), and a copy of it for a bug report.
+ */
+export function AboutPanel({ info, problem }: { info: AppInfo | null; problem: string | null }) {
   const [copied, setCopied] = useState(false);
   // When the clipboard refuses, the same text is shown to be selected by hand.
   const [copyFailed, setCopyFailed] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    api
-      .appInfo()
-      .then((i) => live && setInfo(i))
-      .catch((e: unknown) => live && setProblem(errorMessage(e)));
-    return () => {
-      live = false;
-    };
-  }, []);
 
   const copy = (text: string) => {
     const clipboard = navigator.clipboard as Clipboard | undefined;

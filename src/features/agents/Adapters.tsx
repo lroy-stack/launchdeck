@@ -31,7 +31,6 @@ export function Adapters() {
       </section>
 
       {hooks.length > 0 && <HookEndpoint hooks={hooks} />}
-      <Notifications />
     </>
   );
 }
@@ -252,24 +251,5 @@ function Snippet({ title, text }: { title: string; text: string }) {
       </div>
       <pre className="snippet">{text}</pre>
     </div>
-  );
-}
-
-function Notifications() {
-  const on = useStore((s) => s.agents.settings.notifications);
-  const attempt = useStore((s) => s.attempt);
-  return (
-    <section className="panel" aria-label="Notifications">
-      <div className="panel-head">
-        <div>
-          <h2>Notifications</h2>
-          <p className="hint">Only four things interrupt you: an approval is needed, an agent fails, a long run completes, an adapter disconnects.</p>
-        </div>
-        <label className="check">
-          <input type="checkbox" checked={on} onChange={(e) => void attempt(() => api.agents.updateSettings({ notifications: e.target.checked }))} />
-          Enabled
-        </label>
-      </div>
-    </section>
   );
 }

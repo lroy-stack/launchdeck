@@ -648,3 +648,8 @@ textarea { resize: vertical; }
 .facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
 .facts dt { color: var(--text-3); }
 .facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.settings-nav { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.settings-section { scroll-margin-top: 16px; }
+.developer summary { cursor: pointer; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.developer summary h2 { display: inline; margin: 0; }
+.developer-tools { display: flex; flex-direction: column; gap: 18px; margin-top: 14px; }

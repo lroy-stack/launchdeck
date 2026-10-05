@@ -56,7 +56,7 @@ export function ContextPanel() {
 
       <p className="hint foot">
         A surface you choose yourself is never switched back while the same application stays in front. LaunchDeck's own window does not count as an
-        application. Nothing about which applications you use is saved: only these rules. See docs/context-engine.md.
+        application. Nothing about which applications you use is saved: only these rules.
       </p>
     </section>
   );

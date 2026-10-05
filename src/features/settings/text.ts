@@ -1,7 +1,19 @@
-// The words of Settings that a test or more than one section uses: About's
-// rows and the bug report made from them.
+// The words of Settings that a test or more than one section uses: where plugin
+// secrets are kept, About's rows and the bug report made from them.
 
-import type { AppInfo } from "../../lib/schema";
+import type { AppInfo, SecretStoreStatus } from "../../lib/schema";
+
+/** Where plugin secrets are kept on this computer, in one sentence; Rust's reason when they cannot be. */
+export function secretStoreSentence(store: SecretStoreStatus): string {
+  switch (store.kind) {
+    case "keychain":
+      return `Plugin secrets are kept in your system's credential store (${store.name}).`;
+    case "memory":
+      return "Plugin secrets are kept in memory only, and forgotten when LaunchDeck closes.";
+    case "unavailable":
+      return ["Plugin secrets cannot be kept on this computer.", store.reason].filter(Boolean).join(" ");
+  }
+}
 
 /** The license the owner chose (2026-10-05). */
 export const LICENSE = "MIT";
