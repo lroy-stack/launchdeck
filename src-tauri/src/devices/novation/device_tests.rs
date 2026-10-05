@@ -38,6 +38,18 @@ const DEVICE_ID: &str = "launchpad-x:1";
 
 const INQUIRY: [u8; 6] = [0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7];
 const READ_LAYOUT: [u8; 8] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x00, 0xF7];
+const READ_FEEDBACK: [u8; 8] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0A, 0xF7];
+const READ_SLEEP: [u8; 8] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x09, 0xF7];
+
+/// What connecting sends a Launchpad X.
+fn probe() -> Vec<(String, Vec<u8>)> {
+    to_output(&[
+        INQUIRY.to_vec(),
+        READ_LAYOUT.to_vec(),
+        READ_FEEDBACK.to_vec(),
+        READ_SLEEP.to_vec(),
+    ])
+}
 const ENTER: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x01, 0xF7];
 const READ_MODE: [u8; 8] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0xF7];
 const EXIT: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x00, 0xF7];
@@ -136,10 +148,8 @@ fn connect_asks_who_the_unit_is_and_the_next_render_takes_it() {
     assert!(dev.is_connected());
     assert_eq!(dev.identity().id, DEVICE_ID);
     // D-X7: the layout the unit shows is read, to give it back on release.
-    assert_eq!(
-        midi.take_sent(),
-        to_output(&[INQUIRY.to_vec(), READ_LAYOUT.to_vec()])
-    );
+    // D-X8: so are its LED feedback and sleep, to keep its LEDs showing.
+    assert_eq!(midi.take_sent(), probe());
     assert_eq!(midi.open_links(), 1);
     dev.render(&SurfaceFrame::default()).unwrap();
     // D-X6: Programmer mode used to be assumed, never read back.
@@ -434,9 +444,15 @@ fn mini_clear() -> Vec<u8> {
 
 const MINI_FRAME: &str = "F0 00 20 29 02 0D 03 03 0B 7F 00 40 F7";
 
-/// What connecting sends a Mini MK3: who are you, which layout.
+/// What connecting sends a Mini MK3: who are you, which layout, which LED
+/// feedback, LEDs asleep?
 fn mini_probe() -> Vec<Vec<u8>> {
-    vec![hex("F0 7E 7F 06 01 F7"), hex("F0 00 20 29 02 0D 00 F7")]
+    vec![
+        hex("F0 7E 7F 06 01 F7"),
+        hex("F0 00 20 29 02 0D 00 F7"),
+        hex("F0 00 20 29 02 0D 0A F7"),
+        hex("F0 00 20 29 02 0D 09 F7"),
+    ]
 }
 
 /// Connected, identified, confirmed and taken; what was sent is dropped.
@@ -636,6 +652,39 @@ fn release_gives_the_person_the_layout_the_unit_showed() {
     assert_eq!(sim.layout(), 0x04, "Custom mode 1, Drums");
 }
 
+#[test]
+fn leds_hidden_by_the_setup_menu_show_while_launchdeck_draws() {
+    // D-X8: external feedback off or sleeping LEDs showed nothing.
+    let sim = SimLaunchpad::mini().with_feedback(1, 0).sleeping();
+    let (midi, mut dev, _rx) = mini_with(&sim, &FakeClock::new());
+    assert_eq!(sent(&midi), mini_probe());
+    dev.render(&lower_left_pink()).unwrap();
+    sent(&midi);
+    dev.render(&lower_left_pink()).unwrap();
+    assert_eq!(
+        sent(&midi),
+        [
+            hex("F0 00 20 29 02 0D 0A 01 01 F7"),
+            hex("F0 00 20 29 02 0D 09 01 F7"),
+            mini_clear(),
+            hex(MINI_FRAME),
+        ]
+    );
+    assert_eq!((sim.feedback(), sim.awake()), ((1, 1), true));
+
+    dev.disconnect().unwrap();
+    assert_eq!(
+        sent(&midi),
+        [
+            mini_clear(),
+            hex("F0 00 20 29 02 0D 0A 01 00 F7"),
+            hex("F0 00 20 29 02 0D 0E 00 F7"),
+        ],
+        "the person's feedback, before Live mode"
+    );
+    assert_eq!(sim.feedback(), (1, 0));
+}
+
 // ---- refusals through the device manager --------------------------------------
 
 #[test]
@@ -661,10 +710,7 @@ fn the_manager_reports_a_unit_in_its_bootloader_as_failed_with_the_reason() {
         info.problem.as_deref(),
         Some("The Launchpad is in its bootloader. Unplug it and plug it in again.")
     );
-    assert_eq!(
-        midi.take_sent(),
-        to_output(&[INQUIRY.to_vec(), READ_LAYOUT.to_vec()])
-    );
+    assert_eq!(midi.take_sent(), probe());
     assert_eq!(midi.open_links(), 0);
     assert!(
         m.rescan_hardware(false).to_connect.is_empty(),

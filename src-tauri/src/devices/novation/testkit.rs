@@ -200,6 +200,18 @@ impl SimLaunchpad {
         self
     }
 
+    /// LED feedback set in its Setup menu: internal and external, 0 or 1.
+    pub fn with_feedback(self, internal: u8, external: u8) -> Self {
+        self.state().feedback = (internal, external);
+        self
+    }
+
+    /// Its LEDs put to sleep (MINI-PRM p21).
+    pub fn sleeping(self) -> Self {
+        self.state().awake = false;
+        self
+    }
+
     /// Started in its bootloader: answers the inquiry with the family's
     /// second byte `11h` and the firmware digits as the bootloader's
     /// version (MINI-PRM p6), and ignores everything else.

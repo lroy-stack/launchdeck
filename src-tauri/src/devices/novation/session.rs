@@ -5,21 +5,27 @@
 //! answer is ever waited for under the runtime lock.
 //!
 //! Section 9 of the Mini MK3 plan, for every profile: on connect the unit is
-//! asked who it is (the Universal Device Inquiry) and which layout it shows;
-//! the next tick that has the answers, or the first one 500 ms later, enters
-//! Programmer mode and reads it back; the next tick that has that answer, or
-//! the first one 500 ms later, takes the unit: the clear frame, then its
-//! input counts. Programmer mode is confirmed only if the unit said so;
-//! otherwise LaunchDeck still draws and says so in a notice. A unit that
-//! answers as its bootloader or as another model is turned down and sent
-//! nothing more. On release the clear frame, then Live mode, then the
-//! layout the unit showed before, unless Live mode lands there anyway.
-//! Replies that carry another model's product byte are ignored.
+//! asked who it is (the Universal Device Inquiry), which layout it shows,
+//! its LED feedback and whether its LEDs sleep; the next tick that has the
+//! answers, or the first one 500 ms later, enters Programmer mode and reads
+//! it back; the next tick that has that answer, or the first one 500 ms
+//! later, takes the unit: external LED feedback on and the LEDs awake if
+//! they were not, the clear frame, then its input counts. Programmer mode
+//! is confirmed only if the unit said so; otherwise LaunchDeck still draws
+//! and says so in a notice. A unit that answers as its bootloader or as
+//! another model is turned down and sent nothing more. On release the clear
+//! frame, the LED feedback the unit had if LaunchDeck changed it, Live
+//! mode, then the layout the unit showed before, unless Live mode lands
+//! there anyway. Replies that carry another model's product byte are
+//! ignored.
 
 use std::time::{Duration, Instant};
 
 use super::profile::ModelProfile;
-use super::protocol::{programmer_mode, query, select_layout, Reply, INQUIRY, LAYOUT, MODE};
+use super::protocol::{
+    feedback, programmer_mode, query, select_layout, sleep, Reply, FEEDBACK, INQUIRY, LAYOUT, MODE,
+    SLEEP,
+};
 use crate::devices::{DeviceDetails, DeviceError, ModeState};
 
 /// How long a question to the unit waits for its answer. Some drivers may
@@ -80,13 +86,19 @@ pub(crate) struct Session {
     programmer: Option<bool>,
     /// What the unit showed before LaunchDeck took it.
     restore: Restore,
+    /// External LED feedback was turned on: release turns it back off.
+    feedback_changed: bool,
 }
 
-/// What release gives back, as the unit reported it before it was taken;
-/// `None` for what it did not answer.
+/// What the unit reported before it was taken: what taking it changes and
+/// release gives back. `None` for what it did not answer.
 #[derive(Debug, Default, Clone, Copy)]
 struct Restore {
     layout: Option<u8>,
+    /// Internal and external LED feedback, 0 or 1 each.
+    feedback: Option<(u8, u8)>,
+    /// Its LEDs were asleep.
+    asleep: Option<bool>,
 }
 
 impl Session {
@@ -98,6 +110,7 @@ impl Session {
             firmware: None,
             programmer: None,
             restore: Restore::default(),
+            feedback_changed: false,
         }
     }
 
@@ -115,9 +128,12 @@ impl Session {
     pub(crate) fn opened(&mut self, now: Instant) -> Vec<Action> {
         *self = Self::new(self.profile);
         self.phase = Phase::Probing { since: now };
+        let product = self.profile.product;
         vec![
             Action::Send(INQUIRY.to_vec()),
-            Action::Send(query(self.profile.product, LAYOUT)),
+            Action::Send(query(product, LAYOUT)),
+            Action::Send(query(product, FEEDBACK)),
+            Action::Send(query(product, SLEEP)),
         ]
     }
 
@@ -144,11 +160,17 @@ impl Session {
         let product = self.profile.product;
         match std::mem::replace(&mut self.phase, Phase::Closed) {
             Phase::Entering { .. } | Phase::Owned => {
-                let mut actions = vec![
-                    Action::Gate(false),
-                    Action::Clear,
-                    Action::Send(programmer_mode(product, false)),
-                ];
+                let mut actions = vec![Action::Gate(false), Action::Clear];
+                if self.feedback_changed {
+                    if let Some((internal, external)) = self.restore.feedback {
+                        actions.push(Action::Send(feedback(
+                            product,
+                            internal == 1,
+                            external == 1,
+                        )));
+                    }
+                }
+                actions.push(Action::Send(programmer_mode(product, false)));
                 // Live mode lands in the profile's Live layout; another one
                 // the unit showed is selected again.
                 let layout = self.restore.layout.filter(|&layout| {
@@ -216,17 +238,31 @@ impl Session {
                     self.profile.name
                 );
             }
-            (Phase::Probing { .. }, Reply::Readback { command, data, .. })
-                if command == LAYOUT && data.len() == 1 =>
-            {
-                self.restore.layout = Some(data[0]);
+            (Phase::Probing { .. }, Reply::Readback { command, data, .. }) => {
+                self.probed(command, &data)
             }
-            (Phase::Entering { .. }, Reply::Readback { command, data, .. })
-                if command == MODE && matches!(data[..], [0 | 1]) =>
-            {
-                self.programmer = Some(data[0] == 1);
-            }
+            (
+                Phase::Entering { .. },
+                Reply::Readback {
+                    command: MODE,
+                    data,
+                    ..
+                },
+            ) if matches!(data[..], [0 | 1]) => self.programmer = Some(data[0] == 1),
             (_, reply) => log::debug!("a Launchpad reply nobody asked for: {reply:?}"),
+        }
+    }
+
+    /// An answer to one of the probe's readback questions.
+    fn probed(&mut self, command: u8, data: &[u8]) {
+        let restore = &mut self.restore;
+        match (command, data) {
+            (LAYOUT, &[layout]) => restore.layout = Some(layout),
+            (FEEDBACK, &[internal @ (0 | 1), external @ (0 | 1)]) => {
+                restore.feedback = Some((internal, external))
+            }
+            (SLEEP, &[leds @ (0 | 1)]) => restore.asleep = Some(leds == 0),
+            _ => log::debug!("a Launchpad readback nobody asked for: {command:02X} {data:02X?}"),
         }
     }
 
@@ -246,7 +282,11 @@ impl Session {
 
     /// Whether everything the probe asked was answered.
     fn probe_answered(&self) -> bool {
-        self.identified && self.restore.layout.is_some()
+        let restore = &self.restore;
+        self.identified
+            && restore.layout.is_some()
+            && restore.feedback.is_some()
+            && restore.asleep.is_some()
     }
 
     /// Programmer mode, and the question whether the unit is in it.
@@ -259,10 +299,24 @@ impl Session {
         ]
     }
 
-    /// The clear frame, then the unit's input counts.
+    /// External LED feedback on and the LEDs awake, if they were not, the
+    /// clear frame, then the unit's input counts.
     fn take(&mut self) -> Vec<Action> {
         self.phase = Phase::Owned;
-        vec![Action::Clear, Action::Gate(true)]
+        let product = self.profile.product;
+        let mut actions = Vec::new();
+        // External feedback off hides lighting by notes in Programmer mode
+        // (MINI-UG p19); whether it hides lighting by SysEx is unknown.
+        // Internal feedback only acts in Custom modes and is left alone.
+        if let Some((internal, 0)) = self.restore.feedback {
+            actions.push(Action::Send(feedback(product, internal == 1, true)));
+            self.feedback_changed = true;
+        }
+        if self.restore.asleep == Some(true) {
+            actions.push(Action::Send(sleep(product, true)));
+        }
+        actions.extend([Action::Clear, Action::Gate(true)]);
+        actions
     }
 }
 
@@ -303,22 +357,29 @@ mod tests {
     fn probing(profile: &'static ModelProfile) -> (Session, Instant) {
         let mut session = Session::new(profile);
         let t0 = Instant::now();
+        let product = profile.product;
         assert_eq!(
             session.opened(t0),
             [
                 Action::Send(INQUIRY.to_vec()),
-                Action::Send(query(profile.product, LAYOUT)),
+                Action::Send(query(product, LAYOUT)),
+                Action::Send(query(product, FEEDBACK)),
+                Action::Send(query(product, SLEEP)),
             ]
         );
         assert_eq!(session.phase(), Phase::Probing { since: t0 });
         (session, t0)
     }
 
-    /// What a unit of this family showing this layout answers the probe.
+    /// What a unit of this family showing this layout answers the probe,
+    /// with its LED feedback on and its LEDs awake.
     fn answers(profile: &ModelProfile, family: [u8; 2], layout: u8) -> Vec<Reply> {
+        let product = profile.product.0;
         vec![
             identity(family, [0, 5, 3, 1]),
-            readback(profile.product.0, LAYOUT, &[layout]),
+            readback(product, LAYOUT, &[layout]),
+            readback(product, FEEDBACK, &[1, 1]),
+            readback(product, SLEEP, &[1]),
         ]
     }
 
@@ -341,13 +402,15 @@ mod tests {
     }
 
     #[test]
-    fn the_probe_asks_who_the_unit_is_and_which_layout_it_shows() {
+    fn the_probe_asks_who_the_unit_is_and_what_it_shows() {
         let mut session = Session::new(&launchpad_mini_mk3::PROFILE);
         assert_eq!(
             session.opened(Instant::now()),
             [
                 Action::Send(hex("F0 7E 7F 06 01 F7")),
                 Action::Send(hex("F0 00 20 29 02 0D 00 F7")),
+                Action::Send(hex("F0 00 20 29 02 0D 0A F7")),
+                Action::Send(hex("F0 00 20 29 02 0D 09 F7")),
             ]
         );
     }
@@ -356,14 +419,14 @@ mod tests {
     fn an_identified_unit_enters_programmer_mode_and_is_taken_once_it_says_so() {
         let (mut session, t0) = probing(&launchpad_mini_mk3::PROFILE);
         assert_eq!(session.details().mode, ModeState::Acquiring);
+        let mut answers = answers(&launchpad_mini_mk3::PROFILE, MINI, 0x05);
+        let sleep = answers.pop().unwrap();
         assert!(
-            session
-                .tick(t0, vec![identity(MINI, [0, 5, 3, 1])])
-                .is_empty(),
-            "the layout is not known yet"
+            session.tick(t0, answers).is_empty(),
+            "whether the LEDs sleep is not known yet"
         );
         assert_eq!(
-            session.tick(t0, vec![readback(0x0D, LAYOUT, &[0x05])]),
+            session.tick(t0, vec![sleep]),
             [
                 Action::Send(hex("F0 00 20 29 02 0D 0E 01 F7")),
                 Action::Send(hex("F0 00 20 29 02 0D 0E F7")),
@@ -533,6 +596,47 @@ mod tests {
             session.release().last(),
             Some(&Action::Send(hex("F0 00 20 29 02 0D 0E 00 F7")))
         );
+    }
+
+    #[test]
+    fn taking_a_unit_turns_external_feedback_on_and_wakes_it_and_release_restores_feedback() {
+        let (mut session, t0) = probing(&launchpad_mini_mk3::PROFILE);
+        let mut answers = answers(&launchpad_mini_mk3::PROFILE, MINI, 0x05);
+        answers[2] = readback(0x0D, FEEDBACK, &[1, 0]);
+        answers[3] = readback(0x0D, SLEEP, &[0]);
+        session.tick(t0, answers);
+        assert_eq!(
+            session.tick(t0, vec![readback(0x0D, MODE, &[1])]),
+            [
+                Action::Send(hex("F0 00 20 29 02 0D 0A 01 01 F7")),
+                Action::Send(hex("F0 00 20 29 02 0D 09 01 F7")),
+                Action::Clear,
+                Action::Gate(true),
+            ]
+        );
+        assert_eq!(
+            session.release(),
+            [
+                Action::Gate(false),
+                Action::Clear,
+                Action::Send(hex("F0 00 20 29 02 0D 0A 01 00 F7")),
+                Action::Send(hex("F0 00 20 29 02 0D 0E 00 F7")),
+            ]
+        );
+    }
+
+    #[test]
+    fn feedback_the_unit_did_not_report_is_left_alone() {
+        let (mut session, t0) = probing(&launchpad_x::PROFILE);
+        let mut answers = answers(&launchpad_x::PROFILE, X, 0x01);
+        answers.remove(2);
+        session.tick(t0, answers);
+        session.tick(t0 + REPLY_TIMEOUT, Vec::new());
+        assert_eq!(
+            session.tick(t0 + REPLY_TIMEOUT, vec![readback(0x0C, MODE, &[1])]),
+            [Action::Clear, Action::Gate(true)]
+        );
+        assert_eq!(session.release().len(), 3, "no feedback to give back");
     }
 
     #[test]

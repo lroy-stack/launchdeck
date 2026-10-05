@@ -28,11 +28,13 @@ LaunchDeck drives the X in Programmer mode. Header `F0 00 20 29 02 0C` is the No
 
 Nothing waits for the unit: connecting only opens the ports and asks; every render (every 40 ms) reads what the unit answered since the last one and goes on (`novation/session.rs`).
 
-**Identity.** On connect LaunchDeck asks the unit who it is (the Universal Device Inquiry) and which layout it shows:
+**Identity.** On connect LaunchDeck asks the unit who it is (the Universal Device Inquiry) and what it shows:
 
 ```
 F0 7E 7F 06 01 F7              who are you?
 F0 00 20 29 02 0C 00 F7        which layout? (the unit answers F0 00 20 29 02 0C 00 <layout> F7)
+F0 00 20 29 02 0C 0A F7        which LED feedback? (answer … 0A <internal> <external> F7)
+F0 00 20 29 02 0C 09 F7        are the LEDs on? (answer … 09 <00 asleep | 01 awake> F7)
 ```
 
 The answer names the model's family and four firmware digits, shown in the device's details as the bootloader shows them (a captured X reply reads `0238`). The X is accepted with family `03 01` (Ableton's scripts and a captured reply) or `13 01` (what X-PRM p6 prints, a copy of the Mini MK3's). A unit that answers as its bootloader (second family byte `11`, inferred for the X from the Mini MK3's manual) is sent nothing more and is listed as failed: "The Launchpad is in its bootloader. Unplug it and plug it in again." One that answers with another model's family is turned down the same way: "LaunchDeck could not confirm which Launchpad this is. Press Look again." Both wait for Look again. A unit that does not answer, as through a driver that drops SysEx, is taken anyway after 500 ms.
@@ -44,11 +46,12 @@ F0 00 20 29 02 0C 0E 01 F7     select Programmer mode
 F0 00 20 29 02 0C 0E F7        which mode? (the unit answers F0 00 20 29 02 0C 0E 01 F7 in Programmer mode)
 ```
 
-The first render that has that answer, or the first one 500 ms later, sends the clear frame, and only then are presses read: before, a note sent in Note mode would read as a pad press. When the unit answered `01` the device's details say Programmer mode is `confirmed`. Otherwise they say `unconfirmed` and the device list carries the notice "Launchpad X connected, but Programmer Mode could not be confirmed.": LaunchDeck still draws. A reply that carries another model's product byte is ignored.
+The first render that has that answer, or the first one 500 ms later, makes sure the LEDs show what LaunchDeck draws. External LED feedback switched off in the Setup menu hides lighting by notes in Programmer mode (X-UG; whether it also hides the lighting SysEx is unknown), so it is turned on, leaving internal feedback as it was (`F0 00 20 29 02 0C 0A <internal> 01 F7`); LEDs put to sleep are woken (`F0 00 20 29 02 0C 09 01 F7`). Then the clear frame, and only then are presses read: before, a note sent in Note mode would read as a pad press. When the unit answered `01` the device's details say Programmer mode is `confirmed`. Otherwise they say `unconfirmed` and the device list carries the notice "Launchpad X connected, but Programmer Mode could not be confirmed.": LaunchDeck still draws. A reply that carries another model's product byte is ignored.
 
 **Giving it back.** On disconnect, a unit LaunchDeck took gets the clear frame and
 
 ```
+F0 00 20 29 02 0C 0A <internal> <external> F7   the LED feedback it had, if LaunchDeck changed it
 F0 00 20 29 02 0C 0E 00 F7     back to Live mode
 F0 00 20 29 02 0C 00 <layout> F7   the layout the unit showed before
 ```
