@@ -16,6 +16,7 @@
 pub mod capabilities;
 pub mod discovery;
 pub mod host;
+mod legacy_secrets;
 pub mod log;
 pub mod manifest;
 pub mod network;
