@@ -14,19 +14,16 @@ use serde_json::Value;
 
 use super::env::Environment;
 use super::format::is_bidi;
+use crate::actions::builtin::{
+    http_request_of, shell_command, HttpRequest, HTTP, HTTP_REQUEST, SHELL, SHELL_EXECUTE,
+};
 use crate::actions::definition::{Assignment, ProviderKind};
+use crate::agents::plugin::{
+    instruction_of, new_task_of, CONTINUE as AGENT_CONTINUE, NEW_TASK as AGENT_NEW_TASK,
+    PLUGIN_ID as AGENT_CONTROL,
+};
 use crate::platform::Platform;
 use crate::plugins::system;
-
-// The built-in providers that run things. `artifacts` may not import their
-// owners (`actions::builtin`, `agents`); a test holds these to the real catalog.
-const SHELL: &str = "shell";
-const SHELL_EXECUTE: &str = "execute";
-const HTTP: &str = "http";
-const HTTP_REQUEST: &str = "request";
-const AGENT_CONTROL: &str = "agent-control";
-const AGENT_NEW_TASK: &str = "newTask";
-const AGENT_CONTINUE: &str = "continue";
 
 /// Which of a control's two assignments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -183,29 +180,27 @@ fn text<'a>(args: &'a Value, name: &str) -> &'a str {
 fn review_text(kind: ReviewKind, assignment: &Assignment) -> String {
     let args = &assignment.args;
     match kind {
-        ReviewKind::RunsCommand => text(args, "command").to_string(),
-        ReviewKind::SendsRequest if assignment.provider == HTTP => {
-            let method = Some(text(args, "method"))
-                .filter(|m| !m.is_empty())
-                .unwrap_or("GET");
-            let request = format!("{method} {}", text(args, "url"));
-            match text(args, "body").chars().count() {
-                0 => request,
-                n => format!("{request} (a body of {n} characters)"),
+        ReviewKind::RunsCommand => shell_command(args).to_string(),
+        ReviewKind::SendsRequest
+            if (assignment.provider.as_str(), assignment.action.as_str())
+                == (HTTP, HTTP_REQUEST) =>
+        {
+            let HttpRequest { method, url, body } = http_request_of(args);
+            match body {
+                Some(body) => format!("{method} {url}\n\n{body}"),
+                None => format!("{method} {url}"),
             }
         }
         ReviewKind::SendsRequest => assignment.definition_id(),
         ReviewKind::LaunchesProgram => launch_text(args, Platform::current()),
         ReviewKind::InstructsAgent if assignment.action == AGENT_NEW_TASK => {
-            match text(args, "cwd") {
-                "" => text(args, "task").to_string(),
-                cwd => format!("{} (in {cwd})", text(args, "task")),
+            match new_task_of(args) {
+                Ok((task, Some(cwd))) => format!("{task} (in {cwd})"),
+                Ok((task, None)) => task,
+                Err(refused) => format!("LaunchDeck will not send it: {}", refused.message()),
             }
         }
-        ReviewKind::InstructsAgent => match text(args, "text") {
-            "" => AGENT_CONTINUE.to_string(),
-            instruction => instruction.to_string(),
-        },
+        ReviewKind::InstructsAgent => instruction_of(args).to_string(),
     }
 }
 
@@ -550,7 +545,7 @@ mod tests {
                 "request",
                 json!({ "method": "POST", "url": "https://example.com/hook", "body": "{\"a\":1}" })
             )),
-            "POST https://example.com/hook (a body of 7 characters)"
+            "POST https://example.com/hook\n\n{\"a\":1}"
         );
         assert_eq!(
             item(a(
@@ -596,6 +591,62 @@ mod tests {
         assert_eq!(
             item(a("agent-control", "continue", json!({ "text": "go on" }))),
             "go on"
+        );
+    }
+
+    /// The text comes from the functions the runtime reads the arguments
+    /// with: what a person reviews is what would run, not the raw value.
+    #[test]
+    fn the_text_is_read_as_the_runtime_reads_it() {
+        let item = |provider: &str, action: &str, args: Value| {
+            let assignment = a(provider, action, args);
+            let kind = kind(&assignment).unwrap();
+            let at = Location {
+                surface_source_id: "dev".into(),
+                page_id: "home".into(),
+                control_id: "g.0.0".into(),
+                slot: Slot::Press,
+            };
+            ReviewItem::new(at, "Pad", kind, &assignment).text
+        };
+        // The shell runs the command trimmed.
+        assert_eq!(
+            item("shell", "execute", json!({ "command": "  make\n " })),
+            "make"
+        );
+        // The method in capitals, GET when blank; a blank body is not sent.
+        assert_eq!(
+            item(
+                "http",
+                "request",
+                json!({ "method": "post", "url": "https://example.com/h", "body": " " })
+            ),
+            "POST https://example.com/h"
+        );
+        assert_eq!(
+            item(
+                "http",
+                "request",
+                json!({ "method": "", "url": "https://example.com/h" })
+            ),
+            "GET https://example.com/h"
+        );
+        // A blank instruction continues; a blank folder is no folder.
+        assert_eq!(
+            item("agent-control", "continue", json!({ "text": "  " })),
+            "continue"
+        );
+        assert_eq!(
+            item(
+                "agent-control",
+                "newTask",
+                json!({ "task": "Report", "cwd": " " })
+            ),
+            "Report"
+        );
+        assert_eq!(
+            item("agent-control", "newTask", json!({ "cwd": "/src" })),
+            "LaunchDeck will not send it: `task` (string) is required"
         );
     }
 

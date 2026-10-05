@@ -155,11 +155,7 @@ impl Plugin for ShellProvider {
     ) -> Result<Value, ActionError> {
         match action {
             SHELL_EXECUTE => {
-                let command = args
-                    .get("command")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .to_string();
+                let command = shell_command(args).to_string();
                 ctx.block_on(run_shell(&command))
             }
             other => Err(ActionError::UnknownAction {
@@ -168,6 +164,15 @@ impl Plugin for ShellProvider {
             }),
         }
     }
+}
+
+/// The command `shell.execute` runs: `command`, trimmed. An artifact's
+/// review shows the same text, read here.
+pub(crate) fn shell_command(args: &Value) -> &str {
+    args.get("command")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
 }
 
 fn truncate(mut s: String) -> String {
@@ -183,7 +188,6 @@ fn truncate(mut s: String) -> String {
 }
 
 async fn run_shell(command: &str) -> Result<Value, ActionError> {
-    let command = command.trim();
     if command.is_empty() {
         return Err(ActionError::InvalidArgs("command is empty".into()));
     }
@@ -311,12 +315,7 @@ impl Plugin for HttpProvider {
 
     fn invoke(&self, _: &PluginContext, action: &str, args: &Value) -> Result<Value, ActionError> {
         match action {
-            HTTP_REQUEST => {
-                let method = args.get("method").and_then(Value::as_str).unwrap_or("GET");
-                let url = args.get("url").and_then(Value::as_str).unwrap_or_default();
-                let body = args.get("body").and_then(Value::as_str).map(str::to_string);
-                http_request(method, url, body)
-            }
+            HTTP_REQUEST => http_request(http_request_of(args)),
             other => Err(ActionError::UnknownAction {
                 plugin: HTTP.into(),
                 action: other.into(),
@@ -325,8 +324,35 @@ impl Plugin for HttpProvider {
     }
 }
 
-fn http_request(method: &str, url: &str, body: Option<String>) -> Result<Value, ActionError> {
-    let method = method.to_ascii_uppercase();
+/// A request as `http.request` sends it. No header is added beyond the
+/// HTTP client's own.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct HttpRequest {
+    /// In capitals; `GET` when none is given.
+    pub method: String,
+    pub url: String,
+    /// Absent when blank: a blank body is not sent.
+    pub body: Option<String>,
+}
+
+/// How `http.request` reads its arguments. An artifact's review shows the
+/// same request, read here.
+pub(crate) fn http_request_of(args: &Value) -> HttpRequest {
+    let text = |name: &str| {
+        args.get(name)
+            .and_then(Value::as_str)
+            .filter(|t| !t.trim().is_empty())
+    };
+    HttpRequest {
+        method: text("method").unwrap_or("GET").to_ascii_uppercase(),
+        url: text("url").unwrap_or_default().to_string(),
+        body: text("body").map(str::to_string),
+    }
+}
+
+fn http_request(request: HttpRequest) -> Result<Value, ActionError> {
+    let HttpRequest { method, url, body } = request;
+    let url = url.as_str();
     if !HTTP_METHODS.contains(&method.as_str()) {
         return Err(ActionError::InvalidArgs(format!(
             "unsupported HTTP method `{method}`"
@@ -408,8 +434,10 @@ mod tests {
         assert!(HttpProvider.check(HTTP_REQUEST, &bad).is_err());
         let ok = json!({ "method": "GET", "url": "http://127.0.0.1" });
         assert!(HttpProvider.check(HTTP_REQUEST, &ok).is_ok());
-        assert!(http_request("TRACE", "http://127.0.0.1", None).is_err());
-        assert!(http_request("GET", "file:///etc/passwd", None).is_err());
+        let request =
+            |method: &str, url: &str| http_request_of(&json!({ "method": method, "url": url }));
+        assert!(http_request(request("TRACE", "http://127.0.0.1")).is_err());
+        assert!(http_request(request("GET", "file:///etc/passwd")).is_err());
     }
 
     #[tokio::test]

@@ -19,6 +19,10 @@ use crate::plugins::{
 };
 
 pub const PLUGIN_ID: &str = "agent-control";
+/// The action that sends the focused session an instruction.
+pub const CONTINUE: &str = "continue";
+/// The action that starts a new agent session on a task.
+pub const NEW_TASK: &str = "newTask";
 
 pub struct AgentControlPlugin {
     ctl: Arc<AgentControl>,
@@ -70,10 +74,31 @@ fn command_of(action: &str) -> Option<CommandKind> {
         "resume" => CommandKind::Resume,
         "cancel" => CommandKind::Cancel,
         "retry" => CommandKind::Retry,
-        "continue" => CommandKind::SendInstruction,
-        "newTask" => CommandKind::Spawn,
+        CONTINUE => CommandKind::SendInstruction,
+        NEW_TASK => CommandKind::Spawn,
         _ => return None,
     })
+}
+
+/// The instruction `continue` sends: `text`, or "continue" when it is
+/// blank. An artifact's review shows the same text, read here.
+pub(crate) fn instruction_of(args: &Value) -> &str {
+    args.get("text")
+        .and_then(Value::as_str)
+        .filter(|t| !t.trim().is_empty())
+        .unwrap_or(CONTINUE)
+}
+
+/// The task `newTask` starts and the folder it starts in (none when
+/// blank). An artifact's review shows the same, read here.
+pub(crate) fn new_task_of(args: &Value) -> Result<(String, Option<String>), ActionError> {
+    let task = str_arg(args, "task")?.to_string();
+    let cwd = args
+        .get("cwd")
+        .and_then(Value::as_str)
+        .filter(|c| !c.trim().is_empty())
+        .map(str::to_string);
+    Ok((task, cwd))
 }
 
 fn sentence(label: &str) -> String {
@@ -130,7 +155,7 @@ impl Plugin for AgentControlPlugin {
                     .keywords(&["again", "rerun", "restart", "agent"])
                     .look("Retry", visual::YELLOW, "↻"),
                 def(
-                    "continue",
+                    CONTINUE,
                     "Continue",
                     "Send an instruction to the focused session.",
                 )
@@ -144,7 +169,7 @@ impl Plugin for AgentControlPlugin {
                 )
                 .look("Continue", visual::PURPLE, "⏵⏵"),
                 def(
-                    "newTask",
+                    NEW_TASK,
                     "New task",
                     "Start a task on the focused agent, or on the first agent that can.",
                 )
@@ -254,17 +279,11 @@ impl Plugin for AgentControlPlugin {
             "resume" => self.command(Command::Resume),
             "cancel" => self.command(Command::Cancel),
             "retry" => self.command(Command::Retry),
-            "continue" => {
-                let text = args
-                    .get("text")
-                    .and_then(Value::as_str)
-                    .filter(|t| !t.trim().is_empty())
-                    .unwrap_or("continue");
-                self.command(Command::SendInstruction { text: text.into() })
-            }
-            "newTask" => {
-                let task = str_arg(args, "task")?.to_string();
-                let cwd = args.get("cwd").and_then(Value::as_str).map(str::to_string);
+            CONTINUE => self.command(Command::SendInstruction {
+                text: instruction_of(args).into(),
+            }),
+            NEW_TASK => {
+                let (task, cwd) = new_task_of(args)?;
                 self.command(Command::Spawn { task, cwd })
             }
             "focusSlot" => {
