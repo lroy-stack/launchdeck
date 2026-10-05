@@ -62,7 +62,7 @@ npm install
 npm run build        # writes hello.wasm (about 20 KB)
 ```
 
-The build is `asc --target release` with the options in `asconfig.json`. Prebuilt `.wasm` files are committed for the examples so you can skip this step. `npm run plugins:build` at the repository root rebuilds all three.
+The build is `asc --target release` with the options in `asconfig.json`. Prebuilt `.wasm` files are committed for the examples so you can skip this step. `npm run plugins:build` at the repository root rebuilds every example (the C one needs `clang` with the `wasm32` target and `wasm-ld`, which Apple's clang does not include; pass names to build some: `sh scripts/build-example-plugins.sh hello counter`).
 
 ## 3. Install
 
@@ -90,7 +90,7 @@ Open **Plugins** in the sidebar. Hello shows as *installed* and *on*, with its a
 
 To use it, switch to **Edit** mode, select a pad, type `hello` in the Action Library's search and assign **Say hello** (listed as *Plugin: Hello Plugin*), by pressing **Assign** or dragging the row onto the pad. Type a name into the **Who to greet** field the manifest declared, and press **Test run** to run it right away and see the result. Press **Save** to keep it. You never type an id or any JSON: the library and the form come from `plugin.json`.
 
-To make the pad react to what the plugin publishes, add a feedback rule to that control in the surface definition (`workspace.json` in the app data folder, the same place the built-in surfaces keep theirs; the inspector shows rules read-only):
+To make the pad react to what the plugin publishes, give it a feedback rule. In the inspector: **Feedback, Add feedback, An event**, pick the plugin's event from the list (search for `hello`), create a look named `greeted` and set how long it stays ([the feedback editor](../feedback-editor.md) walks through it). What the editor saves is this, in the control's entry in `workspace.json`:
 
 ```json
 "feedback": [

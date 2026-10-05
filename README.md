@@ -4,7 +4,7 @@
 
 It is a runtime, not a music toy: pads that open apps, run actions, switch contexts and show live state, including the state of things outside your computer through plugins you grant network access to, starting with the Novation Launchpad X. A virtual Launchpad is built in, so everything works without hardware.
 
-> Status: **v0.2 prototype.** The runtime, editor, virtual device, Launchpad X adapter and Agent Control work and are tested. The Launchpad X path has **not** been exercised on real hardware yet (see [known limitations](#known-limitations)).
+> Status: **v0.2 prototype.** The runtime, editor, virtual device, Launchpad X adapter, Agent Control, the plugin platform and Auto Context work and are tested, **on Linux**. Nothing has been built or run on macOS or Windows yet, and the Launchpad X path has **not** been exercised on real hardware (see [verified where](#verified-where) and [known limitations](#known-limitations)). What comes next, and how to pick it up on a Mac, is in [NEXT_PHASE.md](NEXT_PHASE.md).
 
 ## Flagship: Agent Control
 
@@ -52,6 +52,22 @@ Agents you connect start read-only. You grant control per agent, in the app. See
 | Auto Context: the surface follows the application in front, by ordered rules (application to surface and page), with an explicit fallback, a manual override that is never fought, and a panel that says which rule matched and why | Working on Linux/X11, tested in the real desktop app with real windows. macOS and Windows observers are written and **have not been compiled or run**. Not available on Wayland. [Guide](docs/context-engine.md) |
 | Marketplace, MCP, Agent Pack loading | Documented as roadmap or manifest only. |
 
+## Verified where
+
+Everything in the table above was built and tested in one Linux environment. This is what that does and does not cover:
+
+| | Linux | macOS | Windows |
+| --- | --- | --- | --- |
+| Builds, unit and integration tests (Rust and TypeScript) | Yes | **Never built** | **Never built** |
+| The real desktop app, driven through its window ([tools/desktop-e2e](tools/desktop-e2e/README.md)) | Yes, 218 checks | No (the harness is Linux only) | No |
+| Secrets in the system credential store | Yes, a real Secret Service keyring | Keychain: not run | Credential Manager: not run |
+| Auto Context observer | Yes, X11 with a window manager. Wayland: not available | Written, **not compiled** | Written, **not compiled** |
+| Keyboard shortcuts and media keys (`enigo`) | Behind a fake in tests; not run against a real desktop | Not run | Not run |
+| Launchpad X over USB | Byte-tested, **no physical unit** | Same | Same |
+| Home Assistant example | Against a stand-in server, **not a real installation** | Same | Same |
+
+There is no continuous integration yet. Four Rust tests compare against fixtures recorded on Linux and are expected to fail elsewhere; they are listed, with the fix, in [NEXT_PHASE.md](NEXT_PHASE.md#3-tests-expected-to-fail-on-macos).
+
 ## Run it
 
 Requirements: Node 20+, Rust stable, and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS. On Linux this means WebKitGTK 4.1, GTK 3, `libayatana-appindicator3` and ALSA headers (`libasound2-dev`).
@@ -69,15 +85,19 @@ npm run typecheck
 npm run lint
 npm test                 # vitest: schemas, contract with Rust, actions, store selectors
 npm run build            # type check + production frontend build
-npm run rust:fmt
-npm run rust:check       # cargo check --all-targets
+npm run rust:fmt         # cargo fmt --check
+npm run rust:check       # cargo check
 npm run rust:test        # cargo test
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 npm run tauri build      # production bundle
 cargo run --manifest-path src-tauri/Cargo.toml --example foreground   # print which application is in front, as Auto Context sees it
 npm run plugins:build    # rebuild the example plugin modules (Hello, Counter, Channels, Home Assistant, C Ping)
 python3 tools/desktop-e2e/run.py   # drive the real built app (Linux, slow; see tools/desktop-e2e/README.md)
+sh scripts/test-secret-service.sh  # the secret store against a real, private Secret Service keyring (Linux)
 LAUNCHDECK_PLUGINS="$PWD/examples/plugins" npm run tauri dev   # run with the example plugins
 ```
+
+The files under `examples/*.json` are contract fixtures: Rust generates them, a Rust test fails when one is stale, and the TypeScript tests parse them. After changing what Rust sends to the interface, regenerate the one concerned from `src-tauri/` with `cargo run --example dump_workspace` (or `dump_agents`, `dump_plugins`, `dump_catalog`, `dump_observables`, `dump_context`) redirected to the matching file; each test's failure message names the command.
 
 ### Simulator mode (no hardware)
 
@@ -137,9 +157,12 @@ Events can change how pads look. They cannot execute anything. The sources `runt
 
 ```
 src/                  React + TypeScript editor (Zustand for UI state only, Zod at the IPC boundary)
-  features/agents/    the Agents section: Overview, Sessions, Adapters, Surface
+  features/           one folder per part of the interface: surfaces, editor (inspector), library (Action Library),
+                      feedback (feedback editor), plugins, agents, context (Auto Context), devices
+  lib/                schema.ts (Zod, every payload), ipc.ts (commands and events), preview.ts (the browser-only stand-in)
 src-tauri/src/
   core/               model, runtime (surface runtime, state engine, event routing), validation
+  state/              State Hub: the current value of every state, the rule evaluator and its index
   devices/            SurfaceDevice trait, capabilities, virtual device, Launchpad X (the only MIDI code)
   renderer/           semantic visual state to capability-aware frames
   actions/            Action Library: unified registry, definitions, parameter schema, action engine, Navigation, Shell and HTTP providers
@@ -150,20 +173,29 @@ src-tauri/src/
   context/            Auto Context: foreground observers (one per system), application identity, ordered rules, the Auto / Manual Override engine
   events/             event bus, localhost WebSocket
   surfaces/           starter surfaces, including Agent Control
-  persistence/        versioned JSON store, schema 2 to 3 migration
+  persistence/        versioned JSON store (workspace schema 4), migrations from schema 2 and 3
+src-tauri/tests/      integration tests: real plugins, the network broker, the secret store, Agent Control, Auto Context, contracts
+src-tauri/examples/   dump_* (regenerate the contract fixtures), foreground (which application is in front), headless, adapter_sdk
 sdk/assemblyscript/   the plugin SDK for AssemblyScript
-docs/                 product, architecture, surfaces, actions, plugins, plugin-sdk, device notes, roadmap, agent-control
-tools/desktop-e2e/    checks that drive the real desktop app through WebDriver (run on request)
-examples/             default-workspace.json, agents-snapshot.json, plugins-overview.json and action-catalog.json (generated by Rust and
-                      parsed by the TypeScript tests), generic-agent/ (bridge client), agent-pack/ (manifest example),
-                      plugins/ (Hello, Counter, Channels, Home Assistant and a C plugin, built outside the core)
+docs/                 product, architecture, surfaces, state and feedback, context engine, actions, plugins, plugin-sdk,
+                      security, device notes, roadmap, agent-control
+scripts/              build-example-plugins.sh, test-secret-service.sh
+tools/desktop-e2e/    checks that drive the real desktop app through WebDriver (Linux, run on request)
+examples/             default-workspace.json, agents-snapshot.json, plugins-overview.json, action-catalog.json, observables.json
+                      and context-status.json (generated by Rust and parsed by the TypeScript tests), feedback-editor-*.json
+                      (controls exactly as the feedback editor saves them), generic-agent/ (bridge client),
+                      agent-pack/ (manifest example), plugins/ (Hello, Counter, Channels, Home Assistant and a C plugin,
+                      built outside the core)
+NEXT_PHASE.md         what to do next and how to continue on a Mac
 ```
 
 ## Documentation
 
+* [Next phase](NEXT_PHASE.md): what is unverified, what to do first on macOS, and the milestone after that
 * [Product](docs/product.md)
 * [Architecture](docs/architecture.md)
 * [Surfaces](docs/surfaces.md)
+* State and feedback: [the model](docs/state-and-feedback.md), [observables and the catalog](docs/observables.md), [the feedback editor](docs/feedback-editor.md)
 * [Context Engine](docs/context-engine.md): the surface follows the application in front
 * [Plugins](docs/plugins.md) and [plugin permissions](docs/plugins/permissions.md)
 * Security: [where secrets are kept](docs/security/secrets.md)
@@ -173,10 +205,12 @@ examples/             default-workspace.json, agents-snapshot.json, plugins-over
 * Agent Control: [overview](docs/agent-control/overview.md), [domain model](docs/agent-control/domain-model.md), [adapter SDK](docs/agent-control/adapter-sdk.md), [bridge protocol](docs/agent-control/bridge-protocol.md), [surfaces](docs/agent-control/surfaces.md), [security](docs/agent-control/security.md), [MCP (optional, design only)](docs/agent-control/mcp.md)
 * [Marketplace (roadmap)](docs/roadmap/marketplace.md)
 * [MCP at platform level (roadmap)](docs/roadmap/mcp.md)
-* [Implementation plan](IMPLEMENTATION_PLAN.md), [Agent Control plan](AGENT_CONTROL_PLAN.md), [Plugin SDK plan](PLUGIN_SDK_PLAN.md), [Action Library plan](ACTION_LIBRARY_PLAN.md), [Plugin capabilities plan](PLUGIN_CAPABILITIES_PLAN.md) and [Context Engine plan](CONTEXT_ENGINE_PLAN.md)
+* [Desktop end-to-end checks](tools/desktop-e2e/README.md)
+* Plans, kept as the record of the research and decisions behind each milestone, in the order they were built: [implementation](IMPLEMENTATION_PLAN.md), [Agent Control](AGENT_CONTROL_PLAN.md), [Plugin SDK](PLUGIN_SDK_PLAN.md), [Action Library](ACTION_LIBRARY_PLAN.md), [state and feedback](STATE_FEEDBACK_PLAN.md), [feedback editor](FEEDBACK_EDITOR_PLAN.md), [plugin capabilities](PLUGIN_CAPABILITIES_PLAN.md) and [Context Engine](CONTEXT_ENGINE_PLAN.md). The `docs/` pages describe what is built; where a plan and a page disagree, the page is right.
 
 ## Known limitations
 
+* **Built and tested on Linux only, and there is no CI.** macOS and Windows have never compiled this code. Two files exist only for those systems and have never been through a compiler (`src-tauri/src/context/observer/macos.rs` and `windows.rs`), and four Rust tests are tied to fixtures recorded on Linux. See [verified where](#verified-where) and [NEXT_PHASE.md](NEXT_PHASE.md).
 * **Not tested on a physical Launchpad X.** The environment this prototype was built in had no MIDI hardware. SysEx and note mappings follow Novation's Programmer's Reference Manual and are covered by byte-level tests, but real-world behaviour (port names on your OS, timing) is unconfirmed. Agent Control sends the same frames to the virtual and the physical device and is tested on the virtual one.
 * **Auxiliary buttons are experimental.** The manual shows the top row, side column and logo in diagrams only. The controller numbers used (top CC 91 to 98, side CC 89 down to 19, logo 99) follow the layout commonly documented for the Launchpad MK3 family and are unverified.
 * **Pulse and flash are software animations on the Launchpad X.** Colour palette indices are not invented, so static colours use RGB and animations are rendered by LaunchDeck at 25 Hz. Hardware pulse/flash encoders exist and are tested but unused. Urgent agent states rely on this animation, so it is the first thing to check on a real unit.

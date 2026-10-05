@@ -17,7 +17,7 @@ Agent Control is the first vertical built on the platform: **a physical human co
 * **People who work with AI agents.** A physical glance tells you which agent is running, which is waiting for you and which failed, and a pad approves, rejects or stops it. This is the flagship use case.
 * **Developers.** Build, test, git and deploy shortcuts with feedback on the pad itself.
 * **People who want fewer, bigger, easier targets.** The Accessibility surface uses 2x2 high-contrast pads. It is a usability aid, not a medical device.
-* **Tinkerers.** Smart-home webhooks and anything reachable from a URL or a local command.
+* **Tinkerers.** Smart-home webhooks, plugins that talk to a service such as Home Assistant, and anything reachable from a URL or a local command.
 
 ## Principles
 
@@ -41,20 +41,25 @@ Agent Control is the first vertical built on the platform: **a physical human co
 | State | How something is now, reported by a provider and held by the state hub (`known`, `unknown` or `unavailable`). A rule reads it. |
 | Event | Something that happened: a pad press, an action result, a plugin state change, an external message. |
 | Feedback rule | A rule on a control that picks its look: a state rule reads a provider's value, an event rule shows a look for a while. First true state rule wins. See [state-and-feedback](state-and-feedback.md). |
-| Plugin | Provides actions and publishes state. Never sees MIDI. |
-| Capability | What a device (or in future, a plugin) can do or is allowed to do. |
-| Context | What the user is doing; conceptual in this prototype. See [architecture](architecture.md#context-engine-conceptual). |
+| Plugin | Provides actions, publishes events and reports states. Never sees MIDI. Built in (native) or installed (a WebAssembly module in a sandbox). |
+| Capability | What a device can do (grid size, RGB, native animation), or what an installed plugin is allowed to do beyond its sandbox. The only plugin capability is network access to addresses the person granted. See [plugins/permissions.md](plugins/permissions.md). |
+| Secret | A value such as an API token that LaunchDeck keeps in the system credential store and adds to a plugin's request itself. The plugin never sees it. See [security/secrets.md](security/secrets.md). |
+| Context | Which application is in front. Auto Context switches the surface by ordered rules (application to surface and page) and never fights a surface picked by hand. See [context-engine.md](context-engine.md). |
 
 ## What the prototype demonstrates
 
 * The full loop on a virtual device: press, action, state, render.
 * Agent Control: several agents and sessions at once on one surface, an approval that flashes until a person decides it, pause, resume and retry that light up only when they can work, driven by simulated agents, by Claude Code hooks (verified against a live install), by Codex hooks (written from its documentation, not run), or by any program over the local Agent Bridge.
 * One state behind three views: the desktop app, the virtual Launchpad and a physical Launchpad are all derived from the same Rust state.
-* A usable editor: Live and Edit modes, inspector with every action type, pages, spans, per-state looks.
+* A usable editor: Live and Edit modes, an Action Library that lists everything a pad can do, an inspector that draws each action's settings, pages, spans, per-state looks, and a feedback editor that makes a pad follow a state or react to an event without writing JSON.
+* A plugin platform: someone outside the project ships a folder with a manifest and a WebAssembly module, and it is discovered, sandboxed, listed in the library and shown on pads, with no recompiling. A plugin can reach an outside service only through LaunchDeck, only at addresses the person allowed, with tokens it never sees (the Home Assistant example).
+* A surface that follows the application in front, with rules the person wrote.
 * The same runtime driving a real Launchpad X when one is plugged in.
 
-## Out of scope for v0.1
+All of it was built and tested on Linux, without a physical Launchpad. What has and has not been verified, per system, is in the [README](../README.md#verified-where).
 
-Accounts, cloud sync, a marketplace backend, telemetry, a full MCP server, other Launchpad models and other controllers, mobile, and a database. The roadmap documents describe how marketplace packages and an MCP adapter would fit.
+## Out of scope
+
+Accounts, cloud sync, a marketplace backend, plugin signing, telemetry, a full MCP server, other Launchpad models and other controllers, mobile, and a database. The roadmap documents describe how marketplace packages and an MCP adapter would fit.
 
 Agent Control adds its own boundaries: it does not host agents, run models, proxy LLM calls, schedule work, keep agent memory or build workflow graphs, and it never approves anything by itself. See [agent-control/overview.md](agent-control/overview.md#not-in-scope).

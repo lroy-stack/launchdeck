@@ -57,7 +57,7 @@ Every pointer and length the module passes is checked against its memory before 
 JSON objects. `op` is written first, so a minimal module can tell requests apart from a fixed offset (the C example looks at byte 9, which is `i` for `init` and `v` for `invoke`). Requests are at most 64 KiB.
 
 ```json
-{"op":"init","abi":1,"host":{"name":"launchdeck","version":"0.2.0","sdk":"0.1.0"},"plugin":{"id":"example.hello","version":"0.1.0"},"config":{"greeting":"Hello"}}
+{"op":"init","abi":1,"host":{"name":"launchdeck","version":"0.2.0","sdk":"0.2.1"},"plugin":{"id":"example.hello","version":"0.1.0"},"config":{"greeting":"Hello"}}
 {"op":"invoke","action":"hello.say","args":{"name":"Leroy"}}
 ```
 

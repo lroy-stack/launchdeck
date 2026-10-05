@@ -3,11 +3,13 @@
 A **surface** is a named layout for a device. It has **pages**, and a page has **controls**.
 
 ```
-Workspace (schemaVersion, surfaces[], preferences)
- └ Surface (id, name, category, icon, pages[], context hints)
+Workspace (schemaVersion, surfaces[], preferences, context)
+ └ Surface (id, name, category, icon, pages[])
     └ Page (id, name, controls[])
        └ Control
 ```
+
+The workspace's `context` holds the [Auto Context](context-engine.md) settings: whether it is on, the ordered rules (application to surface and page) and the fallback. It is absent from a workspace that never used Auto Context. A surface may also carry an older `context` field of its own (`foregroundApps`, a list of names); it is still read so that old files load, and nothing uses it. Rules are the only thing that switches a surface.
 
 ## Control
 
@@ -52,7 +54,7 @@ A surface file that names a provider which is not installed still loads. The pad
 | --- | --- | --- |
 | **Agent Control** | Watch and steer agents. The flagship surface. | One pad per session coloured by status, large APPROVE and REJECT pads, Pause, Resume, Retry and Stop that light only when they can work, task pads, Run Agent Demo. Provider-neutral. See [agent-control/surfaces.md](agent-control/surfaces.md). |
 | **Development** | Build, test, ship. | Terminal, editor, git page. Commands are harmless `echo` placeholders you replace. A "Failing" pad shows the error flash. |
-| **Productivity** | Meetings, notes, focus, volume. | Shortcuts and links. |
+| **Productivity** | Everyday shortcuts. | Browser, mail, calendar and files; copy, paste, undo, redo and search; screenshot, play/pause. Which file manager and screenshot shortcut a pad uses depends on the system. |
 | **Accessibility** | Fewer, larger, high-contrast targets. | Twelve 2x2 pads in colour-coded groups (navigate, edit, scroll and zoom, volume), Help page. A usability aid, not a medical device. |
 | **Smart Home** | Webhook template. | Pads POST to `http://homeassistant.local:8123/api/webhook/launchdeck-<name>` placeholders. They do nothing useful (the request fails and the pad flashes red) until you create matching webhooks or edit the URLs. |
 
@@ -67,9 +69,10 @@ The Agent Control surface shows how a surface follows outside state. Its track p
 * Keep a surface to one job. Use pages for depth, not for unrelated jobs.
 * Use colour as meaning (green good, red bad) and animation for things that need attention.
 * For accessibility surfaces prefer spans of 2x2 or larger, high-contrast colours and labels as well as icons.
-* To react to an outside tool, add an event rule for its `source` and event, name the look to show and how long it lasts, then give the control that look. Rules are written in the surface file; the inspector shows them read-only. A provider that reports a *state* is better read with a state rule: it is right even for a pad created after the value was reported.
+* To react to an outside tool, add an event rule for its `source` and event, name the look to show and how long it lasts, then give the control that look. In the inspector: **Feedback, Add feedback, An event** (see [feedback-editor.md](feedback-editor.md)); the same rule can be written by hand in the surface file. A provider that reports a *state* is better read with a state rule: it is right even for a pad created after the value was reported.
+* To have a surface appear when you switch to an application, add a rule under **Settings, Auto Context** rather than a pad. See [context-engine.md](context-engine.md).
 * To react to agents, read the `agent-control` states described in [agent-control/surfaces.md](agent-control/surfaces.md#make-your-own) and call the `agent-control` plugin actions on press. Never count or address sessions in a surface; the platform publishes what a pad needs.
 
 ## Files
 
-Surfaces live in `workspace.json`. The shape matches `examples/default-workspace.json`, which is the authoritative example. Sharing and packaging of surfaces is described in [roadmap/marketplace.md](roadmap/marketplace.md).
+Surfaces live in `workspace.json` (schema 4) in the app data folder. The shape matches `examples/default-workspace.json`, which is the authoritative example; it was generated on Linux, and a few starter pads differ by system (which terminal, file manager and screenshot shortcut they name). Sharing and packaging of surfaces is described in [roadmap/marketplace.md](roadmap/marketplace.md).
