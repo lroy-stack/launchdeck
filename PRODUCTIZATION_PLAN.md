@@ -568,7 +568,7 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 | 21 | E1 | Error UX and structured issues | yes | A4, A6, A7 | | todo |
 | 22 | E2 | Device status | yes | A4, A7 | | done; unplug, replug, a busy port and other Launchpad models exercised with fake ports only, real hardware NOT VERIFIED (b); the app window NOT VERIFIED (f) |
 | 23 | E3 | Surface management, onboarding flag, load notice | yes | A7 | | done; `commit_workspace` added here as 7.11 specifies (C4 adds the same on the main lane: keep one at the merge); the app window, Show folder and the banner NOT VERIFIED (f) |
-| 24 | E4 | First run and starter content | yes | E2, E3, A5 | | todo |
+| 24 | E4 | First run and starter content | yes | E2, E3, A5 | | done; "Import a Pack instead" not offered (C6 not on this lane: add it with C6); the Home example entity for the fan is `switch.bedroom_fan` (the plugin switches only light, switch, input_boolean); the first-run screen checked with vitest only, the app window NOT VERIFIED (f); a configured Home pad against Home Assistant NOT VERIFIED (c) |
 | 25 | E5 | Settings, About, single version source | yes | E3, D2 | | todo |
 | 26 | E6 | Empty states and readable activity | no | A4 | R2 | todo |
 | 27 | R2 | Release acceptance automation | yes | C5, D2 | E6 | todo |
