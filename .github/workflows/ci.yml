@@ -1,9 +1,13 @@
 name: CI
 
+# Linux runs on every push to main and on every pull request. macOS and
+# Windows minutes cost several Linux minutes each, so those two run on pull
+# requests and when the workflow is started by hand, not on every push.
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 # Read the code, nothing else. No step needs a secret, a token or network
 # access beyond the package registries.
@@ -25,10 +29,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # One list of steps for every system; the event decides which systems
+        # run it: Linux alone on a push, all three otherwise.
         # ubuntu-24.04 is pinned: ubuntu-latest moves to 26.04 in November 2026
         # (actions/runner-images#14748), and nothing has been built against its
         # WebKitGTK yet. macos-latest is macOS 26 on Apple silicon.
-        os: [ubuntu-24.04, macos-latest, windows-latest]
+        os: ${{ fromJSON(github.event_name == 'push' && '["ubuntu-24.04"]' || '["ubuntu-24.04", "macos-latest", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     # Windows has never been run: its failures are listed, not hidden. Remove once green.
     continue-on-error: ${{ matrix.os == 'windows-latest' }}
@@ -63,22 +69,28 @@ jobs:
             libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev libasound2-dev \
             libxkbcommon-dev libxdo-dev libssl-dev
 
-      # Fast checks first (formatting, types, lint), then tests and builds.
+      # The gates of `npm run check:full`, one step each so a failure names its
+      # gate, and each through its npm script so it is defined in one place.
+      # Fast checks first, then tests and builds.
       - run: npm ci
       - name: Architecture
         run: npm run check:arch
+      - name: Versions
+        run: npm run versions:check
+      - name: Docs links
+        run: npm run docs:links
       - name: Type check
         run: npm run typecheck
       - name: Lint
         run: npm run lint
       - name: Rust format
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+        run: npm run rust:fmt
       - name: Clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+        run: npm run rust:clippy
 
       - name: Frontend tests
         run: npm test
       - name: Frontend build
         run: npm run build
       - name: Rust tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml --no-fail-fast
+        run: npm run rust:test
