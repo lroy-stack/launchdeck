@@ -4,8 +4,8 @@
 //! the product byte for everything they hold); a model adds its own data as a
 //! `profile::ModelProfile`, and `ports` finds each model's units on the
 //! system's ports. One `device::Mk3Device` drives a unit of any model: the
-//! `session` says what to send to take and give back the unit, `leds` what a
-//! frame needs sent. `NovationHardware` is what the device manager sees.
+//! `session` says what to send to take and give back the unit, `settings`
+//! what brightness and scrolling text send, `leds` what a frame needs sent. `NovationHardware` is what the device manager sees.
 
 mod device;
 #[cfg(test)]
@@ -28,6 +28,7 @@ mod protocol_tests;
 mod session;
 #[cfg(test)]
 mod session_tests;
+mod settings;
 #[cfg(test)]
 mod testkit;
 

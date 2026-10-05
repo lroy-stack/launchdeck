@@ -24,12 +24,11 @@
 //! Programmer mode: one that never answered keeps its could-not-be-confirmed
 //! notice.
 //!
-//! Brightness (section 12.1) is set when the unit is taken and whenever
-//! the person changes it: the level is read, then set; the unit answers the
-//! question before it applies the setting, so the first answer since
-//! connect is the person's own level. A unit whose firmware leaves the
-//! question unanswered while it answers the others is said not to support
-//! brightness, in a notice.
+//! Brightness (section 12.1) is set when the unit is taken, before the
+//! clear frame, and whenever the person changes it; scrolling text (12.3)
+//! on request. What they send is in `settings`. A firmware that leaves the
+//! brightness question unanswered while it answers the others is said not
+//! to support brightness, in a notice.
 //!
 //! Sleep (section 12.2) turns the LEDs off until LaunchDeck turns them on
 //! again or the person presses something: nothing is drawn meanwhile, and
@@ -40,32 +39,24 @@
 //! probe's sleep question while it answers the others is said not to
 //! support sleep.
 //!
-//! Text (section 12.3) scrolls over the frame, which is still drawn
-//! underneath. No message says when a scroll ends: one that does not loop
-//! is taken as over after `(characters × 6 + 9) / speed` seconds (a
-//! column of 6 per character is an assumption). When it stops or is over
-//! the next frame is sent whole.
-//!
 //! On release a running scroll is stopped, a unit LaunchDeck put to sleep
-//! is woken, then the clear
-//! frame, the LED feedback the unit had if LaunchDeck changed it, the
-//! brightness it had if LaunchDeck changed it, Live mode, then the layout
-//! the unit showed before, unless Live mode lands there anyway. What
-//! release gives back is what the unit first reported: taking it again
-//! after a takeover reads the unit again, but what LaunchDeck or the other
-//! program set there is not the person's. Replies that carry another
-//! model's product byte are ignored.
+//! is woken, then the clear frame, the LED feedback the unit had if
+//! LaunchDeck changed it, the brightness it had if LaunchDeck changed it,
+//! Live mode, then the layout the unit showed before, unless Live mode
+//! lands there anyway. What release gives back is what the unit first
+//! reported: taking it again after a takeover reads the unit again, but
+//! what LaunchDeck or the other program set there is not the person's.
+//! Replies that carry another model's product byte are ignored.
 
 use std::time::{Duration, Instant};
 
 use super::profile::ModelProfile;
 use super::protocol::{
-    brightness, feedback, programmer_mode, query, select_layout, sleep, text, text_stop, to_7bit,
-    Reply, TextColour, BRIGHTNESS, FEEDBACK, INQUIRY, LAYOUT, MODE, SLEEP,
+    feedback, programmer_mode, query, select_layout, sleep, Reply, BRIGHTNESS, FEEDBACK, INQUIRY,
+    LAYOUT, MODE, SLEEP,
 };
-use crate::devices::{
-    DeviceDetails, DeviceError, DeviceFeatures, ModeState, ScrollDirection, TextScroll,
-};
+use super::settings::{Brightness, Scroll, Unsupported};
+use crate::devices::{DeviceDetails, DeviceError, DeviceFeatures, ModeState, TextScroll};
 
 /// How long a question to the unit waits for its answer. Some drivers may
 /// drop SysEx: then LaunchDeck goes on without the answer.
@@ -84,16 +75,6 @@ const BOOTLOADER: u8 = 0x11;
 
 /// The layout byte of Programmer mode (MINI-PRM p7).
 const PROGRAMMER_LAYOUT: u8 = 0x7F;
-
-/// The highest brightness level (MINI-PRM p22).
-const BRIGHTNESS_MAX: u8 = 0x7F;
-
-/// The fastest scroll the text command carries, pads per second (p20).
-const TEXT_SPEED_MAX: u8 = 63;
-/// Pad columns per character of scrolling text, and the columns the text
-/// takes to come in and leave: an assumption, the font is undocumented.
-const TEXT_COLUMNS_PER_CHAR: u64 = 6;
-const TEXT_COLUMNS_EXTRA: u64 = 9;
 
 /// Where the session is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -162,32 +143,10 @@ pub(crate) struct Session {
     brightness: Brightness,
     /// LaunchDeck put the LEDs to sleep and has not seen them wake.
     asleep: bool,
-    /// Text LaunchDeck is scrolling: when it is taken as over, `None` for
-    /// a scroll that loops.
-    scroll: Option<Option<Instant>>,
+    /// Text LaunchDeck is scrolling.
+    scroll: Scroll,
     /// What the unit's firmware turned out not to do.
     unsupported: Unsupported,
-}
-
-/// The LED brightness LaunchDeck sets, and the unit's own.
-#[derive(Debug, Default, Clone, Copy)]
-struct Brightness {
-    /// The level to set, 0-127; `None` leaves the unit's own.
-    wanted: Option<u8>,
-    /// The first level the unit reported since connect: what release
-    /// gives back.
-    saved: Option<u8>,
-    /// LaunchDeck set a level the unit still shows.
-    changed: bool,
-    /// When the question still unanswered was sent.
-    asked: Option<Instant>,
-}
-
-/// Features of the profile that this unit's firmware does not answer for.
-#[derive(Debug, Default, Clone, Copy)]
-struct Unsupported {
-    brightness: bool,
-    sleep: bool,
 }
 
 /// What the unit reported before it was taken; `None` for what it did not
@@ -226,7 +185,7 @@ impl Session {
             takeovers: Vec::new(),
             brightness: Brightness::default(),
             asleep: false,
-            scroll: None,
+            scroll: Scroll::default(),
             unsupported: Unsupported::default(),
         }
     }
@@ -244,29 +203,21 @@ impl Session {
     /// The ports are open: ask who the unit is and what it shows. A
     /// brightness asked for before is kept.
     pub(crate) fn opened(&mut self, now: Instant) -> Vec<Action> {
-        let wanted = self.brightness.wanted;
+        let brightness = self.brightness.wanted_only();
         *self = Self::new(self.profile);
-        self.brightness.wanted = wanted;
+        self.brightness = brightness;
         self.probe(now)
     }
 
     /// What the unit can do: its profile's features, less what its
     /// firmware turned out not to answer for.
     pub(crate) fn features(&self) -> DeviceFeatures {
-        let mut features = self.profile.features;
-        features.brightness &= !self.unsupported.brightness;
-        features.sleep &= !self.unsupported.sleep;
-        features
+        self.unsupported.remove_from(self.profile.features)
     }
 
     /// LEDs off (`true`) or on again, on a unit LaunchDeck holds.
     pub(crate) fn set_sleep(&mut self, asleep: bool) -> Result<Vec<Action>, DeviceError> {
-        if !self.features().sleep {
-            return Err(self.unavailable("sleep"));
-        }
-        if self.phase != Phase::Owned {
-            return Err(DeviceError::NotConnected);
-        }
+        self.held(self.features().sleep, "sleep")?;
         let product = self.profile.product;
         if asleep {
             self.asleep = true;
@@ -287,35 +238,12 @@ impl Session {
         now: Instant,
         scroll: Option<&TextScroll>,
     ) -> Result<Vec<Action>, DeviceError> {
-        if !self.features().scrolling_text {
-            return Err(self.unavailable("scrolling text"));
-        }
-        if self.phase != Phase::Owned {
-            return Err(DeviceError::NotConnected);
-        }
+        self.held(self.features().scrolling_text, "scrolling text")?;
         let product = self.profile.product;
-        let Some(scroll) = scroll else {
-            self.scroll = None;
-            return Ok(vec![Action::Send(text_stop(product)), Action::Invalidate]);
-        };
-        let speed = scroll.speed.clamp(1, TEXT_SPEED_MAX);
-        let ascii = scroll.text.as_bytes();
-        let over = (!scroll.looping).then(|| now + scroll_time(ascii.len(), speed));
-        self.scroll = Some(over);
-        // Speed bytes from 40h are negative and scroll left to right.
-        let signed = match scroll.direction {
-            ScrollDirection::Left => speed as i8,
-            ScrollDirection::Right => -(speed as i8),
-        };
-        let c = scroll.color;
-        let colour = TextColour::Rgb(to_7bit(c.r), to_7bit(c.g), to_7bit(c.b));
-        Ok(vec![Action::Send(text(
-            product,
-            scroll.looping,
-            signed,
-            colour,
-            ascii,
-        ))])
+        Ok(match scroll {
+            Some(scroll) => vec![Action::Send(self.scroll.start(product, now, scroll))],
+            None => vec![Action::Send(self.scroll.stop(product)), Action::Invalidate],
+        })
     }
 
     /// The LEDs are on again: the next frame is sent whole.
@@ -334,18 +262,19 @@ impl Session {
         if !self.features().brightness {
             return Err(self.unavailable("brightness"));
         }
-        self.brightness.wanted = percent.map(level);
+        self.brightness.want(percent);
         if self.phase != Phase::Owned {
             return Ok(Vec::new());
         }
-        let mut actions = match (self.brightness.wanted, self.brightness.saved) {
-            (Some(level), _) => self.brighten(now, level),
-            (None, Some(own)) if self.brightness.changed => {
-                self.brightness.changed = false;
-                vec![Action::Send(brightness(self.profile.product, own))]
-            }
-            (None, _) => return Ok(Vec::new()),
+        let product = self.profile.product;
+        let sent = match percent {
+            Some(_) => self.brightness.set(product, now),
+            None => self.brightness.unset(product),
         };
+        if sent.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut actions: Vec<Action> = sent.into_iter().map(Action::Send).collect();
         // Whether the unit keeps showing its LEDs through a change is not
         // documented: they are sent again.
         actions.push(Action::Invalidate);
@@ -362,7 +291,7 @@ impl Session {
                     command: BRIGHTNESS,
                     data,
                 } if product == self.profile.product.0 && data.len() == 1 => {
-                    self.read_brightness(data[0])
+                    self.brightness.read(data[0])
                 }
                 _ => {}
             }
@@ -401,8 +330,8 @@ impl Session {
         match std::mem::replace(&mut self.phase, Phase::Closed) {
             Phase::Entering { .. } | Phase::Owned => {
                 let mut actions = vec![Action::Gate(false)];
-                if self.scroll.take().is_some() {
-                    actions.push(Action::Send(text_stop(product)));
+                if self.scroll.running() {
+                    actions.push(Action::Send(self.scroll.stop(product)));
                 }
                 if self.asleep {
                     actions.push(Action::Send(sleep(product, true)));
@@ -418,9 +347,7 @@ impl Session {
                         )));
                     }
                 }
-                if let (true, Some(own)) = (self.brightness.changed, self.brightness.saved) {
-                    actions.push(Action::Send(brightness(product, own)));
-                }
+                actions.extend(self.brightness.release(product).map(Action::Send));
                 actions.push(Action::Send(programmer_mode(product, false)));
                 // Live mode lands in the profile's Live layout; another one
                 // the unit showed is selected again.
@@ -462,43 +389,36 @@ impl Session {
             ModeState::Unconfirmed => Some(format!(
                 "{name} connected, but Programmer Mode could not be confirmed."
             )),
-            _ => self.firmware_notice(),
+            _ => self
+                .firmware
+                .as_deref()
+                .and_then(|firmware| self.unsupported.notice(firmware)),
         };
         let brightness = if self.unsupported.brightness {
             None
         } else {
-            self.brightness
-                .wanted
-                .or(self.brightness.saved)
-                .map(percent)
+            self.brightness.percent()
         };
         DeviceDetails {
             firmware: self.firmware.clone(),
             mode,
             brightness,
             asleep: self.asleep,
-            scrolling: self.scroll.is_some(),
+            scrolling: self.scroll.running(),
             notice,
         }
     }
 
-    /// What the unit's firmware does not answer for, with its version.
-    fn firmware_notice(&self) -> Option<String> {
-        let firmware = self.firmware.as_deref()?;
-        let unsupported = self.unsupported;
-        let missing: Vec<&str> = [
-            ("brightness", unsupported.brightness),
-            ("sleep", unsupported.sleep),
-        ]
-        .into_iter()
-        .filter_map(|(name, missing)| missing.then_some(name))
-        .collect();
-        (!missing.is_empty()).then(|| {
-            format!(
-                "Firmware version {firmware} does not support {}. Novation Components can update it.",
-                missing.join(" or ")
-            )
-        })
+    /// Whether a feature the unit has can act now: on a unit LaunchDeck
+    /// holds.
+    fn held(&self, has: bool, feature: &str) -> Result<(), DeviceError> {
+        if !has {
+            return Err(self.unavailable(feature));
+        }
+        if self.phase != Phase::Owned {
+            return Err(DeviceError::NotConnected);
+        }
+        Ok(())
     }
 
     /// The refusal of a feature the unit cannot do.
@@ -540,7 +460,7 @@ impl Session {
                     data,
                     ..
                 },
-            ) if data.len() == 1 => self.read_brightness(data[0]),
+            ) if data.len() == 1 => self.brightness.read(data[0]),
             (Phase::Probing { .. }, Reply::Readback { command, data, .. }) => {
                 self.probed(command, &data)
             }
@@ -615,7 +535,7 @@ impl Session {
         self.programmer = None;
         self.seen = Reported::default();
         self.heartbeat = None;
-        self.scroll = None;
+        self.scroll.forget();
         let mut actions = Vec::new();
         if std::mem::take(&mut self.asleep) {
             actions.push(Action::Asleep(false));
@@ -679,55 +599,30 @@ impl Session {
         if self.seen.asleep == Some(true) {
             actions.push(Action::Send(sleep(product, true)));
         }
-        if let (Some(level), true) = (self.brightness.wanted, self.features().brightness) {
-            actions.extend(self.brighten(now, level));
+        if self.features().brightness {
+            let set = self.brightness.set(product, now);
+            actions.extend(set.into_iter().map(Action::Send));
         }
         actions.extend([Action::Clear, Action::Gate(true)]);
         actions
     }
 
-    /// Reads the unit's brightness, then sets this level: the unit answers
-    /// before it applies the setting.
-    fn brighten(&mut self, now: Instant, level: u8) -> Vec<Action> {
-        self.brightness.changed = true;
-        self.brightness.asked = Some(now);
-        let product = self.profile.product;
-        vec![
-            Action::Send(query(product, BRIGHTNESS)),
-            Action::Send(brightness(product, level)),
-        ]
-    }
-
-    /// The unit's brightness: the first answer since connect is its own.
-    fn read_brightness(&mut self, level: u8) {
-        self.brightness.asked = None;
-        self.brightness
-            .saved
-            .get_or_insert(level.min(BRIGHTNESS_MAX));
-    }
-
     /// A scroll that does not loop and whose time is up is taken as over:
     /// the next frame is sent whole.
     fn scrolled(&mut self, now: Instant) -> Vec<Action> {
-        match self.scroll {
-            Some(Some(over)) if now >= over => {
-                self.scroll = None;
-                vec![Action::Invalidate]
-            }
-            _ => Vec::new(),
+        if self.scroll.ran_out(now) {
+            vec![Action::Invalidate]
+        } else {
+            Vec::new()
         }
     }
 
     /// A brightness question unanswered while the unit answered who it is
     /// and whether it is in Programmer mode: its firmware does not know it.
     fn unanswered(&mut self, now: Instant) {
-        let Some(asked) = self.brightness.asked else {
-            return;
-        };
-        if !timed_out(asked, now) {
+        if !self.brightness.unanswered(now) {
             return;
         }
-        self.brightness.asked = None;
         if self.firmware.is_some() && self.programmer.is_some() {
             log::info!(
                 "the {} did not answer the brightness question: not supported",
@@ -795,39 +690,7 @@ fn timed_out(since: Instant, now: Instant) -> bool {
     now.saturating_duration_since(since) >= REPLY_TIMEOUT
 }
 
-/// How long text takes to scroll by once, at `speed` pads per second.
-fn scroll_time(chars: usize, speed: u8) -> Duration {
-    let columns = chars as u64 * TEXT_COLUMNS_PER_CHAR + TEXT_COLUMNS_EXTRA;
-    Duration::from_millis(columns * 1000 / u64::from(speed.max(1)))
-}
-
-/// Percent 0-100 to a brightness level 0-127, rounded: 50 is `40h`.
-fn level(percent: u8) -> u8 {
-    let level = (u16::from(percent.min(100)) * u16::from(BRIGHTNESS_MAX) + 50) / 100;
-    level as u8
-}
-
-/// A brightness level 0-127 to percent, rounded.
-fn percent(level: u8) -> u8 {
-    let max = u16::from(BRIGHTNESS_MAX);
-    ((u16::from(level.min(BRIGHTNESS_MAX)) * 100 + max / 2) / max) as u8
-}
-
 /// Four digits 0-9 as one string: `0531`.
 fn digits(version: [u8; 4]) -> String {
     version.iter().map(|d| char::from(b'0' + d % 10)).collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{level, percent};
-
-    #[test]
-    fn brightness_percent_and_levels_round_to_each_other() {
-        assert_eq!([0, 25, 50, 100, 255].map(level), [0, 32, 64, 127, 127]);
-        assert_eq!([0, 32, 64, 127, 255].map(percent), [0, 25, 50, 100, 100]);
-        for p in 0..=100 {
-            assert_eq!(percent(level(p)), p, "{p} %");
-        }
-    }
 }
