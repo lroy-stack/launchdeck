@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 3,
+  "id": "example.channels",
+  "name": "Channels",
+  "version": "0.1.0",
+  "description": "Tracks any number of named channels. One state, `status`, has an instance for each channel: the state is scoped by the channel it is about.",
+  "author": "LaunchDeck examples",
+  "abi": 1,
+  "sdk": "0.1.1",
+  "main": "channels.wasm",
+  "actions": [
+    {
+      "id": "channel.up",
+      "label": "Channel up",
+      "description": "Say that a channel works.",
+      "category": "Channels",
+      "keywords": ["online", "ok", "healthy", "channel"],
+      "params": [
+        { "name": "channel", "label": "Channel", "type": "string", "required": true, "maxLength": 32 }
+      ],
+      "suggests": ["status"]
+    },
+    {
+      "id": "channel.down",
+      "label": "Channel down",
+      "description": "Say that a channel is broken.",
+      "category": "Channels",
+      "keywords": ["offline", "broken", "failed", "channel"],
+      "params": [
+        { "name": "channel", "label": "Channel", "type": "string", "required": true, "maxLength": 32 }
+      ],
+      "suggests": ["status"]
+    },
+    {
+      "id": "channel.forget",
+      "label": "Forget channel",
+      "description": "Stop reporting a channel: its status reads unknown again.",
+      "category": "Channels",
+      "keywords": ["remove", "clear", "channel"],
+      "params": [
+        { "name": "channel", "label": "Channel", "type": "string", "required": true, "maxLength": 32 }
+      ],
+      "suggests": ["status"]
+    }
+  ],
+  "states": [
+    {
+      "id": "status",
+      "name": "Channel status",
+      "description": "Whether one channel works. There is one instance per channel.",
+      "keywords": ["channel", "online", "health"],
+      "type": "enum",
+      "values": [
+        { "value": "up", "label": "Up", "role": "ok" },
+        { "value": "down", "label": "Down", "role": "error" }
+      ],
+      "params": [
+        { "name": "channel", "label": "Channel", "type": "string", "required": true, "maxLength": 32 }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "type": "channel.changed",
+      "name": "Channel changed",
+      "description": "A channel went up or down. Payload: channel, status.",
+      "fields": [
+        { "name": "channel", "label": "Channel", "type": "string" },
+        {
+          "name": "status",
+          "label": "Status",
+          "type": "enum",
+          "values": [
+            { "value": "up", "label": "Up" },
+            { "value": "down", "label": "Down" }
+          ]
+        }
+      ]
+    }
+  ],
+  "config": [],
+  "capabilities": []
+}

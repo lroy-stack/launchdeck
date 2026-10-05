@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 3,
+  "id": "example.counter",
+  "name": "Counter Plugin",
+  "version": "0.2.0",
+  "description": "A counter that remembers its value between presses and reports a level, never a number of pads.",
+  "author": "LaunchDeck examples",
+  "abi": 1,
+  "sdk": "0.1.1",
+  "main": "counter.wasm",
+  "actions": [
+    {
+      "id": "counter.increment",
+      "label": "Increment",
+      "description": "Add one step. Fails at the maximum.",
+      "category": "Counter",
+      "keywords": [
+        "add",
+        "plus",
+        "more",
+        "count",
+        "up"
+      ],
+      "appearance": {
+        "label": "Plus",
+        "color": "#2f81f7",
+        "icon": "+"
+      },
+      "suggests": [
+        "level"
+      ]
+    },
+    {
+      "id": "counter.decrement",
+      "label": "Decrement",
+      "description": "Subtract one step. Fails at zero.",
+      "category": "Counter",
+      "keywords": [
+        "subtract",
+        "minus",
+        "less",
+        "count",
+        "down"
+      ],
+      "appearance": {
+        "label": "Minus",
+        "color": "#f0883e",
+        "icon": "−"
+      },
+      "suggests": [
+        "level"
+      ]
+    },
+    {
+      "id": "counter.reset",
+      "label": "Reset",
+      "description": "Back to zero.",
+      "category": "Counter",
+      "keywords": [
+        "zero",
+        "clear",
+        "count",
+        "start over"
+      ],
+      "appearance": {
+        "label": "Zero",
+        "color": "#6e7681",
+        "icon": "0"
+      },
+      "suggests": [
+        "level"
+      ]
+    }
+  ],
+  "states": [
+    {
+      "id": "level",
+      "name": "Counter level",
+      "description": "How full the counter is. Unknown until the counter has reported once after it starts.",
+      "keywords": [
+        "count",
+        "level",
+        "full",
+        "value"
+      ],
+      "type": "enum",
+      "values": [
+        {
+          "value": "zero",
+          "label": "Empty",
+          "role": "inactive"
+        },
+        {
+          "value": "low",
+          "label": "Low",
+          "role": "ok"
+        },
+        {
+          "value": "high",
+          "label": "High",
+          "role": "warning"
+        },
+        {
+          "value": "max",
+          "label": "Full",
+          "role": "attention"
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "type": "counter.changed",
+      "name": "Counter changed",
+      "description": "The value changed. Payload: value (number), level (zero, low, high or max).",
+      "fields": [
+        {
+          "name": "value",
+          "label": "Value",
+          "type": "number"
+        },
+        {
+          "name": "level",
+          "label": "Level",
+          "type": "enum",
+          "values": [
+            {
+              "value": "zero",
+              "label": "Empty"
+            },
+            {
+              "value": "low",
+              "label": "Low"
+            },
+            {
+              "value": "high",
+              "label": "High"
+            },
+            {
+              "value": "max",
+              "label": "Full"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "config": [
+    {
+      "key": "step",
+      "type": "number",
+      "default": 1,
+      "description": "How much one press adds or removes."
+    },
+    {
+      "key": "max",
+      "type": "number",
+      "default": 9,
+      "description": "The largest value."
+    }
+  ],
+  "capabilities": []
+}

@@ -9,7 +9,9 @@
 //!   -> Event Bus -> surface binding -> control state -> renderer -> LED
 //!
 //! A few hostile plugins written in WAT prove the failure behaviour: the
-//! runtime, the other plugins and Agent Control keep working.
+//! runtime, the other plugins and Agent Control keep working. Modules frozen as
+//! SDK 0.1 built them (`tests/fixtures/plugins/sdk-0.1`) prove that plugins
+//! built before the network capability still load and run.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -25,10 +27,11 @@ use launchdeck_lib::core::runtime::{NullEmitter, Runtime, RuntimeConfig};
 use launchdeck_lib::devices::Led;
 use launchdeck_lib::events::{Event, EventBus};
 use launchdeck_lib::persistence::Store;
-use launchdeck_lib::plugins::external::PluginStatus;
+use launchdeck_lib::plugins::external::{Limits, PluginHost, PluginStatus};
 use launchdeck_lib::plugins::keyboard::{Combo, Keyboard};
-use launchdeck_lib::plugins::ActionError;
+use launchdeck_lib::plugins::{ActionError, PluginRegistry};
 use launchdeck_lib::state::feedback::{FeedbackRule, Hold};
+use launchdeck_lib::state::{Scalar, StateAddress, StateHub, Status};
 use serde_json::{json, Value};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
@@ -756,6 +759,82 @@ async fn many_plugins_load_and_run_without_a_per_press_cost() {
     assert!(startup < Duration::from_secs(20), "{startup:?}");
     assert!(rescan < Duration::from_secs(2), "{rescan:?}");
     assert!(per_call < Duration::from_millis(5), "{per_call:?}");
+}
+
+// ---------------------------------------------------------------------------
+// Compatibility
+// ---------------------------------------------------------------------------
+
+/// Hello, Counter and Channels exactly as SDK 0.1.x built them, with their
+/// manifests (`tests/fixtures/plugins/sdk-0.1/PROVENANCE.md`). The examples are
+/// rebuilt with every SDK and these files never are, so this fails when a
+/// change to the host breaks plugins that people already have.
+#[tokio::test(flavor = "multi_thread")]
+async fn modules_built_with_sdk_0_1_still_load_and_run() {
+    let frozen = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/plugins/sdk-0.1");
+    let registry = PluginRegistry::default();
+    let hub = StateHub::new();
+    let host = PluginHost::with_hub(
+        vec![frozen],
+        None,
+        registry.clone(),
+        Limits::default(),
+        hub.clone(),
+    );
+    host.scan();
+    assert!(host.issues().is_empty(), "{:?}", host.issues());
+    for (id, sdk) in [
+        ("example.hello", "0.1.0"),
+        ("example.counter", "0.1.1"),
+        ("example.channels", "0.1.1"),
+    ] {
+        let ext = host.get(id).unwrap().plugin.external.unwrap();
+        assert_eq!(
+            (ext.status, ext.sdk.as_deref()),
+            (PluginStatus::Enabled, Some(sdk)),
+            "{id}"
+        );
+    }
+
+    let bus = EventBus::new();
+    let mut published = bus.subscribe();
+    let engine = ActionEngine::with_hub(registry, bus, hub.clone());
+    let hello = plugin("example.hello", "hello.say", json!({"name": "Ada"}));
+    let counter = plugin("example.counter", "counter.increment", json!({}));
+    let channel = plugin(
+        "example.channels",
+        "channel.up",
+        json!({"channel": "alpha"}),
+    );
+    assert_eq!(
+        engine.execute(&hello).await.unwrap(),
+        json!({"message": "Hello, Ada!"})
+    );
+    assert_eq!(
+        engine.execute(&counter).await.unwrap(),
+        json!({"value": 1, "level": "low"})
+    );
+    engine.execute(&channel).await.unwrap();
+
+    let mut kinds = Vec::new();
+    while let Ok(event) = published.try_recv() {
+        kinds.push(event.kind);
+    }
+    for kind in ["hello.completed", "counter.changed", "channel.changed"] {
+        assert!(kinds.iter().any(|k| k == kind), "{kind} in {kinds:?}");
+    }
+    let state = |addr: StateAddress| {
+        let seen = hub.read_address(&addr);
+        (seen.status, seen.value)
+    };
+    assert_eq!(
+        state(StateAddress::new("example.counter", "level")),
+        (Status::Known, Some(Scalar::from("low")))
+    );
+    assert_eq!(
+        state(StateAddress::new("example.channels", "status").with("channel", "alpha")),
+        (Status::Known, Some(Scalar::from("up")))
+    );
 }
 
 #[test]

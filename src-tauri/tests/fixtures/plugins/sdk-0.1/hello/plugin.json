@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 2,
+  "id": "example.hello",
+  "name": "Hello Plugin",
+  "version": "0.1.0",
+  "description": "Says hello, tells the deck about it, and shows the smallest complete plugin.",
+  "author": "LaunchDeck examples",
+  "abi": 1,
+  "sdk": "0.1.0",
+  "main": "hello.wasm",
+  "actions": [
+    {
+      "id": "hello.say",
+      "label": "Say hello",
+      "description": "Greets someone, publishes hello.completed and returns the greeting.",
+      "category": "Greetings",
+      "keywords": [
+        "greet",
+        "welcome",
+        "hi",
+        "example"
+      ],
+      "appearance": {
+        "label": "Hello",
+        "color": "#1ec45a",
+        "icon": "👋"
+      },
+      "params": [
+        {
+          "name": "name",
+          "label": "Who to greet",
+          "type": "string",
+          "placeholder": "World",
+          "maxLength": 60,
+          "description": "Optional. Leave empty to greet everyone."
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "type": "hello.completed",
+      "description": "A greeting was produced. Payload: name, message."
+    }
+  ],
+  "config": [
+    {
+      "key": "greeting",
+      "type": "string",
+      "default": "Hello",
+      "description": "The word that starts every greeting."
+    }
+  ],
+  "capabilities": []
+}
