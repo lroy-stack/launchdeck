@@ -187,3 +187,15 @@ Three runs with every activation saving, as before package B1:
 Seven earlier runs of drafts of the same test gave medians of 5.87 to 6.75 ms. The median is above the 5 ms that `PRODUCTIZATION_PLAN.md` section 6 set, so context-driven activations stop saving (below). The serialising share would be smaller in an optimized build; no release build was made here (disk space), so that is **not measured**. The rest, about 3.5 to 4.5 ms, is writing, syncing and renaming the file, which does not depend on the build.
 
 After the change (`core/runtime/navigation.rs`: only a person's activation saves), three runs of the same test: `activate(By::Context)` has a median of 0.14, 0.15 and 0.14 ms (max 0.80 to 0.85 ms), against 6.39 to 7.27 ms before. The save itself, still timed on its own, is unchanged in kind (medians 8.04 to 8.72 ms in these runs). `an_application_switch_is_not_saved_and_a_persons_choice_is` in `src-tauri/tests/context_engine.rs` checks that the file is not written when Auto switches and is when a person does. What changes for a person: after a restart, LaunchDeck opens on the surface last saved, not on the last one Auto showed, until the application in front is seen and its rule applies.
+
+## The desktop app under `tauri dev` (productization branch)
+
+2026-10-05, commit `95b7e9b` (packages A1-A7, B0, R1, B1 and D1 of `PRODUCTIZATION_PLAN.md` in), on the owner's request: `CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0 LAUNCHDECK_PLUGINS="$PWD/examples/plugins" npm run tauri dev -- --no-watch`.
+
+| | Result |
+| --- | --- |
+| Build and start | Vite ready on `127.0.0.1:1420`; `cargo run` finished and `target/debug/launchdeck` started. Stopped afterwards with SIGTERM at the owner's request. |
+| Tauri's warning about the bundle identifier ending in `.app` | Not printed by `tauri dev`. Still to be looked for in `tauri build` (R5). |
+| What the window showed | Seen by the owner; nothing specific reported. The checklist of NEXT_PHASE.md section 4 stays NOT VERIFIED until it is walked and recorded. |
+
+The app's data folder `~/Library/Application Support/dev.launchdeck.app/` was created by this first start.
