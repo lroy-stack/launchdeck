@@ -218,7 +218,7 @@ struct Inner {
     external: ExternalStatus,
     /// Actions in flight, by the token each run was given.
     pending: BTreeMap<u64, PendingAction>,
-    /// When a surface may change by itself. It decides; the activation below does.
+    /// When a surface may change by itself. It decides; `activate` (navigation.rs) does.
     context: Engine,
 }
 
