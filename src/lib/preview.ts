@@ -266,8 +266,20 @@ export async function createPreviewTransport() {
         return pushWorkspace();
       }
       case "create_surface": {
-        const id = `surface-${workspace.surfaces.length + 1}`;
-        workspace.surfaces.push({ id, name: String(args.name), description: "", category: "custom", pages: [{ id: "home", name: "Home", controls: [] }] });
+        // As `Runtime::create_surface` and `surfaces::blank_surface`, without the surface switchers.
+        const name = String(args.name).trim();
+        if (name.length === 0 || [...name].length > 40) throw "name must be 1-40 characters";
+        const base = [...name].map((c) => (/^[A-Za-z0-9]$/.test(c) ? c.toLowerCase() : "-")).join("").replace(/^-+|-+$/g, "") || "surface";
+        let id = base;
+        for (let n = 2; workspace.surfaces.some((s) => s.id === id); n++) id = `${base}-${n}`;
+        workspace.surfaces.push({
+          id,
+          name,
+          description: "A blank surface. Select a pad and give it an action.",
+          icon: "＋",
+          category: "custom",
+          pages: [{ id: "home", name: "Home", controls: [] }],
+        });
         pushWorkspace();
         return id;
       }

@@ -25,14 +25,11 @@ export function HomeView() {
   const summary = useStore((s) => s.agents.summary);
   if (!workspace || !state) return null;
 
-  const first = !workspace.preferences.onboardingDone;
-
   const open = async (id: string, edit = false) => {
     select(null);
     const ok = await attempt(async () => {
       await api.activateSurface(id);
       await api.setMode(edit ? "edit" : "live");
-      if (first) await api.updatePreferences({ ...workspace.preferences, onboardingDone: true });
     });
     if (ok) setView("surface");
   };
@@ -43,7 +40,6 @@ export function HomeView() {
       await api.agents.runDemo();
       await api.activateSurface("agent-control");
       await api.setMode("live");
-      if (first) await api.updatePreferences({ ...workspace.preferences, onboardingDone: true });
     });
     if (ok) showAgents("overview");
   };
@@ -91,23 +87,6 @@ export function HomeView() {
           </button>
         </div>
       </section>
-
-      {first && (
-        <section className="steps" aria-label="Getting started">
-          <div>
-            <b>1</b>
-            <span>Pick a surface below.</span>
-          </div>
-          <div>
-            <b>2</b>
-            <span>Press pads on the virtual Launchpad in Live mode.</span>
-          </div>
-          <div>
-            <b>3</b>
-            <span>Switch to Edit to change a pad. Connect a real Launchpad X any time.</span>
-          </div>
-        </section>
-      )}
 
       <section>
         <h2>Starter surfaces</h2>
