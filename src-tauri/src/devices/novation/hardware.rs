@@ -1,12 +1,13 @@
 //! `NovationHardware`: the Launchpads on the system's MIDI ports, as a
 //! `HardwareSource` for the device manager. Which ports make a unit is
 //! `ports`' answer for the system it runs on; which models are driven is
-//! the list below.
+//! the list below, each unit by an `Mk3Device` with its model's profile.
 
 use std::sync::Arc;
 
+use super::device::Mk3Device;
 use super::launchpad_mini_mk3;
-use super::launchpad_x::{self, LaunchpadX};
+use super::launchpad_x;
 use super::ports::{self, FoundUnit};
 use super::profile::ModelProfile;
 use crate::devices::midi::MidiBackend;
@@ -73,10 +74,7 @@ impl HardwareSource for NovationHardware {
 
     fn device(&self, id: &str) -> Option<Box<dyn SurfaceDevice>> {
         let unit = self.last.iter().find(|u| u.id == id)?;
-        Some(Box::new(LaunchpadX::new(
-            unit.clone(),
-            self.backend.clone(),
-        )))
+        Some(Box::new(Mk3Device::new(unit.clone(), self.backend.clone())))
     }
 }
 

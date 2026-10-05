@@ -68,7 +68,11 @@ mod tests {
         assert_eq!(x.name_tokens, ["launchpad", "x"]);
         assert_eq!(x.interfaces, [Role::Daw, Role::Midi]);
         assert_eq!(x.live_layout, 0x01, "Note mode (X-PRM p7)");
-        assert_eq!(x.capabilities, launchpad_x::capabilities());
+        let caps = x.capabilities;
+        assert_eq!(caps.grid.map(|g| (g.width, g.height)), Some((8, 8)));
+        assert_eq!((caps.aux.top, caps.aux.side, caps.aux.logo), (8, 8, true));
+        assert!(caps.rgb && caps.velocity && !caps.pressure);
+        assert!(!caps.animations.pulse && !caps.animations.flash);
     }
 
     #[test]

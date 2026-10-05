@@ -19,7 +19,7 @@ LaunchDeck Core (Rust)
         |              Renderer                |
         v                  |                   |
    SurfaceDevice  <--- SurfaceFrame       External events (WebSocket, 127.0.0.1)
-   (VirtualLaunchpadX | LaunchpadX)        Persistence (versioned JSON)
+   (VirtualLaunchpadX | Mk3Device)         Persistence (versioned JSON)
 ```
 
 Providers (the runtime, Agent Control, installed plugins) write *states* to the State Hub and publish *events* on the Event Bus; the State Engine reads both to decide each control's look.
@@ -32,7 +32,7 @@ Providers (the runtime, Agent Control, installed plugins) write *states* to the 
 | Device abstraction | `devices/mod.rs` | `SurfaceDevice` trait, `DeviceCapabilities`, `DeviceInput`, `SurfaceFrame`. |
 | Virtual device | `devices/virtual_device.rs` | `VirtualLaunchpadX`, the simulator. It implements the same trait and is the device the UI drives. |
 | Novation MK3 codec | `devices/novation/{protocol, layout}.rs` | What the Launchpad Mini MK3 and the Launchpad X share: SysEx framing, commands and readbacks, the device inquiry and reply parser, colourspecs, channel lighting, text; the Programmer-mode index map and input decoding. Pure, byte-tested from the manuals. |
-| Launchpad X | `devices/novation/launchpad_x.rs` | Port classification, capabilities and the adapter, which builds and reads its bytes with the MK3 codec. With the rest of `devices/novation/`, the **only** code with MIDI bytes. |
+| Novation MK3 device | `devices/novation/{device, session, leds}.rs`, `launchpad_x.rs` | `Mk3Device`, the one adapter for every MK3 model: the `session` says what to send to take and give back a unit, `leds` what a frame needs sent; a model is a profile (`launchpad_x.rs` for the Launchpad X). With the rest of `devices/novation/`, the **only** code with MIDI bytes. |
 | MIDI transport | `devices/midi/` | `MidiBackend` (list ports, open an input+output pair) and `MidiLink` (send, close), with no protocol knowledge. `system.rs` is the only `midir` file; `testkit.rs` is `FakeMidi`, the in-memory backend the adapter is tested against. |
 | Surface Runtime | `core/runtime/` (`navigation.rs`, `input.rs`) | Active surface and page, control lookup (span aware), navigation, Live and Edit modes, long press. |
 | State Hub | `state/` | The current value of every state a provider offers (`known`, `unknown`, `unavailable`), addressed by provider, definition and arguments. No history, nothing saved, not a bus. See [state-and-feedback.md](../state-and-feedback.md). |
@@ -58,7 +58,7 @@ Providers (the runtime, Agent Control, installed plugins) write *states* to the 
 
 ## One press, end to end
 
-1. A pad is pressed. On hardware, `midir` (in `devices/midi/system.rs`) delivers bytes through the `MidiLink` callback to `LaunchpadX`, which decodes them to `DeviceInput { device_id, pos, Pressed }`. In the simulator the UI calls `virtual_input`, which injects the same `DeviceInput`.
+1. A pad is pressed. On hardware, `midir` (in `devices/midi/system.rs`) delivers bytes through the `MidiLink` callback to `Mk3Device`, which frames them into whole messages and decodes them to `DeviceInput { device_id, pos, Pressed }`. In the simulator the UI calls `virtual_input`, which injects the same `DeviceInput`.
 2. The runtime finds the control at that position (honouring spans) and publishes `control.pressed`.
 3. In **Edit** mode it stops there, so the editor can select the control. In **Live** mode it picks the action: press, or long press if the pad is held 500 ms (the tap is deferred until release when a long press exists).
 4. The control's assignment is `{provider, action, args}`. Navigation (`navigation.openSurface`, `navigation.openPage`) is performed by the runtime. Everything else goes through the registry's `prepare` and then the Action Engine, with `action.started`, then `action.completed` or `action.failed` on the bus; the payload's `action` is `provider.action`.

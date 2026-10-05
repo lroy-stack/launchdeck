@@ -1,17 +1,25 @@
-//! The Launchpad X golden transcript: every byte the adapter sends and every
-//! input it decodes, over `FakeMidi`. Only the commits that fix a defect of
+//! `Mk3Device` over `FakeMidi`, most of it with a `SimLaunchpad` behind the
+//! ports.
+//!
+//! First the Launchpad X golden transcript: every byte the device sends for
+//! the X and every input it decodes. Only the commits that fix a defect of
 //! LAUNCHPAD_MINI_MK3_PLAN.md section 2.3 may change it, each with a test of
-//! the fix.
+//! the fix. Then the X against a simulated unit, and the same device driving
+//! the Mini MK3's profile.
 
 use std::sync::Arc;
 
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
+use super::device::Mk3Device;
+use super::launchpad_mini_mk3;
+use super::ports;
 use super::protocol::to_7bit;
-use super::testkit::{SimLaunchpad, SimLed};
+use super::testkit::{hex, SimLaunchpad, SimLed};
 use super::NovationHardware;
 use crate::core::model::{Animation, ControlPos, Rgb};
 use crate::devices::midi::testkit::{port, FakeMidi};
+use crate::devices::midi::MidiBackend;
 use crate::devices::source::HardwareSource;
 use crate::devices::{DeviceInput, InputKind, Led, LedCell, SurfaceDevice, SurfaceFrame};
 use crate::platform::Platform;
@@ -322,4 +330,101 @@ fn pressure_unknown_controls_and_notes_off_the_layout_are_not_input() {
         midi.inject(IN_ID, bytes);
         assert!(rx.try_recv().is_err(), "{bytes:02X?}");
     }
+}
+
+#[test]
+fn a_whole_frame_is_one_message() {
+    let (midi, _sim, mut dev, _rx) = on_sim();
+    midi.take_sent();
+    dev.render(&rainbow(dev.as_ref())).unwrap();
+    let sent = midi.take_sent();
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].1.len(), 413, "81 RGB colourspecs");
+}
+
+#[test]
+fn replies_from_the_unit_do_not_disturb_drawing() {
+    let (midi, sim, mut dev, mut rx) = on_sim();
+    let f = frame(ControlPos::Logo, Rgb::new(0, 255, 0));
+    dev.render(&f).unwrap();
+    midi.take_sent();
+    midi.inject(IN_ID, &hex("F0 00 20 29 02 0C 0E 01 F7"));
+    midi.inject(
+        IN_ID,
+        &hex("F0 7E 00 06 02 00 20 29 03 01 00 00 00 02 03 08 F7"),
+    );
+    dev.render(&f).unwrap();
+    assert_eq!(midi.take_sent(), [], "nothing changed");
+    assert!(rx.try_recv().is_err(), "replies are not input");
+    assert_eq!(sim.led_at(ControlPos::Logo), Some(SimLed::Rgb(0, 127, 0)));
+}
+
+// ---- the same device for the Mini MK3 ---------------------------------------
+
+const MINI_IN: &str = "Launchpad Mini MK3 LPMiniMK3 MIDI Out";
+const MINI_OUT: &str = "Launchpad Mini MK3 LPMiniMK3 MIDI In";
+
+/// A Mini MK3 device over a simulated Mini; the hardware source does not
+/// drive the Mini yet (package M6), so the unit is found by the parser.
+fn mini_on_sim() -> (
+    FakeMidi,
+    SimLaunchpad,
+    Mk3Device,
+    UnboundedReceiver<DeviceInput>,
+) {
+    let midi = FakeMidi::default();
+    midi.add(port(MINI_IN, "2001"), port(MINI_OUT, "2002"));
+    let sim = SimLaunchpad::mini();
+    midi.bind("2002", "2001", sim.clone());
+    let profiles = [&launchpad_mini_mk3::PROFILE];
+    let mut units = ports::parse(&midi.ports(), Platform::MacOs, &profiles).units;
+    assert_eq!(units.len(), 1);
+    let mut dev = Mk3Device::new(units.remove(0), Arc::new(midi.clone()));
+    let (tx, rx) = unbounded_channel();
+    dev.connect(tx).unwrap();
+    (midi, sim, dev, rx)
+}
+
+#[test]
+fn the_mini_mk3_profile_runs_on_the_same_device() {
+    let (midi, sim, mut dev, mut rx) = mini_on_sim();
+    assert_eq!(dev.identity().id, "launchpad-mini-mk3:1");
+    let sent: Vec<Vec<u8>> = midi.take_sent().into_iter().map(|(_, m)| m).collect();
+    assert_eq!(sent.len(), 2);
+    assert_eq!(sent[0], hex("F0 00 20 29 02 0D 0E 01 F7"));
+    assert_eq!(
+        &sent[1][..7],
+        hex("F0 00 20 29 02 0D 03"),
+        "the clear frame"
+    );
+    assert!(sim.in_programmer_mode());
+
+    let f = frame(ControlPos::grid(0, 7), Rgb::new(255, 0, 128));
+    dev.render(&f).unwrap();
+    assert_eq!(
+        midi.take_sent(),
+        [(
+            "2002".to_string(),
+            hex("F0 00 20 29 02 0D 03 03 0B 7F 00 40 F7")
+        )]
+    );
+    assert_eq!(
+        sim.led_at(ControlPos::grid(0, 7)),
+        Some(SimLed::Rgb(127, 0, 64))
+    );
+
+    midi.inject("2001", &hex("90 0B 05"));
+    assert_eq!(
+        rx.try_recv().unwrap().kind,
+        InputKind::Pressed { velocity: 127 },
+        "the Mini has no velocity"
+    );
+
+    dev.disconnect().unwrap();
+    assert_eq!(sim.layout(), 0x05, "Live mode, Keys");
+    assert_eq!(
+        sim.led_at(ControlPos::grid(0, 7)),
+        Some(SimLed::Rgb(0, 0, 0))
+    );
+    assert_eq!(midi.open_links(), 0);
 }

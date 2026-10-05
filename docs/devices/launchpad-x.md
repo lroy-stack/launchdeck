@@ -1,6 +1,6 @@
 # Novation Launchpad X
 
-Everything in this file concerns `src-tauri/src/devices/novation/launchpad_x.rs`, the Launchpad X adapter. Its bytes are built and read by the MK3 codec it shares with the Launchpad Mini MK3 (`novation/protocol.rs`, `novation/layout.rs`, byte-tested in `novation/protocol_tests.rs`); together they are the only code in LaunchDeck that knows MIDI bytes. It reaches the ports through the transport in `src-tauri/src/devices/midi/` (`midir` only in `midi/system.rs`), and its golden transcript is `src-tauri/src/devices/novation/launchpad_x_tests.rs`.
+Everything in this file concerns the Launchpad X: its profile `src-tauri/src/devices/novation/launchpad_x.rs`, driven by `novation/device.rs` (`Mk3Device`, the device every MK3 model shares). Its bytes are built and read by the MK3 codec it shares with the Launchpad Mini MK3 (`novation/protocol.rs`, `novation/layout.rs`, byte-tested in `novation/protocol_tests.rs`); together they are the only code in LaunchDeck that knows MIDI bytes. It reaches the ports through the transport in `src-tauri/src/devices/midi/` (`midir` only in `midi/system.rs`), and its golden transcript is `src-tauri/src/devices/novation/device_tests.rs`.
 
 **Hardware status: not tested on a physical unit.** The prototype was developed without a Launchpad X. Encoders and decoders are covered by byte-level unit tests. Sections below say what is verified from Novation's documentation and what is not.
 
@@ -88,11 +88,11 @@ Clear sends every known LED as black.
 | Feature | Why |
 | --- | --- |
 | Palette (type `00`) colours | The 128-entry palette cannot be read from the text of the manual. LaunchDeck does not invent it. |
-| Hardware flashing (`01`) and pulsing (`02`) colourspecs | Both reference palette indices. `encode_flash` and `encode_pulse` are implemented and byte-tested, but the renderer does not use them. |
+| Hardware flashing (`01`) and pulsing (`02`) colourspecs | Both reference palette indices. The shared codec encodes them (byte-tested in `novation/protocol_tests.rs`), but the X's frames never carry them. |
 
 ### Consequences
 
-* `capabilities().animations` reports `pulse: false, flash: false`, so the renderer **synthesises** animation: pulse is RGB brightness between 25% and 100% on a 1.4 s period, flash is a 0.7 s on and off toggle, both at 25 frames per second.
+* The profile's `capabilities.animations` reports `pulse: false, flash: false`, so the renderer **synthesises** animation: pulse is RGB brightness between 25% and 100% on a 1.4 s period, flash is a 0.7 s on and off toggle, both at 25 frames per second.
 * Because only changed LEDs are sent, an animated pad sends one small SysEx per frame. Idle pads send nothing.
 
 ## Capabilities reported
