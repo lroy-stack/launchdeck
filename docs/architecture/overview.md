@@ -31,6 +31,7 @@ Providers (the runtime, Agent Control, installed plugins) write *states* to the 
 | Device Manager | `devices/manager.rs` | Registers devices, connects and disconnects them, fans frames out to every connected device, drops a device that fails to render, rescans hardware every 3 s. |
 | Device abstraction | `devices/mod.rs` | `SurfaceDevice` trait, `DeviceCapabilities`, `DeviceInput`, `SurfaceFrame`. |
 | Virtual device | `devices/virtual_device.rs` | `VirtualLaunchpadX`, the simulator. It implements the same trait and is the device the UI drives. |
+| Novation MK3 codec | `devices/novation/{protocol, layout}.rs` | What the Launchpad Mini MK3 and the Launchpad X share: SysEx framing, commands and readbacks, the device inquiry and reply parser, colourspecs, channel lighting, text; the Programmer-mode index map and input decoding. Pure, byte-tested from the manuals. |
 | Launchpad X | `devices/novation/launchpad_x.rs` | With the rest of `devices/novation/`, the **only** code with MIDI bytes. SysEx encoding, note and CC decoding, port classification. |
 | MIDI transport | `devices/midi/` | `MidiBackend` (list ports, open an input+output pair) and `MidiLink` (send, close), with no protocol knowledge. `system.rs` is the only `midir` file; `testkit.rs` is `FakeMidi`, the in-memory backend the adapter is tested against. |
 | Surface Runtime | `core/runtime/` (`navigation.rs`, `input.rs`) | Active surface and page, control lookup (span aware), navigation, Live and Edit modes, long press. |
