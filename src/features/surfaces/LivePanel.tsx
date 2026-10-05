@@ -2,7 +2,7 @@ import { api } from "../../lib/ipc";
 import { STATUS_LABEL } from "../../lib/agents";
 import { useStore } from "../../stores/runtime";
 import type { Surface } from "../../lib/schema";
-import { ActivityFeed } from "./ActivityFeed";
+import { ActivityFeed } from "../../components/ActivityFeed";
 
 export function LivePanel({ surface }: { surface: Surface }) {
   const events = useStore((s) => s.events);

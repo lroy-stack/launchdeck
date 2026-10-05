@@ -1,7 +1,7 @@
 import { api } from "../../lib/ipc";
 import { STATUS_LABEL } from "../../lib/agents";
 import { activePage, activeSurface, useStore } from "../../stores/runtime";
-import { PadGrid } from "../surfaces/PadGrid";
+import { PadGrid } from "../../components/PadGrid";
 import { usePalette } from "./parts";
 
 export const AGENT_SURFACE_ID = "agent-control";

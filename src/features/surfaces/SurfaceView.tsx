@@ -6,7 +6,7 @@ import { activePage, activeSurface, useStore } from "../../stores/runtime";
 import { Inspector } from "../editor/Inspector";
 import { ActionLibrary } from "../library/ActionLibrary";
 import { LivePanel } from "./LivePanel";
-import { PadGrid } from "./PadGrid";
+import { PadGrid } from "../../components/PadGrid";
 
 export function SurfaceView() {
   const workspace = useStore((s) => s.workspace);

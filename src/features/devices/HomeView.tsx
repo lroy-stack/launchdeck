@@ -1,7 +1,7 @@
 import { api } from "../../lib/ipc";
 import { plural } from "../../lib/format";
 import { useStore } from "../../stores/runtime";
-import { ActivityFeed } from "../surfaces/ActivityFeed";
+import { ActivityFeed } from "../../components/ActivityFeed";
 
 const BLURBS: Record<string, string> = {
   "agent-control": "Watch every agent session at a glance. Approve, reject, pause, retry and start tasks from the pads.",

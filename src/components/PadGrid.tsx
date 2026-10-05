@@ -1,10 +1,10 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { api } from "../../lib/ipc";
-import { DRAG_TYPE, problemOf } from "../../lib/assign";
-import { inkFor, isOff, withAlpha } from "../../lib/color";
-import type { Control, ControlPos, DeviceInfo, Frame, Mode, Page } from "../../lib/schema";
-import { posKey } from "../../lib/schema";
-import { controlAt, useStore } from "../../stores/runtime";
+import { api } from "../lib/ipc";
+import { DRAG_TYPE, problemOf } from "../lib/assign";
+import { inkFor, isOff, withAlpha } from "../lib/color";
+import type { Control, ControlPos, DeviceInfo, Frame, Mode, Page } from "../lib/schema";
+import { posKey } from "../lib/schema";
+import { controlAt, useStore } from "../stores/runtime";
 
 interface Props {
   page: Page;

@@ -1,5 +1,5 @@
-import { describeEvent, eventTone, formatTime } from "../../lib/format";
-import type { RuntimeEvent } from "../../lib/schema";
+import { describeEvent, eventTone, formatTime } from "../lib/format";
+import type { RuntimeEvent } from "../lib/schema";
 
 /** Newest first. `control.pressed` is noisy, so it can be hidden. */
 export function ActivityFeed({ events, limit = 40, empty = "Nothing yet. Press a pad." }: { events: RuntimeEvent[]; limit?: number; empty?: string }) {

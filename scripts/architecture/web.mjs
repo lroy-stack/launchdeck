@@ -45,9 +45,10 @@ export const featureEdges = [
 // Known violations, each removed by the package named (FRONTEND_MAP section 3).
 // One entry per importing file and imported module, so a new import still fails.
 export const importExceptions = [
-  // A4 moves PadGrid and ActivityFeed to src/components.
+  // No import matches this entry since A4 moved PadGrid to src/components. It stays
+  // only because the exception test in scripts/check-architecture.test.mjs uses it as
+  // its example; remove it when that test brings its own seeded rules.
   { file: "src/features/agents/SurfaceTab.tsx", imports: "src/features/surfaces/PadGrid", removedBy: "A4" },
-  { file: "src/features/devices/HomeView.tsx", imports: "src/features/surfaces/ActivityFeed", removedBy: "A4" },
   // A4 moves Sidebar to src/app.
   { file: "src/components/Sidebar.tsx", imports: "src/features/context/ContextControl", removedBy: "A4" },
 ];
