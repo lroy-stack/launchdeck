@@ -1,0 +1,336 @@
+{
+  "status": "plan",
+  "plan": {
+    "planId": "0123456789abcdef0123456789abcdef",
+    "planDigest": "sha256:9049d3f86ac62bbceb4e3eb1d50fce0adfd79e2becfbf958094326eeb8378f5f",
+    "source": {
+      "fileName": "development.ldpack",
+      "sizeBytes": 23178,
+      "contentDigest": "sha256:c659b2bb18a2f7d1ace559fb6166ec14534caa0688ad9fc1948104fc6ef8430c",
+      "formatVersion": 1
+    },
+    "artifact": {
+      "kind": "pack",
+      "id": "launchdeck-examples.development",
+      "name": "Development",
+      "version": "1.0.0",
+      "description": "The Development starter surface, shown for Visual Studio Code.",
+      "author": {
+        "name": "LaunchDeck examples"
+      },
+      "license": "MIT",
+      "createdWith": {
+        "app": "launchdeck",
+        "version": "9.9.9"
+      },
+      "testedWith": [
+        {
+          "model": "launchpad-x",
+          "kind": "virtual"
+        }
+      ]
+    },
+    "surfaces": [
+      {
+        "sourceId": "development",
+        "localId": "development-2",
+        "name": "Development",
+        "category": "development",
+        "pages": 2,
+        "controls": 25,
+        "action": {
+          "kind": "add"
+        },
+        "idChanged": true,
+        "sameNameAs": "development",
+        "missingProviders": []
+      }
+    ],
+    "contextRules": [
+      {
+        "index": 0,
+        "applicationName": "Visual Studio Code",
+        "application": {
+          "namespace": "x11",
+          "id": "Code",
+          "displayName": "Visual Studio Code"
+        },
+        "surfaceLocalId": "development-2",
+        "outcome": {
+          "kind": "notSelected"
+        }
+      }
+    ],
+    "dependencies": [],
+    "inputs": [],
+    "review": [
+      {
+        "at": {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.3.0",
+          "slot": "press"
+        },
+        "label": "Docker",
+        "kind": "runsCommand",
+        "text": "sleep 1 && echo 'docker: demo only'"
+      },
+      {
+        "at": {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.0.1",
+          "slot": "press"
+        },
+        "label": "Tests",
+        "kind": "runsCommand",
+        "text": "sleep 2 && echo 'tests passed'"
+      },
+      {
+        "at": {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.1.1",
+          "slot": "press"
+        },
+        "label": "Build",
+        "kind": "runsCommand",
+        "text": "sleep 3 && echo 'build ok'"
+      },
+      {
+        "at": {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.2.1",
+          "slot": "press"
+        },
+        "label": "Dev Server",
+        "kind": "runsCommand",
+        "text": "sleep 1 && echo 'dev server: demo only'"
+      },
+      {
+        "at": {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.3.1",
+          "slot": "press"
+        },
+        "label": "Deploy",
+        "kind": "runsCommand",
+        "text": "sleep 2 && echo 'deploy: demo only'"
+      },
+      {
+        "at": {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.1.2",
+          "slot": "press"
+        },
+        "label": "Failing Task",
+        "kind": "runsCommand",
+        "text": "echo 'simulated failure' >&2; exit 1"
+      },
+      {
+        "at": {
+          "surfaceSourceId": "development",
+          "pageId": "git",
+          "controlId": "g.0.0",
+          "slot": "press"
+        },
+        "label": "Git Status",
+        "kind": "runsCommand",
+        "text": "sleep 1 && echo 'git status: demo only'"
+      },
+      {
+        "at": {
+          "surfaceSourceId": "development",
+          "pageId": "git",
+          "controlId": "g.1.0",
+          "slot": "press"
+        },
+        "label": "Commit",
+        "kind": "runsCommand",
+        "text": "sleep 1 && echo 'git commit: demo only'"
+      },
+      {
+        "at": {
+          "surfaceSourceId": "development",
+          "pageId": "git",
+          "controlId": "g.2.0",
+          "slot": "press"
+        },
+        "label": "Pull",
+        "kind": "runsCommand",
+        "text": "sleep 1 && echo 'git pull: demo only'"
+      },
+      {
+        "at": {
+          "surfaceSourceId": "development",
+          "pageId": "git",
+          "controlId": "g.3.0",
+          "slot": "press"
+        },
+        "label": "Push",
+        "kind": "runsCommand",
+        "text": "sleep 1 && echo 'git push: demo only'"
+      }
+    ],
+    "existing": [],
+    "compatibility": {
+      "namespace": "x11",
+      "requirements": {
+        "grid": {
+          "minWidth": 4,
+          "minHeight": 8
+        },
+        "aux": {
+          "top": 5,
+          "side": 0
+        },
+        "rgb": true
+      },
+      "devices": [
+        {
+          "name": "Virtual Launchpad X",
+          "model": "launchpad-x",
+          "kind": "virtual",
+          "connected": true,
+          "fits": true,
+          "outside": 0,
+          "rgbOk": true
+        }
+      ]
+    },
+    "warnings": [
+      {
+        "code": "externalSurfaceReference",
+        "message": "The pad \"Agents\" opens the surface \"agent-control\", which is not in this file: it opens a surface of that id here, if there is one.",
+        "at": "/content/surfaces/0/pages/0/controls/10/press/args/surfaceId"
+      },
+      {
+        "code": "externalSurfaceReference",
+        "message": "The pad \"Work\" opens the surface \"productivity\", which is not in this file: it opens a surface of that id here, if there is one.",
+        "at": "/content/surfaces/0/pages/0/controls/12/press/args/surfaceId"
+      },
+      {
+        "code": "externalSurfaceReference",
+        "message": "The pad \"Home\" opens the surface \"smart-home\", which is not in this file: it opens a surface of that id here, if there is one.",
+        "at": "/content/surfaces/0/pages/0/controls/13/press/args/surfaceId"
+      },
+      {
+        "code": "externalSurfaceReference",
+        "message": "The pad \"Access\" opens the surface \"accessibility\", which is not in this file: it opens a surface of that id here, if there is one.",
+        "at": "/content/surfaces/0/pages/0/controls/14/press/args/surfaceId"
+      },
+      {
+        "code": "externalSurfaceReference",
+        "message": "The pad \"Agents\" opens the surface \"agent-control\", which is not in this file: it opens a surface of that id here, if there is one.",
+        "at": "/content/surfaces/0/pages/1/controls/5/press/args/surfaceId"
+      },
+      {
+        "code": "externalSurfaceReference",
+        "message": "The pad \"Work\" opens the surface \"productivity\", which is not in this file: it opens a surface of that id here, if there is one.",
+        "at": "/content/surfaces/0/pages/1/controls/7/press/args/surfaceId"
+      },
+      {
+        "code": "externalSurfaceReference",
+        "message": "The pad \"Home\" opens the surface \"smart-home\", which is not in this file: it opens a surface of that id here, if there is one.",
+        "at": "/content/surfaces/0/pages/1/controls/8/press/args/surfaceId"
+      },
+      {
+        "code": "externalSurfaceReference",
+        "message": "The pad \"Access\" opens the surface \"accessibility\", which is not in this file: it opens a surface of that id here, if there is one.",
+        "at": "/content/surfaces/0/pages/1/controls/9/press/args/surfaceId"
+      }
+    ],
+    "decisions": {
+      "runs": "remove",
+      "inputs": {},
+      "contextRules": [],
+      "confirmOverwriteEdits": false
+    },
+    "suggested": {
+      "runs": "remove",
+      "inputs": {},
+      "contextRules": [],
+      "confirmOverwriteEdits": false
+    },
+    "blockers": [],
+    "ready": true,
+    "effects": {
+      "instance": 1,
+      "addSurfaces": [
+        {
+          "sourceId": "development",
+          "localId": "development-2",
+          "name": "Development"
+        }
+      ],
+      "replaceSurfaces": [],
+      "addRules": [],
+      "removedSlots": [
+        {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.3.0",
+          "slot": "press"
+        },
+        {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.0.1",
+          "slot": "press"
+        },
+        {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.1.1",
+          "slot": "press"
+        },
+        {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.2.1",
+          "slot": "press"
+        },
+        {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.3.1",
+          "slot": "press"
+        },
+        {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.1.2",
+          "slot": "press"
+        },
+        {
+          "surfaceSourceId": "development",
+          "pageId": "git",
+          "controlId": "g.0.0",
+          "slot": "press"
+        },
+        {
+          "surfaceSourceId": "development",
+          "pageId": "git",
+          "controlId": "g.1.0",
+          "slot": "press"
+        },
+        {
+          "surfaceSourceId": "development",
+          "pageId": "git",
+          "controlId": "g.2.0",
+          "slot": "press"
+        },
+        {
+          "surfaceSourceId": "development",
+          "pageId": "git",
+          "controlId": "g.3.0",
+          "slot": "press"
+        }
+      ],
+      "inputValues": {}
+    }
+  }
+}

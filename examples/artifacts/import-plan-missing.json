@@ -1,0 +1,157 @@
+{
+  "status": "plan",
+  "plan": {
+    "planId": "0123456789abcdef0123456789abcdef",
+    "planDigest": "sha256:1e3abc88c756e7df45ee24132e476d21b95c5b4a4d143361c52af74efed574fe",
+    "source": {
+      "fileName": "counter.ldpack",
+      "sizeBytes": 6856,
+      "contentDigest": "sha256:a64c7a7349f9b8ffe08e7e4a9392b33a2da7287bb4a11a050e29424f8131628b",
+      "formatVersion": 1
+    },
+    "artifact": {
+      "kind": "pack",
+      "id": "launchdeck-examples.counter",
+      "name": "Counter",
+      "version": "1.0.0",
+      "description": "",
+      "author": {
+        "name": "LaunchDeck examples"
+      },
+      "license": "MIT",
+      "createdWith": {
+        "app": "launchdeck",
+        "version": "9.9.9"
+      },
+      "testedWith": [
+        {
+          "model": "launchpad-x",
+          "kind": "virtual"
+        }
+      ]
+    },
+    "surfaces": [
+      {
+        "sourceId": "counter",
+        "localId": "counter",
+        "name": "Counter",
+        "category": "custom",
+        "pages": 1,
+        "controls": 6,
+        "action": {
+          "kind": "add"
+        },
+        "idChanged": false,
+        "missingProviders": [
+          "example.counter"
+        ]
+      }
+    ],
+    "contextRules": [],
+    "dependencies": [
+      {
+        "pluginId": "example.counter",
+        "name": "Counter Plugin",
+        "requirement": "^0.2.0",
+        "required": true,
+        "status": {
+          "kind": "missing"
+        },
+        "usedBy": [
+          {
+            "surfaceSourceId": "counter",
+            "pageId": "home",
+            "controlId": "g.3.3",
+            "label": "Plus"
+          }
+        ]
+      }
+    ],
+    "inputs": [],
+    "review": [],
+    "existing": [],
+    "compatibility": {
+      "namespace": "x11",
+      "requirements": {
+        "grid": {
+          "minWidth": 4,
+          "minHeight": 4
+        },
+        "aux": {
+          "top": 5,
+          "side": 0
+        },
+        "rgb": true
+      },
+      "devices": [
+        {
+          "name": "Virtual Launchpad X",
+          "model": "launchpad-x",
+          "kind": "virtual",
+          "connected": true,
+          "fits": true,
+          "outside": 0,
+          "rgbOk": true
+        }
+      ]
+    },
+    "warnings": [
+      {
+        "code": "externalSurfaceReference",
+        "message": "The pad \"Agents\" opens the surface \"agent-control\", which is not in this file: it opens a surface of that id here, if there is one.",
+        "at": "/content/surfaces/0/pages/0/controls/0/press/args/surfaceId"
+      },
+      {
+        "code": "externalSurfaceReference",
+        "message": "The pad \"Dev\" opens the surface \"development\", which is not in this file: it opens a surface of that id here, if there is one.",
+        "at": "/content/surfaces/0/pages/0/controls/1/press/args/surfaceId"
+      },
+      {
+        "code": "externalSurfaceReference",
+        "message": "The pad \"Work\" opens the surface \"productivity\", which is not in this file: it opens a surface of that id here, if there is one.",
+        "at": "/content/surfaces/0/pages/0/controls/2/press/args/surfaceId"
+      },
+      {
+        "code": "externalSurfaceReference",
+        "message": "The pad \"Home\" opens the surface \"smart-home\", which is not in this file: it opens a surface of that id here, if there is one.",
+        "at": "/content/surfaces/0/pages/0/controls/3/press/args/surfaceId"
+      },
+      {
+        "code": "externalSurfaceReference",
+        "message": "The pad \"Access\" opens the surface \"accessibility\", which is not in this file: it opens a surface of that id here, if there is one.",
+        "at": "/content/surfaces/0/pages/0/controls/4/press/args/surfaceId"
+      },
+      {
+        "code": "missingDependency",
+        "message": "Some pads will not work until you install Counter Plugin ^0.2.0.",
+        "at": "/manifest/dependencies/0"
+      }
+    ],
+    "decisions": {
+      "inputs": {},
+      "contextRules": [],
+      "confirmOverwriteEdits": false
+    },
+    "suggested": {
+      "inputs": {},
+      "contextRules": [],
+      "confirmOverwriteEdits": false
+    },
+    "blockers": [],
+    "ready": true,
+    "effects": {
+      "instance": 1,
+      "addSurfaces": [
+        {
+          "sourceId": "counter",
+          "localId": "counter",
+          "name": "Counter"
+        }
+      ],
+      "replaceSurfaces": [],
+      "addRules": [],
+      "removedSlots": [],
+      "inputValues": {}
+    }
+  }
+}

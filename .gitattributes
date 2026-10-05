@@ -1,2 +1,3 @@
 # Portable artifact fixtures are compared byte for byte: never convert their line ends.
 src-tauri/tests/fixtures/artifacts/** -text
+examples/artifacts/** -text

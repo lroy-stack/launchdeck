@@ -1,0 +1,775 @@
+{
+  "format": "launchdeck.pack",
+  "formatVersion": 1,
+  "manifest": {
+    "author": {
+      "name": "LaunchDeck examples"
+    },
+    "createdWith": {
+      "app": "launchdeck",
+      "version": "9.9.9"
+    },
+    "description": "The Development starter surface, shown for Visual Studio Code.",
+    "id": "launchdeck-examples.development",
+    "integrity": {
+      "content": "sha256:c659b2bb18a2f7d1ace559fb6166ec14534caa0688ad9fc1948104fc6ef8430c"
+    },
+    "license": "MIT",
+    "name": "Development",
+    "requirements": {
+      "aux": {
+        "side": 0,
+        "top": 5
+      },
+      "grid": {
+        "minHeight": 8,
+        "minWidth": 4
+      },
+      "rgb": true
+    },
+    "testedWith": [
+      {
+        "kind": "virtual",
+        "model": "launchpad-x"
+      }
+    ],
+    "version": "1.0.0"
+  },
+  "content": {
+    "contextRules": [
+      {
+        "application": {
+          "identities": [
+            {
+              "id": "Code",
+              "namespace": "x11"
+            },
+            {
+              "id": "com.microsoft.VSCode",
+              "namespace": "macos"
+            },
+            {
+              "id": "code.exe",
+              "namespace": "windows"
+            }
+          ],
+          "name": "Visual Studio Code"
+        },
+        "surface": "development"
+      }
+    ],
+    "surfaces": [
+      {
+        "category": "development",
+        "description": "Build, test and ship. Pads pulse while a command runs, then turn green or flash red.",
+        "icon": "⌘",
+        "id": "development",
+        "name": "Development",
+        "pages": [
+          {
+            "controls": [
+              {
+                "description": "Launch a terminal (placeholder command).",
+                "icon": "›_",
+                "id": "g.0.0",
+                "label": "Terminal",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "launchApplication",
+                  "args": {
+                    "app": "x-terminal-emulator"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#1ed2e6"
+                }
+              },
+              {
+                "description": "Launch VS Code (`code` must be on your PATH, or the app name on macOS).",
+                "icon": "⌘",
+                "id": "g.1.0",
+                "label": "VS Code",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "launchApplication",
+                  "args": {
+                    "app": "code"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#286eff"
+                }
+              },
+              {
+                "description": "Open GitHub.",
+                "icon": "⎇",
+                "id": "g.2.0",
+                "label": "GitHub",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "openUrl",
+                  "args": {
+                    "url": "https://github.com"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#aa50ff"
+                }
+              },
+              {
+                "description": "Placeholder: harmless echo. Replace with `docker compose up`.",
+                "icon": "▣",
+                "id": "g.3.0",
+                "label": "Docker",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 3,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 1 && echo 'docker: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#1ed2e6"
+                }
+              },
+              {
+                "description": "Safe demo: sleeps 2s then succeeds. Pad pulses yellow, then turns green.",
+                "icon": "✓",
+                "id": "g.0.1",
+                "label": "Tests",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 2 && echo 'tests passed'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#ffc81e"
+                }
+              },
+              {
+                "description": "Safe demo: sleeps 3s then succeeds.",
+                "icon": "⚒",
+                "id": "g.1.1",
+                "label": "Build",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 3 && echo 'build ok'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#ff7814"
+                }
+              },
+              {
+                "description": "Safe demo: sleeps 1s then succeeds.",
+                "icon": "⚡",
+                "id": "g.2.1",
+                "label": "Dev Server",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 1 && echo 'dev server: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#1edc5a"
+                }
+              },
+              {
+                "description": "Safe demo: sleeps 2s then succeeds. Replace with your deploy script.",
+                "icon": "⇪",
+                "id": "g.3.1",
+                "label": "Deploy",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 3,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 2 && echo 'deploy: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#ff2832"
+                }
+              },
+              {
+                "description": "Open the Git page.",
+                "icon": "⑂",
+                "id": "g.0.2",
+                "label": "Git",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "openPage",
+                  "args": {
+                    "pageId": "git"
+                  },
+                  "provider": "navigation"
+                },
+                "visual": {
+                  "color": "#ff50aa"
+                }
+              },
+              {
+                "description": "Demonstrates the error state: exits with code 1, pad flashes red.",
+                "icon": "✕",
+                "id": "g.1.2",
+                "label": "Failing Task",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "echo 'simulated failure' >&2; exit 1"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#801419"
+                }
+              },
+              {
+                "description": "Switch to the Agents surface.",
+                "icon": "◉",
+                "id": "t.0",
+                "label": "Agents",
+                "pos": {
+                  "index": 0,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "agent-control"
+                  },
+                  "provider": "navigation"
+                },
+                "visual": {
+                  "color": "#3c1c59"
+                }
+              },
+              {
+                "description": "Switch to the Dev surface.",
+                "icon": "⌘",
+                "id": "t.1",
+                "label": "Dev",
+                "pos": {
+                  "index": 1,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "development"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#ffffff"
+                }
+              },
+              {
+                "description": "Switch to the Work surface.",
+                "icon": "☑",
+                "id": "t.2",
+                "label": "Work",
+                "pos": {
+                  "index": 2,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "productivity"
+                  },
+                  "provider": "navigation"
+                },
+                "visual": {
+                  "color": "#0b4d20"
+                }
+              },
+              {
+                "description": "Switch to the Home surface.",
+                "icon": "⌂",
+                "id": "t.3",
+                "label": "Home",
+                "pos": {
+                  "index": 3,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "smart-home"
+                  },
+                  "provider": "navigation"
+                },
+                "visual": {
+                  "color": "#592a07"
+                }
+              },
+              {
+                "description": "Switch to the Access surface.",
+                "icon": "◎",
+                "id": "t.4",
+                "label": "Access",
+                "pos": {
+                  "index": 4,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "accessibility"
+                  },
+                  "provider": "navigation"
+                },
+                "visual": {
+                  "color": "#59460b"
+                }
+              }
+            ],
+            "id": "home",
+            "name": "Home"
+          },
+          {
+            "controls": [
+              {
+                "description": "Safe demo: prints a message.",
+                "icon": "≡",
+                "id": "g.0.0",
+                "label": "Git Status",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 1 && echo 'git status: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#1ed2e6"
+                }
+              },
+              {
+                "description": "Safe demo. Replace with your commit script.",
+                "icon": "●",
+                "id": "g.1.0",
+                "label": "Commit",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 1 && echo 'git commit: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#1edc5a"
+                }
+              },
+              {
+                "description": "Safe demo. Replace with `git pull`.",
+                "icon": "↓",
+                "id": "g.2.0",
+                "label": "Pull",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 1 && echo 'git pull: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#286eff"
+                }
+              },
+              {
+                "description": "Safe demo. Replace with `git push`.",
+                "icon": "↑",
+                "id": "g.3.0",
+                "label": "Push",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 3,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 1 && echo 'git push: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#ff7814"
+                }
+              },
+              {
+                "description": "Return to the previous page.",
+                "icon": "←",
+                "id": "g.0.7",
+                "label": "Back",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 7
+                },
+                "press": {
+                  "action": "openPage",
+                  "args": {
+                    "pageId": "home"
+                  },
+                  "provider": "navigation"
+                },
+                "visual": {
+                  "color": "#464a5a"
+                }
+              },
+              {
+                "description": "Switch to the Agents surface.",
+                "icon": "◉",
+                "id": "t.0",
+                "label": "Agents",
+                "pos": {
+                  "index": 0,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "agent-control"
+                  },
+                  "provider": "navigation"
+                },
+                "visual": {
+                  "color": "#3c1c59"
+                }
+              },
+              {
+                "description": "Switch to the Dev surface.",
+                "icon": "⌘",
+                "id": "t.1",
+                "label": "Dev",
+                "pos": {
+                  "index": 1,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "development"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#ffffff"
+                }
+              },
+              {
+                "description": "Switch to the Work surface.",
+                "icon": "☑",
+                "id": "t.2",
+                "label": "Work",
+                "pos": {
+                  "index": 2,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "productivity"
+                  },
+                  "provider": "navigation"
+                },
+                "visual": {
+                  "color": "#0b4d20"
+                }
+              },
+              {
+                "description": "Switch to the Home surface.",
+                "icon": "⌂",
+                "id": "t.3",
+                "label": "Home",
+                "pos": {
+                  "index": 3,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "smart-home"
+                  },
+                  "provider": "navigation"
+                },
+                "visual": {
+                  "color": "#592a07"
+                }
+              },
+              {
+                "description": "Switch to the Access surface.",
+                "icon": "◎",
+                "id": "t.4",
+                "label": "Access",
+                "pos": {
+                  "index": 4,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "accessibility"
+                  },
+                  "provider": "navigation"
+                },
+                "visual": {
+                  "color": "#59460b"
+                }
+              }
+            ],
+            "id": "git",
+            "name": "Git"
+          }
+        ]
+      }
+    ]
+  }
+}

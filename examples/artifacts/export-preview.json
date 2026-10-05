@@ -1,0 +1,532 @@
+{
+  "fileName": "development-1.0.0.ldpack",
+  "sizeBytes": 23178,
+  "contentDigest": "sha256:c659b2bb18a2f7d1ace559fb6166ec14534caa0688ad9fc1948104fc6ef8430c",
+  "manifest": {
+    "id": "launchdeck-examples.development",
+    "name": "Development",
+    "version": "1.0.0",
+    "description": "The Development starter surface, shown for Visual Studio Code.",
+    "author": {
+      "name": "LaunchDeck examples"
+    },
+    "license": "MIT",
+    "createdWith": {
+      "app": "launchdeck",
+      "version": "9.9.9"
+    },
+    "requirements": {
+      "grid": {
+        "minWidth": 4,
+        "minHeight": 8
+      },
+      "aux": {
+        "top": 5,
+        "side": 0
+      },
+      "rgb": true
+    },
+    "testedWith": [
+      {
+        "model": "launchpad-x",
+        "kind": "virtual"
+      }
+    ],
+    "integrity": {
+      "content": "sha256:c659b2bb18a2f7d1ace559fb6166ec14534caa0688ad9fc1948104fc6ef8430c"
+    }
+  },
+  "surfaces": [
+    {
+      "localId": "development",
+      "artifactId": "development",
+      "name": "Development",
+      "pages": 2,
+      "controls": 25
+    }
+  ],
+  "contextRules": [
+    {
+      "rule": 0,
+      "application": {
+        "name": "Visual Studio Code",
+        "identities": [
+          {
+            "namespace": "x11",
+            "id": "Code"
+          },
+          {
+            "namespace": "macos",
+            "id": "com.microsoft.VSCode"
+          },
+          {
+            "namespace": "windows",
+            "id": "code.exe"
+          }
+        ]
+      },
+      "surface": "development"
+    }
+  ],
+  "dependencies": [],
+  "requirements": {
+    "grid": {
+      "minWidth": 4,
+      "minHeight": 8
+    },
+    "aux": {
+      "top": 5,
+      "side": 0
+    },
+    "rgb": true
+  },
+  "testedWith": [
+    {
+      "model": "launchpad-x",
+      "kind": "virtual"
+    }
+  ],
+  "review": [
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.3.0",
+        "slot": "press"
+      },
+      "label": "Docker",
+      "kind": "runsCommand",
+      "text": "sleep 1 && echo 'docker: demo only'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.0.1",
+        "slot": "press"
+      },
+      "label": "Tests",
+      "kind": "runsCommand",
+      "text": "sleep 2 && echo 'tests passed'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.1.1",
+        "slot": "press"
+      },
+      "label": "Build",
+      "kind": "runsCommand",
+      "text": "sleep 3 && echo 'build ok'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.2.1",
+        "slot": "press"
+      },
+      "label": "Dev Server",
+      "kind": "runsCommand",
+      "text": "sleep 1 && echo 'dev server: demo only'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.3.1",
+        "slot": "press"
+      },
+      "label": "Deploy",
+      "kind": "runsCommand",
+      "text": "sleep 2 && echo 'deploy: demo only'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.1.2",
+        "slot": "press"
+      },
+      "label": "Failing Task",
+      "kind": "runsCommand",
+      "text": "echo 'simulated failure' >&2; exit 1"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "git",
+        "controlId": "g.0.0",
+        "slot": "press"
+      },
+      "label": "Git Status",
+      "kind": "runsCommand",
+      "text": "sleep 1 && echo 'git status: demo only'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "git",
+        "controlId": "g.1.0",
+        "slot": "press"
+      },
+      "label": "Commit",
+      "kind": "runsCommand",
+      "text": "sleep 1 && echo 'git commit: demo only'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "git",
+        "controlId": "g.2.0",
+        "slot": "press"
+      },
+      "label": "Pull",
+      "kind": "runsCommand",
+      "text": "sleep 1 && echo 'git pull: demo only'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "git",
+        "controlId": "g.3.0",
+        "slot": "press"
+      },
+      "label": "Push",
+      "kind": "runsCommand",
+      "text": "sleep 1 && echo 'git push: demo only'"
+    }
+  ],
+  "stripped": {
+    "legacyBindings": 0,
+    "legacyActions": 0,
+    "contextHints": 0
+  },
+  "suggestions": [],
+  "parameters": [
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.0.0",
+        "slot": "press"
+      },
+      "arg": "app",
+      "value": "x-terminal-emulator"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.1.0",
+        "slot": "press"
+      },
+      "arg": "app",
+      "value": "code"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.2.0",
+        "slot": "press"
+      },
+      "arg": "url",
+      "value": "https://github.com"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.3.0",
+        "slot": "press"
+      },
+      "arg": "command",
+      "value": "sleep 1 && echo 'docker: demo only'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.0.1",
+        "slot": "press"
+      },
+      "arg": "command",
+      "value": "sleep 2 && echo 'tests passed'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.1.1",
+        "slot": "press"
+      },
+      "arg": "command",
+      "value": "sleep 3 && echo 'build ok'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.2.1",
+        "slot": "press"
+      },
+      "arg": "command",
+      "value": "sleep 1 && echo 'dev server: demo only'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.3.1",
+        "slot": "press"
+      },
+      "arg": "command",
+      "value": "sleep 2 && echo 'deploy: demo only'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.0.2",
+        "slot": "press"
+      },
+      "arg": "pageId",
+      "value": "git"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.1.2",
+        "slot": "press"
+      },
+      "arg": "command",
+      "value": "echo 'simulated failure' >&2; exit 1"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "t.0",
+        "slot": "press"
+      },
+      "arg": "surfaceId",
+      "value": "agent-control"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "t.2",
+        "slot": "press"
+      },
+      "arg": "surfaceId",
+      "value": "productivity"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "t.3",
+        "slot": "press"
+      },
+      "arg": "surfaceId",
+      "value": "smart-home"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "t.4",
+        "slot": "press"
+      },
+      "arg": "surfaceId",
+      "value": "accessibility"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "git",
+        "controlId": "g.0.0",
+        "slot": "press"
+      },
+      "arg": "command",
+      "value": "sleep 1 && echo 'git status: demo only'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "git",
+        "controlId": "g.1.0",
+        "slot": "press"
+      },
+      "arg": "command",
+      "value": "sleep 1 && echo 'git commit: demo only'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "git",
+        "controlId": "g.2.0",
+        "slot": "press"
+      },
+      "arg": "command",
+      "value": "sleep 1 && echo 'git pull: demo only'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "git",
+        "controlId": "g.3.0",
+        "slot": "press"
+      },
+      "arg": "command",
+      "value": "sleep 1 && echo 'git push: demo only'"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "git",
+        "controlId": "g.0.7",
+        "slot": "press"
+      },
+      "arg": "pageId",
+      "value": "home"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "git",
+        "controlId": "t.0",
+        "slot": "press"
+      },
+      "arg": "surfaceId",
+      "value": "agent-control"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "git",
+        "controlId": "t.2",
+        "slot": "press"
+      },
+      "arg": "surfaceId",
+      "value": "productivity"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "git",
+        "controlId": "t.3",
+        "slot": "press"
+      },
+      "arg": "surfaceId",
+      "value": "smart-home"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "git",
+        "controlId": "t.4",
+        "slot": "press"
+      },
+      "arg": "surfaceId",
+      "value": "accessibility"
+    }
+  ],
+  "warnings": [
+    {
+      "code": "externalSurfaceReference",
+      "message": "The pad \"Agents\" opens the surface \"agent-control\", which is not in this file. After import it opens that surface only where one has this id.",
+      "at": "/content/surfaces/0/pages/0/controls/10/press/args/surfaceId"
+    },
+    {
+      "code": "externalSurfaceReference",
+      "message": "The pad \"Work\" opens the surface \"productivity\", which is not in this file. After import it opens that surface only where one has this id.",
+      "at": "/content/surfaces/0/pages/0/controls/12/press/args/surfaceId"
+    },
+    {
+      "code": "externalSurfaceReference",
+      "message": "The pad \"Home\" opens the surface \"smart-home\", which is not in this file. After import it opens that surface only where one has this id.",
+      "at": "/content/surfaces/0/pages/0/controls/13/press/args/surfaceId"
+    },
+    {
+      "code": "externalSurfaceReference",
+      "message": "The pad \"Access\" opens the surface \"accessibility\", which is not in this file. After import it opens that surface only where one has this id.",
+      "at": "/content/surfaces/0/pages/0/controls/14/press/args/surfaceId"
+    },
+    {
+      "code": "externalSurfaceReference",
+      "message": "The pad \"Agents\" opens the surface \"agent-control\", which is not in this file. After import it opens that surface only where one has this id.",
+      "at": "/content/surfaces/0/pages/1/controls/5/press/args/surfaceId"
+    },
+    {
+      "code": "externalSurfaceReference",
+      "message": "The pad \"Work\" opens the surface \"productivity\", which is not in this file. After import it opens that surface only where one has this id.",
+      "at": "/content/surfaces/0/pages/1/controls/7/press/args/surfaceId"
+    },
+    {
+      "code": "externalSurfaceReference",
+      "message": "The pad \"Home\" opens the surface \"smart-home\", which is not in this file. After import it opens that surface only where one has this id.",
+      "at": "/content/surfaces/0/pages/1/controls/8/press/args/surfaceId"
+    },
+    {
+      "code": "externalSurfaceReference",
+      "message": "The pad \"Access\" opens the surface \"accessibility\", which is not in this file. After import it opens that surface only where one has this id.",
+      "at": "/content/surfaces/0/pages/1/controls/9/press/args/surfaceId"
+    },
+    {
+      "code": "reviewBeforeSharing",
+      "message": "The pad \"Docker\" runs a command: check it holds no password or token before sharing.",
+      "at": "/content/surfaces/0/pages/0/controls/3/press"
+    },
+    {
+      "code": "reviewBeforeSharing",
+      "message": "The pad \"Tests\" runs a command: check it holds no password or token before sharing.",
+      "at": "/content/surfaces/0/pages/0/controls/4/press"
+    },
+    {
+      "code": "reviewBeforeSharing",
+      "message": "The pad \"Build\" runs a command: check it holds no password or token before sharing.",
+      "at": "/content/surfaces/0/pages/0/controls/5/press"
+    },
+    {
+      "code": "reviewBeforeSharing",
+      "message": "The pad \"Dev Server\" runs a command: check it holds no password or token before sharing.",
+      "at": "/content/surfaces/0/pages/0/controls/6/press"
+    },
+    {
+      "code": "reviewBeforeSharing",
+      "message": "The pad \"Deploy\" runs a command: check it holds no password or token before sharing.",
+      "at": "/content/surfaces/0/pages/0/controls/7/press"
+    },
+    {
+      "code": "reviewBeforeSharing",
+      "message": "The pad \"Failing Task\" runs a command: check it holds no password or token before sharing.",
+      "at": "/content/surfaces/0/pages/0/controls/9/press"
+    },
+    {
+      "code": "reviewBeforeSharing",
+      "message": "The pad \"Git Status\" runs a command: check it holds no password or token before sharing.",
+      "at": "/content/surfaces/0/pages/1/controls/0/press"
+    },
+    {
+      "code": "reviewBeforeSharing",
+      "message": "The pad \"Commit\" runs a command: check it holds no password or token before sharing.",
+      "at": "/content/surfaces/0/pages/1/controls/1/press"
+    },
+    {
+      "code": "reviewBeforeSharing",
+      "message": "The pad \"Pull\" runs a command: check it holds no password or token before sharing.",
+      "at": "/content/surfaces/0/pages/1/controls/2/press"
+    },
+    {
+      "code": "reviewBeforeSharing",
+      "message": "The pad \"Push\" runs a command: check it holds no password or token before sharing.",
+      "at": "/content/surfaces/0/pages/1/controls/3/press"
+    }
+  ],
+  "errors": []
+}

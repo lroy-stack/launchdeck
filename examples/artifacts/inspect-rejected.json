@@ -1,0 +1,8 @@
+{
+  "status": "rejected",
+  "rejection": {
+    "code": "integrity",
+    "message": "The content does not match the digest in the manifest: the file was changed after it was written, or damaged.",
+    "at": "/manifest/integrity/content"
+  }
+}
