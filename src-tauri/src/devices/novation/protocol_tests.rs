@@ -10,18 +10,12 @@ use super::protocol::{
     select_layout, sleep, text, text_stop, to_7bit, ChannelLight, Colourspec, Product, Reply,
     TextColour, BRIGHTNESS, FEEDBACK, INQUIRY, LAYOUT, MAX_COLOURSPECS, MODE, SLEEP,
 };
+use super::testkit::hex;
 use crate::core::model::ControlPos;
 use crate::devices::{AnimationCaps, AuxCaps, DeviceCapabilities, GridCaps, InputKind};
 
 const MINI: Product = Product::MINI_MK3;
 const X: Product = Product::X;
-
-/// `"F0 00 20 29"` as bytes, so that expectations read like the manual.
-fn hex(line: &str) -> Vec<u8> {
-    line.split_whitespace()
-        .map(|b| u8::from_str_radix(b, 16).unwrap())
-        .collect()
-}
 
 // ---- identity (MINI-PRM p6) -------------------------------------------------
 
