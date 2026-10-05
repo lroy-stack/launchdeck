@@ -125,6 +125,8 @@ describe("the first run", () => {
     expect(useStore.getState().view).toBe("surface");
     expect(useStore.getState().state?.activeSurfaceId).toBe("development");
     expect(screen.getByRole("heading", { level: 1, name: "Development" })).toBeTruthy();
+    // Its category in words, not the slug.
+    expect(screen.getByText("Development", { selector: ".eyebrow" })).toBeTruthy();
   });
 
   it("starts Agent Control without running the demo", async () => {

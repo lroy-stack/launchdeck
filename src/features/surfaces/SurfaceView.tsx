@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../../lib/ipc";
-import { plural } from "../../lib/format";
+import { categoryLabel, plural } from "../../lib/format";
 import type { Mode, Page, Surface } from "../../lib/schema";
 import { activePage, activeSurface, primaryDeviceOf, useStore } from "../../stores/runtime";
 import { Inspector } from "../editor/Inspector";
@@ -40,7 +40,7 @@ export function SurfaceView() {
           <SurfaceDetails key={surface.id} surface={surface} />
         ) : (
           <div className="titles">
-            <span className="eyebrow">{surface.category}</span>
+            <span className="eyebrow">{categoryLabel(surface.category)}</span>
             <h1>{surface.name}</h1>
             <p>{surface.description}</p>
           </div>

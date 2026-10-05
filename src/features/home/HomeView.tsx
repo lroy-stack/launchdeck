@@ -4,14 +4,6 @@ import { primaryDeviceOf, useStore } from "../../stores/runtime";
 import { ActivityFeed } from "../../components/ActivityFeed";
 import { DeviceStatusLine } from "../../components/DeviceStatusLine";
 
-const BLURBS: Record<string, string> = {
-  "agent-control": "Watch every agent session at a glance. Approve, reject, pause, retry and start tasks from the pads.",
-  development: "Git, builds and editor shortcuts on safe demo commands.",
-  productivity: "Meetings, notes, focus and volume.",
-  accessibility: "Fewer, larger, high-contrast targets for easier pressing.",
-  "smart-home": "Template for Home Assistant style webhooks. Edit the URLs to make it yours.",
-};
-
 export function HomeView() {
   const workspace = useStore((s) => s.workspace);
   const state = useStore((s) => s.state);
@@ -97,7 +89,7 @@ export function HomeView() {
                 <span className="card-icon">{s.icon ?? "▦"}</span>
                 <h3>{s.name}</h3>
               </header>
-              <p>{BLURBS[s.id] ?? (s.description || "Custom surface.")}</p>
+              <p>{s.description || "No description yet."}</p>
               <footer>
                 <small>
                   {plural(s.pages.length, "page")} · {plural(s.pages.reduce((n, p) => n + p.controls.length, 0), "control")}

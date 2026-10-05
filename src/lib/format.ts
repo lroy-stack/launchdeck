@@ -51,3 +51,22 @@ export function controlTitle(c: Control): string {
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }
+
+/** What people read for a surface category (Rust stores a slug). The smart-home starter is "Home". */
+const CATEGORY_LABELS: Record<string, string> = {
+  agents: "Agents",
+  ai: "Agents",
+  development: "Development",
+  productivity: "Productivity",
+  "smart-home": "Home",
+  accessibility: "Accessibility",
+  custom: "Custom",
+};
+
+/** A surface category in words: a known slug's label, any other slug as a phrase ("music-studio" reads "Music studio"). */
+export function categoryLabel(slug: string): string {
+  const known = CATEGORY_LABELS[slug];
+  if (known) return known;
+  const words = slug.replace(/[-_]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}

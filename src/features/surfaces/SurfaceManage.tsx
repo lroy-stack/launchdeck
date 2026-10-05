@@ -4,7 +4,7 @@
 
 import { useState, type KeyboardEvent } from "react";
 import { api } from "../../lib/ipc";
-import { plural } from "../../lib/format";
+import { categoryLabel, plural } from "../../lib/format";
 import type { ContextSettings, Page, Surface } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
 
@@ -52,7 +52,7 @@ export function SurfaceDetails({ surface }: { surface: Surface }) {
         save();
       }}
     >
-      <span className="eyebrow">{surface.category}</span>
+      <span className="eyebrow">{categoryLabel(surface.category)}</span>
       <div className="row">
         <input className="surface-icon" aria-label="Surface icon" placeholder="Icon" {...field("icon")} />
         <input className="surface-name" aria-label="Surface name" {...field("name")} />
