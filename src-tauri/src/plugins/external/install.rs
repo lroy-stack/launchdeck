@@ -270,6 +270,51 @@ mod tests {
         assert_eq!(fs::read_dir(root.path()).unwrap().count(), 0);
     }
 
+    /// A valid example folder, as `usable_examples` would hand it over.
+    fn example(root: &Path) -> Candidate {
+        let dir = root.join("example");
+        fs::create_dir_all(&dir).unwrap();
+        let manifest = serde_json::json!({"schemaVersion": 1, "id": "a.b", "name": "T",
+            "version": "1.0.0", "author": "t", "abi": 1, "main": "m.wasm"});
+        fs::write(dir.join(MANIFEST_FILE), manifest.to_string()).unwrap();
+        fs::write(dir.join("m.wasm"), b"\0asm\x01\0\0\0").unwrap();
+        discovery::load_dir(&dir).unwrap()
+    }
+
+    #[test]
+    fn an_example_that_changed_after_it_was_validated_is_not_copied() {
+        let tmp = tempfile::tempdir().unwrap();
+        let example = example(tmp.path());
+        let root = tmp.path().join("plugins");
+        fs::create_dir_all(&root).unwrap();
+        // Still a valid manifest, but not the one that was validated.
+        let path = example.dir.join(MANIFEST_FILE);
+        let changed = fs::read_to_string(&path).unwrap().replace("\"T\"", "\"U\"");
+        fs::write(&path, changed).unwrap();
+
+        let err = stage(&example, &root).err().expect("refused");
+        assert!(err.to_string().contains("changed"), "{err}");
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_manifest_that_became_a_symbolic_link_is_not_copied() {
+        let tmp = tempfile::tempdir().unwrap();
+        let example = example(tmp.path());
+        let root = tmp.path().join("plugins");
+        fs::create_dir_all(&root).unwrap();
+        // The very same bytes, now behind a link.
+        let path = example.dir.join(MANIFEST_FILE);
+        let elsewhere = tmp.path().join("elsewhere.json");
+        fs::rename(&path, &elsewhere).unwrap();
+        std::os::unix::fs::symlink(&elsewhere, &path).unwrap();
+
+        let err = stage(&example, &root).err().expect("refused");
+        assert!(err.to_string().contains("symbolic link"), "{err}");
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+    }
+
     #[test]
     fn a_placed_copy_stays() {
         let root = tempfile::tempdir().unwrap();
