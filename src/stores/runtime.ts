@@ -12,7 +12,7 @@ import { applyDelta } from "../lib/observables";
 import type { Catalog, ContextStatus, Control, ControlPos, DeviceInfo, Frame, ObservableCatalog, ObservablesDelta, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, StartupNotice, Surface, Workspace, Page } from "../lib/schema";
 import { emptyObservableCatalog, posKey } from "../lib/schema";
 
-export type View = "home" | "agents" | "surface" | "plugins" | "settings";
+export type View = "overview" | "agents" | "surface" | "plugins" | "settings";
 export type AgentsTab = "overview" | "sessions" | "adapters" | "surface";
 
 const MAX_EVENTS = 120;
@@ -150,7 +150,7 @@ export const useStore = create<Store>((set, get) => ({
   context: null,
   notices: [],
 
-  view: "home",
+  view: "overview",
   agentsTab: "overview",
   selected: null,
   showLabels: true,
@@ -216,7 +216,7 @@ export const useStore = create<Store>((set, get) => ({
         agents: snap.agents,
         context: snap.context,
         notices: snap.notices,
-        view: snap.workspace.preferences.onboardingDone ? "surface" : "home",
+        view: snap.workspace.preferences.onboardingDone ? "surface" : "overview",
       });
       if (observablesHeardEarly) {
         observablesHeardEarly = false;

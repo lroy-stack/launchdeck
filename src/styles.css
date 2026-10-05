@@ -50,8 +50,6 @@ nav { display: flex; flex-direction: column; gap: 2px; }
 .nav-item:hover:not(.disabled) { background: var(--panel); color: var(--text); }
 .nav-item.on { background: var(--panel-2); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
 .nav-item .glyph { width: 16px; text-align: center; opacity: 0.8; }
-.nav-item.disabled { opacity: 0.45; cursor: default; }
-.nav-item em { margin-left: auto; font-style: normal; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); border: 1px solid var(--line-2); border-radius: 999px; padding: 0 6px; }
 .device-card { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); text-align: left; }
 .device-card:hover { border-color: var(--line-2); }
 .device-text { display: flex; flex-direction: column; line-height: 1.25; }

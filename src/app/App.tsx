@@ -48,7 +48,7 @@ export function App() {
       <div className="content">
         {preview && <div className="preview-bar">Browser preview · simulated runtime. Run the desktop app for the real thing.</div>}
         <StartupNotices />
-        {view === "home" && <HomeView />}
+        {view === "overview" && <HomeView />}
         {view === "agents" && <AgentsView />}
         {view === "surface" && <SurfaceView />}
         {view === "plugins" && <PluginsView />}

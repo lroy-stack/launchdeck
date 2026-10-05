@@ -5,7 +5,7 @@ import { DeviceStatusLine } from "../components/DeviceStatusLine";
 import { ContextControl } from "../features/context/ContextControl";
 
 const NAV: Array<{ view: View; label: string; glyph: string }> = [
-  { view: "home", label: "Home", glyph: "⌂" },
+  { view: "overview", label: "Overview", glyph: "◫" },
   { view: "agents", label: "Agents", glyph: "◉" },
   { view: "surface", label: "Surfaces", glyph: "▦" },
   { view: "plugins", label: "Plugins", glyph: "⧉" },
@@ -62,11 +62,6 @@ export function Sidebar() {
             )}
           </button>
         ))}
-        <div className="nav-item disabled" aria-disabled title="Preview: not available yet">
-          <span className="glyph">◈</span>
-          Marketplace
-          <em>Preview</em>
-        </div>
       </nav>
 
       <button type="button" className="device-card" onClick={() => setView("settings")} title="Manage devices">
