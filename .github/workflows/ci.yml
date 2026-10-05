@@ -65,6 +65,8 @@ jobs:
 
       # Fast checks first (formatting, types, lint), then tests and builds.
       - run: npm ci
+      - name: Architecture
+        run: npm run check:arch
       - name: Type check
         run: npm run typecheck
       - name: Lint
