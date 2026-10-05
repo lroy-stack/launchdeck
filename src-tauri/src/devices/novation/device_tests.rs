@@ -1284,6 +1284,70 @@ fn malformed_and_unknown_messages_from_a_mini_mk3_are_ignored() {
     );
 }
 
+// ---- quitting ------------------------------------------------------------------
+
+/// What giving back a Mini MK3 that showed Custom mode 1 sends.
+fn mini_release_to_custom_1() -> Vec<Vec<u8>> {
+    vec![
+        mini_clear(),
+        hex(MINI_LIVE),
+        hex("F0 00 20 29 02 0D 00 04 F7"),
+    ]
+}
+
+#[test]
+fn releasing_every_device_gives_each_taken_unit_back_once() {
+    // D-X10: quitting left the unit in Programmer mode with Setup disabled.
+    let sim = SimLaunchpad::mini().with_layout(0x04);
+    let (midi, mut m, _rx) = mini_taken(&m1(), &sim, &lower_left_pink());
+    m.release_all();
+    assert_eq!(sent(&midi), mini_release_to_custom_1());
+    assert_eq!(midi.open_links(), 0);
+    assert!(!sim.in_programmer_mode());
+    assert_eq!(mini_status(&m)[0].2, DeviceStatus::Available);
+
+    m.release_all();
+    assert!(
+        m.rescan_hardware(false).to_connect.is_empty(),
+        "not taken again by the next look"
+    );
+    drop(m);
+    assert_eq!(
+        sent(&midi),
+        Vec::<Vec<u8>>::new(),
+        "a second release and the drop send nothing"
+    );
+}
+
+#[test]
+fn a_unit_dropped_while_taken_is_given_back_once() {
+    let sim = SimLaunchpad::mini().with_layout(0x04);
+    let (midi, mut dev, _rx) = mini_acquired(&sim, &FakeClock::new());
+    dev.render(&lower_left_pink()).unwrap();
+    sent(&midi);
+    drop(dev);
+    assert_eq!(sent(&midi), mini_release_to_custom_1());
+    assert_eq!(midi.open_links(), 0);
+    assert!(!sim.in_programmer_mode());
+}
+
+#[test]
+fn a_unit_already_given_back_or_never_opened_is_sent_nothing_when_dropped() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, _rx) = mini_acquired(&sim, &FakeClock::new());
+    dev.disconnect().unwrap();
+    sent(&midi);
+    drop(dev);
+    assert_eq!(sent(&midi), Vec::<Vec<u8>>::new());
+
+    drop(device_for(
+        &launchpad_mini_mk3::PROFILE,
+        &midi,
+        &FakeClock::new(),
+    ));
+    assert_eq!(sent(&midi), Vec::<Vec<u8>>::new());
+}
+
 // ---- brightness ----------------------------------------------------------------
 
 const READ_MINI_BRIGHTNESS: &str = "F0 00 20 29 02 0D 08 F7";

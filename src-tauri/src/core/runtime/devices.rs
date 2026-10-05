@@ -88,6 +88,12 @@ impl Runtime {
         Ok(())
     }
 
+    /// Gives back every connected device: LaunchDeck is quitting. Bounded:
+    /// a few messages per device, no waiting for answers.
+    pub fn release_devices(&self) {
+        self.lock().devices.release_all();
+    }
+
     /// The LED brightness in percent of every device that has it, or each
     /// device's own level (`None`): saved as a preference and given to the
     /// connected devices now and to every device when it connects.
@@ -405,6 +411,28 @@ mod tests {
             .map(|e| e.kind)
             .collect();
         assert_eq!(events, [types::DEVICE_CONNECTED], "no event of its own");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn quitting_gives_back_every_connected_device() {
+        let rt = Runtime::start(config(
+            default_workspace(),
+            None,
+            Arc::new(States::default()),
+        ))
+        .await;
+        featured(&rt);
+        let connected = |rt: &Runtime| {
+            rt.list_devices()
+                .into_iter()
+                .filter(|d| d.connected)
+                .count()
+        };
+        assert!(connected(&rt) > 0);
+        rt.release_devices();
+        assert_eq!(connected(&rt), 0);
+        rt.release_devices();
+        assert_eq!(connected(&rt), 0);
     }
 
     fn on_disk(dir: &std::path::Path) -> Workspace {

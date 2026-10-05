@@ -82,8 +82,9 @@ impl Mk3Device {
 
     /// The same device on a test's clock.
     #[cfg(test)]
-    pub(crate) fn with_clock(self, clock: Clock) -> Self {
-        Self { clock, ..self }
+    pub(crate) fn with_clock(mut self, clock: Clock) -> Self {
+        self.clock = clock;
+        self
     }
 
     fn send(&mut self, bytes: &[u8]) -> Result<(), DeviceError> {
@@ -245,6 +246,17 @@ impl SurfaceDevice for Mk3Device {
         }
         let actions = self.session.scroll_text((self.clock)(), text)?;
         self.act_all(actions)
+    }
+}
+
+/// A device let go of while it still holds the unit's ports gives the unit
+/// back first, once. The open link is the flag: a disconnect closes it, so
+/// a unit already given back, or never opened, is sent nothing.
+impl Drop for Mk3Device {
+    fn drop(&mut self) {
+        if self.link.is_some() {
+            let _ = self.disconnect();
+        }
     }
 }
 

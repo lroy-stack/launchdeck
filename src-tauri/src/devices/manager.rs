@@ -310,6 +310,22 @@ impl DeviceManager {
         Ok(DeviceChange::Disconnected(id.to_string()))
     }
 
+    /// Gives back every connected device, as a disconnect does: LaunchDeck
+    /// is quitting. A few messages per device, no waiting for answers; a
+    /// later look at the hardware takes none of them again.
+    pub fn release_all(&mut self) {
+        for entry in self.entries.iter_mut().filter(|e| e.device.is_connected()) {
+            if let Err(e) = entry.device.disconnect() {
+                log::warn!(
+                    "could not release `{}`: {e} ({})",
+                    entry.identity.id,
+                    e.detail().unwrap_or("no detail")
+                );
+            }
+            entry.in_use = false;
+        }
+    }
+
     /// Capabilities of every connected device (for the render loop).
     pub fn connected_capabilities(&self) -> Vec<(String, DeviceCapabilities)> {
         self.entries
@@ -883,6 +899,28 @@ mod tests {
             "back: tried again"
         );
         assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Connected, None)));
+    }
+
+    #[test]
+    fn releasing_every_device_disconnects_each_one_and_none_is_connected_again() {
+        let hw = FakeHardware::default();
+        let mut m = manager(&hw);
+        let (dev, _handle) = VirtualLaunchpadX::new();
+        m.register(Box::new(dev));
+        m.connect(VIRTUAL_ID).unwrap();
+        hw.plug(&[LPX_ID]);
+        look(&mut m, false);
+        assert_eq!(m.connected_capabilities().len(), 2);
+
+        m.release_all();
+        assert!(m.connected_capabilities().is_empty());
+        assert!(m.list().iter().all(|d| d.status == DeviceStatus::Available));
+        assert!(
+            look(&mut m, false).to_connect.is_empty(),
+            "a unit released is not taken again"
+        );
+        m.release_all();
+        assert!(m.connected_capabilities().is_empty());
     }
 
     #[test]

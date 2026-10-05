@@ -157,6 +157,15 @@ pub fn run() {
             commands::app::app_reveal_data_folder,
             commands::app::app_info,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running LaunchDeck");
+        .build(tauri::generate_context!())
+        .expect("error while building LaunchDeck")
+        .run(|app, event| {
+            // Every way out that is not a crash or a kill, the tray's Quit
+            // (`app.exit`) included, ends here: give every Launchpad back.
+            if let tauri::RunEvent::Exit = event {
+                if let Some(state) = app.try_state::<AppState>() {
+                    state.runtime.release_devices();
+                }
+            }
+        });
 }
