@@ -191,6 +191,12 @@ impl DeviceManager {
         }
     }
 
+    /// Finds hardware through this source from now on.
+    #[cfg(test)]
+    pub(crate) fn set_hardware(&mut self, hardware: Box<dyn HardwareSource>) {
+        self.hardware = hardware;
+    }
+
     pub fn register(&mut self, device: Box<dyn SurfaceDevice>) {
         let identity = device.identity();
         if self.entries.iter().any(|e| e.identity.id == identity.id) {

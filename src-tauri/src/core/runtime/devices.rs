@@ -178,6 +178,51 @@ fn sentence(e: DeviceError) -> String {
     }
 }
 
+/// What the runtime's device tests (`device_tests.rs`) need beyond its
+/// commands: Launchpads on fake ports, another device, and the frame the
+/// render loop gives a device.
+#[cfg(test)]
+impl Runtime {
+    /// Look again and a rescan find the Launchpads on these fake ports,
+    /// named as macOS names them, instead of the system's.
+    pub(super) fn use_fake_ports(&self, midi: &crate::devices::testkit::FakeMidi) {
+        use crate::devices::testkit::NovationHardware;
+        let hardware = NovationHardware::new(
+            std::sync::Arc::new(midi.clone()),
+            crate::platform::Platform::MacOs,
+        );
+        self.lock().devices.set_hardware(Box::new(hardware));
+    }
+
+    /// Lists a device; `connect_device` connects it.
+    pub(super) fn add_device(&self, device: Box<dyn crate::devices::SurfaceDevice>) {
+        self.lock().devices.register(device);
+    }
+
+    /// The frame the render loop gives a device with these capabilities
+    /// now, composed as `render_tick` does.
+    pub(super) fn frame_for(
+        &self,
+        caps: &crate::devices::DeviceCapabilities,
+    ) -> crate::devices::SurfaceFrame {
+        let t_ms = self.epoch.elapsed().as_millis() as u64;
+        let inner = self.lock();
+        let page = inner
+            .workspace
+            .surface(&inner.active_surface)
+            .and_then(|s| s.page(&inner.active_page));
+        let state_of = |cid: &str| {
+            let key = control_key(&inner.active_surface, &inner.active_page, cid);
+            inner
+                .overlay
+                .get(&key)
+                .map(|e| e.name.clone())
+                .or_else(|| inner.derived.get(&key).cloned())
+        };
+        renderer::compose(page, &state_of, caps, t_ms)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};

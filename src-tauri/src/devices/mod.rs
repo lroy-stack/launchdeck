@@ -19,6 +19,18 @@ pub use features::{
     DeviceDetails, DeviceFeatures, DeviceSetting, ModeState, ScrollDirection, TextScroll,
 };
 
+/// What the runtime's device tests drive: fake MIDI ports, a simulated
+/// Launchpad behind them and the source that finds it, a virtual Mini MK3,
+/// and what the LEDs are expected to show.
+#[cfg(test)]
+pub(crate) mod testkit {
+    pub(crate) use super::midi::testkit::{port, FakeMidi};
+    pub(crate) use super::novation::{
+        nearest, palette_rgb, to_7bit, virtual_model, NovationHardware, SimLaunchpad, SimLed,
+        LAUNCHPAD_MINI_MK3,
+    };
+}
+
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 

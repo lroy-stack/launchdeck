@@ -37,8 +37,14 @@ mod testkit;
 pub(crate) use hardware::NovationHardware;
 #[cfg(test)]
 pub(crate) use launchpad_mini_mk3::PROFILE as LAUNCHPAD_MINI_MK3;
+#[cfg(test)]
+pub(crate) use palette::{nearest, palette_rgb};
 #[cfg_attr(
     not(test),
     expect(unused_imports, reason = "the app registers no virtual Mini yet")
 )]
 pub(crate) use profile::virtual_model;
+#[cfg(test)]
+pub(crate) use protocol::to_7bit;
+#[cfg(test)]
+pub(crate) use testkit::{SimLaunchpad, SimLed};
