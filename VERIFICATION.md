@@ -120,6 +120,26 @@ No fixture under `examples/` was regenerated or changed.
 | Stopping a runaway plugin on Apple silicon | Pass: `an_endless_loop_runs_out_of_fuel_and_is_stopped`, `an_endless_loop_is_also_stopped_by_the_wall_clock`, `runaway_recursion_is_a_stack_overflow_trap`. |
 | `#[cfg(unix)]` tests, first time on macOS | All 7 pass: `private_files_are_readable_by_the_owner_only`, `the_audit_log_is_readable_by_the_owner_only`, `symbolic_links_are_refused`, `shell_reports_output_and_failure`, `shell_runs_through_the_same_path`, `failing_command_ends_in_the_error_state`, `unbound_pad_goes_running_then_success_and_emits_action_events`. |
 
+## Section 5: continuous integration
+
+`.github/workflows/ci.yml` (commit `b0f13ba`), from the draft in NEXT_PHASE.md. Checked on 2026-10-05 with `gh api` against the actions' releases and `actions/runner-images`:
+
+| Draft | Now | Why |
+| --- | --- | --- |
+| `actions/checkout@v7`, `actions/setup-node@v7`, `Swatinem/rust-cache@v2` | unchanged | Current majors: v7.0.1, v7.0.0, v2.9.2. |
+| `ubuntu-24.04`, `macos-latest`, `windows-latest` | unchanged | `ubuntu-latest` still means 24.04 and moves to 26.04 in November 2026 (runner-images #14748, open). `macos-latest` is macOS 26 on arm64 (#14167, closed). `windows-latest` is Windows Server 2025. |
+| `dtolnay/rust-toolchain@stable` | `@1.97.0` | Stable is 1.99.0 (2026-09-28). 1.97.0 is what was verified on Linux and here; a newer clippy with `-D warnings` could fail for reasons unrelated to any system. Moving is a change of its own. |
+| Linux packages | `pkg-config` and `libdbus-1-dev` added | `cargo tree --target x86_64-unknown-linux-gnu`: `libdbus-sys` (through `tauri` → `tao`) links D-Bus with pkg-config; it reached the container only as a dependency of the GTK packages. `alsa-sys` (`midir`) and `xkbcommon` (`enigo`) are covered by the draft's list. Nothing uses OpenSSL or libxdo; `libssl-dev` and `libxdo-dev` stay as Tauri's documented prerequisites. |
+| `cargo test` | `cargo test --no-fail-fast` | Every failure is listed, not just those of the first failing program (Windows, section 5 item 2). |
+| step order | fast checks (types, lint, fmt, clippy) first, then tests and builds | So that a later check (an architecture check, for example) has an obvious place. Rust does not need the built interface: `cargo clippy --all-targets` passed here with `dist/` moved away. |
+| | `permissions: contents: read`, `concurrency` cancelling superseded runs, `CARGO_PROFILE_DEV_DEBUG: line-tables-only`, `core.autocrlf false` on Windows, 60 min timeout | No step needs a secret or a token. |
+
+Checked: the YAML parses, and `actionlint` 1.7.12 reports nothing.
+
+**Not run.** The workflow runs on a push to `main` or on a pull request; nothing has been pushed.
+
+Not done from section 5: the desktop suite job (Linux, on demand or nightly, item 3).
+
 ## Predictions of NEXT_PHASE.md
 
 | Prediction | Status |
