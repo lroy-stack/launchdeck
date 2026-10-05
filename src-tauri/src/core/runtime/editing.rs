@@ -21,13 +21,6 @@ fn describe_issues(issues: &[crate::state::feedback::RuleIssue]) -> String {
 
 /// Why [`Runtime::commit_workspace`] left everything as it was.
 #[derive(Debug)]
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "artifact import (C5) and surface removal (E3) use it"
-    )
-)]
 pub(crate) enum CommitError<E> {
     /// The new workspace could not be built: what the builder said.
     Build(E),
@@ -50,13 +43,6 @@ impl Runtime {
     /// is gone), and Auto Context told that its settings may have changed.
     /// Controls the commit changed or removed lose their temporary looks, as
     /// an edited control does. The workspace and context are announced once.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "artifact import (C5) and surface removal (E3) use it"
-        )
-    )]
     pub(crate) fn commit_workspace<E>(
         &self,
         build: impl FnOnce(&Workspace) -> Result<Workspace, E>,

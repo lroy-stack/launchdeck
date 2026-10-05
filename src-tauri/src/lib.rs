@@ -14,7 +14,8 @@
 //! * `surfaces`    starter surfaces
 //! * `persistence` versioned JSON store and its migrations
 //! * `audit`       the append-only audit trail
-//! * `artifacts`   portable Surface and Pack files: their format, limits and checks
+//! * `artifacts`   portable Surface and Pack files: their format, limits and checks,
+//!   export and import
 //! * `platform`    the operating system, as a value logic takes as a parameter
 //! * `commands`    the Tauri commands, one file per feature
 //! * `tray`        the system tray menu
@@ -42,6 +43,7 @@ use std::sync::Arc;
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::artifacts::ArtifactService;
 use crate::core::runtime::{Runtime, RuntimeConfig, UiEmitter};
 use crate::persistence::Store;
 use crate::plugins::keyboard::EnigoKeyboard;
@@ -49,6 +51,8 @@ use crate::surfaces::default_workspace;
 
 pub(crate) struct AppState {
     runtime: Arc<Runtime>,
+    /// Export and import of Surface files and Packs.
+    artifacts: ArtifactService,
 }
 
 struct TauriEmitter(AppHandle);
@@ -88,7 +92,14 @@ pub fn run() {
                 // The tray is a convenience; never block startup on it.
                 log::warn!("system tray unavailable: {e}");
             }
-            app.manage(AppState { runtime });
+            // Exports are saved in Downloads; where a system has none, next
+            // to the workspace.
+            let exports = app
+                .path()
+                .download_dir()
+                .unwrap_or_else(|_| dir.join("exports"));
+            let artifacts = ArtifactService::new(runtime.clone(), exports);
+            app.manage(AppState { runtime, artifacts });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -142,6 +153,14 @@ pub fn run() {
             commands::plugins::plugins_examples,
             commands::plugins::plugins_install_example,
             commands::plugins::plugins_reveal_folder,
+            commands::artifacts::artifacts_limits,
+            commands::artifacts::artifacts_export_preview,
+            commands::artifacts::artifacts_export_save,
+            commands::artifacts::artifacts_show_export,
+            commands::artifacts::artifacts_inspect,
+            commands::artifacts::artifacts_preview,
+            commands::artifacts::artifacts_apply,
+            commands::artifacts::artifacts_discard,
         ])
         .run(tauri::generate_context!())
         .expect("error while running LaunchDeck");

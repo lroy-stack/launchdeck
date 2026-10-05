@@ -3,13 +3,6 @@
 //! pass before it is saved. Pure: the artifact service runs both inside
 //! `Runtime::commit_workspace`, under the runtime's lock, after making the
 //! plan again against the workspace as it is then.
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the artifact service (C5) runs every import through it"
-    )
-)]
 
 use std::collections::{BTreeMap, HashSet};
 use std::fmt;

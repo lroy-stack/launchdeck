@@ -44,6 +44,7 @@ use crate::plugins::PluginManifest;
 use crate::state::catalog::ObservableCatalog;
 use crate::state::index::FeedbackIndex;
 use crate::state::{Changes, StateHub};
+pub(crate) use editing::CommitError;
 use feedback::looks_of;
 
 /// UI event names (Tauri events).

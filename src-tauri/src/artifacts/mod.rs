@@ -23,6 +23,8 @@
 //!   the person's decisions ([`ImportPlan`]), changing nothing
 //! * `apply`   the workspace an import writes, exactly the plan's effects,
 //!   and the runtime's checks it passes before it is saved
+//! * `service` export and import as the app runs them, over the runtime: the
+//!   pending import, the transaction, the exported file ([`ArtifactService`])
 
 mod apply;
 mod env;
@@ -33,10 +35,12 @@ mod json;
 mod limits;
 mod plan;
 mod review;
+mod service;
 
 #[cfg(test)]
 mod testkit;
 
+pub use apply::ImportReport;
 pub use env::{Environment, KnownAction, KnownDevice, KnownProvider, PlanHost};
 pub use export::{
     export, ExportCode, ExportIssue, ExportMetadata, ExportPreview, ExportRequest, ExportResult,
@@ -57,6 +61,9 @@ pub use plan::{
     Runs, SurfaceAction, UsedBy,
 };
 pub use review::{classify, Location, ReviewItem, ReviewKind, Slot};
+pub use service::{
+    ApplyOutcome, ArtifactService, ExportSaved, FileError, InspectOutcome, PreviewOutcome,
+};
 
 /// `format` of a Surface file.
 pub const FORMAT_SURFACE: &str = "launchdeck.surface";
