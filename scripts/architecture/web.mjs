@@ -60,6 +60,5 @@ export const featureMap = { features: "src/features", map: "docs/architecture/FR
 // `baseline` is the line count when the entry was made; growth above 10 % is
 // reported. Remove an entry when its file is split.
 export const largeFiles = [
-  { file: "src/lib/schema.ts", baseline: 814, reason: "every IPC schema in one file; split into src/lib/schema/ planned (A4)" },
   { file: "src/lib/feedbackEdit.ts", baseline: 804, reason: "a pure, cohesive editing model; kept whole (plan section 2)" },
 ];

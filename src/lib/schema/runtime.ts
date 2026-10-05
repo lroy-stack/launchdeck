@@ -1,0 +1,81 @@
+// The running app: devices, the runtime state, events, the snapshot and LED frames.
+
+import { z } from "zod";
+import { agentsSnapshotSchema } from "../agents";
+import { catalogSchema } from "./actions";
+import { contextStatusSchema } from "./context";
+import { observableCatalogSchema } from "./observables";
+import { pluginManifestSchema } from "./plugins";
+import { controlPosSchema, visualSchema, workspaceSchema } from "./workspace";
+
+const deviceCapabilitiesSchema = z.object({
+  grid: z.object({ width: z.number(), height: z.number() }).nullish(),
+  aux: z.object({ top: z.number(), side: z.number(), logo: z.boolean() }),
+  rgb: z.boolean(),
+  velocity: z.boolean(),
+  pressure: z.boolean(),
+  animations: z.object({ pulse: z.boolean(), flash: z.boolean() }),
+});
+
+export const deviceInfoSchema = z.object({
+  identity: z.object({
+    id: z.string(),
+    name: z.string(),
+    model: z.string(),
+    kind: z.enum(["virtual", "hardware"]),
+  }),
+  capabilities: deviceCapabilitiesSchema,
+  connected: z.boolean(),
+});
+export type DeviceInfo = z.infer<typeof deviceInfoSchema>;
+
+export const modeSchema = z.enum(["live", "edit"]);
+export type Mode = z.infer<typeof modeSchema>;
+
+export const runtimeStateSchema = z.object({
+  activeSurfaceId: z.string(),
+  activePageId: z.string(),
+  mode: modeSchema,
+  controlStates: z.record(z.string(), z.string()),
+  /** Actions that were invoked and have not finished, as the runtime holds them. */
+  pending: z
+    .array(z.object({ control: z.string().optional(), action: z.string(), since: z.number() }))
+    .default([]),
+  devices: z.array(deviceInfoSchema),
+  external: z.object({
+    enabled: z.boolean(),
+    port: z.number(),
+    listening: z.boolean(),
+    error: z.string().nullish(),
+  }),
+});
+export type RuntimeState = z.infer<typeof runtimeStateSchema>;
+
+export const runtimeEventSchema = z.object({
+  source: z.string(),
+  type: z.string(),
+  payload: z.unknown().optional(),
+  ts: z.number().default(0),
+});
+export type RuntimeEvent = z.infer<typeof runtimeEventSchema>;
+
+export const controlStateKey = (surfaceId: string, pageId: string, controlId: string): string =>
+  `${surfaceId}/${pageId}/${controlId}`;
+
+export const snapshotSchema = z.object({
+  workspace: workspaceSchema,
+  state: runtimeStateSchema,
+  plugins: z.array(pluginManifestSchema),
+  catalog: catalogSchema,
+  /** Every state and event a control can observe, with what each reads now. */
+  observables: observableCatalogSchema,
+  recentEvents: z.array(runtimeEventSchema),
+  agents: agentsSnapshotSchema,
+  context: contextStatusSchema,
+});
+export type Snapshot = z.infer<typeof snapshotSchema>;
+
+export const frameSchema = z.object({
+  leds: z.array(z.object({ pos: controlPosSchema, led: visualSchema })),
+});
+export type Frame = z.infer<typeof frameSchema>;
