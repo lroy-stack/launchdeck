@@ -600,6 +600,7 @@ R3, R4 and R5 declare only A2 so that they still run if a feature package fails;
 | R-16 | Gatekeeper blocks the ad-hoc signed app downloaded by a tester | high / medium | getting-started explains "Open Anyway"; not verifiable on a local build |
 | R-17 | Scope creep beyond rule zero | medium / high | deferred list (section 4); reviewers reject new subsystems |
 | R-18 | Tauri CLI warning on the `.app` identifier | certain / low | record only |
+| R-19 | SF-1, found by a background security review of `9f70375`: artifact review and the runtime parse `system.launchApplication` differently (empty list arguments; on Windows `cmd /C start` lets `& | < > ^ %` in an unreviewed `app` chain commands) | certain / critical for imported files | fixed in C3 first: one shared launch parser in `plugins::system`, strict review rule, runtime refuses NUL, line breaks and Windows cmd metacharacters; differential tests and hostile fixtures; Windows NOT VERIFIED (e) |
 
 ## 14. Definition of Done
 
