@@ -15,6 +15,7 @@ use serde_json::Value;
 use super::env::Environment;
 use super::format::is_bidi;
 use crate::actions::definition::{Assignment, ProviderKind};
+use crate::platform::Platform;
 use crate::plugins::system;
 
 // The built-in providers that run things. `artifacts` may not import their
@@ -94,7 +95,8 @@ pub fn classify(assignment: &Assignment, env: &Environment) -> Option<ReviewKind
         (SHELL, SHELL_EXECUTE) => Some(ReviewKind::RunsCommand),
         (HTTP, HTTP_REQUEST) => Some(ReviewKind::SendsRequest),
         (system::ID, system::LAUNCH_APPLICATION) => {
-            launches_program(&assignment.args).then_some(ReviewKind::LaunchesProgram)
+            launches_program(&assignment.args, Platform::current())
+                .then_some(ReviewKind::LaunchesProgram)
         }
         (AGENT_CONTROL, AGENT_NEW_TASK | AGENT_CONTINUE) => Some(ReviewKind::InstructsAgent),
         _ => {
@@ -110,9 +112,11 @@ pub fn classify(assignment: &Assignment, env: &Environment) -> Option<ReviewKind
 
 /// Every launch but one of a plain application name with no argument, read
 /// by the runtime's own parser: what the review sees is what would start.
-/// A launch the runtime refuses is reviewed too.
-fn launches_program(args: &Value) -> bool {
-    system::launch_spec(args).map_or(true, |spec| {
+/// A launch the runtime refuses is reviewed too. The answer is the same on
+/// every system: what Windows alone refuses is never a plain name without
+/// arguments.
+fn launches_program(args: &Value, platform: Platform) -> bool {
+    system::launch_spec(args, platform).map_or(true, |spec| {
         !plain_application(&spec.app) || !spec.args.is_empty()
     })
 }
@@ -132,8 +136,8 @@ fn plain_application(app: &str) -> bool {
 /// The application and each argument as the runtime passes them, one after
 /// the other; a word that is empty or holds a space, a quote or a control
 /// character is quoted, so every argument shows where it starts and ends.
-fn launch_text(args: &Value) -> String {
-    match system::launch_spec(args) {
+fn launch_text(args: &Value, platform: Platform) -> String {
+    match system::launch_spec(args, platform) {
         Ok(spec) => std::iter::once(&spec.app)
             .chain(&spec.args)
             .map(|word| shown(word))
@@ -191,7 +195,7 @@ fn review_text(kind: ReviewKind, assignment: &Assignment) -> String {
             }
         }
         ReviewKind::SendsRequest => assignment.definition_id(),
-        ReviewKind::LaunchesProgram => launch_text(args),
+        ReviewKind::LaunchesProgram => launch_text(args, Platform::current()),
         ReviewKind::InstructsAgent if assignment.action == AGENT_NEW_TASK => {
             match text(args, "cwd") {
                 "" => text(args, "task").to_string(),
@@ -343,7 +347,7 @@ mod tests {
             json!({ "app": "code", "args": [] }),
             json!({ "app": "code", "args": null }),
         ] {
-            let spec = system::launch_spec(&quiet).unwrap();
+            let spec = system::launch_spec(&quiet, Platform::current()).unwrap();
             assert!(spec.args.is_empty(), "{quiet}");
             assert_eq!(launch(&quiet), None, "{quiet}");
         }
@@ -389,6 +393,17 @@ mod tests {
                 launch(args),
                 Some(ReviewKind::LaunchesProgram),
                 "{args} is not reviewed"
+            );
+        }
+        // Every system classifies alike, though Windows refuses more.
+        let systems = [Platform::Linux, Platform::MacOs, Platform::Windows];
+        for args in hostile.iter() {
+            assert!(systems.iter().all(|&p| launches_program(args, p)), "{args}");
+        }
+        for args in [json!({ "app": "code" }), json!({ "app": "Notes (Old)" })] {
+            assert!(
+                !systems.iter().any(|&p| launches_program(&args, p)),
+                "{args}"
             );
         }
     }
@@ -463,6 +478,19 @@ mod tests {
         assert_eq!(
             text(json!({ "app": "code", "args": 1 })),
             "code (LaunchDeck will not start it: `args` is text, one argument per line)"
+        );
+        assert_eq!(
+            launch_text(&json!({ "app": "calc & whoami" }), Platform::Windows),
+            "\"calc & whoami\" (LaunchDeck will not start it: This application name contains \
+             characters LaunchDeck will not pass to the Windows command interpreter.)"
+        );
+        assert_eq!(
+            launch_text(&json!({ "app": "calc & whoami" }), Platform::Linux),
+            "\"calc & whoami\""
+        );
+        assert_eq!(
+            launch_text(&json!({ "app": "c\u{202E}exe.txt" }), Platform::Linux),
+            "\"c\\u202eexe.txt\""
         );
     }
 

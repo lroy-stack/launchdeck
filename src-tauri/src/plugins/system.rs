@@ -38,11 +38,12 @@ pub fn validate_url(url: &str) -> Result<(), ActionError> {
     }
 }
 
-/// Program and arguments used to launch an application on `os`. No shell is
-/// involved except `cmd /C start` on Windows (needed to resolve registered apps).
-pub fn launch_command(app: &str, args: &[String], os: &str) -> (String, Vec<String>) {
-    match os {
-        "macos" => {
+/// Program and arguments used to launch an application on `platform`. No
+/// shell is involved except `cmd /C start` on Windows (needed to resolve
+/// registered apps), which is why [`launch_spec`] refuses what it would read.
+pub fn launch_command(app: &str, args: &[String], platform: Platform) -> (String, Vec<String>) {
+    match platform {
+        Platform::MacOs => {
             let mut a = vec!["-a".to_string(), app.to_string()];
             if !args.is_empty() {
                 a.push("--args".into());
@@ -50,7 +51,7 @@ pub fn launch_command(app: &str, args: &[String], os: &str) -> (String, Vec<Stri
             }
             ("open".into(), a)
         }
-        "windows" => {
+        Platform::Windows => {
             let mut a = vec![
                 "/C".to_string(),
                 "start".into(),
@@ -60,7 +61,7 @@ pub fn launch_command(app: &str, args: &[String], os: &str) -> (String, Vec<Stri
             a.extend(args.iter().cloned());
             ("cmd".into(), a)
         }
-        _ => (app.to_string(), args.to_vec()),
+        Platform::Linux => (app.to_string(), args.to_vec()),
     }
 }
 
@@ -111,10 +112,12 @@ pub struct LaunchSpec {
 /// How `launchApplication` reads its arguments: `app`, a text that is not
 /// blank, and `args`, either a text with one argument per line (each line
 /// trimmed, empty lines left out) or a list of texts passed as they are,
-/// empty ones included. Any other `args` is refused. The runtime starts what
-/// this returns, and an artifact's review shows it, so the two can never
-/// read one assignment differently.
-pub fn launch_spec(args: &Value) -> Result<LaunchSpec, ActionError> {
+/// empty ones included. Any other `args` is refused, and so is a NUL or a
+/// line break anywhere, and on Windows any character its command
+/// interpreter reads (`& | < > ^ % "`). The runtime starts what this
+/// returns, and an artifact's review shows it, so the two can never read
+/// one assignment differently.
+pub fn launch_spec(args: &Value, platform: Platform) -> Result<LaunchSpec, ActionError> {
     let app = str_arg(args, "app")?.to_string();
     let refused = || ActionError::InvalidArgs("`args` is text, one argument per line".into());
     let args = match args.get("args") {
@@ -132,7 +135,38 @@ pub fn launch_spec(args: &Value) -> Result<LaunchSpec, ActionError> {
             .ok_or_else(refused)?,
         Some(_) => return Err(refused()),
     };
+    passable(&app, "This application name", platform)?;
+    for arg in &args {
+        passable(arg, "This argument", platform)?;
+    }
     Ok(LaunchSpec { app, args })
+}
+
+/// Characters `cmd.exe` reads as more than text: they chain, redirect,
+/// escape, expand or quote.
+const WINDOWS_COMMAND_CHARS: [char; 7] = ['&', '|', '<', '>', '^', '%', '"'];
+
+/// A NUL ends a C string, and a line break starts a new command or line
+/// wherever a program reads lines; neither is ever passed on.
+fn is_break(c: char) -> bool {
+    matches!(
+        c,
+        '\0' | '\n' | '\r' | '\u{b}' | '\u{c}' | '\u{85}' | '\u{2028}' | '\u{2029}'
+    )
+}
+
+fn passable(text: &str, what: &str, platform: Platform) -> Result<(), ActionError> {
+    if text.chars().any(is_break) {
+        return Err(ActionError::InvalidArgs(format!(
+            "{what} contains a line break or a NUL character, which LaunchDeck will not pass to a program."
+        )));
+    }
+    if platform == Platform::Windows && text.contains(WINDOWS_COMMAND_CHARS) {
+        return Err(ActionError::InvalidArgs(format!(
+            "{what} contains characters LaunchDeck will not pass to the Windows command interpreter."
+        )));
+    }
+    Ok(())
 }
 
 const BLUE: Rgb = Rgb::new(47, 129, 247);
@@ -268,8 +302,8 @@ impl Plugin for SystemPlugin {
                 Ok(Value::Null)
             }
             LAUNCH_APPLICATION => {
-                let LaunchSpec { app, args: extra } = launch_spec(args)?;
-                let (program, argv) = launch_command(&app, &extra, std::env::consts::OS);
+                let LaunchSpec { app, args: extra } = launch_spec(args, Platform::current())?;
+                let (program, argv) = launch_command(&app, &extra, Platform::current());
                 let mut child = Command::new(&program)
                     .args(&argv)
                     .stdin(Stdio::null())
@@ -341,20 +375,20 @@ mod tests {
     #[test]
     fn launch_commands_per_os() {
         assert_eq!(
-            launch_command("code", &["."].map(String::from), "linux"),
+            launch_command("code", &["."].map(String::from), Platform::Linux),
             ("code".to_string(), vec![".".to_string()])
         );
-        let (p, a) = launch_command("Safari", &[], "macos");
+        let (p, a) = launch_command("Safari", &[], Platform::MacOs);
         assert_eq!(
             (p.as_str(), a),
             ("open", vec!["-a".to_string(), "Safari".to_string()])
         );
-        assert_eq!(launch_command("code", &[], "windows").0, "cmd");
+        assert_eq!(launch_command("code", &[], Platform::Windows).0, "cmd");
     }
 
     #[test]
     fn launch_arguments_are_lines_or_a_list_and_nothing_else() {
-        let spec = |args: Value| launch_spec(&args);
+        let spec = |args: Value| launch_spec(&args, Platform::Linux);
         let ok = |app: &str, args: &[&str]| {
             Ok(LaunchSpec {
                 app: app.into(),
@@ -397,6 +431,79 @@ mod tests {
                 LAUNCH_APPLICATION,
                 &json!({ "app": "code", "args": [1] })
             ),
+            Err(ActionError::InvalidArgs(_))
+        ));
+    }
+
+    #[test]
+    fn a_launch_never_passes_a_nul_or_a_line_break() {
+        let breaks = [
+            "\0", "\n", "\r", "\u{b}", "\u{c}", "\u{85}", "\u{2028}", "\u{2029}",
+        ];
+        for platform in [Platform::Linux, Platform::MacOs, Platform::Windows] {
+            for b in breaks {
+                for args in [
+                    json!({ "app": format!("calc{b}x") }),
+                    json!({ "app": "calc", "args": [format!("a{b}b")] }),
+                ] {
+                    assert!(
+                        matches!(
+                            launch_spec(&args, platform),
+                            Err(ActionError::InvalidArgs(_))
+                        ),
+                        "{platform:?} {args}"
+                    );
+                }
+            }
+            // In the text form a line break separates arguments; a lone
+            // carriage return inside a line does not.
+            assert_eq!(
+                launch_spec(&json!({ "app": "calc", "args": "a\nb" }), platform)
+                    .unwrap()
+                    .args,
+                ["a", "b"]
+            );
+            assert!(launch_spec(&json!({ "app": "calc", "args": "a\rb" }), platform).is_err());
+        }
+    }
+
+    /// Windows starts an application through `cmd /C start`, so a character
+    /// the command interpreter reads would chain commands there. Not run on
+    /// Windows: the decision is tested here by passing the platform.
+    #[test]
+    fn windows_refuses_what_its_command_interpreter_reads() {
+        for meta in ['&', '|', '<', '>', '^', '%', '"'] {
+            let app = json!({ "app": format!("calc {meta} whoami") });
+            let arg = json!({ "app": "calc", "args": [format!("a{meta}b")] });
+            let lines = json!({ "app": "calc", "args": format!("--x\na{meta}b") });
+            for args in [&app, &arg, &lines] {
+                let refused = launch_spec(args, Platform::Windows).unwrap_err();
+                assert!(
+                    refused
+                        .message()
+                        .ends_with("LaunchDeck will not pass to the Windows command interpreter."),
+                    "{args}: {refused}"
+                );
+                for other in [Platform::Linux, Platform::MacOs] {
+                    assert!(launch_spec(args, other).is_ok(), "{other:?} {args}");
+                }
+            }
+            assert_eq!(
+                launch_spec(&app, Platform::Windows).unwrap_err().message(),
+                "This application name contains characters LaunchDeck will not pass to the \
+                 Windows command interpreter."
+            );
+        }
+        // Without such a character, the same launch is fine on Windows.
+        assert!(launch_spec(
+            &json!({ "app": "Visual Studio Code", "args": "--new-window\nC:\\src" }),
+            Platform::Windows
+        )
+        .is_ok());
+        // The runtime refuses it before it starts anything.
+        let plugin = SystemPlugin::new(Arc::new(Recorder::default()));
+        assert!(matches!(
+            plugin.invoke(&ctx(), LAUNCH_APPLICATION, &json!({ "app": "calc\0x" })),
             Err(ActionError::InvalidArgs(_))
         ));
     }
