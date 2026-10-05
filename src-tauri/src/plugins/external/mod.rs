@@ -10,12 +10,15 @@
 //!   unchanged.
 //! * [`host`] owns discovery results, enabled flags, configuration and
 //!   lifecycle, and registers plugins into the shared registry.
+//! * `install` copies an example plugin the app ships into the plugins
+//!   folder, on the person's click ([`PluginHost::install_example`]).
 //!
 //! The contract is described in `PLUGIN_SDK_PLAN.md` and `docs/plugin-sdk/`.
 
 pub mod capabilities;
 pub mod discovery;
 pub mod host;
+mod install;
 mod legacy_secrets;
 pub mod log;
 pub mod manifest;
@@ -35,6 +38,7 @@ pub use host::{
     HostError, LegacyMigration, LegacySecretsView, PluginHost, PluginInfo, PluginsOverview,
     ScanReport,
 };
+pub use install::{ExampleInfo, InstallError};
 pub use log::LogEntry;
 pub use sandbox::Limits;
 
