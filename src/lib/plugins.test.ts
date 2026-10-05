@@ -50,6 +50,11 @@ describe("plugins contract with Rust", () => {
     expect(JSON.stringify(fixture)).not.toContain("super-secret-value");
   });
 
+  it("says which plain-text secret needs migrating, by name, on the plugin itself", () => {
+    expect(byId("example.hello").secretMigration).toEqual({ migrationRequired: ["token"], needsUpdate: [] });
+    for (const p of overview.plugins.filter((x) => x.plugin.id !== "example.hello")) expect(p.secretMigration).toBeUndefined();
+  });
+
   it("shows plain settings with their value and default", () => {
     const greeting = byId("example.hello").config.find((c) => c.key === "greeting")!;
     expect(greeting.value).toBe("Hola");
@@ -110,9 +115,12 @@ describe("plugins contract with Rust", () => {
     expect(ha.secretStore).toBe("memory");
     // Where secrets are kept is said once for the whole screen, with whether it can be used.
     expect(pluginsOverviewSchema.parse(fixture).secretStore).toEqual({ kind: "memory", available: true, name: "memory" });
-    // What an earlier version left in a plain file is listed by name only.
+    // What an earlier version left in a plain file, or in a plugin's settings, is listed by name only.
     expect(pluginsOverviewSchema.parse(fixture).legacySecrets).toEqual({
-      entries: [{ plugin: "example.home-assistant-unset", pluginName: "Home Assistant (not set up)", key: "token", source: "file" }],
+      entries: [
+        { plugin: "example.home-assistant-unset", pluginName: "Home Assistant (not set up)", key: "token", source: "file" },
+        { plugin: "example.hello", pluginName: "Hello Plugin", key: "token", source: "settings" },
+      ],
       file: "<data>/secrets.json",
       unreadable: false,
     });

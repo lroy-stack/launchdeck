@@ -16,6 +16,12 @@
         "plugin": "example.home-assistant-unset",
         "pluginName": "Home Assistant (not set up)",
         "source": "file"
+      },
+      {
+        "key": "token",
+        "plugin": "example.hello",
+        "pluginName": "Hello Plugin",
+        "source": "settings"
       }
     ],
     "file": "<data>/secrets.json",
@@ -255,6 +261,12 @@
         "states": [],
         "version": "0.1.0"
       },
+      "secretMigration": {
+        "migrationRequired": [
+          "token"
+        ],
+        "needsUpdate": []
+      },
       "secretStore": "memory",
       "secrets": []
     },
@@ -276,7 +288,7 @@
       "network": {
         "hosts": [
           {
-            "decidedAt": 1791214496028,
+            "decidedAt": 1791216315368,
             "origin": "http://192.168.1.20:8123",
             "reach": "local",
             "source": {
@@ -465,7 +477,7 @@
         ]
       },
       "networkFailure": {
-        "at": 1791214496426,
+        "at": 1791216315777,
         "code": "invalid_request",
         "message": "`homeassistant/api/states/light.kitchen` is not a URL"
       },

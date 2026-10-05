@@ -18,7 +18,10 @@ use std::sync::Arc;
 
 use launchdeck_lib::events::EventBus;
 use launchdeck_lib::plugins::external::capabilities::Grants;
-use launchdeck_lib::plugins::external::secrets::{MemoryStore, SecretStore};
+use launchdeck_lib::plugins::external::host::LegacySource;
+use launchdeck_lib::plugins::external::secrets::{
+    MemoryStore, SecretError, SecretRef, SecretStore, StoreKind, UnavailableStore,
+};
 use launchdeck_lib::plugins::external::{HostError, Limits, PluginHost};
 use launchdeck_lib::plugins::{PluginContext, PluginRegistry};
 use launchdeck_lib::state::StateHub;
@@ -71,6 +74,7 @@ struct World {
     registry: PluginRegistry,
     state: PathBuf,
     plugins: PathBuf,
+    data: PathBuf,
     _root: tempfile::TempDir,
 }
 
@@ -119,6 +123,7 @@ fn world(manifest: &Value, store: Arc<dyn SecretStore>) -> World {
         registry,
         state,
         plugins,
+        data,
         _root: root,
     }
 }
@@ -157,6 +162,49 @@ impl World {
 
 fn memory() -> Arc<dyn SecretStore> {
     Arc::new(MemoryStore::new())
+}
+
+fn token() -> SecretRef {
+    SecretRef::new(ID, "token")
+}
+
+/// A credential store that answers, and refuses every write.
+struct RefusingStore;
+
+impl SecretStore for RefusingStore {
+    fn get(&self, _: &SecretRef) -> Result<Option<String>, SecretError> {
+        Ok(None)
+    }
+    fn set(&self, _: &SecretRef, _: &str) -> Result<(), SecretError> {
+        Err(SecretError::Store(
+            "it is locked or cannot be reached".into(),
+        ))
+    }
+    fn delete(&self, _: &SecretRef) -> Result<(), SecretError> {
+        Ok(())
+    }
+    fn kind(&self) -> StoreKind {
+        StoreKind::Keychain
+    }
+}
+
+/// A credential store that keeps something other than what it was given.
+#[derive(Default)]
+struct GarblingStore(MemoryStore);
+
+impl SecretStore for GarblingStore {
+    fn get(&self, s: &SecretRef) -> Result<Option<String>, SecretError> {
+        self.0.get(s)
+    }
+    fn set(&self, s: &SecretRef, value: &str) -> Result<(), SecretError> {
+        self.0.set(s, &format!("{value}-garbled"))
+    }
+    fn delete(&self, s: &SecretRef) -> Result<(), SecretError> {
+        self.0.delete(s)
+    }
+    fn kind(&self) -> StoreKind {
+        StoreKind::Keychain
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -210,6 +258,10 @@ async fn no_secret_value_from_plugins_json_reaches_a_module_whatever_the_schema(
             "schema {schema}: the module received {got}"
         );
         assert_eq!(w.plain_token(), Some(json!(PLAIN)), "schema {schema}");
+        // Reported the same way, by name.
+        let info = w.host.get(ID).unwrap();
+        let migration = info.secret_migration.expect("migration required");
+        assert_eq!(migration.migration_required, ["token"], "schema {schema}");
     }
 }
 
@@ -267,4 +319,223 @@ async fn a_secret_setting_cannot_be_given_a_new_plain_value() {
     let info = w.host.get(ID).unwrap();
     let token = info.config.iter().find(|c| c.key == "token").unwrap();
     assert!(token.secret && token.is_set && token.value.is_none());
+}
+
+// ---------------------------------------------------------------------------
+// Reported, by name
+// ---------------------------------------------------------------------------
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_plugin_says_migration_is_required_naming_the_key_and_never_the_value() {
+    let w = world(&manifest(3), memory());
+    let info = w.host.get(ID).unwrap();
+    let migration = info.secret_migration.clone().expect("migration required");
+    assert_eq!(migration.migration_required, ["token"]);
+    assert!(migration.needs_update.is_empty());
+    let view = serde_json::to_value(&info).unwrap();
+    assert_eq!(
+        view["secretMigration"],
+        json!({ "migrationRequired": ["token"], "needsUpdate": [] })
+    );
+    // Also in the list of plain secrets, as a setting.
+    let legacy = w.host.overview().legacy_secrets;
+    assert!(legacy
+        .entries
+        .iter()
+        .any(|e| e.plugin == ID && e.key == "token" && e.source == LegacySource::Settings));
+    // The value is nowhere in what the interface receives, nor in the log.
+    let everything = serde_json::to_string(&w.host.overview()).unwrap();
+    assert!(!everything.contains(PLAIN));
+    assert!(w.logs().contains("not used"), "{}", w.logs());
+    assert!(!w.logs().contains(PLAIN));
+
+    // A plugin with nothing left in plain text says nothing.
+    let clean = world(&manifest(3), memory());
+    clean.host.remove_plugin_legacy_secrets(ID).unwrap();
+    let after = serde_json::to_value(clean.host.get(ID).unwrap()).unwrap();
+    assert!(after.get("secretMigration").is_none(), "{after}");
+}
+
+// ---------------------------------------------------------------------------
+// Migrate: write, read back, then remove
+// ---------------------------------------------------------------------------
+
+#[tokio::test(flavor = "multi_thread")]
+async fn migrate_moves_the_value_into_the_store_and_only_then_removes_the_plain_copy() {
+    let store = Arc::new(MemoryStore::new());
+    let w = world(&manifest(3), store.clone());
+    let info = w.host.migrate_plugin_legacy_secrets(ID).unwrap();
+
+    assert_eq!(store.get(&token()).unwrap().as_deref(), Some(PLAIN));
+    assert_eq!(w.plain_token(), None, "the plain copy is gone");
+    assert!(!w.file().contains(PLAIN), "and persisted");
+    let saved: Value = serde_json::from_str(&w.file()).unwrap();
+    assert_eq!(saved["plugins"][ID]["config"]["greeting"], "Hi");
+    // This version cannot use it: it declares the credential the old way.
+    let migration = info.secret_migration.expect("still something to say");
+    assert!(migration.migration_required.is_empty());
+    assert_eq!(migration.needs_update, ["token"]);
+    // The module still never receives it, now or after a restart.
+    assert!(!w.received().to_string().contains(PLAIN));
+    w.host.reload(ID).unwrap();
+    assert!(!w.received().to_string().contains(PLAIN));
+    assert!(w.logs().contains("under `secrets`"), "{}", w.logs());
+    // The audit trail says what happened, never the value.
+    let trail = fs::read_to_string(w.data.join("audit.jsonl")).unwrap();
+    assert!(trail.contains("secrets.migrated"), "{trail}");
+    assert!(!trail.contains(PLAIN));
+    assert!(!w.logs().contains(PLAIN));
+
+    // Known after a restart too.
+    let again = PluginHost::with_parts(
+        vec![w.plugins.clone()],
+        Some(w.state.clone()),
+        PluginRegistry::default(),
+        Limits::default(),
+        StateHub::new(),
+        Arc::new(Grants::new(None, None)),
+        store.clone(),
+    );
+    again.scan();
+    let migration = again.get(ID).unwrap().secret_migration.unwrap();
+    assert_eq!(migration.needs_update, ["token"]);
+    assert!(migration.migration_required.is_empty());
+    // Migrating again has nothing to do.
+    assert!(again.migrate_plugin_legacy_secrets(ID).is_ok());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_schema_4_plugin_uses_a_migrated_value_through_the_broker_and_never_receives_it() {
+    let store = Arc::new(MemoryStore::new());
+    let w = world(&manifest(4), store.clone());
+    assert!(!w.host.get(ID).unwrap().secrets[0].is_set);
+    let info = w.host.migrate_plugin_legacy_secrets(ID).unwrap();
+    assert_eq!(store.get(&token()).unwrap().as_deref(), Some(PLAIN));
+    assert!(
+        info.secrets[0].is_set,
+        "the declared secret now has its value"
+    );
+    assert!(info.secret_migration.is_none(), "nothing left to say");
+    assert_eq!(w.plain_token(), None);
+    assert!(!w.received().to_string().contains(PLAIN));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_store_that_refuses_the_write_leaves_the_plain_value_untouched() {
+    let w = world(&manifest(3), Arc::new(RefusingStore));
+    let before = w.file();
+    let err = w.host.migrate_plugin_legacy_secrets(ID).unwrap_err();
+    let said = err.to_string();
+    assert!(
+        said.contains("`token`") && said.contains("locked"),
+        "{said}"
+    );
+    assert!(said.contains("still where it was"), "{said}");
+    assert!(!said.contains(PLAIN));
+    assert_eq!(w.file(), before, "nothing persisted");
+    let migration = w.host.get(ID).unwrap().secret_migration.unwrap();
+    assert_eq!(migration.migration_required, ["token"]);
+    assert!(!w.received().to_string().contains(PLAIN));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_store_that_gives_back_something_else_leaves_the_plain_value_untouched() {
+    let w = world(&manifest(3), Arc::new(GarblingStore::default()));
+    let before = w.file();
+    let said = w
+        .host
+        .migrate_plugin_legacy_secrets(ID)
+        .unwrap_err()
+        .to_string();
+    assert!(said.contains("did not return what was written"), "{said}");
+    assert!(!said.contains(PLAIN));
+    assert_eq!(w.file(), before, "nothing persisted");
+    // Trying again does not mistake the wrong value for a good one.
+    let said = w
+        .host
+        .migrate_plugin_legacy_secrets(ID)
+        .unwrap_err()
+        .to_string();
+    assert!(said.contains("different value"), "{said}");
+    assert_eq!(w.file(), before);
+    assert_eq!(
+        w.host
+            .get(ID)
+            .unwrap()
+            .secret_migration
+            .unwrap()
+            .migration_required,
+        ["token"]
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn without_a_credential_store_migrate_is_refused_with_the_reason() {
+    let w = world(
+        &manifest(3),
+        Arc::new(UnavailableStore::new("No Secret Service answered.")),
+    );
+    let before = w.file();
+    let said = w
+        .host
+        .migrate_plugin_legacy_secrets(ID)
+        .unwrap_err()
+        .to_string();
+    assert!(said.contains("No Secret Service answered."), "{said}");
+    assert_eq!(w.file(), before);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn moving_every_plain_secret_at_once_keeps_a_value_the_store_holds_differently() {
+    let store = Arc::new(MemoryStore::new());
+    store.set(&token(), "entered-later").unwrap();
+    let w = world(&manifest(3), store.clone());
+    let report = w.host.migrate_legacy_secrets().unwrap();
+    assert_eq!(report.failed.len(), 1, "{report:?}");
+    assert!(report.failed[0].reason.contains("different value"));
+    assert_eq!(w.plain_token(), Some(json!(PLAIN)), "the plain one stays");
+    assert_eq!(
+        store.get(&token()).unwrap().as_deref(),
+        Some("entered-later"),
+        "and the stored one is not overwritten"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Remove
+// ---------------------------------------------------------------------------
+
+#[tokio::test(flavor = "multi_thread")]
+async fn remove_deletes_the_plain_value_and_nothing_else() {
+    let store = Arc::new(MemoryStore::new());
+    let w = world(&manifest(3), store.clone());
+    w.host.set_enabled(ID, false).unwrap();
+    let info = w.host.remove_plugin_legacy_secrets(ID).unwrap();
+    assert_eq!(w.plain_token(), None);
+    assert!(!w.file().contains(PLAIN));
+    let saved: Value = serde_json::from_str(&w.file()).unwrap();
+    assert_eq!(saved["plugins"][ID]["config"]["greeting"], "Hi");
+    assert_eq!(saved["plugins"][ID]["enabled"], false);
+    assert!(!info.enabled);
+    assert!(info.secret_migration.is_none());
+    assert_eq!(
+        store.get(&token()).unwrap(),
+        None,
+        "the store is not touched"
+    );
+    let trail = fs::read_to_string(w.data.join("audit.jsonl")).unwrap();
+    assert!(trail.contains("secrets.legacy_discarded"), "{trail}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_commands_refuse_an_unknown_plugin() {
+    let w = world(&manifest(3), memory());
+    assert!(matches!(
+        w.host.migrate_plugin_legacy_secrets("t.nope"),
+        Err(HostError::Unknown(_))
+    ));
+    assert!(matches!(
+        w.host.remove_plugin_legacy_secrets("t.nope"),
+        Err(HostError::Unknown(_))
+    ));
 }

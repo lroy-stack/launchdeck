@@ -1,18 +1,22 @@
 //! Secrets an earlier version kept in plain text: the `secrets.json` file a
-//! system without a credential store fell back to, and settings of an older
-//! version of a plugin that its current manifest declares as secrets.
+//! system without a credential store fell back to, and values in
+//! `plugins.json` under a key the plugin's manifest names as a credential (a
+//! setting marked `secret` by a manifest of schema 1 to 3, or a setting of an
+//! older version that the current manifest declares under `secrets`).
 //!
-//! They are listed by name in the host's overview, never used, and moved into
-//! the credential store or deleted only when the person asks.
+//! They are listed by name in the host's overview and on the plugin's card,
+//! never handed to a plugin, and moved into the credential store or deleted
+//! only when the person asks.
 
 use std::path::Path;
 
 use serde::Serialize;
 use serde_json::Value;
 
-use super::host::{Data, HostError, PluginHost};
+use super::host::{Data, HostError, PluginHost, PluginInfo, SavedState};
 use super::log::Level;
-use super::secrets::{move_into, LegacyContents, LegacyFile, SecretRef};
+use super::secrets::{move_into, LegacyContents, LegacyFile, Moved, SecretRef, SecretStore};
+use super::wasm_plugin::{credential_keys, WasmPlugin};
 use crate::audit::{Actor, AuditEntry};
 use crate::plugins::Plugin;
 
@@ -55,6 +59,93 @@ impl LegacySecretsView {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty() && self.file.is_none()
     }
+}
+
+/// What a plugin's card says about its credentials that LaunchDeck does not
+/// use. Names only, never values.
+#[derive(Debug, Default, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SecretMigration {
+    /// Migration required: values an earlier version kept in plain text in
+    /// `plugins.json`. Never handed to the plugin; moved into the credential
+    /// store or removed only when the person asks.
+    pub migration_required: Vec<String>,
+    /// In the credential store and still unused: this version names them only
+    /// as settings marked `secret` (schemas 1 to 3), and a module never
+    /// receives a stored secret. A version that declares them under `secrets`
+    /// (schema 4) can use them.
+    pub needs_update: Vec<String>,
+}
+
+/// A value from `plugins.json` as the text the credential store would keep.
+/// Nothing for `null` or an empty string, which hold no secret.
+fn plain_text(value: &Value) -> Option<String> {
+    match value {
+        Value::Null => None,
+        Value::String(s) if s.is_empty() => None,
+        Value::String(s) => Some(s.clone()),
+        other => Some(other.to_string()),
+    }
+}
+
+/// The values `plugins.json` holds in plain text under a key that `plugin`'s
+/// manifest names as a credential. In key order.
+fn plain_values(plugin: &WasmPlugin, saved: &SavedState) -> Vec<(SecretRef, String)> {
+    let Some(settings) = saved.plugins.get(plugin.id()) else {
+        return Vec::new();
+    };
+    let mut keys: Vec<&str> = credential_keys(plugin.spec()).collect();
+    keys.sort_unstable();
+    keys.dedup();
+    keys.into_iter()
+        .filter_map(|key| {
+            let value = plain_text(settings.config.get(key)?)?;
+            Some((SecretRef::new(plugin.id(), key), value))
+        })
+        .collect()
+}
+
+/// [`move_into`] held to one more rule for values in `plugins.json`: a plain
+/// value may be removed only when the store holds exactly that value
+/// afterwards. A different value already in the store is not replaced, and
+/// the plain one is not removed either; the person removes whichever is wrong.
+fn move_settings(store: &dyn SecretStore, entries: &[(SecretRef, String)]) -> Moved {
+    let mut done = move_into(store, entries);
+    let (same, different): (Vec<SecretRef>, Vec<SecretRef>) =
+        done.kept.drain(..).partition(|secret| {
+            let plain = entries.iter().find(|(s, _)| s == secret).map(|(_, v)| v);
+            matches!(store.get(secret), Ok(Some(held)) if Some(&held) == plain)
+        });
+    done.kept = same;
+    done.failed.extend(different.into_iter().map(|secret| {
+        (
+            secret,
+            "the credential store already holds a different value for it".to_string(),
+        )
+    }));
+    done
+}
+
+/// The sentence for values that were not moved: which, and why.
+fn not_moved(failed: &[(SecretRef, String)]) -> String {
+    let each: Vec<String> = failed
+        .iter()
+        .map(|(secret, reason)| format!("`{}` could not be moved ({reason})", secret.key))
+        .collect();
+    format!(
+        "Nothing was removed from plugins.json, so the plain {} still where {}: {}.",
+        if failed.len() == 1 {
+            "value is"
+        } else {
+            "values are"
+        },
+        if failed.len() == 1 {
+            "it was"
+        } else {
+            "they were"
+        },
+        each.join("; ")
+    )
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -102,31 +193,78 @@ impl PluginHost {
             .map(LegacyFile::in_dir)
     }
 
-    /// Settings left in `plugins.json` under a key that the plugin's current
-    /// manifest declares as a secret: an older version of the plugin kept the
-    /// value as a setting. In a fixed order (plugin, then key).
+    /// Values left in plain text in `plugins.json` under a key that a
+    /// plugin's manifest names as a credential. In a fixed order (plugin,
+    /// then key).
     fn leftover_settings(data: &Data) -> Vec<(SecretRef, String)> {
-        let mut out = Vec::new();
-        for (id, plugin) in &data.plugins {
-            let Some(saved) = data.saved.plugins.get(id) else {
-                continue;
-            };
-            let mut keys: Vec<&str> = plugin
-                .spec()
-                .secrets
-                .iter()
-                .map(|s| s.key.as_str())
-                .collect();
-            keys.sort_unstable();
-            for key in keys {
-                if let Some(Value::String(value)) = saved.config.get(key) {
-                    if !value.is_empty() {
-                        out.push((SecretRef::new(id, key), value.clone()));
-                    }
-                }
-            }
+        data.plugins
+            .values()
+            .flat_map(|plugin| plain_values(plugin, &data.saved))
+            .collect()
+    }
+
+    /// What `plugin`'s card says about credentials LaunchDeck does not use,
+    /// when there are any.
+    pub(super) fn secret_migration(data: &Data, plugin: &WasmPlugin) -> Option<SecretMigration> {
+        let migration_required: Vec<String> = plain_values(plugin, &data.saved)
+            .into_iter()
+            .map(|(secret, _)| secret.key)
+            .collect();
+        let needs_update: Vec<String> = plugin
+            .spec()
+            .config
+            .iter()
+            .filter(|f| f.secret)
+            .filter(|f| {
+                data.secrets_set
+                    .contains(&(plugin.id().to_string(), f.key.clone()))
+            })
+            .map(|f| f.key.clone())
+            .collect();
+        (!migration_required.is_empty() || !needs_update.is_empty()).then_some(SecretMigration {
+            migration_required,
+            needs_update,
+        })
+    }
+
+    /// Say in `plugin`'s log which of its values sit unused in plain text.
+    pub(super) fn note_plain_values(plugin: &WasmPlugin, saved: &SavedState) {
+        for (secret, _) in plain_values(plugin, saved) {
+            plugin.log().host(
+                Level::Warn,
+                &format!(
+                    "the value of `{}` that an earlier version kept in plugins.json without encryption is not used: move it to the credential store or remove it, on the plugin's card",
+                    secret.key
+                ),
+            );
         }
-        out
+    }
+
+    /// `secret` is now in the credential store: remember that, and say what
+    /// it means for its plugin.
+    fn now_stored(data: &mut Data, secret: &SecretRef) {
+        let Some(plugin) = data.plugins.get(&secret.plugin).cloned() else {
+            return;
+        };
+        if !credential_keys(plugin.spec()).any(|k| k == secret.key) {
+            return;
+        }
+        data.secrets_set
+            .insert((secret.plugin.clone(), secret.key.clone()));
+        let declared = plugin.spec().secrets.iter().any(|s| s.key == secret.key);
+        let said = if declared {
+            format!(
+                "secret `{}` is now kept in the credential store",
+                secret.key
+            )
+        } else {
+            format!(
+                "secret `{}` is now kept in the credential store; this version of the plugin cannot use it, it needs a version that declares it under `secrets`",
+                secret.key
+            )
+        };
+        plugin.log().host(Level::Info, &said);
+        Self::refresh_now(data, &secret.plugin);
     }
 
     fn legacy_view(&self, data: &Data) -> LegacySecretsView {
@@ -168,9 +306,9 @@ impl PluginHost {
 
     /// Move every plain secret into the credential store. Each value is read
     /// back before it counts. The plain file is overwritten and removed only
-    /// when everything in it is safely in the store; a setting is removed from
-    /// `plugins.json` when its own value is. A value the store already holds
-    /// is kept, and the plain one is dropped.
+    /// when everything in it is safely in the store (a value the store already
+    /// holds is kept, and the plain one dropped); a value is removed from
+    /// `plugins.json` only when the store holds exactly that value.
     pub fn migrate_legacy_secrets(&self) -> Result<LegacyMigration, HostError> {
         let store = &self.inner.secrets;
         if !store.status().available {
@@ -210,7 +348,7 @@ impl PluginHost {
 
         let leftovers = Self::leftover_settings(&data);
         if !leftovers.is_empty() {
-            let done = move_into(store.as_ref(), &leftovers);
+            let done = move_settings(store.as_ref(), &leftovers);
             let mut saved = data.saved.clone();
             for secret in done.moved.iter().chain(&done.kept) {
                 if let Some(settings) = saved.plugins.get_mut(&secret.plugin) {
@@ -223,21 +361,7 @@ impl PluginHost {
         }
 
         for secret in &settled {
-            let Some(plugin) = data.plugins.get(&secret.plugin).cloned() else {
-                continue;
-            };
-            if plugin.spec().secrets.iter().any(|s| s.key == secret.key) {
-                data.secrets_set
-                    .insert((secret.plugin.clone(), secret.key.clone()));
-                plugin.log().host(
-                    Level::Info,
-                    &format!(
-                        "secret `{}` is now kept in the credential store",
-                        secret.key
-                    ),
-                );
-                Self::refresh_now(&mut data, &secret.plugin);
-            }
+            Self::now_stored(&mut data, secret);
         }
         self.inner
             .grants
@@ -280,5 +404,100 @@ impl PluginHost {
                 .detail(&format!("deleted {}", before.entries.len())),
         );
         Ok(before.entries.len())
+    }
+
+    /// Move the plain values of one plugin into the credential store: each is
+    /// written, read back and compared, and only when every one of them is
+    /// safely there are they removed from `plugins.json`. If anything fails,
+    /// `plugins.json` is left as it was and the error says why.
+    pub fn migrate_plugin_legacy_secrets(&self, id: &str) -> Result<PluginInfo, HostError> {
+        let store = &self.inner.secrets;
+        let mut data = self.data();
+        let plugin = data
+            .plugins
+            .get(id)
+            .cloned()
+            .ok_or_else(|| HostError::Unknown(id.to_string()))?;
+        let status = store.status();
+        if !status.available {
+            return Err(HostError::Invalid(format!(
+                "There is no secure credential store to move it into. {}",
+                status.reason.unwrap_or_default()
+            )));
+        }
+        let entries = plain_values(&plugin, &data.saved);
+        if entries.is_empty() {
+            return Ok(self.info(&data, &plugin));
+        }
+        let done = move_settings(store.as_ref(), &entries);
+        if !done.failed.is_empty() {
+            let said = not_moved(&done.failed);
+            plugin.log().host(Level::Warn, &said);
+            self.inner.grants.record(
+                AuditEntry::new("secrets.migrated", Actor::User)
+                    .plugin(id)
+                    .detail(&format!("failed {}, nothing removed", done.failed.len())),
+            );
+            return Err(HostError::Invalid(said));
+        }
+        let mut saved = data.saved.clone();
+        if let Some(settings) = saved.plugins.get_mut(id) {
+            for (secret, _) in &entries {
+                settings.config.remove(&secret.key);
+            }
+        }
+        self.persist(&saved)?;
+        data.saved = saved;
+        for (secret, _) in &entries {
+            Self::now_stored(&mut data, secret);
+        }
+        self.inner.grants.record(
+            AuditEntry::new("secrets.migrated", Actor::User)
+                .plugin(id)
+                .detail(&format!(
+                    "moved {}, already stored {}",
+                    done.moved.len(),
+                    done.kept.len()
+                )),
+        );
+        Ok(self.info(&data, &plugin))
+    }
+
+    /// Delete the plain values of one plugin from `plugins.json` without
+    /// moving them. Nothing else changes.
+    pub fn remove_plugin_legacy_secrets(&self, id: &str) -> Result<PluginInfo, HostError> {
+        let mut data = self.data();
+        let plugin = data
+            .plugins
+            .get(id)
+            .cloned()
+            .ok_or_else(|| HostError::Unknown(id.to_string()))?;
+        let entries = plain_values(&plugin, &data.saved);
+        if entries.is_empty() {
+            return Ok(self.info(&data, &plugin));
+        }
+        let mut saved = data.saved.clone();
+        if let Some(settings) = saved.plugins.get_mut(id) {
+            for (secret, _) in &entries {
+                settings.config.remove(&secret.key);
+            }
+        }
+        self.persist(&saved)?;
+        data.saved = saved;
+        for (secret, _) in &entries {
+            plugin.log().host(
+                Level::Info,
+                &format!(
+                    "the plain value of `{}` was removed from plugins.json",
+                    secret.key
+                ),
+            );
+        }
+        self.inner.grants.record(
+            AuditEntry::new("secrets.legacy_discarded", Actor::User)
+                .plugin(id)
+                .detail(&format!("deleted {}", entries.len())),
+        );
+        Ok(self.info(&data, &plugin))
     }
 }

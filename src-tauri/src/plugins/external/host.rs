@@ -26,7 +26,7 @@ use super::manifest::{ConfigType, ExternalManifest};
 use super::network::{Broker, NetFailure, SecretBinding};
 use super::sandbox::Limits;
 use super::secrets::{SecretRef, SecretStore, StoreKind, StoreStatus};
-use super::wasm_plugin::{effective_config, WasmPlugin, MAX_WATCHING};
+use super::wasm_plugin::{credential_keys, effective_config, WasmPlugin, MAX_WATCHING};
 use super::{PluginStatus, ProblemKind};
 use crate::persistence::write_private;
 use crate::plugins::{ActionError, Plugin, PluginContext, PluginManifest, PluginRegistry};
@@ -34,6 +34,7 @@ use crate::state::{StateAddress, StateHub};
 
 pub use super::legacy_secrets::{
     LegacyFailure, LegacyMigration, LegacySecretView, LegacySecretsView, LegacySource,
+    SecretMigration,
 };
 
 const STATE_SCHEMA: u32 = 1;
@@ -133,6 +134,11 @@ pub struct PluginInfo {
     /// How often the plugin is asked to report the states being shown.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refresh_seconds: Option<u32>,
+    /// Credentials LaunchDeck does not use: a value an earlier version kept in
+    /// plain text (migration required), or one moved into the credential
+    /// store that this version cannot use. Absent when there are none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secret_migration: Option<SecretMigration>,
 }
 
 /// Everything the Plugins screen needs in one read.
@@ -173,8 +179,9 @@ struct RefreshSlot {
 }
 
 pub(super) struct Data {
-    /// Secrets known to hold a value: `(plugin, key)`. Read from the store when
-    /// a plugin is installed, so listing plugins never opens the credential store.
+    /// Credentials known to hold a value in the store: `(plugin, key)`. Read
+    /// from the store when a plugin is installed, so listing plugins never
+    /// opens the credential store.
     pub(super) secrets_set: HashSet<(String, String)>,
     refresh: HashMap<String, RefreshSlot>,
     /// Plugins whose states this host declared in the hub, so that a plugin
@@ -383,13 +390,13 @@ impl PluginHost {
             );
         }
         let net = self.broker(&cand.manifest, &settings.config, &log);
-        // Which secrets hold a value is looked up once, here, so that listing
-        // plugins never has to open the credential store.
+        // Which credentials hold a value is looked up once, here, so that
+        // listing plugins never has to open the credential store.
         data.secrets_set.retain(|(plugin, _)| plugin != &id);
-        for secret in &cand.manifest.secrets {
-            let found = self.inner.secrets.get(&SecretRef::new(&id, &secret.key));
+        for key in credential_keys(&cand.manifest) {
+            let found = self.inner.secrets.get(&SecretRef::new(&id, key));
             if matches!(found, Ok(Some(_))) {
-                data.secrets_set.insert((id.clone(), secret.key.clone()));
+                data.secrets_set.insert((id.clone(), key.to_string()));
             }
         }
         let refreshes = cand.manifest.refresh.is_some();
@@ -402,6 +409,7 @@ impl PluginHost {
             self.inner.hub.clone(),
             net,
         );
+        Self::note_plain_values(&plugin, &data.saved);
         // What the plugin offers is declared before it starts, so the first
         // thing the hub sees of it is a provider with states and no values.
         let defs = plugin.states();
@@ -521,7 +529,7 @@ impl PluginHost {
         report
     }
 
-    fn info(&self, data: &Data, plugin: &Arc<WasmPlugin>) -> PluginInfo {
+    pub(super) fn info(&self, data: &Data, plugin: &Arc<WasmPlugin>) -> PluginInfo {
         let settings = data
             .saved
             .plugins
@@ -578,6 +586,7 @@ impl PluginHost {
             secrets,
             secret_store: self.inner.secrets.kind(),
             refresh_seconds: plugin.spec().refresh.map(|r| r.interval_seconds),
+            secret_migration: Self::secret_migration(data, plugin),
         }
     }
 

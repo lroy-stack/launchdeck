@@ -153,6 +153,15 @@ export const legacyMigrationSchema = z.object({
 });
 export type LegacyMigration = z.infer<typeof legacyMigrationSchema>;
 
+/** Credentials of a plugin that LaunchDeck does not use, by name only. Rust decides both lists. */
+export const secretMigrationSchema = z.object({
+  /** Kept in plain text in `plugins.json` by an earlier version. Never handed to the plugin; moved or removed only on request. */
+  migrationRequired: z.array(z.string()),
+  /** In the credential store, and this version of the plugin cannot use them: it needs one that declares them under `secrets`. */
+  needsUpdate: z.array(z.string()),
+});
+export type SecretMigration = z.infer<typeof secretMigrationSchema>;
+
 export const pluginInfoSchema = z.object({
   plugin: pluginManifestSchema,
   dir: z.string(),
@@ -166,6 +175,8 @@ export const pluginInfoSchema = z.object({
   secrets: z.array(pluginSecretSchema),
   secretStore: secretStoreSchema,
   refreshSeconds: z.number().optional(),
+  /** Absent when every credential of the plugin is where it can be used, or there are none. */
+  secretMigration: secretMigrationSchema.optional(),
 });
 export type PluginInfo = z.infer<typeof pluginInfoSchema>;
 
