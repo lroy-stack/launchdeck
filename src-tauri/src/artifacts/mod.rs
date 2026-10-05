@@ -12,16 +12,26 @@
 //!   canonical writer
 //! * `format`  the v1 types, their conversion to and from the workspace
 //!   model, and their structural checks
+//! * `env`     what export and import know about this installation, as
+//!   plain data ([`Environment`])
+//! * `review`  the actions that run things, which a person reviews
 
+mod env;
 mod format;
 mod json;
 mod limits;
+mod review;
 
+#[cfg(test)]
+mod testkit;
+
+pub use env::{Environment, KnownAction, KnownDevice, KnownProvider};
 pub use format::*;
 pub use json::{
     content_digest, prepass, to_canonical, to_canonical_members, JsonProblem, PrepassError,
 };
 pub use limits::ArtifactLimits;
+pub use review::{classify, Location, ReviewItem, ReviewKind, Slot};
 
 /// `format` of a Surface file.
 pub const FORMAT_SURFACE: &str = "launchdeck.surface";

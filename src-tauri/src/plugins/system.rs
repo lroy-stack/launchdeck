@@ -16,6 +16,8 @@ use crate::core::model::Rgb;
 use crate::platform::Platform;
 
 pub const ID: &str = "system";
+/// The action that starts an application by name or path.
+pub const LAUNCH_APPLICATION: &str = "launchApplication";
 
 /// Schemes `system.openUrl` will hand to the OS. No `file:`, no custom
 /// handlers: opening arbitrary schemes is how links turn into code execution.
@@ -148,7 +150,7 @@ impl Plugin for SystemPlugin {
                 )
                 .look("Open link", BLUE, "🔗"),
                 ActionDef::new(
-                    "launchApplication",
+                    LAUNCH_APPLICATION,
                     "Launch application",
                     "Start an application by name or path.",
                 )
@@ -247,7 +249,7 @@ impl Plugin for SystemPlugin {
                     .map_err(|e| ActionError::Failed(format!("could not open URL: {e}")))?;
                 Ok(Value::Null)
             }
-            "launchApplication" => {
+            LAUNCH_APPLICATION => {
                 let app = str_arg(args, "app")?;
                 let extra = launch_args_of(args);
                 let (program, argv) = launch_command(app, &extra, std::env::consts::OS);
