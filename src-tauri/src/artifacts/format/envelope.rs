@@ -1,10 +1,7 @@
-//! The two kinds of file, the top level as it is read, and a whole file as
-//! it is written.
-
-use std::borrow::Cow;
+//! The two kinds of file, and a whole file as it is written. The top level
+//! as it is read is `inspect`'s (plan 7.3, step 4).
 
 use serde::{Deserialize, Serialize};
-use serde_json::value::RawValue;
 use serde_json::Value;
 
 use super::content::ContentV1;
@@ -53,20 +50,6 @@ impl ArtifactKind {
             ArtifactKind::Pack => MEDIA_TYPE_PACK,
         }
     }
-}
-
-/// The top level as it is read (plan 7.3, step 4): `manifest` and `content`
-/// stay raw, the content for its digest over the bytes as they are in the file.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct Envelope<'a> {
-    #[serde(borrow)]
-    pub format: Cow<'a, str>,
-    pub format_version: u32,
-    #[serde(borrow)]
-    pub manifest: &'a RawValue,
-    #[serde(borrow)]
-    pub content: &'a RawValue,
 }
 
 /// A whole file, typed.

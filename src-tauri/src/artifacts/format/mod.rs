@@ -3,7 +3,7 @@
 //! to its default when written; none of them is a workspace type, except
 //! the feedback rule, which is the workspace's own (`state::feedback`).
 //!
-//! * `envelope`   the two kinds, the top level as read, a whole file as written
+//! * `envelope`   the two kinds, a whole file as written
 //! * `manifest`   the manifest, dependencies, requirements, inputs; `check_manifest`
 //! * `content`    surfaces, pages, controls, context rules; `check_content`
 //! * `cross`      kind rules, requirements, declarations, references; `check_cross`
@@ -31,7 +31,7 @@ pub use content::{
 };
 pub(in crate::artifacts) use cross::assignments;
 pub use cross::{check_cross, compute_requirements};
-pub use envelope::{ArtifactKind, ArtifactV1, Envelope};
+pub use envelope::{ArtifactKind, ArtifactV1};
 pub use manifest::{
     check_manifest, Author, AuxRequirement, CreatedWith, DependencyV1, GridRequirement, InputDef,
     InputOption, InputType, InputValue, Integrity, ManifestV1, Requirements, TestedKind,
