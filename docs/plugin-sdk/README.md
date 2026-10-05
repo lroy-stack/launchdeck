@@ -1,6 +1,6 @@
 # Plugin SDK
 
-A LaunchDeck plugin is a folder with two files, `plugin.json` and one `.wasm` module. You can write it in any language that compiles to WebAssembly, the people who install it need no Node, Rust or compiler, and the same files run on macOS, Windows and Linux.
+A LaunchDeck plugin is a folder with two files, `plugin.json` and one `.wasm` module. You can write it in any language that compiles to WebAssembly, the people who install it need no Node, Rust or compiler, and the module format is the same on every system: the same files have been run on Linux and macOS (by the test suites), and have not been run on Windows.
 
 A plugin does four things, and may ask for a fifth: it **offers actions** (things a pad can do, which appear in the Surface editor's [Action Library](../actions/action-library.md) automatically, with a form drawn from the manifest), it **returns a result** for each call, it **publishes events** (things that happened) and it **reports states** (how things are now). Both are listed in LaunchDeck's [Observable Catalog](../observables.md) with no other registration. A plugin that has to talk to a service **asks for network access** to named addresses, which the person grants one by one ([capabilities](capabilities.md)). It never learns about pads, colours, MIDI or devices. A surface decides what an event looks like on a pad, which is why one plugin works on every controller.
 

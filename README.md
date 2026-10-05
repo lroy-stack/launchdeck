@@ -4,7 +4,7 @@
 
 It is a runtime, not a music toy: pads that open apps, run actions, switch contexts and show live state, including the state of things outside your computer through plugins you grant network access to, starting with the Novation Launchpad X. A virtual Launchpad is built in, so everything works without hardware.
 
-> Status: **v0.2 prototype.** The runtime, editor, virtual device, Launchpad X adapter, Agent Control, the plugin platform and Auto Context work and are tested, **on Linux**. Nothing has been built or run on macOS or Windows yet, and the Launchpad X path has **not** been exercised on real hardware (see [verified where](#verified-where) and [known limitations](#known-limitations)). What comes next, and how to pick it up on a Mac, is in [NEXT_PHASE.md](NEXT_PHASE.md).
+> Status: **v0.2 prototype.** The runtime, editor, virtual device, Launchpad X adapter, Agent Control, the plugin platform and Auto Context work and are tested, **on Linux**. On macOS it is built, and the Rust (715 passed, 0 failed, 2 ignored) and TypeScript (309) tests pass on macOS 15.4.1, Apple M2, Rust 1.97.0; the Auto Context observer, Keychain, CoreMIDI and `enigo` compile there but have not been seen running, and the app window has not been checked by hand. Windows has never been built, and the Launchpad X path has **not** been exercised on real hardware (see [verified where](#verified-where) and [known limitations](#known-limitations)). What remains to check by hand on a Mac is in [section 4 of NEXT_PHASE.md](NEXT_PHASE.md#4-check-by-hand-on-the-mac).
 
 ## Flagship: Agent Control
 
@@ -49,28 +49,28 @@ Agents you connect start read-only. You grant control per agent, in the app. See
 | Local WebSocket for external events and the Agent Bridge (`127.0.0.1` only) | Working. |
 | Hook endpoint for Claude Code and Codex (`127.0.0.1` only, token, off by default) | Working for Claude Code (verified live). Codex untested. |
 | System tray | Working where the OS supports it. |
-| Auto Context: the surface follows the application in front, by ordered rules (application to surface and page), with an explicit fallback, a manual override that is never fought, and a panel that says which rule matched and why | Working on Linux/X11, tested in the real desktop app with real windows. macOS and Windows observers are written and **have not been compiled or run**. Not available on Wayland. [Guide](docs/context-engine.md) |
+| Auto Context: the surface follows the application in front, by ordered rules (application to surface and page), with an explicit fallback, a manual override that is never fought, and a panel that says which rule matched and why | Working on Linux/X11, tested on Linux in an earlier milestone in the real desktop app with real windows. The macOS observer compiles on macOS but has **not been seen running** (NOT VERIFIED). The Windows observer is written and **has never been compiled**. Not available on Wayland. [Guide](docs/context-engine.md) |
 | Marketplace, MCP, Agent Pack loading | Documented as roadmap or manifest only. |
 
 ## Verified where
 
-Everything in the table above was built and tested in one Linux environment. This is what that does and does not cover:
+Everything in the table above was built and tested in one Linux environment, in earlier milestones. On macOS it has since been built and its tests run; that record is [VERIFICATION.md](VERIFICATION.md). This is what that does and does not cover:
 
 | | Linux | macOS | Windows |
 | --- | --- | --- | --- |
-| Builds, unit and integration tests (Rust and TypeScript) | Yes | **Never built** | **Never built** |
-| The real desktop app, driven through its window ([tools/desktop-e2e](tools/desktop-e2e/README.md)) | Yes, 218 checks | No (the harness is Linux only) | No |
-| Secrets in the system credential store | Yes, a real Secret Service keyring | Keychain: not run | Credential Manager: not run |
-| Auto Context observer | Yes, X11 with a window manager. Wayland: not available | Written, **not compiled** | Written, **not compiled** |
-| Keyboard shortcuts and media keys (`enigo`) | Behind a fake in tests; not run against a real desktop | Not run | Not run |
-| Launchpad X over USB | Byte-tested, **no physical unit** | Same | Same |
-| Home Assistant example | Against a stand-in server, **not a real installation** | Same | Same |
+| Builds, unit and integration tests (Rust and TypeScript) | Yes | Yes: built, and the Rust (715 passed, 0 failed, 2 ignored) and TypeScript (309) tests pass on macOS 15.4.1, Apple M2, Rust 1.97.0 | **Never built** |
+| The real desktop app, driven through its window ([tools/desktop-e2e](tools/desktop-e2e/README.md)) | Yes, 218 checks | No (the harness is Linux only); the app window has not been checked by hand | No |
+| Secrets in the system credential store | Yes, a real Secret Service keyring | Keychain: compiled, not run | Credential Manager: not run |
+| Auto Context observer | Yes, X11 with a window manager, in an earlier milestone. Wayland: not available | Compiled; running **NOT VERIFIED** | Written, **never compiled** |
+| Keyboard shortcuts and media keys (`enigo`) | Behind a fake in tests; not run against a real desktop | Compiled; behind a fake in tests; not run | Not run |
+| Launchpad X over USB | Byte-tested, **no physical unit** | Byte-tested; CoreMIDI compiled, **no physical unit** | Not run |
+| Home Assistant example | Against a stand-in server, **not a real installation** | Same | Not run |
 
-There is no continuous integration yet. Four Rust tests compare against fixtures recorded on Linux and are expected to fail elsewhere; they are listed, with the fix, in [NEXT_PHASE.md](NEXT_PHASE.md#3-tests-expected-to-fail-on-macos).
+A workflow for Linux, macOS and Windows exists (`.github/workflows/ci.yml`); it has not run yet: GitHub Actions did not start for account billing reasons. What remains to check by hand on a Mac (the app itself, Auto Context, the Keychain, keyboard shortcuts, a Launchpad X, a Home Assistant) is in [section 4 of NEXT_PHASE.md](NEXT_PHASE.md#4-check-by-hand-on-the-mac).
 
 ## Run it
 
-Requirements: Node 20+, Rust stable, and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS. On Linux this means WebKitGTK 4.1, GTK 3, `libayatana-appindicator3` and ALSA headers (`libasound2-dev`).
+Requirements: Node ^20.19, ^22.13 or 24+; Rust 1.97.0, pinned by `rust-toolchain.toml`; and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS. On Linux this means WebKitGTK 4.1, GTK 3, `libayatana-appindicator3` and ALSA headers (`libasound2-dev`).
 
 ```bash
 npm install
@@ -191,7 +191,7 @@ NEXT_PHASE.md         what to do next and how to continue on a Mac
 
 ## Documentation
 
-* [Next phase](NEXT_PHASE.md): what is unverified, what to do first on macOS, and the milestone after that
+* [Next phase](NEXT_PHASE.md): the macOS phase, with what remains to check by hand in [section 4](NEXT_PHASE.md#4-check-by-hand-on-the-mac), and the milestone after that; what was built and tested on macOS is in [VERIFICATION.md](VERIFICATION.md)
 * [Product](docs/product.md)
 * [Architecture](docs/architecture/overview.md)
 * [Surfaces](docs/surfaces.md)
@@ -210,7 +210,7 @@ NEXT_PHASE.md         what to do next and how to continue on a Mac
 
 ## Known limitations
 
-* **Built and tested on Linux only, and there is no CI.** macOS and Windows have never compiled this code. Two files exist only for those systems and have never been through a compiler (`src-tauri/src/context/observer/macos.rs` and `windows.rs`), and four Rust tests are tied to fixtures recorded on Linux. See [verified where](#verified-where) and [NEXT_PHASE.md](NEXT_PHASE.md).
+* **Built and tested on Linux and macOS, never built on Windows, and CI has not run.** On macOS it is built, and the Rust (715 passed, 0 failed, 2 ignored) and TypeScript (309) tests pass on macOS 15.4.1, Apple M2, Rust 1.97.0; the Auto Context observer, Keychain, CoreMIDI and `enigo` compile there but have not been seen running, and the app window has not been checked by hand. Windows has never compiled this code, and one file exists only for it and has never been through a compiler (`src-tauri/src/context/observer/windows.rs`). A workflow for Linux, macOS and Windows exists (`.github/workflows/ci.yml`); it has not run yet: GitHub Actions did not start for account billing reasons. See [verified where](#verified-where) and [section 4 of NEXT_PHASE.md](NEXT_PHASE.md#4-check-by-hand-on-the-mac).
 * **Not tested on a physical Launchpad X.** The environment this prototype was built in had no MIDI hardware. SysEx and note mappings follow Novation's Programmer's Reference Manual and are covered by byte-level tests, but real-world behaviour (port names on your OS, timing) is unconfirmed. Agent Control sends the same frames to the virtual and the physical device and is tested on the virtual one.
 * **Auxiliary buttons are experimental.** The manual shows the top row, side column and logo in diagrams only. The controller numbers used (top CC 91 to 98, side CC 89 down to 19, logo 99) follow the layout commonly documented for the Launchpad MK3 family and are unverified.
 * **Pulse and flash are software animations on the Launchpad X.** Colour palette indices are not invented, so static colours use RGB and animations are rendered by LaunchDeck at 25 Hz. Hardware pulse/flash encoders exist and are tested but unused. Urgent agent states rely on this animation, so it is the first thing to check on a real unit.
@@ -218,7 +218,7 @@ NEXT_PHASE.md         what to do next and how to continue on a Mac
 * **The Agent Bridge is not authenticated.** Any local process can register an agent, read-only. Control still needs your explicit grant.
 * **Agent state is not persisted.** Agents and sessions are rebuilt as adapters reconnect. Settings, control grants and the audit trail are kept.
 * Keyboard shortcuts and volume keys use OS automation (`enigo`). On macOS this needs Accessibility permission, and on Linux Wayland sessions may block synthetic input.
-* **Auto Context is verified on Linux/X11 only.** The macOS and Windows observers were written without being able to build them here; on Wayland it is not available at all (no standard way to learn the focused application), and LaunchDeck says so and works by hand. Rules match the application only: no window titles, projects or conditions. See [docs/context-engine.md](docs/context-engine.md#platform-support).
+* **Auto Context is verified on Linux/X11 only**, in an earlier milestone. The macOS observer compiles on macOS but has not been seen running (NOT VERIFIED); the Windows observer is written and has never been compiled; on Wayland it is not available at all (no standard way to learn the focused application), and LaunchDeck says so and works by hand. Rules match the application only: no window titles, projects or conditions. See [docs/context-engine.md](docs/context-engine.md#platform-support).
 * **The only plugin capability is HTTP.** A plugin can make HTTP and HTTPS requests to addresses you granted, with text bodies, one at a time. There are no files, no shell, no WebSocket or other long-lived connection, no MQTT, no OAuth flow and no proxy support. State from an outside system is therefore **polled** (the Home Assistant example every 5 seconds), not pushed.
 * **The Home Assistant example was checked against a stand-in, not a real installation**, and switches lights and switches on and off only.
 * **Secrets need a system credential store.** Keychain on macOS, Credential Manager on Windows, a Secret Service keyring on Linux. Without one, a plugin's secrets are unavailable and the app says why; there is no file fallback. Only the Linux path has been run here. A secret is not removed when its plugin's folder is deleted. See [docs/security/secrets.md](docs/security/secrets.md).

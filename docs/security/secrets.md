@@ -99,4 +99,4 @@ sh scripts/test-secret-service.sh
 
 runs the one test that does use a real store, inside a private D-Bus session with a GNOME Keyring started for it, in a temporary folder that is deleted afterwards, and then checks that the keyring's files hold no value in the clear. Linux only (`apt install dbus gnome-keyring`). The desktop suites do the same for the whole app.
 
-On macOS and Windows that test has not been run: this repository was developed on Linux. The code path is the same crate with the native backend for each system.
+That test has been run on Linux, against a real Secret Service. On macOS the Keychain path compiles, and the tests pass there with the in-memory store; the real Keychain is **NOT VERIFIED**: the check by hand ([4.3 in NEXT_PHASE.md](../../NEXT_PHASE.md#43-secrets-in-the-keychain)) has not been done. On Windows nothing has been built or run. The code path is the same crate with the native backend for each system.

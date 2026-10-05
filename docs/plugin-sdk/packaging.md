@@ -8,7 +8,7 @@ acme.notes/            any folder name; the manifest id is what counts
   notes.wasm
 ```
 
-That folder is the whole artifact. Nothing is compiled, downloaded or executed at install time, and the same bytes run on macOS, Windows and Linux. To ship it, zip the folder; to install it, unzip into the plugins folder. Compressed bundles, checksums and signatures are not part of the format yet and the manifest does not block adding them (see the [marketplace roadmap](../roadmap/marketplace.md)). There is no marketplace.
+That folder is the whole artifact. Nothing is compiled, downloaded or executed at install time, and the format is the same on every system: the same bytes have been run on Linux and macOS (by the test suites), and have not been run on Windows. To ship it, zip the folder; to install it, unzip into the plugins folder. Compressed bundles, checksums and signatures are not part of the format yet and the manifest does not block adding them (see the [marketplace roadmap](../roadmap/marketplace.md)). There is no marketplace.
 
 ## Where plugins are searched
 

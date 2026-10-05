@@ -119,13 +119,13 @@ Going back to **Live** applies the current application's rule once (unless a man
 
 | Environment | Auto Context | How | Tested here |
 | --- | --- | --- | --- |
-| Linux, X11, with a window manager | **Available** | The window manager's `_NET_ACTIVE_WINDOW` (EWMH); `PropertyNotify` events, no polling | Yes: real X server, openbox, real windows (`tools/desktop-e2e`, suite `context`) |
-| macOS | Written, **not compiled or run** | `NSWorkspace` activation notifications; a read every 2 s as a safety net | No |
-| Windows | Written, **not compiled or run** | `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)`; a read every 2 s as a safety net | No |
+| Linux, X11, with a window manager | **Available** | The window manager's `_NET_ACTIVE_WINDOW` (EWMH); `PropertyNotify` events, no polling | Yes, on Linux in an earlier milestone: real X server, openbox, real windows (`tools/desktop-e2e`, suite `context`) |
+| macOS | Compiled; running **NOT VERIFIED** | `NSWorkspace` activation notifications; a read every 2 s as a safety net | Compiled and clippy-clean; not seen running |
+| Windows | Written, **never compiled** | `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)`; a read every 2 s as a safety net | No |
 | Linux, Wayland (any compositor) | **Not available** | Wayland gives applications no way to learn which application has focus. Per compositor: wlroots (Sway, Hyprland) has a protocol that is not implemented here; GNOME needs a Shell extension; KDE needs a KWin script. | The refusal and its message: yes |
 | Linux, X11 without an EWMH window manager | **Not available** | Nothing reports the active window | Yes |
 
-The macOS and Windows adapters could not be built in the environment this was developed in (the Rust standard library for those targets could not be downloaded). They are small, written against the exact signatures of the binding crates already in the dependency tree, and share the identity code that *is* tested. Treat them as unverified until someone builds and runs them.
+On macOS LaunchDeck is built, and the Rust (715 passed, 0 failed, 2 ignored) and TypeScript (309) tests pass on macOS 15.4.1, Apple M2, Rust 1.97.0; the macOS adapter compiled there as written and passed clippy, but the Auto Context observer has not been seen running and the app window has not been checked by hand (the check is [4.2 in NEXT_PHASE.md](../NEXT_PHASE.md#42-auto-context); the record is [VERIFICATION.md](../VERIFICATION.md)). The Windows adapter could not be built in the environment it was written in (the Rust standard library for that target could not be downloaded) and has never been compiled. Both are small, written against the exact signatures of the binding crates already in the dependency tree, and share the identity code that *is* tested. Treat them as unverified until someone runs them.
 
 **Known limits where it does work**
 

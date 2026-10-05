@@ -56,7 +56,7 @@ Agent Control is the first vertical built on the platform: **a physical human co
 * A surface that follows the application in front, with rules the person wrote.
 * The same runtime driving a real Launchpad X when one is plugged in.
 
-All of it was built and tested on Linux, without a physical Launchpad. What has and has not been verified, per system, is in the [README](../README.md#verified-where).
+All of it was built and tested on Linux in earlier milestones. On macOS it is built, and the Rust (715 passed, 0 failed, 2 ignored) and TypeScript (309) tests pass on macOS 15.4.1, Apple M2, Rust 1.97.0; the Auto Context observer, Keychain, CoreMIDI and `enigo` compile there but have not been seen running, and the app window has not been checked by hand. Windows has never been built, and nothing has been run with a physical Launchpad. What has and has not been verified, per system, is in the [README](../README.md#verified-where).
 
 ## Out of scope
 
