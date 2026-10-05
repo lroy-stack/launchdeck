@@ -491,7 +491,7 @@ Human/external: Keychain (4.3) NOT VERIFIED (f); real Home Assistant NOT VERIFIE
 | Versioning | app **0.3.0**, plain numeric (pre-release suffixes break MSI, CFBundleShortVersionString, RPM and semver ranges), labelled "alpha" in About, README, CHANGELOG and the GitHub pre-release flag. `src-tauri/Cargo.toml` is the single source: `version` removed from `tauri.conf.json`; `package.json` kept equal by `versions:check`; every first-party built-in provider reports `CARGO_PKG_VERSION`. Unchanged: SDK 0.2.1, ABI 1, manifest schema 4, workspace schema 4, bridge protocol 1, artifact format 1 (integers are compatibility numbers, not 1.0 claims). Table in `docs/architecture/versions.md` and in About | E5, R4 |
 | Empty states | one sentence + one next step: no plugins (Install examples / Show plugins folder), blank Live page ("Switch to Edit to add pads"), missing action ("Needs the plugin <name>" + Open Plugins, id under Details), activity feed with names, category labels, no repository `docs/` paths in rendered text (test) | E6, D2 |
 | Bundles in the alpha | macOS arm64 `.app`/`.dmg` built here, ad-hoc signed (`signingIdentity "-"`), `minimumSystemVersion "11.0"`; Linux `.deb`/`.rpm` and Windows NSIS from CI only, NOT VERIFIED (a). Not shipped: MSI, AppImage, x86_64/universal macOS, auto-update. Identifier `dev.launchdeck.app` kept | R5, R1 |
-| License | **user decision** (risk R-03). Until then: no bundle leaves this machine; README/CHANGELOG say "license: not chosen yet (package metadata says MIT; to be confirmed by the owner)"; `publisher`, `copyright`, `bundle.license` stay unset | — |
+| License | MIT, decided by the owner on 2026-10-05: root `LICENSE`, `license` in Cargo.toml, the root and example `package.json` files and the SDK, `bundle.license` and `bundle.licenseFile` in tauri.conf.json, README section | done |
 | CHANGELOG | Keep a Changelog 1.1.0, by capability: `[Unreleased] — 0.3.0, first external alpha` (capabilities, verified where, versions, link to known limitations, license status) and a `0.2.0 — 2026-10-04, internal prototype, not released` line; date and RC commit fixed at release | R4 |
 
 ## 10. Documentation plan
@@ -570,7 +570,7 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 | 23 | E3 | Surface management, onboarding flag, load notice | yes | A7 | | todo |
 | 24 | E4 | First run and starter content | yes | E2, E3, A5 | | todo |
 | 25 | E5 | Settings, About, single version source | yes | E3, D2 | | todo |
-| 26 | E6 | Empty states and readable activity | no | A4 | R2 | todo |
+| 26 | E6 | Empty states and readable activity | no | A4 | R2 | done |
 | 27 | R2 | Release acceptance automation | yes | C5, D2 | E6 | todo |
 | 28 | R3 | Documentation restructure and user docs | yes (comments) | A2 | | todo |
 | 29 | R4 | README, CHANGELOG, versions, 0.3.0 | yes | A2 | | todo |
