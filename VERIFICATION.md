@@ -150,3 +150,24 @@ Not done from section 5: the desktop suite job (Linux, on demand or nightly, ite
 | Section 3: four tests fail on macOS, all from values recorded on Linux | **Confirmed**, all four, for the reasons given. |
 | Section 3: "Anything else that fails is new information" | One more, intermittent: `the_same_application_again_is_a_no_op`, a race in the test's baseline, not a fault of the product and not specific to macOS. |
 | Section 3: `localhost`, fuel and wall clock on Apple silicon, `#[cfg(unix)]` tests (no prediction / expected to pass) | All pass. |
+
+## Productization: macOS observer evidence
+
+2026-10-05, branch `productization`, this Mac (macOS 15.4.1, Apple M2), Rust 1.97.0. Package B1 of `PRODUCTIZATION_PLAN.md`.
+
+`examples/foreground.rs` now runs the observer on a thread of its own and the main run loop on the main thread, as the app does. Before, the observer ran on the main thread and nothing ran the run loop.
+
+Command, from `src-tauri/`: `cargo run --example foreground` in the background, its output in a file; while it ran, `open -a TextEdit`, `open -a Finder`, `open -a Terminal`, about five seconds apart; then the example was stopped. What it printed (namespace:id, milliseconds from its start):
+
+| ms | Identity |
+| --- | --- |
+| 3 | `macos:com.brave.Browser` (in front when it started) |
+| 7541 | `macos:com.apple.TextEdit` |
+| 12537 | `macos:com.apple.finder` |
+| 17757 | `macos:com.apple.Terminal` |
+
+Between these lines the two-second safety net repeated the application in front (2014, 4024, 6027 ms and so on). The changes arrived between its reads, so they came from the activation notifications.
+
+Before and after, side by side: the example as it was before this change (copied from `HEAD` into a temporary example, deleted afterwards) and the new one ran at the same time through the same three switches, and System Events was asked after each `open -a` which application was in front: TextEdit, Finder, Terminal, each confirmed. The new example printed `macos:com.apple.TextEdit`, `macos:com.apple.finder` and `macos:com.apple.Terminal` at 3141, 7235 and 11489 ms. The old one printed `macos:com.brave.Browser` every two seconds until it was stopped: without a running main run loop, `frontmostApplication` does not change either, so its safety net saw nothing.
+
+What this proves: on this Mac, the macOS adapter (`context/observer/macos.rs`) reports the application in front by its bundle identifier through `NSWorkspace`, from the activation notifications, whenever the main run loop runs. What it does not prove: anything about the app. Auto Context in the LaunchDeck window, the checklist of NEXT_PHASE.md section 4.2, is still **NOT VERIFIED**: no person has done the manual checks of section 4.
