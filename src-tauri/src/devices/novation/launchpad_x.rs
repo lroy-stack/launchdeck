@@ -1,4 +1,6 @@
-//! Novation Launchpad X adapter. The ONLY place that knows MIDI bytes.
+//! Novation Launchpad X adapter: its port names, its capabilities and the
+//! device. Its bytes are built and read by the shared MK3 codec
+//! (`novation::protocol`, `novation::layout`) with the X's product byte.
 //!
 //! Protocol facts come from the official "Launchpad X Programmer's reference
 //! manual" (see docs/devices/launchpad-x.md for what is verified and what is
@@ -8,6 +10,13 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use super::layout::{self, led_index};
+use super::protocol::{self, to_7bit, Colourspec, Product};
+#[cfg(test)]
+use super::{
+    layout::{pos_from_cc, pos_from_note},
+    protocol::MAX_COLOURSPECS,
+};
 use crate::core::model::{ControlPos, Rgb};
 use crate::devices::midi::{MidiBackend, MidiLink, PortInfo};
 use crate::devices::{
@@ -17,122 +26,40 @@ use crate::devices::{
 };
 
 // ---------------------------------------------------------------------------
-// Protocol (pure functions, unit tested without hardware)
+// Protocol: the shared MK3 codec with the X's product byte
 // ---------------------------------------------------------------------------
 
-/// `F0 00 20 29 02 0C`: Novation manufacturer id + Launchpad X product id.
-pub const SYSEX_HEADER: [u8; 6] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C];
-const SYSEX_END: u8 = 0xF7;
-/// The manual allows up to 81 colourspecs per lighting message.
-pub const MAX_COLOURSPECS: usize = 81;
+const PRODUCT: Product = Product::X;
 
 /// Select Programmer mode: `F0 00 20 29 02 0C 0E 01 F7`.
 pub fn enter_programmer_mode() -> Vec<u8> {
-    let mut m = SYSEX_HEADER.to_vec();
-    m.extend([0x0E, 0x01, SYSEX_END]);
-    m
+    protocol::programmer_mode(PRODUCT, true)
 }
 
 /// Return to Live mode: `F0 00 20 29 02 0C 0E 00 F7`.
 pub fn exit_programmer_mode() -> Vec<u8> {
-    let mut m = SYSEX_HEADER.to_vec();
-    m.extend([0x0E, 0x00, SYSEX_END]);
-    m
+    protocol::programmer_mode(PRODUCT, false)
 }
 
-/// Programmer-mode LED/note index for a logical position.
-///
-/// Grid: `note = 10 * (8 - row) + col + 1` (lower left 11, upper left 81,
-/// lower right 18; all three are examples in the manual).
-///
-/// UNVERIFIED (the manual shows these only in diagrams): top row CC 91..=98,
-/// side column CC 89 down to 19, logo 99. Auxiliary controls are therefore
-/// experimental until confirmed on hardware.
-pub fn led_index(pos: ControlPos) -> Option<u8> {
-    match pos {
-        ControlPos::Grid { col, row } if col < 8 && row < 8 => Some(10 * (8 - row) + col + 1),
-        ControlPos::Top { index } if index < 8 => Some(91 + index),
-        ControlPos::Side { index } if index < 8 => Some(89 - 10 * index),
-        ControlPos::Logo => Some(99),
-        _ => None,
-    }
-}
-
-pub fn pos_from_note(note: u8) -> Option<ControlPos> {
-    let (tens, units) = (note / 10, note % 10);
-    if (1..=8).contains(&tens) && (1..=8).contains(&units) {
-        Some(ControlPos::Grid {
-            col: units - 1,
-            row: 8 - tens,
-        })
-    } else {
-        None
-    }
-}
-
-pub fn pos_from_cc(cc: u8) -> Option<ControlPos> {
-    match cc {
-        91..=98 => Some(ControlPos::Top { index: cc - 91 }),
-        c if c % 10 == 9 && (1..=8).contains(&(c / 10)) => {
-            Some(ControlPos::Side { index: 8 - c / 10 })
-        }
-        _ => None, // 99 (logo) is output only
-    }
-}
-
-/// Decode an incoming short MIDI message (Programmer mode).
+/// Decode an incoming short MIDI message (Programmer mode); the X reports
+/// its pads' velocity.
 pub fn decode_message(bytes: &[u8]) -> Option<(ControlPos, InputKind)> {
-    let [status, data1, data2] = *bytes else {
-        return None;
-    };
-    match status & 0xF0 {
-        0x90 => {
-            let pos = pos_from_note(data1)?;
-            Some((
-                pos,
-                if data2 > 0 {
-                    InputKind::Pressed { velocity: data2 }
-                } else {
-                    InputKind::Released
-                },
-            ))
-        }
-        0x80 => Some((pos_from_note(data1)?, InputKind::Released)),
-        0xB0 => {
-            let pos = pos_from_cc(data1)?;
-            Some((
-                pos,
-                if data2 > 0 {
-                    InputKind::Pressed { velocity: data2 }
-                } else {
-                    InputKind::Released
-                },
-            ))
-        }
-        _ => None,
-    }
-}
-
-/// 0..=255 to the 0..=127 range the lighting SysEx expects.
-pub fn to_7bit(v: u8) -> u8 {
-    ((u16::from(v) * 127 + 127) / 255) as u8
+    layout::decode(bytes, capabilities().velocity)
 }
 
 /// Encode RGB updates (`03 <index> <r> <g> <b>` per LED) into one or more
 /// SysEx messages of at most 81 colourspecs each.
 pub fn encode_rgb_updates(changes: &[(u8, Rgb)]) -> Vec<Vec<u8>> {
-    changes
-        .chunks(MAX_COLOURSPECS)
-        .map(|chunk| {
-            let mut m = SYSEX_HEADER.to_vec();
-            m.push(0x03);
-            for (index, c) in chunk {
-                m.extend([0x03, *index, to_7bit(c.r), to_7bit(c.g), to_7bit(c.b)]);
-            }
-            m.push(SYSEX_END);
-            m
+    let specs: Vec<Colourspec> = changes
+        .iter()
+        .map(|&(index, c)| Colourspec::Rgb {
+            index,
+            r: to_7bit(c.r),
+            g: to_7bit(c.g),
+            b: to_7bit(c.b),
         })
-        .collect()
+        .collect();
+    protocol::lighting(PRODUCT, &specs)
 }
 
 /// Hardware flashing colourspec: `01 <index> <colour B> <colour A>`. Palette
@@ -140,17 +67,18 @@ pub fn encode_rgb_updates(changes: &[(u8, Rgb)]) -> Vec<Vec<u8>> {
 /// palette is verified on hardware (animations are synthesised from RGB frames).
 #[cfg_attr(not(test), expect(dead_code, reason = "byte-tested, not yet rendered"))]
 pub fn encode_flash(index: u8, colour_b: u8, colour_a: u8) -> Vec<u8> {
-    let mut m = SYSEX_HEADER.to_vec();
-    m.extend([0x03, 0x01, index, colour_b, colour_a, SYSEX_END]);
-    m
+    let flash = Colourspec::Flash {
+        index,
+        b: colour_b,
+        a: colour_a,
+    };
+    protocol::lighting(PRODUCT, &[flash]).concat()
 }
 
 /// Hardware pulsing colourspec: `02 <index> <palette>`.
 #[cfg_attr(not(test), expect(dead_code, reason = "byte-tested, not yet rendered"))]
 pub fn encode_pulse(index: u8, palette: u8) -> Vec<u8> {
-    let mut m = SYSEX_HEADER.to_vec();
-    m.extend([0x03, 0x02, index, palette, SYSEX_END]);
-    m
+    protocol::lighting(PRODUCT, &[Colourspec::Pulse { index, palette }]).concat()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

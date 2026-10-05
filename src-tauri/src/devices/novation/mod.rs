@@ -6,9 +6,8 @@
 pub(crate) mod launchpad_x;
 #[cfg(test)]
 mod launchpad_x_tests;
-// The Mini MK3 packages (M3-M8) put the rest of the codec to use.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by later packages"))]
 mod layout;
+// The Mini MK3 packages (M3-M8) put the rest of the codec to use.
 #[cfg_attr(not(test), expect(dead_code, reason = "used by later packages"))]
 mod protocol;
 #[cfg(test)]
