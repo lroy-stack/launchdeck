@@ -9,6 +9,8 @@ Four numbers, deliberately independent so a change in one does not force the oth
 | SDK | The authoring library a plugin was built with | `sdk` in the manifest (optional) | `0.2.1` |
 | Plugin | Your own release | `version` | yours |
 
+The app's own version and every other compatibility number LaunchDeck has (workspace schema, Agent Bridge protocol, Surface and Pack format) are listed in [the versions table](../architecture/versions.md), and shown in the app under **Settings, About**.
+
 ## How they are checked
 
 * **Manifest schema.** Read first. A number outside the supported range fails with `manifest schema version 5 is not supported (this LaunchDeck reads versions 1 to 4)`, so a new shape is reported rather than misread. Schema 2 only *adds* optional fields to actions (`category`, `keywords`, `appearance`, `params`), and schema 1's `args` are converted to `params` when the manifest is read. Schema 3 only adds `states`, the `name` and `fields` of an event and `suggests` on an action. Schema 4 adds `capabilities` as an object (with `network`), `secrets`, `refresh` and a `label` on settings, and refuses the old `secret` flag on a setting. The host reads all four; a plugin never has to move up unless it wants what the newer one adds. None of these changes touches the module: `abi` stays `1`, so no `.wasm` file needs rebuilding. A rebuilt module is needed only to *call* `setState`, `http.request` or to answer `refresh`.
