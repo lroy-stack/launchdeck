@@ -795,6 +795,7 @@ async fn a_failing_save_leaves_everything_unchanged() {
             .unwrap_err(),
         rt.rename_page("development", "git", "Source").unwrap_err(),
         rt.remove_page("development", "git").unwrap_err(),
+        rt.set_onboarding_done(true).unwrap_err(),
     ] {
         assert!(error.contains("could not be saved"), "{error}");
     }
@@ -860,4 +861,31 @@ async fn the_last_page_cannot_be_deleted_and_the_page_on_screen_moves_home() {
     assert!(ws.surface("development").unwrap().page("git").is_none());
     assert_eq!(rt.state().active_surface_id, "development");
     assert_eq!(rt.state().active_page_id, "home");
+}
+#[tokio::test(flavor = "multi_thread")]
+async fn the_onboarding_flag_changes_alone_and_persists() {
+    let dir = tempfile::tempdir().unwrap();
+    let rt = start(default_workspace(), Some(Store::new(dir.path()))).await;
+    let before = rt.snapshot().workspace;
+    assert!(!before.preferences.onboarding_done);
+
+    rt.set_onboarding_done(true).unwrap();
+
+    let mut expected = before.clone();
+    expected.preferences.onboarding_done = true;
+    assert_eq!(rt.snapshot().workspace, expected);
+    assert_eq!(on_disk(dir.path()), Some(expected));
+    rt.set_onboarding_done(false).unwrap();
+    assert!(!on_disk(dir.path()).unwrap().preferences.onboarding_done);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_reset_keeps_the_onboarding_flag() {
+    let rt = start(default_workspace(), None).await;
+    rt.set_onboarding_done(true).unwrap();
+    rt.create_surface("Mine").unwrap();
+    rt.reset_workspace();
+    let ws = rt.snapshot().workspace;
+    assert!(ws.surface("mine").is_none());
+    assert!(ws.preferences.onboarding_done);
 }

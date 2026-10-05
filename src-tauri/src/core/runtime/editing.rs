@@ -278,12 +278,7 @@ impl<E: fmt::Display> fmt::Display for CommitError<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CommitError::Refused(e) => e.fmt(f),
-            CommitError::NotSaved(e) => {
-                write!(
-                    f,
-                    "The change could not be saved, so nothing changed ({e})."
-                )
-            }
+            CommitError::NotSaved(e) => f.write_str(&not_saved(e)),
         }
     }
 }
@@ -417,6 +412,26 @@ impl Runtime {
         })
         .map_err(|e| e.to_string())
     }
+
+    /// Whether the first run is over. Only that preference changes, saved
+    /// before it is made; a reset keeps it, like every preference.
+    pub fn set_onboarding_done(&self, done: bool) -> Result<(), String> {
+        {
+            let mut inner = self.lock();
+            let mut candidate = inner.workspace.clone();
+            candidate.preferences.onboarding_done = done;
+            if let Some(store) = &self.store {
+                store.save(&candidate).map_err(|e| not_saved(&e))?;
+            }
+            inner.workspace = candidate;
+        }
+        self.emit_workspace();
+        Ok(())
+    }
+}
+
+fn not_saved(error: &PersistError) -> String {
+    format!("The change could not be saved, so nothing changed ({error}).")
 }
 
 fn missing_surface() -> String {

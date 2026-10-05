@@ -133,6 +133,12 @@ pub(crate) fn remove_page(
     state.runtime.remove_page(&surface_id, &page_id)
 }
 
+/// Only the onboarding preference changes; the UI follows the workspace event.
+#[tauri::command]
+pub(crate) fn set_onboarding_done(state: State<'_, AppState>, done: bool) -> CmdResult<()> {
+    state.runtime.set_onboarding_done(done)
+}
+
 #[tauri::command]
 pub(crate) fn reset_workspace(state: State<'_, AppState>) {
     state.runtime.reset_workspace();

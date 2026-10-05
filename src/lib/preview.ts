@@ -313,6 +313,9 @@ export async function createPreviewTransport() {
       case "update_preferences":
         workspace.preferences = args.preferences as Workspace["preferences"];
         return pushWorkspace();
+      case "set_onboarding_done":
+        workspace.preferences = { ...workspace.preferences, onboardingDone: args.done === true };
+        return pushWorkspace();
       case "actions_catalog":
         return catalog;
       case "observables_catalog":

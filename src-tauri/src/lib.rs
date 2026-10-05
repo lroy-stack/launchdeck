@@ -108,6 +108,7 @@ pub fn run() {
             commands::workspace::remove_page,
             commands::workspace::reset_workspace,
             commands::workspace::update_preferences,
+            commands::workspace::set_onboarding_done,
             commands::context::context_status,
             commands::context::context_update,
             commands::context::context_resume,

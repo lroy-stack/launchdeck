@@ -147,6 +147,8 @@ export const api = {
   removePage: (surfaceId: string, pageId: string): Promise<void> => call("remove_page", null, { surfaceId, pageId }),
   resetWorkspace: (): Promise<void> => call("reset_workspace", null),
   updatePreferences: (preferences: Preferences): Promise<void> => call("update_preferences", null, { preferences }),
+  /** Only the onboarding preference changes, saved before it is made; a reset keeps it. */
+  setOnboardingDone: (done: boolean): Promise<void> => call("set_onboarding_done", null, { done }),
   /** Runs an assignment now, as if a pad had triggered it, and resolves with what it returned or rejects with why it failed. */
   runAction: (action: Assignment): Promise<unknown> => call("run_action", null, { action }),
   /** The Action Library: everything on offer, with availability evaluated now. */
