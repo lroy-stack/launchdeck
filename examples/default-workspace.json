@@ -3492,8 +3492,8 @@
     },
     {
       "id": "smart-home",
-      "name": "Smart Home",
-      "description": "Template for Home Assistant style webhooks. Edit the URLs to make it yours.",
+      "name": "Home",
+      "description": "Lights and switches through Home Assistant. Needs the Home Assistant example plugin (Plugins, Install), its address and token, and your own entity on each pad.",
       "icon": "⌂",
       "category": "smart-home",
       "pages": [
@@ -3512,8 +3512,8 @@
                 "w": 2,
                 "h": 2
               },
-              "label": "Lights",
-              "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+              "label": "Living room",
+              "description": "Example entity: set your own in the inspector.",
               "icon": "☀",
               "visual": {
                 "color": "#ffc81e",
@@ -3534,11 +3534,10 @@
                 }
               },
               "press": {
-                "provider": "http",
-                "action": "request",
+                "provider": "example.home-assistant",
+                "action": "toggle",
                 "args": {
-                  "method": "POST",
-                  "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lights"
+                  "entity": "light.living_room"
                 }
               },
               "longPress": null
@@ -3554,93 +3553,9 @@
                 "w": 2,
                 "h": 2
               },
-              "label": "Movie",
-              "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
-              "icon": "▶",
-              "visual": {
-                "color": "#aa50ff",
-                "animation": "none"
-              },
-              "states": {
-                "error": {
-                  "color": "#ff2832",
-                  "animation": "flash"
-                },
-                "running": {
-                  "color": "#ffc81e",
-                  "animation": "pulse"
-                },
-                "success": {
-                  "color": "#1edc5a",
-                  "animation": "none"
-                }
-              },
-              "press": {
-                "provider": "http",
-                "action": "request",
-                "args": {
-                  "method": "POST",
-                  "url": "http://homeassistant.local:8123/api/webhook/launchdeck-movie"
-                }
-              },
-              "longPress": null
-            },
-            {
-              "id": "g.4.0",
-              "pos": {
-                "kind": "grid",
-                "col": 4,
-                "row": 0
-              },
-              "span": {
-                "w": 2,
-                "h": 2
-              },
-              "label": "Work",
-              "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
-              "icon": "⌨",
-              "visual": {
-                "color": "#286eff",
-                "animation": "none"
-              },
-              "states": {
-                "error": {
-                  "color": "#ff2832",
-                  "animation": "flash"
-                },
-                "running": {
-                  "color": "#ffc81e",
-                  "animation": "pulse"
-                },
-                "success": {
-                  "color": "#1edc5a",
-                  "animation": "none"
-                }
-              },
-              "press": {
-                "provider": "http",
-                "action": "request",
-                "args": {
-                  "method": "POST",
-                  "url": "http://homeassistant.local:8123/api/webhook/launchdeck-work"
-                }
-              },
-              "longPress": null
-            },
-            {
-              "id": "g.0.2",
-              "pos": {
-                "kind": "grid",
-                "col": 0,
-                "row": 2
-              },
-              "span": {
-                "w": 2,
-                "h": 2
-              },
-              "label": "Warmer",
-              "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
-              "icon": "▲",
+              "label": "Kitchen",
+              "description": "Example entity: set your own in the inspector.",
+              "icon": "☀",
               "visual": {
                 "color": "#ff7814",
                 "animation": "none"
@@ -3660,11 +3575,92 @@
                 }
               },
               "press": {
-                "provider": "http",
-                "action": "request",
+                "provider": "example.home-assistant",
+                "action": "toggle",
                 "args": {
-                  "method": "POST",
-                  "url": "http://homeassistant.local:8123/api/webhook/launchdeck-warmer"
+                  "entity": "light.kitchen"
+                }
+              },
+              "longPress": null
+            },
+            {
+              "id": "g.4.0",
+              "pos": {
+                "kind": "grid",
+                "col": 4,
+                "row": 0
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "Desk lamp",
+              "description": "Example entity: set your own in the inspector.",
+              "icon": "✦",
+              "visual": {
+                "color": "#286eff",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "example.home-assistant",
+                "action": "toggle",
+                "args": {
+                  "entity": "light.desk"
+                }
+              },
+              "longPress": null
+            },
+            {
+              "id": "g.0.2",
+              "pos": {
+                "kind": "grid",
+                "col": 0,
+                "row": 2
+              },
+              "span": {
+                "w": 2,
+                "h": 2
+              },
+              "label": "Porch",
+              "description": "Example entity: set your own in the inspector.",
+              "icon": "⌂",
+              "visual": {
+                "color": "#aa50ff",
+                "animation": "none"
+              },
+              "states": {
+                "error": {
+                  "color": "#ff2832",
+                  "animation": "flash"
+                },
+                "running": {
+                  "color": "#ffc81e",
+                  "animation": "pulse"
+                },
+                "success": {
+                  "color": "#1edc5a",
+                  "animation": "none"
+                }
+              },
+              "press": {
+                "provider": "example.home-assistant",
+                "action": "toggle",
+                "args": {
+                  "entity": "light.porch"
                 }
               },
               "longPress": null
@@ -3680,9 +3676,9 @@
                 "w": 2,
                 "h": 2
               },
-              "label": "Cooler",
-              "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
-              "icon": "▼",
+              "label": "Fan",
+              "description": "Example entity: set your own in the inspector.",
+              "icon": "✣",
               "visual": {
                 "color": "#1ed2e6",
                 "animation": "none"
@@ -3702,11 +3698,10 @@
                 }
               },
               "press": {
-                "provider": "http",
-                "action": "request",
+                "provider": "example.home-assistant",
+                "action": "toggle",
                 "args": {
-                  "method": "POST",
-                  "url": "http://homeassistant.local:8123/api/webhook/launchdeck-cooler"
+                  "entity": "switch.bedroom_fan"
                 }
               },
               "longPress": null
@@ -3722,9 +3717,9 @@
                 "w": 2,
                 "h": 2
               },
-              "label": "Lock",
-              "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
-              "icon": "🔒",
+              "label": "Coffee",
+              "description": "Example entity: set your own in the inspector.",
+              "icon": "☕",
               "visual": {
                 "color": "#ff2832",
                 "animation": "none"
@@ -3744,11 +3739,10 @@
                 }
               },
               "press": {
-                "provider": "http",
-                "action": "request",
+                "provider": "example.home-assistant",
+                "action": "toggle",
                 "args": {
-                  "method": "POST",
-                  "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lock"
+                  "entity": "switch.coffee_machine"
                 }
               },
               "longPress": null

@@ -551,8 +551,9 @@ mod tests {
 
     /// The strongest check of the conversion: the schema 3 workspace the last
     /// release shipped, migrated by the rules in [`bindings`], is the same
-    /// workspace the code builds by hand today, control by control. The file
-    /// was saved on Linux, so it is compared with the Linux starter pads.
+    /// workspace the code builds by hand today, control by control, for every
+    /// starter that has not changed since. The file was saved on Linux, so it
+    /// is compared with the Linux starter pads.
     #[test]
     fn a_real_v3_workspace_migrates_to_exactly_what_ships_now() {
         let old: Value = serde_json::from_str(V3_FIXTURE).unwrap();
@@ -562,6 +563,23 @@ mod tests {
         let shipped = default_workspace_for(Platform::Linux);
         assert_eq!(ws.surfaces.len(), shipped.surfaces.len());
         for (a, b) in ws.surfaces.iter().zip(&shipped.surfaces) {
+            assert_eq!(a.id, b.id);
+            // The Home starter changed after that release (its webhook pads
+            // became Home Assistant plugin actions), and a saved surface is
+            // never rewritten into a newer starter: it migrates to what it
+            // was, which is checked here instead of comparing it with today's.
+            if b.id == "smart-home" {
+                assert_eq!(a.name, "Smart Home", "a saved surface keeps its name");
+                let webhooks = a
+                    .pages
+                    .iter()
+                    .flat_map(|p| &p.controls)
+                    .filter_map(|c| c.press.as_ref())
+                    .filter(|p| p.provider == "http" && p.action == "request")
+                    .count();
+                assert_eq!(webhooks, 6, "its webhook pads are kept");
+                continue;
+            }
             // The file keeps the old context hint it was saved with; the
             // starters no longer write one. It is compared on its own below.
             let a = Surface {
