@@ -28,12 +28,12 @@ Imports go up this picture only: `shared → features → app` means features bu
 | Directory | Owns | May import |
 | --- | --- | --- |
 | `src/app` | `App.tsx`: the window shell, the switch between views, the toasts and the fatal screen | everything |
-| `src/components` | `Sidebar.tsx` (navigation, surfaces, the Auto Context control) | `src/lib`, `src/stores` (today also `src/features/context`: an exception, see section 3) |
+| `src/components` | `Sidebar.tsx` (navigation, surfaces, the Auto Context control); `forms/ParamForm.tsx` (a form drawn from a parameter schema, an action's or an observable's) and `forms/ColorField.tsx` (a colour as a picker, a hex field and swatches), which the Inspector and the feedback editor share | `src/lib`, `src/stores` (today also `src/features/context`: an exception, see section 3) |
 | `src/features/agents` | the Agents view: `AgentsView`, `Overview`, `Sessions`, `Adapters`, `SurfaceTab` and their `parts` | shared; `src/features/surfaces` (exception, section 3) |
 | `src/features/context` | Auto Context: `ContextPanel` (rules, fallback, status), `ContextControl` (the sidebar switch), `text.ts` (the wording) | shared |
 | `src/features/devices` | `HomeView` (the overview: Agent Control, starter surfaces, devices, recent activity) and `SettingsView` (devices, Auto Context, the external events tester, security text, workspace reset). A4 moves them to `src/features/home` and `src/features/settings` | shared; `src/features/context`; `src/features/surfaces` (exception, section 3) |
-| `src/features/editor` | the Inspector: `Inspector`, `AssignmentEditor`, and today the form widgets `ParamForm` and `ColorField` (A4 moves both to `src/components/forms`) | shared; `src/features/feedback`, `src/features/library` |
-| `src/features/feedback` | the feedback editor: `FeedbackEditor`, `StateRules`, `EventRules`, `LooksEditor`, `LookSelect`, `ObservablePicker`, `LiveFeedback`, `useReview`, `parts`, and the test helper `testkit.tsx` | shared; `src/features/editor` (exception, section 3) |
+| `src/features/editor` | the Inspector: `Inspector`, `AssignmentEditor` | shared; `src/features/feedback`, `src/features/library` |
+| `src/features/feedback` | the feedback editor: `FeedbackEditor`, `StateRules`, `EventRules`, `LooksEditor`, `LookSelect`, `ObservablePicker`, `LiveFeedback`, `useReview`, `parts`, and the test helper `testkit.tsx` | shared |
 | `src/features/library` | the Action Library panel: `ActionLibrary`, `parts` | shared |
 | `src/features/plugins` | the Plugins view: `PluginsView`, `Access` (network grants and secrets) | shared |
 | `src/features/surfaces` | the surface view: `SurfaceView`, `PadGrid`, `LivePanel`, `ActivityFeed` | shared; `src/features/editor`, `src/features/library` |
@@ -63,7 +63,6 @@ Exceptions with a planned fix (A4):
 
 | From | To | Where | Problem | Fix in A4 |
 | --- | --- | --- | --- | --- |
-| `src/features/feedback` | `src/features/editor` | `LooksEditor.tsx`, `LookSelect.tsx` → `ColorField`; `ObservablePicker.tsx` → `ParamForm` | with editor → feedback this is an import cycle | move `ColorField` and `ParamForm` to `src/components/forms` |
 | `src/features/agents` | `src/features/surfaces` | `SurfaceTab.tsx` → `PadGrid` | a shared widget lives inside a feature | move `PadGrid` (and its test) to `src/components` |
 | `src/features/devices` | `src/features/surfaces` | `HomeView.tsx` → `ActivityFeed` | a shared widget lives inside a feature | move `ActivityFeed` to `src/components` |
 | `src/components` | `src/features/context` | `Sidebar.tsx` → `ContextControl` | the shared layer imports a feature | move `Sidebar` to `src/app` |

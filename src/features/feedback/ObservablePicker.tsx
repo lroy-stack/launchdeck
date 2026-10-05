@@ -10,7 +10,7 @@ import { groupByProvider, nowText, scopeOf, searchObservables, typeSummary } fro
 import { plural } from "../../lib/format";
 import type { Observable, ObservableCatalog, ObservableKind, Scalar, Surface } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
-import { ParamForm } from "../editor/ParamForm";
+import { ParamForm } from "../../components/forms/ParamForm";
 import { StatusTag } from "./parts";
 
 const optionId = (list: string, id: string): string => `${list}-opt-${id.replace(/[^a-zA-Z0-9_-]/g, "_")}`;

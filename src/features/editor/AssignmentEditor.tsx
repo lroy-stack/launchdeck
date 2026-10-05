@@ -7,7 +7,7 @@ import type { ActionDefinition, Assignment, Issue, Surface } from "../../lib/sch
 import { definitionId } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
 import { ActionGlyph, PrivilegedTag, SourceTag, UnavailableTag } from "../library/parts";
-import { ParamForm } from "./ParamForm";
+import { ParamForm } from "../../components/forms/ParamForm";
 
 interface Props {
   slot: Slot;

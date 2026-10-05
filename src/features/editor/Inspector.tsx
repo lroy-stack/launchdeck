@@ -7,7 +7,7 @@ import type { ActionDefinition, Animation, Assignment, Control, Issue, Page, Sur
 import { definitionId } from "../../lib/schema";
 import { controlAt, useStore } from "../../stores/runtime";
 import { AssignmentEditor } from "./AssignmentEditor";
-import { ColorField } from "./ColorField";
+import { ColorField } from "../../components/forms/ColorField";
 import { FeedbackEditor } from "../feedback/FeedbackEditor";
 import { useFeedbackReview } from "../feedback/useReview";
 

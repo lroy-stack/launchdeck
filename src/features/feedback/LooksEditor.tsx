@@ -5,7 +5,7 @@
 import { useId, useState } from "react";
 import { IDLE, kindOfRule, lookKey, lookLabel, lookNameProblem, lookUsage, removeLook, renameLook, ruleNumber, setLookVisual } from "../../lib/feedbackEdit";
 import type { Animation, Control, FeedbackLimits } from "../../lib/schema";
-import { ColorField } from "../editor/ColorField";
+import { ColorField } from "../../components/forms/ColorField";
 import { NewLook } from "./LookSelect";
 import { Swatch } from "./parts";
 

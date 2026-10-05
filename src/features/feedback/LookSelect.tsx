@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import { guessLookColor, hasValueWhenTrue, lookKey, lookLabel, lookNameProblem, lookTargetOf, IDLE, type LookTarget } from "../../lib/feedbackEdit";
 import type { Animation, Control, FeedbackRule, Observable, Visual } from "../../lib/schema";
 import { isStateRule } from "../../lib/schema";
-import { ColorField } from "../editor/ColorField";
+import { ColorField } from "../../components/forms/ColorField";
 import { Swatch, visualOfLook } from "./parts";
 
 const NEW = "__new__";

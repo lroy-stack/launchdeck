@@ -45,10 +45,6 @@ export const featureEdges = [
 // Known violations, each removed by the package named (FRONTEND_MAP section 3).
 // One entry per importing file and imported module, so a new import still fails.
 export const importExceptions = [
-  // A4 moves ColorField and ParamForm to src/components/forms (the editor <-> feedback cycle).
-  { file: "src/features/feedback/LooksEditor.tsx", imports: "src/features/editor/ColorField", removedBy: "A4" },
-  { file: "src/features/feedback/LookSelect.tsx", imports: "src/features/editor/ColorField", removedBy: "A4" },
-  { file: "src/features/feedback/ObservablePicker.tsx", imports: "src/features/editor/ParamForm", removedBy: "A4" },
   // A4 moves PadGrid and ActivityFeed to src/components.
   { file: "src/features/agents/SurfaceTab.tsx", imports: "src/features/surfaces/PadGrid", removedBy: "A4" },
   { file: "src/features/devices/HomeView.tsx", imports: "src/features/surfaces/ActivityFeed", removedBy: "A4" },
