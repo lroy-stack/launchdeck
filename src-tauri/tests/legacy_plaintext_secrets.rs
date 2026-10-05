@@ -427,8 +427,10 @@ async fn migrate_moves_the_value_into_the_store_and_only_then_removes_the_plain_
     assert!(again.migrate_plugin_legacy_secrets(ID).is_ok());
 }
 
+/// That the broker then applies it to a request is proven with the real Home
+/// Assistant plugin in `secret_store.rs`.
 #[tokio::test(flavor = "multi_thread")]
-async fn a_schema_4_plugin_uses_a_migrated_value_through_the_broker_and_never_receives_it() {
+async fn a_schema_4_plugin_has_a_migrated_value_as_its_secret_and_never_receives_it() {
     let store = Arc::new(MemoryStore::new());
     let w = world(&manifest(4), store.clone());
     assert!(!w.host.get(ID).unwrap().secrets[0].is_set);

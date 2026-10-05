@@ -579,6 +579,49 @@ async fn a_plugin_that_moves_a_setting_to_a_secret_has_the_plain_value_moved_on_
     assert!(w.host.overview().legacy_secrets.is_empty());
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn a_plain_setting_authenticates_nothing_until_the_plugin_card_migrates_it() {
+    let ha = ha();
+    let store = Arc::new(MemoryStore::new());
+    let w = world(store.clone(), |plugins, data| {
+        install_example(plugins, "home-assistant");
+        // An earlier version kept the token with the plugin's settings.
+        fs::write(
+            data.join("plugins.json"),
+            serde_json::to_vec_pretty(&json!({ "schemaVersion": 1, "plugins": {
+                HA: { "enabled": true, "config": { "token": TOKEN } }
+            }}))
+            .unwrap(),
+        )
+        .unwrap();
+    });
+    w.connect(&ha);
+
+    // Migration required, by name; the plain value authenticates nothing.
+    let info = w.host.get(HA).unwrap();
+    assert_eq!(info.secret_migration.unwrap().migration_required, ["token"]);
+    assert!(!w.secret_is_set());
+    let e = w.toggle().unwrap_err().to_string();
+    assert!(e.contains("secret_missing"), "{e}");
+    assert_eq!(ha.server.hits(), 0);
+
+    // Migrate on the plugin's card: the broker then applies the stored value.
+    let info = w.host.migrate_plugin_legacy_secrets(HA).unwrap();
+    assert!(info.secret_migration.is_none());
+    assert!(w.secret_is_set());
+    assert!(!fs::read_to_string(w.data.join("plugins.json"))
+        .unwrap()
+        .contains(TOKEN));
+    w.toggle().unwrap();
+    assert_eq!(ha.state(KITCHEN).as_deref(), Some("on"));
+    assert!(ha
+        .server
+        .received()
+        .iter()
+        .all(|r| r.header("authorization") == Some(&format!("Bearer {TOKEN}"))));
+    assert!(!w.logs(HA).contains(TOKEN));
+}
+
 // ---------------------------------------------------------------------------
 // Which store the app opens
 // ---------------------------------------------------------------------------
