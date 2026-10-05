@@ -549,7 +549,7 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 | 3 | A3 | Rust boundary fixes: audit, identifiers, platform | yes | A2 | A4 | done |
 | 4 | A4 | Frontend structure and boundaries | no | A2 | A3 | done |
 | 5 | A5 | Decompose `surfaces/mod.rs` | yes | A3 | B0 | todo |
-| 6 | B0 | Documentation truth pass | no | A2 | A5 | todo |
+| 6 | B0 | Documentation truth pass | no | A2 | A5 | done |
 | 7 | A6 | Split `lib.rs` into `commands/` and `tray.rs` | yes | A3 | R1 | todo |
 | 8 | R1 | CI workflows within the minutes budget | no | A2 | A6 | todo |
 | 9 | A7 | Split `core/runtime.rs` | yes | A3 | | todo |
