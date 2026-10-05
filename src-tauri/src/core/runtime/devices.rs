@@ -91,7 +91,8 @@ impl Runtime {
         self.scan_hardware(false);
     }
 
-    /// The person pressed Look again: also retry units whose connect failed.
+    /// The person pressed Look again: also retry units whose connect failed
+    /// or that turned LaunchDeck down.
     pub fn look_again(&self) {
         self.scan_hardware(true);
     }

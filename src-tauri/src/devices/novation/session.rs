@@ -20,7 +20,9 @@
 //! took it: its input stops counting and it is taken again from the probe
 //! on, with the clear frame and a full frame; the third time within 30 s
 //! LaunchDeck yields it and sends nothing more. Three unanswered questions
-//! in a row put a notice up until the next answer.
+//! in a row put a notice up until the next answer, for a unit that confirmed
+//! Programmer mode: one that never answered keeps its could-not-be-confirmed
+//! notice.
 //!
 //! On release the clear frame, the LED feedback the unit had if LaunchDeck
 //! changed it, Live mode, then the layout the unit showed before, unless

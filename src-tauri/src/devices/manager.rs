@@ -98,7 +98,8 @@ pub enum DeviceStatus {
     Unplugged,
     /// Another Launchpad model: listed by name, never opened.
     Unsupported,
-    /// The last connect attempt failed; `problem` says why.
+    /// The last connect attempt failed, or the device turned LaunchDeck
+    /// down (bootloader, another model, taken over); `problem` says why.
     Failed,
 }
 
