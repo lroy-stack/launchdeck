@@ -6,10 +6,17 @@ import { appearanceSchema, paramDefSchema, providerKindSchema } from "./actions"
 export const pluginStatusSchema = z.enum(["enabled", "disabled", "error"]);
 export type PluginStatus = z.infer<typeof pluginStatusSchema>;
 
+/** What kind of problem keeps a plugin from running. Rust decides it; `features/plugins/text.ts` says it in a sentence. */
+export const problemKindSchema = z.enum(["incompatible", "invalidManifest", "invalidModule", "duplicate", "initFailed", "stopped"]);
+export type ProblemKind = z.infer<typeof problemKindSchema>;
+
 /** Present only for plugins installed from disk (WebAssembly). Built-in plugins have none. */
 export const externalInfoSchema = z.object({
   status: pluginStatusSchema,
+  /** The detail, in the host's words. */
   error: z.string().optional(),
+  /** Present exactly when `error` is. */
+  kind: problemKindSchema.optional(),
   author: z.string(),
   abi: z.number(),
   sdk: z.string().optional(),
@@ -162,9 +169,13 @@ export const pluginInfoSchema = z.object({
 });
 export type PluginInfo = z.infer<typeof pluginInfoSchema>;
 
+/** A folder that held something that is not a usable plugin. */
+export const pluginIssueSchema = z.object({ dir: z.string(), kind: problemKindSchema, error: z.string() });
+export type PluginIssue = z.infer<typeof pluginIssueSchema>;
+
 export const pluginsOverviewSchema = z.object({
   plugins: z.array(pluginInfoSchema),
-  issues: z.array(z.object({ dir: z.string(), error: z.string() })),
+  issues: z.array(pluginIssueSchema),
   folders: z.array(z.string()),
   secretStore: secretStoreStatusSchema,
   /** Secrets an earlier version left in plain text. They are not used. */

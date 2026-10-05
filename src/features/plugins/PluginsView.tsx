@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/ipc";
-import type { PluginConfig, PluginInfo, PluginLog, PluginManifest, PluginsOverview, SecretStoreStatus } from "../../lib/schema";
+import type { PluginConfig, PluginInfo, PluginLog, PluginManifest, PluginsOverview, ProblemKind, SecretStoreStatus } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
 import { LegacySecretsNotice, NetworkAccess, Secrets } from "./Access";
+import { folderName, problemText } from "./text";
 
 const PERMISSION_NOTES: Record<string, string> = {
   automation: "Sends keystrokes and opens apps on your behalf.",
@@ -90,8 +91,8 @@ export function PluginsView() {
             {overview.issues.map((i) => (
               <li key={i.dir}>
                 <span className="pill warn">skipped</span>
-                <code>{i.dir}</code>
-                <span>{i.error}</span>
+                <code>{folderName(i.dir)}</code>
+                <ProblemNote kind={i.kind} error={i.error} dir={i.dir} />
               </li>
             ))}
           </ul>
@@ -208,9 +209,15 @@ function InstalledCard({ info, store, change }: { info: PluginInfo; store: Secre
       </header>
       <p>{p.description}</p>
       <p className="hint">
-        <code>{p.id}</code> by {ext?.author ?? "unknown"}. Folder: <code>{info.dir}</code>
+        <code>{p.id}</code> by {ext?.author ?? "unknown"}.
+        {status !== "error" && (
+          <>
+            {" "}
+            Folder: <code>{info.dir}</code>
+          </>
+        )}
       </p>
-      {status === "error" && ext?.error && <p className="field-error">{ext.error}</p>}
+      {status === "error" && <ProblemNote kind={ext?.kind} error={ext?.error} dir={info.dir} />}
       <div className="row wrap">
         {status === "error" ? (
           <button className="btn small primary" onClick={() => void change(() => api.plugins.reload(p.id)).then(refreshLogs)}>
@@ -258,6 +265,24 @@ function InstalledCard({ info, store, change }: { info: PluginInfo; store: Secre
       <Secrets info={info} store={store} change={change} />
       {logs && <LogView logs={logs} />}
     </article>
+  );
+}
+
+/** One sentence for what went wrong; the host's own words and the folder wait under Details. */
+function ProblemNote({ kind, error, dir }: { kind?: ProblemKind; error?: string; dir: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="plugin-problem">
+      <p className="field-error">{problemText(kind)}</p>
+      <details onToggle={(e) => setOpen(e.currentTarget.open)}>
+        <summary>Details</summary>
+        {open && (
+          <p className="hint">
+            {error && <span>{error}</span>} Folder: <code>{dir}</code>
+          </p>
+        )}
+      </details>
+    </div>
   );
 }
 

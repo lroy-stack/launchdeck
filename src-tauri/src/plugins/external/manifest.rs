@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::capabilities::{Capabilities, HostSpec, Origin, MAX_HOSTS};
-use super::{ABI_VERSION, SDK_VERSION};
+use super::{ProblemKind, ABI_VERSION, SDK_VERSION};
 use crate::actions::definition::Appearance;
 use crate::actions::params::{normalize, valid_param_name, validate_defs, ParamDef};
 use crate::events::valid_ident;
@@ -68,6 +68,20 @@ pub enum ManifestError {
     UnsupportedCapability(String),
     #[error("invalid manifest: {0}")]
     Invalid(String),
+}
+
+impl ManifestError {
+    /// What kind of problem this is, for the Plugins screen.
+    pub fn kind(&self) -> ProblemKind {
+        match self {
+            ManifestError::UnsupportedSchema { .. }
+            | ManifestError::IncompatibleAbi { .. }
+            | ManifestError::IncompatibleSdk { .. } => ProblemKind::Incompatible,
+            ManifestError::Malformed(_)
+            | ManifestError::Invalid(_)
+            | ManifestError::UnsupportedCapability(_) => ProblemKind::InvalidManifest,
+        }
+    }
 }
 
 fn invalid<T>(msg: impl Into<String>) -> Result<T, ManifestError> {
@@ -1085,6 +1099,21 @@ mod tests {
         ));
         assert!(parse(&with("sdk", json!("0.1.9"))).is_ok());
         assert!(parse(&with("sdk", json!("banana"))).is_err());
+    }
+
+    #[test]
+    fn every_manifest_error_says_what_kind_of_problem_it_is() {
+        use crate::plugins::external::ProblemKind::{Incompatible, InvalidManifest};
+        let kind = |v: &Value| parse(v).unwrap_err().kind();
+        assert_eq!(kind(&with("schemaVersion", json!(99))), Incompatible);
+        assert_eq!(kind(&with("abi", json!(2))), Incompatible);
+        assert_eq!(kind(&with("sdk", json!("9.0.0"))), Incompatible);
+        assert_eq!(
+            ExternalManifest::parse("{nope").unwrap_err().kind(),
+            InvalidManifest
+        );
+        assert_eq!(kind(&with("id", json!("Nope"))), InvalidManifest);
+        assert_eq!(kind(&with("capabilities", json!(["fs"]))), InvalidManifest);
     }
 
     #[test]

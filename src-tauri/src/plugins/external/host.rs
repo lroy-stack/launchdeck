@@ -27,7 +27,7 @@ use super::network::{Broker, NetFailure, SecretBinding};
 use super::sandbox::Limits;
 use super::secrets::{SecretRef, SecretStore, StoreKind, StoreStatus};
 use super::wasm_plugin::{effective_config, WasmPlugin, MAX_WATCHING};
-use super::PluginStatus;
+use super::{PluginStatus, ProblemKind};
 use crate::persistence::write_private;
 use crate::plugins::{ActionError, Plugin, PluginContext, PluginManifest, PluginRegistry};
 use crate::state::{StateAddress, StateHub};
@@ -457,9 +457,9 @@ impl PluginHost {
                     "the folder now holds `{}`; run a rescan to pick up the change",
                     cand.manifest.id
                 );
-                existing.mark_error(&msg);
+                existing.mark_error(ProblemKind::InvalidManifest, &msg);
             }
-            Err(msg) => existing.mark_error(&msg),
+            Err(e) => existing.mark_error(e.kind, &e.message),
         }
         Ok(())
     }
@@ -1055,6 +1055,94 @@ mod tests {
             .iter()
             .any(|i| i.error.contains("duplicate plugin id")));
         assert!(issues.iter().any(|i| i.error.contains("protocol (ABI)")));
+    }
+
+    #[tokio::test]
+    async fn each_problem_says_what_kind_it_is() {
+        use crate::plugins::external::ProblemKind;
+        let root = tempfile::tempdir().unwrap();
+        let other = tempfile::tempdir().unwrap();
+        write(
+            root.path(),
+            "good",
+            manifest_json("t.good", &["a"], &[]),
+            &good(),
+        );
+        write(
+            root.path(),
+            "noexport",
+            manifest_json("t.noexport", &["a"], &[]),
+            &Wat::new().reply(OK).without_handle().build(),
+        );
+        write(
+            root.path(),
+            "initrap",
+            manifest_json("t.initrap", &["a"], &[]),
+            &Wat::new().init("unreachable").build(),
+        );
+        write(
+            root.path(),
+            "crash",
+            manifest_json("t.crash", &["a"], &[]),
+            &Wat::new().body("unreachable").build(),
+        );
+        write(
+            root.path(),
+            "future",
+            {
+                let mut m = manifest_json("t.future", &["a"], &[]);
+                m["schemaVersion"] = json!(99);
+                m
+            },
+            &good(),
+        );
+        // The same id in a later root.
+        write(
+            other.path(),
+            "good",
+            manifest_json("t.good", &["a"], &[]),
+            &good(),
+        );
+        let registry = PluginRegistry::default();
+        let h = PluginHost::new(
+            vec![root.path().to_path_buf(), other.path().to_path_buf()],
+            None,
+            registry.clone(),
+            Limits::default(),
+        );
+        h.scan();
+        let kind = |id: &str| h.get(id).unwrap().plugin.external.unwrap().kind;
+        assert_eq!(kind("t.good"), None, "a healthy plugin has no problem");
+        assert_eq!(kind("t.noexport"), Some(ProblemKind::InvalidModule));
+        assert_eq!(kind("t.initrap"), Some(ProblemKind::InitFailed));
+        assert_eq!(kind("t.crash"), None, "it started fine");
+        assert!(invoke(&registry, "t.crash").is_err());
+        assert_eq!(kind("t.crash"), Some(ProblemKind::Stopped));
+        let issue = |dir: &str| {
+            h.issues()
+                .into_iter()
+                .find(|i| i.dir.ends_with(dir))
+                .unwrap()
+        };
+        assert_eq!(issue("future").kind, ProblemKind::Incompatible);
+        let dup = h
+            .issues()
+            .into_iter()
+            .find(|i| i.dir.starts_with(&other.path().display().to_string()))
+            .unwrap();
+        assert_eq!(dup.kind, ProblemKind::Duplicate);
+        // Serialized for the Plugins screen in camelCase, next to the detail.
+        let info = serde_json::to_value(h.get("t.initrap").unwrap()).unwrap();
+        assert_eq!(info["plugin"]["external"]["kind"], json!("initFailed"));
+        assert!(info["plugin"]["external"]["error"]
+            .as_str()
+            .unwrap()
+            .contains("init"));
+        let healthy = serde_json::to_value(h.get("t.good").unwrap()).unwrap();
+        assert!(healthy["plugin"]["external"].get("kind").is_none());
+        // A disabled plugin has stopped on purpose, not on a problem.
+        h.set_enabled("t.crash", false).unwrap();
+        assert_eq!(kind("t.crash"), None);
     }
 
     #[tokio::test]

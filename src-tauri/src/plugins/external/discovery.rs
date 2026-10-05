@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use super::manifest::{ExternalManifest, MANIFEST_FILE, MAX_MANIFEST_BYTES};
+use super::ProblemKind;
 
 /// Largest `.wasm` module the host will read.
 pub const MAX_MODULE_BYTES: usize = 8 * 1024 * 1024;
@@ -35,7 +36,26 @@ pub struct Candidate {
 #[serde(rename_all = "camelCase")]
 pub struct Issue {
     pub dir: String,
+    pub kind: ProblemKind,
     pub error: String,
+}
+
+/// Why a plugin directory could not be loaded: what kind of problem, and the
+/// reason in words.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("{message}")]
+pub struct LoadError {
+    pub kind: ProblemKind,
+    pub message: String,
+}
+
+impl LoadError {
+    fn new(kind: ProblemKind, message: impl Into<String>) -> LoadError {
+        LoadError {
+            kind,
+            message: message.into(),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -69,19 +89,27 @@ fn read_plain_file(path: &Path, max: usize, what: &str) -> Result<Vec<u8>, Strin
 }
 
 /// Load and validate one plugin directory.
-pub fn load_dir(dir: &Path) -> Result<Candidate, String> {
+pub fn load_dir(dir: &Path) -> Result<Candidate, LoadError> {
+    let bad_manifest = |e| LoadError::new(ProblemKind::InvalidManifest, e);
+    let bad_module = |e| LoadError::new(ProblemKind::InvalidModule, e);
     let manifest_bytes =
-        read_plain_file(&dir.join(MANIFEST_FILE), MAX_MANIFEST_BYTES, MANIFEST_FILE)?;
+        read_plain_file(&dir.join(MANIFEST_FILE), MAX_MANIFEST_BYTES, MANIFEST_FILE)
+            .map_err(bad_manifest)?;
     let text = std::str::from_utf8(&manifest_bytes)
-        .map_err(|_| format!("{MANIFEST_FILE} is not valid UTF-8"))?;
-    let manifest = ExternalManifest::parse(text).map_err(|e| e.to_string())?;
+        .map_err(|_| bad_manifest(format!("{MANIFEST_FILE} is not valid UTF-8")))?;
+    let manifest =
+        ExternalManifest::parse(text).map_err(|e| LoadError::new(e.kind(), e.to_string()))?;
     let wasm = read_plain_file(
         &dir.join(&manifest.main),
         MAX_MODULE_BYTES,
         &format!("module `{}`", manifest.main),
-    )?;
+    )
+    .map_err(bad_module)?;
     if !wasm.starts_with(b"\0asm") {
-        return Err(format!("`{}` is not a WebAssembly module", manifest.main));
+        return Err(bad_module(format!(
+            "`{}` is not a WebAssembly module",
+            manifest.main
+        )));
     }
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     manifest_bytes.hash(&mut hasher);
@@ -120,6 +148,7 @@ pub fn scan(roots: &[PathBuf]) -> Scan {
                     if let Some(first) = owners.get(&candidate.manifest.id) {
                         out.issues.push(Issue {
                             dir: dir.display().to_string(),
+                            kind: ProblemKind::Duplicate,
                             error: format!(
                                 "duplicate plugin id `{}`; already provided by {}",
                                 candidate.manifest.id,
@@ -131,9 +160,10 @@ pub fn scan(roots: &[PathBuf]) -> Scan {
                         out.candidates.push(candidate);
                     }
                 }
-                Err(error) => out.issues.push(Issue {
+                Err(e) => out.issues.push(Issue {
                     dir: dir.display().to_string(),
-                    error,
+                    kind: e.kind,
+                    error: e.message,
                 }),
             }
         }
@@ -182,6 +212,46 @@ mod tests {
     }
 
     #[test]
+    fn each_unusable_folder_says_what_kind_of_problem_it_has() {
+        use crate::plugins::external::ProblemKind;
+        let root = tempfile::tempdir().unwrap();
+        let future = json!({"schemaVersion":99,"id":"a.future","name":"T","version":"1.0.0",
+            "author":"t","abi":1,"main":"m.wasm"});
+        write_plugin(root.path(), "future", &future.to_string(), WASM);
+        write_plugin(root.path(), "badjson", "{nope", WASM);
+        write_plugin(root.path(), "badid", &manifest("Nope", "m.wasm"), WASM);
+        write_plugin(
+            root.path(),
+            "badwasm",
+            &manifest("a.nowasm", "m.wasm"),
+            b"MZ..",
+        );
+        write_plugin(
+            root.path(),
+            "nomodule",
+            &manifest("a.nomod", "x.wasm"),
+            WASM,
+        );
+        let s = scan(&[root.path().to_path_buf()]);
+        let kind = |dir: &str| {
+            s.issues
+                .iter()
+                .find(|i| i.dir.ends_with(dir))
+                .unwrap_or_else(|| panic!("{dir}: {:?}", s.issues))
+                .kind
+        };
+        assert_eq!(kind("future"), ProblemKind::Incompatible);
+        assert_eq!(kind("badjson"), ProblemKind::InvalidManifest);
+        assert_eq!(kind("badid"), ProblemKind::InvalidManifest);
+        assert_eq!(kind("badwasm"), ProblemKind::InvalidModule);
+        assert_eq!(kind("nomodule"), ProblemKind::InvalidModule);
+        // The kind is decided here; the detail stays the readable reason.
+        let e = load_dir(&root.path().join("badjson")).unwrap_err();
+        assert_eq!(e.kind, ProblemKind::InvalidManifest);
+        assert!(e.to_string().contains("not valid JSON"), "{e}");
+    }
+
+    #[test]
     fn missing_roots_are_fine() {
         let s = scan(&[PathBuf::from("/definitely/not/here")]);
         assert!(s.candidates.is_empty() && s.issues.is_empty());
@@ -209,6 +279,10 @@ mod tests {
         assert_eq!(s.candidates.len(), 1);
         assert!(s.candidates[0].dir.starts_with(r1.path()));
         assert_eq!(s.issues.len(), 1);
+        assert_eq!(
+            s.issues[0].kind,
+            crate::plugins::external::ProblemKind::Duplicate
+        );
     }
 
     #[test]

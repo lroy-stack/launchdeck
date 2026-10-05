@@ -16,7 +16,7 @@ use super::log::{clean_line, Level, PluginLog};
 use super::manifest::{ConfigField, ExternalManifest};
 use super::network::{Broker, NetGate};
 use super::sandbox::{CallError, CallOutput, Limits, Refusal, Sandbox, StateGate};
-use super::{EventInfo, ExternalInfo, PluginStatus, ABI_VERSION, SDK_VERSION};
+use super::{EventInfo, ExternalInfo, PluginStatus, ProblemKind, ABI_VERSION, SDK_VERSION};
 use crate::actions::definition::ProviderKind;
 use crate::events::valid_ident;
 use crate::plugins::{ActionDef, ActionError, Plugin, PluginContext, PluginManifest};
@@ -26,7 +26,8 @@ use crate::state::{StateAddress, StateHub};
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct StatusInfo {
     status: PluginStatus,
-    error: Option<String>,
+    /// What stopped it, when `status` is `Error`.
+    problem: Option<(ProblemKind, String)>,
 }
 
 /// What a module said about one call.
@@ -207,7 +208,7 @@ impl WasmPlugin {
             net,
             status: RwLock::new(StatusInfo {
                 status: PluginStatus::Disabled,
-                error: None,
+                problem: None,
             }),
             sandbox: Mutex::new(None),
             hub,
@@ -240,8 +241,15 @@ impl WasmPlugin {
     }
 
     pub fn status(&self) -> (PluginStatus, Option<String>) {
-        let s = self.status.read().unwrap_or_else(|e| e.into_inner());
-        (s.status, s.error.clone())
+        let s = self.status_info();
+        (s.status, s.problem.map(|(_, error)| error))
+    }
+
+    fn status_info(&self) -> StatusInfo {
+        self.status
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     /// The only place the status changes, and therefore the only place the
@@ -251,9 +259,9 @@ impl WasmPlugin {
     /// The status lock is held while the hub is told, and a call applies its
     /// states under the same lock (`apply_states`), so a write can never land
     /// between "stopped" and "stopped, everything it said is gone".
-    fn set_status(&self, status: PluginStatus, error: Option<String>) {
+    fn set_status(&self, status: PluginStatus, problem: Option<(ProblemKind, String)>) {
         let mut guard = self.status.write().unwrap_or_else(|e| e.into_inner());
-        *guard = StatusInfo { status, error };
+        *guard = StatusInfo { status, problem };
         match status {
             PluginStatus::Enabled => self.hub.provider_up(&self.manifest.id),
             PluginStatus::Disabled | PluginStatus::Error => {
@@ -321,7 +329,9 @@ impl WasmPlugin {
     }
 
     /// Load the module and run `init`. Any failure leaves the plugin in
-    /// `error` with a readable reason; it never panics or propagates.
+    /// `error` with a readable reason and its kind: a module that cannot be
+    /// loaded or linked is `InvalidModule`, an `init` that fails `InitFailed`.
+    /// It never panics or propagates.
     pub fn activate(&self, wasm: &[u8], config: &Map<String, Value>) {
         let mut slot = self.sandbox_slot();
         *slot = None; // Drop any previous instance first.
@@ -335,18 +345,24 @@ impl WasmPlugin {
             self.log.clone(),
             &self.limits,
         )
+        .map_err(|m| (ProblemKind::InvalidModule, m))
         .and_then(|mut sandbox| {
+            let failed = |m: String| (ProblemKind::InitFailed, m);
             let request = init_request(&self.manifest, config);
             let out = match sandbox.call_offline(request.as_bytes()) {
                 Ok(out) => out,
                 Err(CallError::Fatal(m) | CallError::Rejected(m)) => {
-                    return Err(format!("init {m}"))
+                    return Err(failed(format!("init {m}")))
                 }
             };
             match parse_reply(&out.response) {
                 Ok(Reply::Ok(_)) => {}
-                Ok(Reply::Failed(m)) => return Err(format!("init failed: {m}")),
-                Err(m) => return Err(format!("init returned an unusable response: {m}")),
+                Ok(Reply::Failed(m)) => return Err(failed(format!("init failed: {m}"))),
+                Err(m) => {
+                    return Err(failed(format!(
+                        "init returned an unusable response: {m}"
+                    )))
+                }
             }
             if !out.events.is_empty() {
                 self.log.host(
@@ -371,8 +387,8 @@ impl WasmPlugin {
                     &format!("loaded in {} ms", started.elapsed().as_millis()),
                 );
             }
-            Err(message) => {
-                self.set_status(PluginStatus::Error, Some(message.clone()));
+            Err((kind, message)) => {
+                self.set_status(PluginStatus::Error, Some((kind, message.clone())));
                 self.log
                     .host(Level::Error, &format!("could not load: {message}"));
             }
@@ -380,9 +396,9 @@ impl WasmPlugin {
     }
 
     /// Put the plugin in `error` without starting it (its folder is unusable).
-    pub fn mark_error(&self, message: &str) {
+    pub fn mark_error(&self, kind: ProblemKind, message: &str) {
         *self.sandbox_slot() = None;
-        self.set_status(PluginStatus::Error, Some(message.to_string()));
+        self.set_status(PluginStatus::Error, Some((kind, message.to_string())));
         self.log
             .host(Level::Error, &format!("could not load: {message}"));
     }
@@ -396,7 +412,10 @@ impl WasmPlugin {
 
     fn fail(&self, slot: &mut Option<Sandbox>, message: &str) -> ActionError {
         *slot = None;
-        self.set_status(PluginStatus::Error, Some(message.to_string()));
+        self.set_status(
+            PluginStatus::Error,
+            Some((ProblemKind::Stopped, message.to_string())),
+        );
         self.log.host(Level::Error, &format!("stopped: {message}"));
         ActionError::Failed(format!("plugin `{}` failed: {message}", self.manifest.id))
     }
@@ -498,7 +517,8 @@ impl Plugin for WasmPlugin {
     }
 
     fn manifest(&self) -> PluginManifest {
-        let (status, error) = self.status();
+        let StatusInfo { status, problem } = self.status_info();
+        let (kind, error) = problem.unzip();
         PluginManifest {
             id: self.manifest.id.clone(),
             name: self.manifest.name.clone(),
@@ -530,6 +550,7 @@ impl Plugin for WasmPlugin {
             external: Some(ExternalInfo {
                 status,
                 error,
+                kind,
                 author: self.manifest.author.clone(),
                 abi: self.manifest.abi,
                 sdk: self.manifest.sdk.clone(),

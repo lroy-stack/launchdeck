@@ -71,6 +71,27 @@ pub enum PluginStatus {
     Error,
 }
 
+/// What kind of problem keeps a plugin from running. Decided where the problem
+/// happens; the Plugins screen says it in one sentence and keeps the detail
+/// (`error`) under Details.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ProblemKind {
+    /// Made for another LaunchDeck: manifest schema, protocol (ABI) or SDK.
+    Incompatible,
+    /// `plugin.json` cannot be read or has a mistake.
+    InvalidManifest,
+    /// The module cannot be read, compiled or linked, lacks an export, or
+    /// reports another protocol than its manifest.
+    InvalidModule,
+    /// A folder found earlier already provides this id.
+    Duplicate,
+    /// `init` trapped, timed out or answered with a failure.
+    InitFailed,
+    /// Stopped after a crash or a trap while running.
+    Stopped,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct EventInfo {
@@ -86,6 +107,9 @@ pub struct ExternalInfo {
     pub status: PluginStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// What kind of problem `error` is. Present exactly when `error` is.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<ProblemKind>,
     pub author: String,
     pub abi: u32,
     #[serde(skip_serializing_if = "Option::is_none")]

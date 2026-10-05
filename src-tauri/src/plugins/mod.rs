@@ -5,8 +5,10 @@
 //! lives: surfaces map capabilities to controls and the renderer maps controls
 //! to hardware.
 //!
-//! Permissions are declared in the manifest and surfaced in the UI. They are
-//! documented but NOT enforced in v0.1 (see docs/plugins.md).
+//! The permissions a built-in plugin's manifest lists are labels for the
+//! Plugins screen: built-in plugins are trusted first-party code. Installed
+//! plugins run in a sandbox, and their one capability, the network, is
+//! enforced by the grants the person decides (`external::capabilities`).
 
 pub mod demo;
 pub mod external;
