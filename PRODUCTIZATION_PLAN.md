@@ -551,7 +551,7 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 | 5 | A5 | Decompose `surfaces/mod.rs` | yes | A3 | B0 | done |
 | 6 | B0 | Documentation truth pass | no | A2 | A5 | done |
 | 7 | A6 | Split `lib.rs` into `commands/` and `tray.rs` | yes | A3 | R1 | todo |
-| 8 | R1 | CI workflows within the minutes budget | no | A2 | A6 | todo |
+| 8 | R1 | CI workflows within the minutes budget | no | A2 | A6 | done, NOT VERIFIED (a) |
 | 9 | A7 | Split `core/runtime.rs` | yes | A3 | | todo |
 | 10 | B1 | Context Engine hardening and portable resolver | yes | A5, A7 | | todo |
 | 11 | D1 | Plugin host hardening and `plugins:validate` | yes | A4, A6 | | todo |
