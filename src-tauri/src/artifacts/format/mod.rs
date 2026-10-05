@@ -29,6 +29,7 @@ pub use content::{
     check_content, AnimationV1, AppRefV1, AssignmentV1, Color, ContentV1, ContextRuleV1, ControlV1,
     InputRef, PageV1, Pos, Span, SurfaceV1, VisualV1,
 };
+pub(in crate::artifacts) use cross::assignments;
 pub use cross::{check_cross, compute_requirements};
 pub use envelope::{ArtifactKind, ArtifactV1, Envelope};
 pub use manifest::{
@@ -36,5 +37,5 @@ pub use manifest::{
     InputOption, InputType, InputValue, Integrity, ManifestV1, Requirements, TestedKind,
     TestedWith, CREATED_WITH_APP,
 };
-pub(in crate::artifacts) use rejection::is_bidi;
+pub(in crate::artifacts) use rejection::{echo, is_bidi};
 pub use rejection::{Rejection, RejectionCode};

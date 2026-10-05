@@ -19,6 +19,7 @@ use crate::artifacts::format::{
     ContentV1, CreatedWith, DependencyV1, Integrity, ManifestV1, CREATED_WITH_APP,
 };
 use crate::artifacts::limits::MAX_FILE_BYTES;
+use crate::artifacts::review::check_visible;
 use crate::core::model::Workspace;
 
 /// Export the surfaces `request` names. Pure and deterministic: the same
@@ -130,8 +131,9 @@ fn manifest(
 }
 
 /// What an importer would refuse is an error here: the manifest and the
-/// content each on their own, then, when nothing else is wrong, the checks
-/// across them (which would repeat a kind or binding problem already said).
+/// content each on their own (an action that runs things hiding a character
+/// included), then, when nothing else is wrong, the checks across them
+/// (which would repeat a kind or binding problem already said).
 fn check_format(
     kind: ArtifactKind,
     manifest: &ManifestV1,
@@ -142,6 +144,7 @@ fn check_format(
         .map_err(|r| found.rejected(r))
         .is_ok();
     let content_ok = check_content(content)
+        .and_then(|()| check_visible(content))
         .map_err(|r| found.rejected(r))
         .is_ok();
     if manifest_ok && content_ok && found.errors.is_empty() {

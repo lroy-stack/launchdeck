@@ -49,7 +49,9 @@ fn controls(content: &ContentV1) -> impl Iterator<Item = (String, &ControlV1)> {
 }
 
 /// Every assignment with the pointer to it.
-fn assignments(content: &ContentV1) -> impl Iterator<Item = (String, &AssignmentV1)> {
+pub(in crate::artifacts) fn assignments(
+    content: &ContentV1,
+) -> impl Iterator<Item = (String, &AssignmentV1)> {
     controls(content).flat_map(|(at, c)| {
         [("press", &c.press), ("longPress", &c.long_press)]
             .into_iter()

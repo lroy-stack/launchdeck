@@ -754,6 +754,30 @@ fn an_address_with_credentials_is_an_error() {
     );
 }
 
+/// A file the importer would refuse is never written: an action that runs
+/// things may not hide a character from the review (SF-3).
+#[test]
+fn an_action_that_runs_things_hides_nothing() {
+    let ws = workspace(vec![surface(
+        "dev",
+        vec![pad(
+            0,
+            "Deploy",
+            a(
+                "shell",
+                "execute",
+                json!({ "command": "make \u{202E}lacol" }),
+            ),
+        )],
+    )]);
+    let errors = refused(&ws, &pack(&["dev"]));
+    assert_eq!(codes(&errors), [E::InvalidContent]);
+    assert_eq!(
+        errors[0].at.as_deref(),
+        Some("/content/surfaces/0/pages/0/controls/0/press/args/command")
+    );
+}
+
 #[test]
 fn seventeen_surfaces_are_too_many() {
     let ids: Vec<String> = (0..17).map(|i| format!("s{i}")).collect();

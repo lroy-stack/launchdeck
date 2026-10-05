@@ -9,11 +9,14 @@
 //! actions are never review items: a plugin cannot be privileged, and its
 //! network access stays behind the grants a person gives.
 
+use std::fmt::Write as _;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::env::Environment;
-use super::format::is_bidi;
+use super::format::{assignments, echo, is_bidi, ContentV1, Rejection, RejectionCode};
+use super::json::segment;
 use crate::actions::builtin::{
     http_request_of, shell_command, HttpRequest, HTTP, HTTP_REQUEST, SHELL, SHELL_EXECUTE,
 };
@@ -78,7 +81,7 @@ impl ReviewItem {
     pub fn new(at: Location, label: &str, kind: ReviewKind, assignment: &Assignment) -> ReviewItem {
         ReviewItem {
             at,
-            label: label.to_string(),
+            label: visible(label, false),
             kind,
             text: review_text(kind, assignment),
         }
@@ -131,43 +134,78 @@ fn plain_application(app: &str) -> bool {
 }
 
 /// The application and each argument as the runtime passes them, one after
-/// the other; a word that is empty or holds a space, a quote or a control
-/// character is quoted, so every argument shows where it starts and ends.
+/// the other, each a [`word`].
 fn launch_text(args: &Value, platform: Platform) -> String {
     match system::launch_spec(args, platform) {
         Ok(spec) => std::iter::once(&spec.app)
             .chain(&spec.args)
-            .map(|word| shown(word))
+            .map(|w| word(w))
             .collect::<Vec<_>>()
             .join(" "),
         Err(refused) => format!(
             "{} (LaunchDeck will not start it: {})",
-            shown(text(args, "app")),
-            refused.message()
+            word(text(args, "app")),
+            visible(&refused.message(), false)
         ),
     }
 }
 
-fn shown(word: &str) -> String {
-    let plain = !word.is_empty()
-        && !word
+/// A launch word as it is passed: as it is when plain, otherwise quoted,
+/// its quotes and backslashes escaped, so every argument shows where it
+/// starts and ends, an empty one included.
+fn word(w: &str) -> String {
+    let plain = !w.is_empty()
+        && !w
             .chars()
-            .any(|c| c.is_whitespace() || c.is_control() || c == '"' || is_bidi(c));
+            .any(|c| c.is_whitespace() || c == '"' || hidden(c));
     if plain {
-        word.to_string()
-    } else {
-        let quoted = Value::from(word).to_string();
-        quoted.chars().map(escape_bidi).collect()
+        return w.to_string();
     }
+    let mut out = String::from("\"");
+    for c in w.chars() {
+        match c {
+            '"' | '\\' => {
+                out.push('\\');
+                out.push(c);
+            }
+            c => push_visible(&mut out, c, false),
+        }
+    }
+    out.push('"');
+    out
 }
 
-/// A direction control written as an escape, so it cannot reorder what a
-/// person reads.
-fn escape_bidi(c: char) -> String {
-    if is_bidi(c) {
-        format!("\\u{:04x}", u32::from(c))
-    } else {
-        c.to_string()
+/// A character a person cannot see, or that reorders the text around it: a
+/// control character other than a line break or a tab, a direction control,
+/// a line or paragraph separator.
+fn hidden(c: char) -> bool {
+    (c.is_control() && !matches!(c, '\n' | '\t'))
+        || is_bidi(c)
+        || matches!(c, '\u{2028}' | '\u{2029}')
+}
+
+/// The one escaping of every review text (SF-3): each [`hidden`] character
+/// is written as an escape (`\r`, `\u001b`, `\u202e`), so nothing in a text
+/// hides or reorders what a person reads. A multi-line text keeps its line
+/// breaks and tabs; a one-line text escapes them too.
+fn visible(text: &str, multi_line: bool) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        push_visible(&mut out, c, multi_line);
+    }
+    out
+}
+
+fn push_visible(out: &mut String, c: char, multi_line: bool) {
+    match c {
+        '\n' | '\t' if multi_line => out.push(c),
+        '\n' => out.push_str("\\n"),
+        '\t' => out.push_str("\\t"),
+        '\r' => out.push_str("\\r"),
+        c if hidden(c) => {
+            let _ = write!(out, "\\u{:04x}", u32::from(c));
+        }
+        c => out.push(c),
     }
 }
 
@@ -176,31 +214,83 @@ fn text<'a>(args: &'a Value, name: &str) -> &'a str {
 }
 
 /// What exactly runs: the command, the request, the program and its
-/// arguments, the instruction. In full: a person reviews all of it.
+/// arguments, the instruction. In full: a person reviews all of it, every
+/// hidden character escaped.
 fn review_text(kind: ReviewKind, assignment: &Assignment) -> String {
     let args = &assignment.args;
     match kind {
-        ReviewKind::RunsCommand => shell_command(args).to_string(),
+        ReviewKind::RunsCommand => visible(shell_command(args), true),
         ReviewKind::SendsRequest
             if (assignment.provider.as_str(), assignment.action.as_str())
                 == (HTTP, HTTP_REQUEST) =>
         {
             let HttpRequest { method, url, body } = http_request_of(args);
+            let request = format!("{} {}", visible(&method, false), visible(&url, false));
             match body {
-                Some(body) => format!("{method} {url}\n\n{body}"),
-                None => format!("{method} {url}"),
+                Some(body) => format!("{request}\n\n{}", visible(&body, true)),
+                None => request,
             }
         }
-        ReviewKind::SendsRequest => assignment.definition_id(),
+        ReviewKind::SendsRequest => visible(&assignment.definition_id(), false),
         ReviewKind::LaunchesProgram => launch_text(args, Platform::current()),
         ReviewKind::InstructsAgent if assignment.action == AGENT_NEW_TASK => {
             match new_task_of(args) {
-                Ok((task, Some(cwd))) => format!("{task} (in {cwd})"),
-                Ok((task, None)) => task,
-                Err(refused) => format!("LaunchDeck will not send it: {}", refused.message()),
+                Ok((task, Some(cwd))) => {
+                    format!("{} (in {})", visible(&task, true), visible(&cwd, false))
+                }
+                Ok((task, None)) => visible(&task, true),
+                Err(refused) => format!(
+                    "LaunchDeck will not send it: {}",
+                    visible(&refused.message(), false)
+                ),
             }
         }
-        ReviewKind::InstructsAgent => instruction_of(args).to_string(),
+        ReviewKind::InstructsAgent => visible(instruction_of(args), true),
+    }
+}
+
+/// The actions whose arguments say what runs: a shell command, a request,
+/// a launch, an instruction to an agent.
+fn runs_things(provider: &str, action: &str) -> bool {
+    matches!(
+        (provider, action),
+        (SHELL, SHELL_EXECUTE)
+            | (HTTP, HTTP_REQUEST)
+            | (system::ID, system::LAUNCH_APPLICATION)
+            | (AGENT_CONTROL, AGENT_NEW_TASK | AGENT_CONTINUE)
+    )
+}
+
+/// A file in which an action that runs things holds a [`hidden`] character
+/// in an argument, at any depth, is refused at that argument (SF-3): the
+/// review would have to show an escape where the action runs the character.
+pub(crate) fn check_visible(content: &ContentV1) -> Result<(), Rejection> {
+    let found = assignments(content)
+        .filter(|(_, a)| runs_things(&a.provider, &a.action))
+        .find_map(|(at, a)| {
+            let name = a.args.iter().find(|(_, v)| hides(v)).map(|(n, _)| n)?;
+            Some((format!("{at}/args/{}", segment(name)), name))
+        });
+    match found {
+        None => Ok(()),
+        Some((at, name)) => Err(Rejection::at(
+            RejectionCode::InvalidContent,
+            at,
+            format!(
+                "An action that runs something holds, in \"{}\", a character a person cannot see or that reorders the text around it.",
+                echo(name)
+            ),
+        )),
+    }
+}
+
+/// Whether any text in `value`, at any depth, holds a [`hidden`] character.
+fn hides(value: &Value) -> bool {
+    match value {
+        Value::String(s) => s.chars().any(hidden),
+        Value::Array(items) => items.iter().any(hides),
+        Value::Object(map) => map.values().any(hides),
+        _ => false,
     }
 }
 
@@ -648,6 +738,166 @@ mod tests {
             item("agent-control", "newTask", json!({ "cwd": "/src" })),
             "LaunchDeck will not send it: `task` (string) is required"
         );
+    }
+
+    /// Characters a person cannot see, or that reorder what they read.
+    const HIDDEN: [char; 7] = [
+        '\u{202E}', '\u{2066}', '\u{7}', '\r', '\u{1b}', '\u{85}', '\u{2028}',
+    ];
+
+    /// Every kind of review text, for a value holding `c`: the assignment
+    /// and the argument it is in.
+    fn every_kind(c: char) -> Vec<(Assignment, &'static str)> {
+        let v = format!("x{c}y");
+        vec![
+            (a("shell", "execute", json!({ "command": v })), "command"),
+            (
+                a(
+                    "http",
+                    "request",
+                    json!({ "url": format!("https://e.com/{v}") }),
+                ),
+                "url",
+            ),
+            (
+                a(
+                    "http",
+                    "request",
+                    json!({ "url": "https://e.com", "body": v }),
+                ),
+                "body",
+            ),
+            (a("system", "launchApplication", json!({ "app": v })), "app"),
+            (
+                a(
+                    "system",
+                    "launchApplication",
+                    json!({ "app": "code", "args": [v] }),
+                ),
+                "args",
+            ),
+            (a("agent-control", "newTask", json!({ "task": v })), "task"),
+            (
+                a("agent-control", "newTask", json!({ "task": "t", "cwd": v })),
+                "cwd",
+            ),
+            (a("agent-control", "continue", json!({ "text": v })), "text"),
+        ]
+    }
+
+    /// One escaping for every review text: a control or direction character
+    /// is written as an escape wherever it is, so nothing hides or reorders
+    /// what a person reads. Line breaks and tabs of a multi-line text stay.
+    #[test]
+    fn no_review_text_holds_a_hidden_character() {
+        for c in HIDDEN {
+            for (assignment, arg) in every_kind(c) {
+                let kind = kind(&assignment).unwrap();
+                let at = Location {
+                    surface_source_id: "dev".into(),
+                    page_id: "home".into(),
+                    control_id: "g.0.0".into(),
+                    slot: Slot::Press,
+                };
+                let item = ReviewItem::new(at, &format!("Pad{c}"), kind, &assignment);
+                for shown in [&item.text, &item.label] {
+                    assert!(
+                        !shown.contains(c),
+                        "{c:?} in {arg} of {}: {shown:?}",
+                        assignment.definition_id()
+                    );
+                }
+            }
+        }
+        let item = |assignment: Assignment| {
+            let kind = kind(&assignment).unwrap();
+            let at = Location {
+                surface_source_id: "dev".into(),
+                page_id: "home".into(),
+                control_id: "g.0.0".into(),
+                slot: Slot::Press,
+            };
+            ReviewItem::new(at, "Pad", kind, &assignment).text
+        };
+        assert_eq!(
+            item(a(
+                "shell",
+                "execute",
+                json!({ "command": "a\u{202E}b\r\n\tc\u{1b}[2J" })
+            )),
+            "a\\u202eb\\r\n\tc\\u001b[2J"
+        );
+        assert_eq!(
+            item(a(
+                "system",
+                "launchApplication",
+                json!({ "app": "code", "args": ["a\tb", "q\"\\"] })
+            )),
+            "code \"a\\tb\" \"q\\\"\\\\\""
+        );
+    }
+
+    /// A file whose action that runs things hides a character in an
+    /// argument is refused, at the argument; the same characters elsewhere
+    /// are the format's text rules' to judge.
+    #[test]
+    fn an_action_that_runs_things_hides_nothing() {
+        let file = |assignment: &Assignment| {
+            let mut control = crate::core::model::Control::new(
+                crate::core::model::ControlPos::grid(0, 0),
+                "Pad",
+                crate::core::model::Rgb::new(1, 2, 3),
+            );
+            control.press = Some(assignment.clone());
+            let surface = crate::core::model::Surface {
+                id: "s".into(),
+                name: "S".into(),
+                description: String::new(),
+                icon: None,
+                category: "custom".into(),
+                pages: vec![crate::core::model::Page {
+                    id: "home".into(),
+                    name: "Home".into(),
+                    controls: vec![control],
+                }],
+                context: None,
+            };
+            ContentV1 {
+                surfaces: vec![crate::artifacts::format::SurfaceV1::from_model(&surface).unwrap()],
+                context_rules: vec![],
+            }
+        };
+        for c in HIDDEN {
+            for (assignment, arg) in every_kind(c) {
+                let refused = check_visible(&file(&assignment)).unwrap_err();
+                assert_eq!(
+                    (refused.code, refused.at.as_deref()),
+                    (
+                        crate::artifacts::RejectionCode::InvalidContent,
+                        Some(
+                            format!("/content/surfaces/0/pages/0/controls/0/press/args/{arg}")
+                                .as_str()
+                        )
+                    ),
+                    "{c:?} in {arg}"
+                );
+                assert!(!refused.message.contains(c));
+            }
+        }
+        // Line breaks and tabs are fine; so is anything in an action that
+        // runs nothing.
+        for fine in [
+            a("shell", "execute", json!({ "command": "git pull\n\tmake" })),
+            a("agent-control", "newTask", json!({ "task": "one\ntwo" })),
+            a(
+                "system",
+                "openUrl",
+                json!({ "url": "https://e.com/\u{202E}" }),
+            ),
+            a("acme.notes", "mark", json!({ "text": "\u{7}" })),
+        ] {
+            assert_eq!(check_visible(&file(&fine)), Ok(()), "{fine:?}");
+        }
     }
 
     #[test]
