@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 use serde::Serialize;
 
-use super::identity::ApplicationIdentity;
+use super::identity::{native_namespace, ApplicationIdentity};
 
 #[cfg(target_os = "macos")]
 mod macos;
@@ -116,6 +116,13 @@ impl Sink {
 pub trait ForegroundObserver: Send {
     /// What it can do on this system, known before it runs.
     fn status(&self) -> ObserverStatus;
+
+    /// The kind of identity it reports (`macos`, `windows`, `x11`), so that a
+    /// rule written for another kind can be pointed out. An observer of the
+    /// system LaunchDeck was built for reports that system's kind.
+    fn namespace(&self) -> Option<&'static str> {
+        native_namespace()
+    }
 
     /// Report the application in front now and every change after it, until
     /// `sink.stopped()`. Blocks: the runtime gives it a thread of its own.

@@ -538,7 +538,7 @@ impl Runtime {
                 recent: VecDeque::new(),
                 external,
                 pending: BTreeMap::new(),
-                context: Engine::new(observing.clone(), false),
+                context: Engine::new(observing.clone(), observer.namespace(), false),
             }),
             bus: bus.clone(),
             engine,

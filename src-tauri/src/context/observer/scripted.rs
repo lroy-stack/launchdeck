@@ -6,6 +6,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::Duration;
 
 use super::{ForegroundObserver, ObserverStatus, Report, Sink};
+use crate::context::identity::X11;
 
 pub struct ScriptedObserver {
     status: ObserverStatus,
@@ -38,6 +39,11 @@ impl ScriptedObserver {
 impl ForegroundObserver for ScriptedObserver {
     fn status(&self) -> ObserverStatus {
         self.status.clone()
+    }
+
+    /// X11 identities, whatever system the tests run on.
+    fn namespace(&self) -> Option<&'static str> {
+        Some(X11)
     }
 
     fn run(self: Box<Self>, sink: Sink) {

@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use launchdeck_lib::context::engine::{Held, Mode as ContextMode, Outcome};
-use launchdeck_lib::context::identity::X11;
+use launchdeck_lib::context::identity::{MACOS, WINDOWS, X11};
 use launchdeck_lib::context::observer::scripted::{Script, ScriptedObserver};
 use launchdeck_lib::context::status::{Foreground, RuleProblem};
 use launchdeck_lib::context::{
@@ -684,6 +684,36 @@ async fn rules_are_checked_reordered_and_flagged() {
     d.front(BROWSER).await;
     d.until_shown("development").await;
     assert_eq!(d.page(), "git");
+}
+
+/// The observer says which kind of identity it reports, so a rule written on
+/// another system is pointed out the same way wherever this runs. The scripted
+/// observer reports X11 identities, on a Mac as on Linux.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_rule_for_another_system_is_flagged_wherever_this_runs() {
+    let d = desk().await;
+    let mut settings = d.rt.context().settings;
+    settings.rules.push(ContextRule {
+        application: ApplicationIdentity::new(MACOS, "com.apple.Terminal", "Terminal"),
+        surface_id: "productivity".into(),
+        page_id: None,
+    });
+    settings.rules.push(ContextRule {
+        application: ApplicationIdentity::new(WINDOWS, "WindowsTerminal.exe", "Terminal"),
+        surface_id: "productivity".into(),
+        page_id: None,
+    });
+    let status = d.rt.update_context(settings).unwrap();
+    assert_eq!(status.namespace, Some(X11));
+    assert_eq!(
+        status.problems,
+        vec![
+            None,
+            None,
+            Some(RuleProblem::OtherSystem),
+            Some(RuleProblem::OtherSystem)
+        ]
+    );
 }
 
 // ---------------------------------------------------------------------------

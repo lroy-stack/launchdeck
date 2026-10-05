@@ -6,7 +6,7 @@
 use serde::Serialize;
 
 use super::engine::{Decision, Engine, Mode};
-use super::identity::{native_namespace, ApplicationIdentity};
+use super::identity::ApplicationIdentity;
 use super::observer::{ObserverStatus, Seen};
 use super::rules::ContextSettings;
 use crate::core::model::Workspace;
@@ -100,7 +100,7 @@ pub fn rule_problems(
 }
 
 pub fn status(engine: &Engine, settings: &ContextSettings, workspace: &Workspace) -> ContextStatus {
-    let namespace = native_namespace();
+    let namespace = engine.namespace();
     ContextStatus {
         settings: settings.clone(),
         observer: engine.observer().clone(),
@@ -167,7 +167,7 @@ mod tests {
     fn the_status_says_what_is_in_front_without_keeping_any_of_it() {
         let ws = default_workspace();
         let settings = ContextSettings::default();
-        let mut engine = Engine::new(ObserverStatus::available("test"), false);
+        let mut engine = Engine::new(ObserverStatus::available("test"), Some(X11), false);
         assert_eq!(
             status(&engine, &settings, &ws).foreground,
             Foreground::Unknown

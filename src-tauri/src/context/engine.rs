@@ -113,6 +113,9 @@ pub struct Decision {
 #[derive(Debug)]
 pub struct Engine {
     observer: ObserverStatus,
+    /// The kind of identity the observer reports, so that a rule of another
+    /// kind, which can never match, is pointed out.
+    namespace: Option<&'static str>,
     /// The last thing the observer reported, whatever it was.
     observed: Option<Seen>,
     /// An application that came to the front and has not stayed there long enough yet.
@@ -126,9 +129,10 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(observer: ObserverStatus, editing: bool) -> Engine {
+    pub fn new(observer: ObserverStatus, namespace: Option<&'static str>, editing: bool) -> Engine {
         Engine {
             observer,
+            namespace,
             observed: None,
             pending: None,
             accepted: None,
@@ -145,6 +149,10 @@ impl Engine {
 
     pub fn set_observer(&mut self, status: ObserverStatus) {
         self.observer = status;
+    }
+
+    pub fn namespace(&self) -> Option<&'static str> {
+        self.namespace
     }
 
     /// What is in front now, as last reported. Not what rules are asked about.
@@ -371,7 +379,7 @@ mod tests {
     impl Deck {
         fn new(rules: Vec<crate::context::rules::ContextRule>, fallback: Fallback) -> Deck {
             Deck {
-                engine: Engine::new(ObserverStatus::available("test"), false),
+                engine: Engine::new(ObserverStatus::available("test"), Some(X11), false),
                 settings: ContextSettings {
                     auto: true,
                     rules,
@@ -921,6 +929,7 @@ mod tests {
         let mut d = Deck::usual();
         d.engine = Engine::new(
             ObserverStatus::unavailable("Wayland does not say which application is in front."),
+            None,
             false,
         );
         assert_eq!(d.mode(), Mode::Unavailable);
