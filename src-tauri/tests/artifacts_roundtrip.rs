@@ -134,6 +134,15 @@ async fn export_reset_import_install_recover() {
         ),
         (COUNTER, true)
     );
+    // Nothing local is in the file: not the plugin's settings or a grant
+    // (plugins.json and permissions.json hold both), not where this
+    // computer keeps its configuration and plugins.
+    let text = String::from_utf8(pack.clone()).unwrap();
+    let data = world.data.display().to_string();
+    let plugins = world.plugins.display().to_string();
+    for local in ["\"step\"", "192.168.1.20", &data, &plugins] {
+        assert!(!text.contains(local), "the export holds {local}");
+    }
 
     // A computer that has neither: the workspace reset, Auto on, the
     // plugin gone.
