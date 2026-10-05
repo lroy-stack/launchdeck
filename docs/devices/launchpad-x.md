@@ -22,21 +22,35 @@ Each system names them differently. `src-tauri/src/devices/novation/ports.rs` re
 
 Several units: Linux gives each its own ALSA client (`28` above), Windows classic adds a leading `2- ` and new style a ` (2)`, and macOS gives identical names, so there the k-th MIDI input is paired with the k-th MIDI output. Units are numbered in the order of their MIDI input: ids `launchpad-x:1`, `launchpad-x:2`, …, names `Launchpad X`, `Launchpad X (2)`, …. The id does not contain a port name or an ALSA client number, so a unit plugged in again keeps `launchpad-x:1`; nothing about ports is saved, so with two units which physical one is number 1 may change after a replug. Other Launchpad models are listed once per unit as not supported and never opened. Every name above is derived from Novation's documents, Microsoft's naming rules, the Linux sources and community projects; the fixtures are in `novation/ports_tests.rs`. **None of it has been observed on a real system**: no Launchpad X, Windows machine or Linux desktop was available.
 
-## Programmer mode
+## Taking the unit and giving it back
 
-On connect LaunchDeck sends:
+LaunchDeck drives the X in Programmer mode. Header `F0 00 20 29 02 0C` is the Novation id plus the Launchpad X product id. Verified in the manual. In Programmer mode the pads and buttons are plain note and CC senders and the device applies no musical behaviour. The Setup page is unavailable until you leave it.
+
+Nothing waits for the unit: connecting only opens the ports and asks; every render (every 40 ms) reads what the unit answered since the last one and goes on (`novation/session.rs`).
+
+**Identity.** On connect LaunchDeck asks the unit who it is (the Universal Device Inquiry):
+
+```
+F0 7E 7F 06 01 F7              who are you?
+```
+
+The answer names the model's family and four firmware digits, shown in the device's details as the bootloader shows them (a captured X reply reads `0238`). The X is accepted with family `03 01` (Ableton's scripts and a captured reply) or `13 01` (what X-PRM p6 prints, a copy of the Mini MK3's). A unit that answers as its bootloader (second family byte `11`, inferred for the X from the Mini MK3's manual) is sent nothing more and is listed as failed: "The Launchpad is in its bootloader. Unplug it and plug it in again." One that answers with another model's family is turned down the same way: "LaunchDeck could not confirm which Launchpad this is. Press Look again." Both wait for Look again. A unit that does not answer, as through a driver that drops SysEx, is taken anyway after 500 ms.
+
+**Taking it.** The first render that has the answer, or the first one 500 ms after the question, sends
 
 ```
 F0 00 20 29 02 0C 0E 01 F7     select Programmer mode
 ```
 
-and on disconnect:
+then the clear frame, and only then are presses read: before, a note sent in Note mode would read as a pad press.
+
+**Giving it back.** On disconnect, a unit LaunchDeck took gets the clear frame and
 
 ```
 F0 00 20 29 02 0C 0E 00 F7     back to Live mode
 ```
 
-Header `F0 00 20 29 02 0C` is the Novation id plus the Launchpad X product id. Verified in the manual. In Programmer mode the pads and buttons are plain note and CC senders and the device applies no musical behaviour. The Setup page is unavailable until you leave it.
+A unit that was turned down, or not taken yet, is sent nothing.
 
 ## Pad and button addressing
 
@@ -104,7 +118,7 @@ grid 8 x 8, aux top 8, side 8, logo, rgb, velocity, no pressure, no native anima
 ## Lifecycle in LaunchDeck
 
 1. Every 3 seconds (and on **Rescan**) `NovationHardware` lists the MIDI ports, `ports.rs` sorts them into units, and the device manager registers any Launchpad X it finds as a device. Unplugged, unconnected hardware is forgotten.
-2. **Connect** opens the MIDI in and out ports, sends Programmer mode, clears the LEDs and starts forwarding decoded input.
+2. **Connect** opens the MIDI in and out ports and asks the unit who it is; the next render takes it (Programmer mode, the LEDs cleared, then decoded input is forwarded), as described above. A unit in its bootloader or of another model is listed as failed until Look again.
 3. If a render fails (cable pulled) the device is disconnected and `device.disconnected` is published. The virtual device is unaffected.
 4. **Disconnect** clears the LEDs, returns to Live mode and closes the ports.
 

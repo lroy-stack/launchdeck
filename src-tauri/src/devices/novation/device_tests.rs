@@ -8,6 +8,7 @@
 //! the Mini MK3's profile.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
@@ -15,13 +16,17 @@ use super::device::Mk3Device;
 use super::launchpad_mini_mk3;
 use super::ports;
 use super::protocol::to_7bit;
-use super::testkit::{hex, SimLaunchpad, SimLed};
+use super::session::REPLY_TIMEOUT;
+use super::testkit::{hex, FakeClock, SimLaunchpad, SimLed};
 use super::NovationHardware;
 use crate::core::model::{Animation, ControlPos, Rgb};
+use crate::devices::manager::{DeviceChange, DeviceManager, DeviceStatus};
 use crate::devices::midi::testkit::{port, FakeMidi};
 use crate::devices::midi::MidiBackend;
 use crate::devices::source::HardwareSource;
-use crate::devices::{DeviceInput, InputKind, Led, LedCell, SurfaceDevice, SurfaceFrame};
+use crate::devices::{
+    DeviceError, DeviceInput, InputKind, Led, LedCell, ModeState, SurfaceDevice, SurfaceFrame,
+};
 use crate::platform::Platform;
 
 /// macOS names: the unit's input is "… Out" and its output "… In".
@@ -31,13 +36,21 @@ const IN_ID: &str = "1001";
 const OUT_ID: &str = "1002";
 const DEVICE_ID: &str = "launchpad-x:1";
 
+const INQUIRY: [u8; 6] = [0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7];
 const ENTER: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x01, 0xF7];
 const EXIT: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x00, 0xF7];
 
-fn fake() -> FakeMidi {
+/// The X's ports with this unit behind them.
+fn fake_with(sim: SimLaunchpad) -> FakeMidi {
     let midi = FakeMidi::default();
     midi.add(port(IN_NAME, IN_ID), port(OUT_NAME, OUT_ID));
+    midi.bind(OUT_ID, IN_ID, sim);
     midi
+}
+
+/// The X's ports with a Launchpad X just powered on behind them.
+fn fake() -> FakeMidi {
+    fake_with(SimLaunchpad::x())
 }
 
 /// The device the manager would get for the one unit on these ports.
@@ -94,6 +107,15 @@ fn connected(midi: &FakeMidi) -> (Box<dyn SurfaceDevice>, UnboundedReceiver<Devi
     (dev, rx)
 }
 
+/// Connected and taken: the unit answered and a render took it. What was
+/// sent until then is dropped.
+fn acquired(midi: &FakeMidi) -> (Box<dyn SurfaceDevice>, UnboundedReceiver<DeviceInput>) {
+    let (mut dev, rx) = connected(midi);
+    dev.render(&SurfaceFrame::default()).unwrap();
+    midi.take_sent();
+    (dev, rx)
+}
+
 #[test]
 fn the_clear_message_is_one_413_byte_message_in_position_order() {
     let clear = clear_message();
@@ -103,23 +125,26 @@ fn the_clear_message_is_one_413_byte_message_in_position_order() {
 }
 
 #[test]
-fn connect_enters_programmer_mode_then_clears_every_led() {
+fn connect_asks_who_the_unit_is_and_the_next_render_takes_it() {
+    // D-X5: Programmer mode used to be sent blind, before anything was known.
     let midi = fake();
-    let (dev, _rx) = connected(&midi);
+    let (mut dev, _rx) = connected(&midi);
     assert!(dev.is_connected());
     assert_eq!(dev.identity().id, DEVICE_ID);
+    assert_eq!(midi.take_sent(), to_output(&[INQUIRY.to_vec()]));
+    assert_eq!(midi.open_links(), 1);
+    dev.render(&SurfaceFrame::default()).unwrap();
     assert_eq!(
         midi.take_sent(),
         to_output(&[ENTER.to_vec(), clear_message()])
     );
-    assert_eq!(midi.open_links(), 1);
+    assert_eq!(dev.details().firmware.as_deref(), Some("0238"));
 }
 
 #[test]
 fn a_frame_sends_only_what_changed() {
     let midi = fake();
-    let (mut dev, _rx) = connected(&midi);
-    midi.take_sent();
+    let (mut dev, _rx) = acquired(&midi);
     let f = frame(ControlPos::grid(0, 0), Rgb::new(255, 0, 128));
     dev.render(&f).unwrap();
     assert_eq!(
@@ -135,7 +160,7 @@ fn a_frame_sends_only_what_changed() {
 #[test]
 fn input_decodes_pads_and_ignores_sysex() {
     let midi = fake();
-    let (_dev, mut rx) = connected(&midi);
+    let (_dev, mut rx) = acquired(&midi);
     midi.inject(IN_ID, &[0x90, 0x0B, 0x64]);
     assert_eq!(
         rx.try_recv().unwrap(),
@@ -155,7 +180,7 @@ fn input_decodes_pads_and_ignores_sysex() {
 #[test]
 fn input_is_read_as_whole_messages_whatever_the_callbacks_hold() {
     let midi = fake();
-    let (_dev, mut rx) = connected(&midi);
+    let (_dev, mut rx) = acquired(&midi);
     let press = |pos, velocity| (pos, InputKind::Pressed { velocity });
     // Two messages and a stray data pair (running status) in one callback.
     midi.inject(IN_ID, &[0x90, 0x0B, 0x64, 0xB0, 0x5B, 0x7F, 0x0B, 0x00]);
@@ -178,8 +203,7 @@ fn input_is_read_as_whole_messages_whatever_the_callbacks_hold() {
 #[test]
 fn disconnect_clears_leaves_programmer_mode_and_closes_the_link() {
     let midi = fake();
-    let (mut dev, mut rx) = connected(&midi);
-    midi.take_sent();
+    let (mut dev, mut rx) = acquired(&midi);
     dev.disconnect().unwrap();
     assert_eq!(
         midi.take_sent(),
@@ -218,17 +242,16 @@ fn a_missing_input_leaves_no_half_open_adapter() {
 
 // ---- the X against a simulated unit -----------------------------------------
 
-/// A connected X with a simulated unit behind its ports.
+/// An X taken by LaunchDeck, with a simulated unit behind its ports.
 fn on_sim() -> (
     FakeMidi,
     SimLaunchpad,
     Box<dyn SurfaceDevice>,
     UnboundedReceiver<DeviceInput>,
 ) {
-    let midi = fake();
     let sim = SimLaunchpad::x();
-    midi.bind(OUT_ID, IN_ID, sim.clone());
-    let (dev, rx) = connected(&midi);
+    let midi = fake_with(sim.clone());
+    let (dev, rx) = acquired(&midi);
     (midi, sim, dev, rx)
 }
 
@@ -335,7 +358,6 @@ fn pressure_unknown_controls_and_notes_off_the_layout_are_not_input() {
 #[test]
 fn a_whole_frame_is_one_message() {
     let (midi, _sim, mut dev, _rx) = on_sim();
-    midi.take_sent();
     dev.render(&rainbow(dev.as_ref())).unwrap();
     let sent = midi.take_sent();
     assert_eq!(sent.len(), 1);
@@ -363,57 +385,167 @@ fn replies_from_the_unit_do_not_disturb_drawing() {
 
 const MINI_IN: &str = "Launchpad Mini MK3 LPMiniMK3 MIDI Out";
 const MINI_OUT: &str = "Launchpad Mini MK3 LPMiniMK3 MIDI In";
+const MINI_IN_ID: &str = "2001";
+const MINI_OUT_ID: &str = "2002";
 
-/// A Mini MK3 device over a simulated Mini; the hardware source does not
-/// drive the Mini yet (package M6), so the unit is found by the parser.
-fn mini_on_sim() -> (
-    FakeMidi,
-    SimLaunchpad,
-    Mk3Device,
-    UnboundedReceiver<DeviceInput>,
-) {
+/// A Mini MK3 device on the Mini's ports with this unit behind them, on the
+/// test's clock, connected; the hardware source does not drive the Mini yet
+/// (package M6), so the unit is found by the parser.
+fn mini_with(
+    sim: &SimLaunchpad,
+    clock: &FakeClock,
+) -> (FakeMidi, Mk3Device, UnboundedReceiver<DeviceInput>) {
     let midi = FakeMidi::default();
-    midi.add(port(MINI_IN, "2001"), port(MINI_OUT, "2002"));
-    let sim = SimLaunchpad::mini();
-    midi.bind("2002", "2001", sim.clone());
+    midi.add(port(MINI_IN, MINI_IN_ID), port(MINI_OUT, MINI_OUT_ID));
+    midi.bind(MINI_OUT_ID, MINI_IN_ID, sim.clone());
     let profiles = [&launchpad_mini_mk3::PROFILE];
     let mut units = ports::parse(&midi.ports(), Platform::MacOs, &profiles).units;
     assert_eq!(units.len(), 1);
-    let mut dev = Mk3Device::new(units.remove(0), Arc::new(midi.clone()));
+    let mut dev = Mk3Device::new(units.remove(0), Arc::new(midi.clone())).with_clock(clock.clock());
     let (tx, rx) = unbounded_channel();
     dev.connect(tx).unwrap();
-    (midi, sim, dev, rx)
+    (midi, dev, rx)
+}
+
+/// Every message sent since the last call, without the output id.
+fn sent(midi: &FakeMidi) -> Vec<Vec<u8>> {
+    midi.take_sent().into_iter().map(|(_, m)| m).collect()
+}
+
+/// The Mini's clear frame: the X's with the Mini's product byte.
+fn mini_clear() -> Vec<u8> {
+    let mut clear = clear_message();
+    clear[5] = 0x0D;
+    clear
+}
+
+const MINI_FRAME: &str = "F0 00 20 29 02 0D 03 03 0B 7F 00 40 F7";
+
+fn lower_left_pink() -> SurfaceFrame {
+    frame(ControlPos::grid(0, 7), Rgb::new(255, 0, 128))
+}
+
+#[test]
+fn the_mini_mk3_is_identified_before_it_is_taken() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, _rx) = mini_with(&sim, &FakeClock::new());
+    assert_eq!(dev.identity().id, "launchpad-mini-mk3:1");
+    assert_eq!(sent(&midi), [hex("F0 7E 7F 06 01 F7")]);
+    assert_eq!(dev.details().mode, ModeState::Acquiring);
+    assert!(!sim.in_programmer_mode());
+
+    dev.render(&lower_left_pink()).unwrap();
+    assert_eq!(
+        sent(&midi),
+        [
+            hex("F0 00 20 29 02 0D 0E 01 F7"),
+            mini_clear(),
+            hex(MINI_FRAME)
+        ]
+    );
+    assert!(sim.in_programmer_mode());
+    assert_eq!(dev.details().firmware.as_deref(), Some("0531"));
+}
+
+#[test]
+fn a_unit_in_its_bootloader_is_sent_nothing_more() {
+    let sim = SimLaunchpad::mini().in_bootloader();
+    let (midi, mut dev, _rx) = mini_with(&sim, &FakeClock::new());
+    assert_eq!(sent(&midi), [hex("F0 7E 7F 06 01 F7")]);
+    for _ in 0..2 {
+        let error = dev.render(&lower_left_pink()).unwrap_err();
+        assert!(matches!(error, DeviceError::Bootloader(_)), "{error:?}");
+        assert_eq!(
+            error.to_string(),
+            "The Launchpad is in its bootloader. Unplug it and plug it in again."
+        );
+        assert_eq!(sent(&midi), Vec::<Vec<u8>>::new());
+    }
+    dev.disconnect().unwrap();
+    assert_eq!(sent(&midi), Vec::<Vec<u8>>::new(), "nothing to give back");
+    assert_eq!(midi.open_links(), 0);
+}
+
+#[test]
+fn another_model_on_the_mini_mk3_ports_is_turned_down() {
+    let sim = SimLaunchpad::mini().with_family([0x03, 0x01]);
+    let (midi, mut dev, _rx) = mini_with(&sim, &FakeClock::new());
+    sent(&midi);
+    let error = dev.render(&lower_left_pink()).unwrap_err();
+    assert!(matches!(error, DeviceError::OtherModel(_)), "{error:?}");
+    assert_eq!(
+        error.to_string(),
+        "LaunchDeck could not confirm which Launchpad this is. Press Look again."
+    );
+    assert_eq!(sent(&midi), Vec::<Vec<u8>>::new());
+    assert!(!sim.in_programmer_mode());
+}
+
+#[test]
+fn a_launchpad_x_answering_with_the_manuals_misprinted_family_is_taken() {
+    let sim = SimLaunchpad::x().with_family([0x13, 0x01]);
+    let midi = fake_with(sim.clone());
+    let (mut dev, _rx) = connected(&midi);
+    dev.render(&SurfaceFrame::default()).unwrap();
+    assert!(sim.in_programmer_mode());
+}
+
+#[test]
+fn a_unit_that_does_not_answer_is_taken_after_the_timeout() {
+    let sim = SimLaunchpad::mini().silent();
+    let clock = FakeClock::new();
+    let (midi, mut dev, mut rx) = mini_with(&sim, &clock);
+    assert_eq!(sent(&midi), [hex("F0 7E 7F 06 01 F7")]);
+    dev.render(&lower_left_pink()).unwrap();
+    clock.advance(REPLY_TIMEOUT - Duration::from_millis(1));
+    dev.render(&lower_left_pink()).unwrap();
+    assert_eq!(sent(&midi), Vec::<Vec<u8>>::new(), "still waiting");
+
+    clock.advance(Duration::from_millis(1));
+    dev.render(&lower_left_pink()).unwrap();
+    assert_eq!(
+        sent(&midi),
+        [
+            hex("F0 00 20 29 02 0D 0E 01 F7"),
+            mini_clear(),
+            hex(MINI_FRAME)
+        ]
+    );
+    assert_eq!(dev.details().firmware, None);
+    midi.inject(MINI_IN_ID, &sim.press(ControlPos::grid(0, 7)));
+    assert_eq!(rx.try_recv().unwrap().pos, ControlPos::grid(0, 7));
+}
+
+#[test]
+fn input_before_the_unit_is_taken_is_not_a_press() {
+    // D-X5: Keys, the Mini's Live layout, sends notes in the pads' range.
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, mut rx) = mini_with(&sim, &FakeClock::new());
+    midi.inject(MINI_IN_ID, &hex("90 30 7F"));
+    assert!(rx.try_recv().is_err());
+    dev.render(&SurfaceFrame::default()).unwrap();
+    midi.inject(MINI_IN_ID, &hex("90 30 7F"));
+    assert_eq!(rx.try_recv().unwrap().pos, ControlPos::grid(7, 4));
 }
 
 #[test]
 fn the_mini_mk3_profile_runs_on_the_same_device() {
-    let (midi, sim, mut dev, mut rx) = mini_on_sim();
-    assert_eq!(dev.identity().id, "launchpad-mini-mk3:1");
-    let sent: Vec<Vec<u8>> = midi.take_sent().into_iter().map(|(_, m)| m).collect();
-    assert_eq!(sent.len(), 2);
-    assert_eq!(sent[0], hex("F0 00 20 29 02 0D 0E 01 F7"));
-    assert_eq!(
-        &sent[1][..7],
-        hex("F0 00 20 29 02 0D 03"),
-        "the clear frame"
-    );
-    assert!(sim.in_programmer_mode());
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, mut rx) = mini_with(&sim, &FakeClock::new());
+    dev.render(&SurfaceFrame::default()).unwrap();
+    sent(&midi);
 
-    let f = frame(ControlPos::grid(0, 7), Rgb::new(255, 0, 128));
-    dev.render(&f).unwrap();
+    dev.render(&lower_left_pink()).unwrap();
     assert_eq!(
         midi.take_sent(),
-        [(
-            "2002".to_string(),
-            hex("F0 00 20 29 02 0D 03 03 0B 7F 00 40 F7")
-        )]
+        [(MINI_OUT_ID.to_string(), hex(MINI_FRAME))]
     );
     assert_eq!(
         sim.led_at(ControlPos::grid(0, 7)),
         Some(SimLed::Rgb(127, 0, 64))
     );
 
-    midi.inject("2001", &hex("90 0B 05"));
+    midi.inject(MINI_IN_ID, &hex("90 0B 05"));
     assert_eq!(
         rx.try_recv().unwrap().kind,
         InputKind::Pressed { velocity: 127 },
@@ -427,4 +559,37 @@ fn the_mini_mk3_profile_runs_on_the_same_device() {
         Some(SimLed::Rgb(0, 0, 0))
     );
     assert_eq!(midi.open_links(), 0);
+}
+
+// ---- refusals through the device manager --------------------------------------
+
+#[test]
+fn the_manager_reports_a_unit_in_its_bootloader_as_failed_with_the_reason() {
+    let midi = fake_with(SimLaunchpad::x().in_bootloader());
+    let (tx, _rx) = unbounded_channel();
+    let hardware = NovationHardware::new(Arc::new(midi.clone()), Platform::MacOs);
+    let mut m = DeviceManager::with_hardware(tx, Box::new(hardware));
+    let rescan = m.rescan_hardware(false);
+    assert_eq!(rescan.to_connect, [DEVICE_ID]);
+    assert_eq!(
+        m.connect(DEVICE_ID).unwrap(),
+        DeviceChange::Connected(DEVICE_ID.into()),
+        "connect waits for nothing"
+    );
+    assert_eq!(
+        m.render(DEVICE_ID, &SurfaceFrame::default()),
+        Some(DeviceChange::Disconnected(DEVICE_ID.into()))
+    );
+    let info = m.list().remove(0);
+    assert_eq!(info.status, DeviceStatus::Failed);
+    assert_eq!(
+        info.problem.as_deref(),
+        Some("The Launchpad is in its bootloader. Unplug it and plug it in again.")
+    );
+    assert_eq!(midi.take_sent(), to_output(&[INQUIRY.to_vec()]));
+    assert_eq!(midi.open_links(), 0);
+    assert!(
+        m.rescan_hardware(false).to_connect.is_empty(),
+        "only Look again tries it again"
+    );
 }

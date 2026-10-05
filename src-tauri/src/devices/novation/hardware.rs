@@ -85,7 +85,7 @@ mod tests {
     use crate::devices::midi::testkit::{port, FakeMidi};
     use tokio::sync::mpsc::unbounded_channel;
 
-    const ENTER: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x01, 0xF7];
+    const INQUIRY: [u8; 6] = [0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7];
 
     fn manager(midi: &FakeMidi) -> DeviceManager {
         manager_on(midi, Platform::MacOs)
@@ -143,8 +143,8 @@ mod tests {
         assert_eq!(statuses(&m), [(id.to_string(), DeviceStatus::Connected)]);
         assert_eq!(
             midi.take_sent().first(),
-            Some(&("1002".to_string(), ENTER.to_vec())),
-            "Programmer mode on the unit's output"
+            Some(&("1002".to_string(), INQUIRY.to_vec())),
+            "the inquiry on the unit's output"
         );
 
         midi.remove("1001");

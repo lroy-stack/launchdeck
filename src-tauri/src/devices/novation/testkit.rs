@@ -16,9 +16,13 @@
 //! the Programmer-mode bytes of a press and a release, a power cycle and a
 //! DAW taking the unit over. Not modelled: DAW mode and the DAW interface,
 //! Lighting Custom Modes, the musical layouts' own notes.
+//!
+//! `FakeClock` is the time a test gives a device, moved by hand.
 
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::{Duration, Instant};
 
+use super::device::Clock;
 use crate::core::model::ControlPos;
 use crate::devices::midi::testkit::Responder;
 
@@ -27,6 +31,26 @@ pub(crate) fn hex(line: &str) -> Vec<u8> {
     line.split_whitespace()
         .map(|b| u8::from_str_radix(b, 16).unwrap())
         .collect()
+}
+
+/// A clock that stands still until the test moves it. Clones share it.
+#[derive(Clone)]
+pub(crate) struct FakeClock(Arc<Mutex<Instant>>);
+
+impl FakeClock {
+    pub fn new() -> Self {
+        FakeClock(Arc::new(Mutex::new(Instant::now())))
+    }
+
+    pub fn advance(&self, by: Duration) {
+        *self.0.lock().unwrap() += by;
+    }
+
+    /// The clock a device reads.
+    pub fn clock(&self) -> Clock {
+        let now = self.0.clone();
+        Arc::new(move || *now.lock().unwrap())
+    }
 }
 
 /// Novation's manufacturer id and the `02h` that starts every MK3 header

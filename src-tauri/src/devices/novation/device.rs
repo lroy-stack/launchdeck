@@ -1,7 +1,9 @@
 //! `Mk3Device`: a Novation MK3 unit as a `SurfaceDevice`, for every model
 //! profile. It opens the unit's MIDI-interface pair through the transport,
 //! does what the `Session` says when the ports open, on each render and
-//! before they close, and draws frames through the `LedCache`.
+//! before they close, and draws frames through the `LedCache` once the
+//! session holds the unit. A unit the session turned down fails every
+//! render with the reason, and is given nothing back on disconnect.
 //!
 //! What the unit sends is framed into whole messages: a SysEx reply goes to
 //! a queue the session reads on the next render; anything else, while the
@@ -18,11 +20,11 @@ use super::leds::LedCache;
 use super::ports::FoundUnit;
 use super::profile::ModelProfile;
 use super::protocol::{parse_reply, Reply};
-use super::session::{Action, Phase, Session};
+use super::session::{Action, Session};
 use crate::devices::midi::{MessageFramer, MidiBackend, MidiLink, OnBytes};
 use crate::devices::{
-    DeviceCapabilities, DeviceError, DeviceIdentity, DeviceInput, DeviceKind, InputSender,
-    SurfaceDevice, SurfaceFrame,
+    DeviceCapabilities, DeviceDetails, DeviceError, DeviceIdentity, DeviceInput, DeviceKind,
+    InputSender, SurfaceDevice, SurfaceFrame,
 };
 
 /// Replies kept until the next render reads them; a unit that sends more
@@ -30,7 +32,8 @@ use crate::devices::{
 const REPLY_BACKLOG: usize = 64;
 
 type Replies = Arc<Mutex<VecDeque<Reply>>>;
-type Clock = Arc<dyn Fn() -> Instant + Send + Sync>;
+/// What the session is told the time is: `Instant::now`, or a test's clock.
+pub(crate) type Clock = Arc<dyn Fn() -> Instant + Send + Sync>;
 
 pub(crate) struct Mk3Device {
     profile: &'static ModelProfile,
@@ -60,6 +63,12 @@ impl Mk3Device {
             gate: Arc::default(),
             clock: Arc::new(Instant::now),
         }
+    }
+
+    /// The same device on a test's clock.
+    #[cfg(test)]
+    pub(crate) fn with_clock(self, clock: Clock) -> Self {
+        Self { clock, ..self }
     }
 
     fn send(&mut self, bytes: &[u8]) -> Result<(), DeviceError> {
@@ -120,7 +129,7 @@ impl SurfaceDevice for Mk3Device {
             .open(&self.unit.input, &self.unit.output, on_bytes)?;
         self.link = Some(link);
         self.leds.invalidate();
-        for action in self.session.opened() {
+        for action in self.session.opened((self.clock)()) {
             self.act(action)?;
         }
         Ok(())
@@ -151,7 +160,10 @@ impl SurfaceDevice for Mk3Device {
         for action in self.session.tick((self.clock)(), replies) {
             self.act(action)?;
         }
-        if self.session.phase() != Phase::Owned {
+        if let Some(refusal) = self.session.refusal() {
+            return Err(refusal);
+        }
+        if !self.session.draws() {
             return Ok(());
         }
         let plan = self.leds.plan(frame);
@@ -169,6 +181,10 @@ impl SurfaceDevice for Mk3Device {
         }
         self.leds.commit(plan);
         Ok(())
+    }
+
+    fn details(&self) -> DeviceDetails {
+        self.session.details()
     }
 }
 
