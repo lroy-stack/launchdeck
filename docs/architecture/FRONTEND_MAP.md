@@ -23,6 +23,8 @@ Imports go up this picture only: `shared → features → app` means features bu
 * `src/app` may import any feature.
 * Only `src/lib/ipc.ts` imports `@tauri-apps`, and only `src/lib/ipc.ts` imports `src/lib/preview.ts` (tests aside: `src/lib/preview.test.ts`, `src/lib/plugins.test.ts`).
 
+The architecture check enforces all of these. ESLint (`no-restricted-imports` in `eslint.config.js`) reports the first three as well, so an editor shows them while the import is typed; the feature-to-feature edges are the architecture check's alone.
+
 ## 2. Directories
 
 | Directory | Owns | May import |
