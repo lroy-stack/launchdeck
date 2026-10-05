@@ -17,7 +17,7 @@ Reasons that recur, referred to by letter:
 
 **Rule zero: no new product subsystem during productization.** If a missing subsystem is discovered, it is documented as post-alpha (section 4) unless it blocks the alpha acceptance scenario. Portable Surface/Pack artifacts are the one new subsystem this milestone asks for; everything else is consolidation, hardening, UX and documentation. This plan is the single architectural arbiter: implementers do not re-decide what it settles.
 
-Open owner decisions, not blocking any package: the license (R-03) and refusing plaintext `config[].secret` in schema 1-3 manifests (R-04).
+Owner decisions taken on 2026-10-05: the license is **MIT**, everywhere (R-03, in R4); legacy plaintext `config[].secret` values of schema 1-3 manifests are **never used again and migrated only on the person's explicit choice** (R-04, new package D4). After D4, LaunchDeck never hands a plaintext secret stored in `plugins.json` to a plugin, whatever the manifest version: credential store or unavailable.
 
 | WP | Title | Depends on | Owner | Files / domains | Risk | Acceptance |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -32,7 +32,8 @@ Open owner decisions, not blocking any package: the license (R-03) and refusing 
 | A7 | Split core/runtime.rs into core/runtime/ | A3 | impl agent + adversarial review | src-tauri/src/core/runtime.rs -> src-tauri/src/core/runtime/{mod,startup,navigation,con… | high | pure move; public paths unchanged; all 715+ Rust tests green |
 | B1 | Context Engine hardening and the portable resolver | A5, A7 | impl agent | src-tauri/src/context/observer/macos.rs and windows.rs (header comments only); src-taur… | medium | portable resolver tested; ContextHint no longer emitted; observer evidence recorded or NOT VERIFIED |
 | D1 | Plugin host hardening and plugins:validate | A4, A6 | impl agent | src-tauri/src/plugins/external/{host.rs, legacy_secrets.rs (new), mod.rs, discovery.rs,… | medium | typed plugin errors; `plugins:validate` uses the real validator; reserved id prefix |
-| D2 | Install the bundled example plugins from the Plugins screen | D1 | impl agent + adversarial review | src-tauri/tauri.conf.json (bundle.resources); src-tauri/src/plugins/external/install.rs… | medium | Hello, Counter, Home Assistant installable from the Plugins screen; tests through the install API |
+| D4 | Legacy plaintext secrets: never used, explicit migration | D1 | impl agent + adversarial review | plugins/external/{host,legacy_secrets}.rs, commands/plugins.rs, src/features/plugins, docs/security | high | a schema 1-3 secret from plugins.json never reaches a module; plaintext untouched until Migrate (write, read back, then remove) or Remove; no insecure option |
+| D2 | Install the bundled example plugins from the Plugins screen | D1, D4 | impl agent + adversarial review | src-tauri/tauri.conf.json (bundle.resources); src-tauri/src/plugins/external/install.rs… | medium | Hello, Counter, Home Assistant installable from the Plugins screen; tests through the install API |
 | D3 | Reproducible example plugins, frozen SDK 0.1 fixtures, author docs | D1 | impl agent | scripts/build-example-plugins.sh; examples/plugins/{hello,counter,channels,home-assista… | medium | example plugins rebuild to SHA256SUMS or NOT VERIFIED; author flow documented |
 | C1 | Artifact format core: limits, JSON pre-pass, digest, canonical writer, v1 types | A6 | impl agent | src-tauri/Cargo.toml; src-tauri/Cargo.lock; src-tauri/src/lib.rs (pub mod artifacts); s… | medium | v1 types, limits, JSON pre-pass, digest and canonical writer with tests |
 | C2 | Artifact export | C1 | impl agent | src-tauri/src/artifacts/{env.rs, export.rs, review.rs, mod.rs}; src-tauri/src/plugins/s… | medium | export deterministic (same input, same bytes); no secret, grant or runtime state in output |
@@ -131,6 +132,7 @@ Kept as is (extend, never replace):
 | False "not compiled" claims | truth pass from VERIFICATION.md | B0 |
 | Foreground example cannot show changes on macOS; dead `ContextHint` emitted | run loop on macOS; stop emitting | B1 |
 | Plugin errors as raw strings; legacy secrets code inside `host.rs`; SDK version copied without a test; `launchdeck.` id prefix open | error kinds, `legacy_secrets.rs`, contract test, reserved prefix | D1 |
+| Schema 1-3 `config[].secret` handed to the module from plain text | never passed; "Legacy insecure secret" card with Migrate (store, read back, then remove) and Remove; no insecure option | D4 |
 | No in-app plugin install | bundled Hello, Counter, Home Assistant with an Install button | D2 |
 | Example plugins not reproducible | frozen SDK 0.1 fixtures, rebuilt examples, `SHA256SUMS`, `--check` | D3 |
 | Two version parsers | `semver` crate (already locked) for requirements; dead `agents/pack.rs` removed | C1 |
@@ -152,7 +154,6 @@ Kept as is (extend, never replace):
 | Mass narrowing of `pub` items | integration tests legitimately use ~35 paths | splits and new code only |
 | Move `SLOT_COUNT`/`SOURCE` to `agents::model` | only when `service.rs` is touched | next agents work |
 | Third-party plugin install from a file or folder, uninstall, plugin package format, signing, grants bound to a module hash | new subsystem (rule zero) | post-alpha |
-| Refusing legacy schema 1-3 `config[].secret` (plaintext) | product-level security choice: **the user decides** (see risk R-04) | on the user's answer |
 | Save dialog for export, file associations, drag-and-drop import | export writes to Downloads instead (no new dependency) | post-alpha |
 | Artifact assets (PNG), signatures, starter surfaces as artifacts, bundled sample Packs | not needed for v1; layouts are reserved | format version 2 |
 | Appearance / light theme | one theme exists | when a second theme exists |
@@ -539,7 +540,7 @@ The headless acceptance test (`tests/release_acceptance.rs`) drives the real run
 
 ## 12. Implementation order
 
-One shared tree, branch `productization`, no worktrees. Packages run in this order; at most two at once, only when their files are disjoint and at most one touches Rust (a pair marked ‖). Cargo for every package: `/private/tmp/claude-501/-Users-lr0y-Movies-launchdeck/de5fb0f6-fd95-4c41-bf94-4c11fa0f3ba8/scratchpad/cargo.sh` run from `src-tauri/`. Packages worth an adversarial review after implementation: A5, A7, D2, C3, C4, C5, E1, E3.
+One shared tree, branch `productization`, no worktrees. Packages run in this order; at most two at once, only when their files are disjoint and at most one touches Rust (a pair marked ‖). Cargo for every package: `/private/tmp/claude-501/-Users-lr0y-Movies-launchdeck/de5fb0f6-fd95-4c41-bf94-4c11fa0f3ba8/scratchpad/cargo.sh` run from `src-tauri/`. Packages worth an adversarial review after implementation: A5, A7, D4, D2, C3, C4, C5, E1, E3.
 
 | # | Id | Package | Rust | Depends on | ‖ | Status |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -554,7 +555,8 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 | 9 | A7 | Split `core/runtime.rs` | yes | A3 | | todo |
 | 10 | B1 | Context Engine hardening and portable resolver | yes | A5, A7 | | todo |
 | 11 | D1 | Plugin host hardening and `plugins:validate` | yes | A4, A6 | | todo |
-| 12 | D2 | Install bundled example plugins | yes | D1 | | todo |
+| 11b | D4 | Legacy plaintext secrets: never used, explicit migration | yes | D1 | | todo |
+| 12 | D2 | Install bundled example plugins | yes | D1, D4 | | todo |
 | 13 | D3 | Reproducible example plugins and author docs | yes | D1 | | todo |
 | 14 | C1 | Artifact format core | yes | A6 | | todo |
 | 15 | C2 | Artifact export | yes | C1 | | todo |
@@ -582,8 +584,8 @@ R3, R4 and R5 declare only A2 so that they still run if a feature package fails;
 | --- | --- | --- | --- |
 | R-01 | Disk (8 GB free) fills during builds (extra crates, release LTO build) | medium / high | no new crates beyond locked ones; no dialog plugin; release build only in R5 with ≥ 6 GB free; never `cargo clean`; if < 2 GB after the bundle, remove only `target/release` |
 | R-02 | 8 GB RAM and LTO `codegen-units = 1` make the release build slow or fail | medium / medium | build alone; record NOT VERIFIED if it fails |
-| R-03 | License contradiction (Cargo/SDK MIT vs README none) | certain / high for distribution | **user decision**; no bundle leaves the machine until decided |
-| R-04 | Schema 1-3 manifests can still store a `config[].secret` in plain text, against "credential store or nothing" | certain / medium | **user decision**; recommended: refuse it at load in all schemas, keep the move/delete notice; until then a documented known limitation |
+| R-03 | License contradiction (Cargo/SDK MIT vs README none) | decided | MIT everywhere, root LICENSE, README section (R4) |
+| R-04 | Schema 1-3 manifests can still store a `config[].secret` in plain text, against "credential store or nothing" | decided | never handed to a module; explicit Migrate (write, read back, then remove) or Remove; plaintext untouched on any failure (D4) |
 | R-05 | CI never ran (billing) | certain / medium | full local gate; workflows linted with actionlint; NOT VERIFIED everywhere; the owner can fix billing or make the repo public |
 | R-06 | Runtime/surfaces/lib splits change behaviour | low / high | characterization tests green before and after; fixtures must not change; review of A5, A7 |
 | R-07 | Two agents in one tree commit each other's files | medium / medium | path-scoped commits; pairs only with disjoint files and one Rust side; separate rule and map files |
@@ -628,7 +630,7 @@ Who checks: **A** automated here, **CI** only in CI (NOT VERIFIED until it runs 
 | 21 | Artifact security tests | `artifacts_security` green 5 times (release blocker) | A |
 | 22 | Plugin SDK usable | author-flow page walked here with `plugins:validate`; in-app Install | A; H |
 | 23 | Permissions coherent | `plugin_network` tests; docs | A |
-| 24 | Secrets secure | `secret_store` tests; Keychain real store | A; H (4.3); R-04 user decision |
+| 24 | Secrets secure | `secret_store` tests; D4 tests (no plaintext secret reaches a module, migration failure leaves it untouched); Keychain real store | A; H (4.3) |
 | 25 | Network works | `plugin_network`, `home_assistant` (mock) | A; real HA (c) |
 | 26 | Reference plugins build and run | `build-example-plugins.sh --check`; plugin tests load them; `plugins:validate` | A (npm network permitting) |
 | 27 | Developer docs sufficient | review + `docs:links` | A + review |
@@ -654,4 +656,4 @@ Who checks: **A** automated here, **CI** only in CI (NOT VERIFIED until it runs 
 | 47 | Docs match behaviour | review; `docs:links`; grep for the obsolete claims of section 10 empty | A + review |
 | 48 | Clean tree | `git status` clean after R5 | A |
 | 49 | Release candidate identified | R5 record names the commit | A |
-| 50 | Ready for an external alpha tester | 1-49 as marked, plus license decided (R-03) and the human pass recorded | H + user |
+| 50 | Ready for an external alpha tester | 1-49 as marked, MIT license in place (R4), and the human pass recorded | H + user |
