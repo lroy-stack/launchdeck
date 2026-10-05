@@ -6,7 +6,7 @@
   "description": "Turn lights and switches on and off, and show on a pad whether they are on. Talks to your own Home Assistant, and only to it.",
   "author": "LaunchDeck examples",
   "abi": 1,
-  "sdk": "0.2.0",
+  "sdk": "0.2.1",
   "main": "home-assistant.wasm",
   "capabilities": {
     "network": {

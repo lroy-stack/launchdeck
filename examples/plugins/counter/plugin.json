@@ -6,7 +6,7 @@
   "description": "A counter that remembers its value between presses and reports a level, never a number of pads.",
   "author": "LaunchDeck examples",
   "abi": 1,
-  "sdk": "0.1.1",
+  "sdk": "0.2.1",
   "main": "counter.wasm",
   "actions": [
     {

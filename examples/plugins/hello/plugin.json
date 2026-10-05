@@ -6,7 +6,7 @@
   "description": "Says hello, tells the deck about it, and shows the smallest complete plugin.",
   "author": "LaunchDeck examples",
   "abi": 1,
-  "sdk": "0.1.0",
+  "sdk": "0.2.1",
   "main": "hello.wasm",
   "actions": [
     {

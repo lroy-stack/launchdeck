@@ -170,7 +170,7 @@
               "type": "counter.changed"
             }
           ],
-          "sdk": "0.1.1",
+          "sdk": "0.2.1",
           "status": "enabled"
         },
         "id": "example.counter",
@@ -251,7 +251,7 @@
               "type": "hello.completed"
             }
           ],
-          "sdk": "0.1.0",
+          "sdk": "0.2.1",
           "status": "enabled"
         },
         "id": "example.hello",
@@ -288,7 +288,7 @@
       "network": {
         "hosts": [
           {
-            "decidedAt": 1791216315368,
+            "decidedAt": 1791220297171,
             "origin": "http://192.168.1.20:8123",
             "reach": "local",
             "source": {
@@ -425,7 +425,7 @@
           "abi": 1,
           "author": "LaunchDeck examples",
           "events": [],
-          "sdk": "0.2.0",
+          "sdk": "0.2.1",
           "status": "enabled"
         },
         "id": "example.home-assistant",
@@ -477,7 +477,7 @@
         ]
       },
       "networkFailure": {
-        "at": 1791216315777,
+        "at": 1791220297559,
         "code": "invalid_request",
         "message": "`homeassistant/api/states/light.kitchen` is not a URL"
       },
@@ -598,7 +598,7 @@
           "abi": 1,
           "author": "LaunchDeck examples",
           "events": [],
-          "sdk": "0.2.0",
+          "sdk": "0.2.1",
           "status": "enabled"
         },
         "id": "example.home-assistant-unset",

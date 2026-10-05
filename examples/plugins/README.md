@@ -16,8 +16,8 @@ Each folder is installable as it is: `plugin.json` and the `.wasm` file are all 
 LAUNCHDECK_PLUGINS="$PWD/examples/plugins" npm run tauri dev
 ```
 
-and open **Plugins**. Rebuild the modules with `npm run plugins:build` (Node for the AssemblyScript ones, clang with the wasm32 target for `c-ping`). The build is reproducible, so rebuilding unchanged sources with the same SDK gives identical bytes.
+and open **Plugins**. Rebuild the modules with `npm run plugins:build`: Hello, Counter, Channels and Home Assistant, with Node and npm, installed from their lockfiles with `npm ci`. `sh scripts/build-example-plugins.sh --check` rebuilds them in a temporary copy and compares the result, and the committed modules, with `SHA256SUMS`. C Ping is built only when named and needs clang with the wasm32 target and wasm-ld, which Apple's clang does not have.
 
-The committed `hello`, `counter` and `channels` modules were built with SDK 0.1.x and are kept that way on purpose: they are the proof that plugins built before the network capability load and run unchanged. Rebuilding them with the current SDK (0.2.1) gives different bytes that work the same and still import nothing but `log`, `publish` and `respond`.
+The committed modules are built with the current SDK (0.2.1). The `hello`, `counter` and `channels` modules that SDK 0.1.x built are kept, unchanged, in `src-tauri/tests/fixtures/plugins/sdk-0.1`: they are the proof that plugins built before the network capability load and run unchanged.
 
 Guide: [docs/plugin-sdk](../../docs/plugin-sdk/README.md).
