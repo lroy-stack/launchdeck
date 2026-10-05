@@ -1,0 +1,196 @@
+{
+  "format": "launchdeck.surface",
+  "formatVersion": 1,
+  "manifest": {
+    "createdWith": {
+      "app": "launchdeck",
+      "version": "0.3.0"
+    },
+    "id": "hostile.never-runs-case-variants",
+    "integrity": {
+      "content": "sha256:0d2c6ca279984f705f52985c84913e74bc98c5e24f9559840b23048c5db06091"
+    },
+    "name": "Hostile",
+    "requirements": {
+      "aux": {
+        "side": 0,
+        "top": 0
+      },
+      "grid": {
+        "minHeight": 1,
+        "minWidth": 8
+      },
+      "rgb": true
+    },
+    "version": "1.0.0"
+  },
+  "content": {
+    "surfaces": [
+      {
+        "category": "custom",
+        "id": "hostile",
+        "name": "Hostile",
+        "pages": [
+          {
+            "controls": [
+              {
+                "id": "g.0.0",
+                "label": "Pad 1",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "true"
+                  },
+                  "provider": "Shell"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              },
+              {
+                "id": "g.1.0",
+                "label": "Pad 2",
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "true"
+                  },
+                  "provider": "SHELL"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              },
+              {
+                "id": "g.2.0",
+                "label": "Pad 3",
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "Execute",
+                  "args": {
+                    "command": "true"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              },
+              {
+                "id": "g.3.0",
+                "label": "Pad 4",
+                "pos": {
+                  "col": 3,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "launchApplication",
+                  "args": {
+                    "app": "/usr/bin/true"
+                  },
+                  "provider": "SYSTEM"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              },
+              {
+                "id": "g.4.0",
+                "label": "Pad 5",
+                "pos": {
+                  "col": 4,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "launchapplication",
+                  "args": {
+                    "app": "/usr/bin/true"
+                  },
+                  "provider": "System"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              },
+              {
+                "id": "g.5.0",
+                "label": "Pad 6",
+                "pos": {
+                  "col": 5,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "LaunchApplication",
+                  "args": {
+                    "app": "/usr/bin/true"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              },
+              {
+                "id": "g.6.0",
+                "label": "Pad 7",
+                "pos": {
+                  "col": 6,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "request",
+                  "args": {
+                    "url": "http://127.0.0.1:9"
+                  },
+                  "provider": "HTTP"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              },
+              {
+                "id": "g.7.0",
+                "label": "Pad 8",
+                "pos": {
+                  "col": 7,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "newTask",
+                  "args": {
+                    "task": "x"
+                  },
+                  "provider": "Agent-Control"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              }
+            ],
+            "id": "home",
+            "name": "Home"
+          }
+        ]
+      }
+    ]
+  }
+}

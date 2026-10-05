@@ -1,0 +1,13 @@
+{
+  "format": "launchdeck.pack",
+  "formatVersion": 1,
+  "manifest": {},
+  "content": {},
+  "signatures": [
+    {
+      "algorithm": "ed25519",
+      "keyId": "k1",
+      "signature": "AAAA"
+    }
+  ]
+}

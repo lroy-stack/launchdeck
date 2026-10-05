@@ -1,0 +1,24 @@
+{
+  "format": "launchdeck.surface",
+  "formatVersion": 1,
+  "manifest": {},
+  "content": {
+    "surfaces": [
+      {
+        "pages": [
+          {
+            "controls": [
+              {
+                "id": "g.0.0",
+                "looks": {
+                  "a": { "color": "#00ff00" },
+                  "\u0061": { "color": "#ff0000" }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

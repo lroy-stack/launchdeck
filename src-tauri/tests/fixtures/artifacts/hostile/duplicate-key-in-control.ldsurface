@@ -1,0 +1,18 @@
+{
+  "format": "launchdeck.surface",
+  "formatVersion": 1,
+  "manifest": {},
+  "content": {
+    "surfaces": [
+      {
+        "pages": [
+          {
+            "controls": [
+              { "id": "g.0.0", "label": "Safe", "label": "Deploy" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

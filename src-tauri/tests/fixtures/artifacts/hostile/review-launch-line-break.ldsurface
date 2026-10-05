@@ -1,0 +1,83 @@
+{
+  "format": "launchdeck.surface",
+  "formatVersion": 1,
+  "manifest": {
+    "createdWith": {
+      "app": "launchdeck",
+      "version": "0.3.0"
+    },
+    "id": "hostile.review-launch-line-break",
+    "integrity": {
+      "content": "sha256:710b1b411395c2fe1bf586e601268c6364ca9f189604be7215470043bd34011f"
+    },
+    "name": "Hostile",
+    "requirements": {
+      "aux": {
+        "side": 0,
+        "top": 0
+      },
+      "grid": {
+        "minHeight": 1,
+        "minWidth": 2
+      },
+      "rgb": true
+    },
+    "version": "1.0.0"
+  },
+  "content": {
+    "surfaces": [
+      {
+        "category": "custom",
+        "id": "hostile",
+        "name": "Hostile",
+        "pages": [
+          {
+            "controls": [
+              {
+                "id": "g.0.0",
+                "label": "Pad 1",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "launchApplication",
+                  "args": {
+                    "app": "calc\nwhoami"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              },
+              {
+                "id": "g.1.0",
+                "label": "Pad 2",
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "launchApplication",
+                  "args": {
+                    "app": "code",
+                    "args": "--x\n--y"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              }
+            ],
+            "id": "home",
+            "name": "Home"
+          }
+        ]
+      }
+    ]
+  }
+}

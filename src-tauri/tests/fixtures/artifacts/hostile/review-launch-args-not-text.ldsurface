@@ -1,0 +1,129 @@
+{
+  "format": "launchdeck.surface",
+  "formatVersion": 1,
+  "manifest": {
+    "createdWith": {
+      "app": "launchdeck",
+      "version": "0.3.0"
+    },
+    "id": "hostile.review-launch-args-not-text",
+    "integrity": {
+      "content": "sha256:462748dfb617cc2722fe29da0e7c1fcdaf98276b014dab557702f722085c526a"
+    },
+    "name": "Hostile",
+    "requirements": {
+      "aux": {
+        "side": 0,
+        "top": 0
+      },
+      "grid": {
+        "minHeight": 1,
+        "minWidth": 4
+      },
+      "rgb": true
+    },
+    "version": "1.0.0"
+  },
+  "content": {
+    "surfaces": [
+      {
+        "category": "custom",
+        "id": "hostile",
+        "name": "Hostile",
+        "pages": [
+          {
+            "controls": [
+              {
+                "id": "g.0.0",
+                "label": "Pad 1",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "launchApplication",
+                  "args": {
+                    "app": "code",
+                    "args": 1
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              },
+              {
+                "id": "g.1.0",
+                "label": "Pad 2",
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "launchApplication",
+                  "args": {
+                    "app": "code",
+                    "args": {
+                      "a": "b"
+                    }
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              },
+              {
+                "id": "g.2.0",
+                "label": "Pad 3",
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "launchApplication",
+                  "args": {
+                    "app": "code",
+                    "args": true
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              },
+              {
+                "id": "g.3.0",
+                "label": "Pad 4",
+                "pos": {
+                  "col": 3,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "launchApplication",
+                  "args": {
+                    "app": "code",
+                    "args": [
+                      "--x",
+                      1
+                    ]
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              }
+            ],
+            "id": "home",
+            "name": "Home"
+          }
+        ]
+      }
+    ]
+  }
+}

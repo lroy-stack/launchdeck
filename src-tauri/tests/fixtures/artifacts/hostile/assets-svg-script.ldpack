@@ -1,0 +1,13 @@
+{
+  "format": "launchdeck.pack",
+  "formatVersion": 1,
+  "manifest": {},
+  "content": {},
+  "assets": [
+    {
+      "data": "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>",
+      "mediaType": "image/svg+xml",
+      "name": "icon.svg"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "format": "launchdeck.surface",
+  "formatVersion": 1,
+  "manifest": {
+    "createdWith": {
+      "app": "launchdeck",
+      "version": "9.9.9"
+    },
+    "id": "local.development",
+    "integrity": {
+      "content": "sha256:4a3d04d943a846e8a8a7baccc147057901680bb53fd80ccae704ab7043d21fc1"
+    },
+    "name": "Development",
+    "requirements": {
+      "aux": {
+        "side": 0,
+        "top": 5
+      },
+      "grid": {
+        "minHeight": 8,
+        "minWidth": 4
+      },
+      "rgb": true
+    },
+    "testedWith": [
+      {
+        "kind": "virtual",
+        "model": "launchpad-x"
+      }

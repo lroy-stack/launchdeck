@@ -1,0 +1,13 @@
+{
+  "format": "launchdeck.pack",
+  "formatVersion": 1,
+  "manifest": {},
+  "content": {},
+  "assets": [
+    {
+      "data": "TVqQAAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAA4fug4AtAnNIbgBTM0hVGhpcyBwcm9ncmFtIGNhbm5vdCBiZSBydW4gaW4gRE9TIG1vZGUuDQ0KJAAAAAAAAAA=",
+      "mediaType": "image/png",
+      "name": "icon.png"
+    }
+  ]
+}

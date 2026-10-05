@@ -1,0 +1,13 @@
+{
+  "format": "launchdeck.pack",
+  "formatVersion": 1,
+  "manifest": {},
+  "content": {},
+  "assets": [
+    {
+      "data": "aGVsbG8=",
+      "mediaType": "text/plain",
+      "name": "../../x"
+    }
+  ]
+}
