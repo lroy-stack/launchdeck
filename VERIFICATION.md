@@ -90,6 +90,28 @@ Read while checking, not changed: the adapter drops its observer token without `
 
    Cause, seen with a temporary `eprintln!` (reverted, never committed): in a failing run the events are the same as in a passing one, one `surface.changed` and one `page.changed`, both for `development`, which is the first activation. Only the baseline differs: 0 instead of 2. `until_shown` polls the runtime's state, which `activate` changes under its lock before it publishes `surface.changed` and `page.changed` on the bus, which delivers them to the interface on another task. The test took its baseline in between. The five repeated observations activated nothing (a second activation of the same surface would publish `page.changed` without `surface.changed`). The same window covers the test's other two counts (`ui::STATE`, `ui::CONTEXT`), which `activate` emits after publishing. Nothing about it is specific to macOS; whether it also happens on Linux could not be checked here.
 
+### Fixes, one commit each
+
+| Commit | Fixes | What changed |
+| --- | --- | --- |
+| `3002297` | failures 1 and 2 | The starter workspace's system is a parameter: `Platform { Linux, MacOs, Windows }`, `default_workspace_for(platform)`, `default_workspace()` passing `Platform::current()`. `demo_cmd` (a fifth `cfg!`, Windows only, not listed in NEXT_PHASE.md) takes it too, or the Windows runner would still differ from the Linux fixture. The two tests ask for Linux, as their files hold; `examples/dump_workspace.rs` writes the Linux workspace on every system (checked: on this Mac its output is byte for byte `examples/default-workspace.json`). New tests: on every system, the pads that differ per system and that nothing else differs. |
+| `093e7c1` | failures 3 and 4 | `ForegroundObserver::namespace()`, by default the namespace of the system LaunchDeck was built for (right for the macOS, Windows and X11 observers and for `NoObserver`, so the product behaves as before everywhere); the scripted observer says `x11`; the engine keeps it next to the observer's status and `status()` uses it instead of `native_namespace()`. `macos.rs`, `windows.rs`, `x11.rs` and `identity.rs` unchanged. New test `a_rule_for_another_system_is_flagged_wherever_this_runs`. `dump_context` on this Mac now writes exactly `examples/context-status.json`. |
+| `699abf3` | failure 5 | Test helper `until_heard(surface)`: waits until the last `page.changed` the interface received is for that surface and the last context it was sent is the runtime's current one (sent after the state). Used by the no-op test and by two tests with the same window that had not failed yet (`app_a_shows_surface_a_app_b_shows_surface_b_on_the_launchpad`, `the_interface_is_told_when_the_context_changes_and_only_then`). No sleep added. |
+
+No fixture under `examples/` was regenerated or changed.
+
+### After the fixes
+
+| Run | Result |
+| --- | --- |
+| `the_same_application_again_is_a_no_op` alone, 50 times | 50 passed (before: 1 failure in 10) |
+| `cargo test --test context_engine`, 20 times | 20 × 15 passed (before: 1 failure in 5) |
+| `cargo test --no-fail-fast`, 3 full runs | each **715 passed, 0 failed, 2 ignored** (711 before + 6 new tests), 102 s, 66 s, 66 s |
+| `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` | clean after each commit |
+| `npm test`, `typecheck`, `lint` | 309 passed; clean |
+
+`src-tauri/src/surfaces/mod.rs` grew from 905 to 1105 lines in `3002297`, mostly from the new per-system tests.
+
 ### "Worth watching" in NEXT_PHASE.md
 
 | Item | Result |
