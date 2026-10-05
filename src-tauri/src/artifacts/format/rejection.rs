@@ -132,7 +132,7 @@ pub(super) fn plain_message(message: &str) -> String {
 }
 
 /// The explicit direction controls: embeddings, overrides and isolates.
-pub(super) fn is_bidi(c: char) -> bool {
+pub(in crate::artifacts) fn is_bidi(c: char) -> bool {
     matches!(c, '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
 }
 

@@ -21,7 +21,7 @@ impl Keyboard for NoKeyboard {
 }
 
 /// A runtime with every built-in provider, the virtual device and no plugin.
-async fn headless() -> Arc<Runtime> {
+pub(super) async fn headless() -> Arc<Runtime> {
     Runtime::start(RuntimeConfig {
         workspace: default_workspace(),
         store: None,

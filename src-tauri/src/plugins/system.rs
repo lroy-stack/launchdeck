@@ -100,9 +100,25 @@ fn keys_of(args: &Value) -> Result<Vec<String>, ActionError> {
     }
 }
 
-/// Launch arguments, one per line. A list is accepted too.
-fn launch_args_of(args: &Value) -> Vec<String> {
-    match args.get("args") {
+/// An application to start and the arguments to give it, exactly as
+/// `launchApplication` passes them on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LaunchSpec {
+    pub app: String,
+    pub args: Vec<String>,
+}
+
+/// How `launchApplication` reads its arguments: `app`, a text that is not
+/// blank, and `args`, either a text with one argument per line (each line
+/// trimmed, empty lines left out) or a list of texts passed as they are,
+/// empty ones included. Any other `args` is refused. The runtime starts what
+/// this returns, and an artifact's review shows it, so the two can never
+/// read one assignment differently.
+pub fn launch_spec(args: &Value) -> Result<LaunchSpec, ActionError> {
+    let app = str_arg(args, "app")?.to_string();
+    let refused = || ActionError::InvalidArgs("`args` is text, one argument per line".into());
+    let args = match args.get("args") {
+        None | Some(Value::Null) => Vec::new(),
         Some(Value::String(text)) => text
             .lines()
             .map(str::trim)
@@ -111,10 +127,12 @@ fn launch_args_of(args: &Value) -> Vec<String> {
             .collect(),
         Some(Value::Array(list)) => list
             .iter()
-            .filter_map(|v| v.as_str().map(String::from))
-            .collect(),
-        _ => Vec::new(),
-    }
+            .map(|v| v.as_str().map(String::from))
+            .collect::<Option<Vec<_>>>()
+            .ok_or_else(refused)?,
+        Some(_) => return Err(refused()),
+    };
+    Ok(LaunchSpec { app, args })
 }
 
 const BLUE: Rgb = Rgb::new(47, 129, 247);
@@ -250,9 +268,8 @@ impl Plugin for SystemPlugin {
                 Ok(Value::Null)
             }
             LAUNCH_APPLICATION => {
-                let app = str_arg(args, "app")?;
-                let extra = launch_args_of(args);
-                let (program, argv) = launch_command(app, &extra, std::env::consts::OS);
+                let LaunchSpec { app, args: extra } = launch_spec(args)?;
+                let (program, argv) = launch_command(&app, &extra, std::env::consts::OS);
                 let mut child = Command::new(&program)
                     .args(&argv)
                     .stdin(Stdio::null())
@@ -333,6 +350,55 @@ mod tests {
             ("open", vec!["-a".to_string(), "Safari".to_string()])
         );
         assert_eq!(launch_command("code", &[], "windows").0, "cmd");
+    }
+
+    #[test]
+    fn launch_arguments_are_lines_or_a_list_and_nothing_else() {
+        let spec = |args: Value| launch_spec(&args);
+        let ok = |app: &str, args: &[&str]| {
+            Ok(LaunchSpec {
+                app: app.into(),
+                args: args.iter().map(|a| a.to_string()).collect(),
+            })
+        };
+        assert_eq!(spec(json!({ "app": "code" })), ok("code", &[]));
+        assert_eq!(
+            spec(json!({ "app": "code", "args": null })),
+            ok("code", &[])
+        );
+        assert_eq!(
+            spec(json!({ "app": "code", "args": " --wait \n\n . \r\n" })),
+            ok("code", &["--wait", "."])
+        );
+        // A list is passed as it is, empty entries included.
+        assert_eq!(
+            spec(json!({ "app": "code", "args": ["", " ", "a b"] })),
+            ok("code", &["", " ", "a b"])
+        );
+        for refused in [
+            json!({ "app": "code", "args": 1 }),
+            json!({ "app": "code", "args": true }),
+            json!({ "app": "code", "args": { "a": "b" } }),
+            json!({ "app": "code", "args": ["--x", 1] }),
+            json!({ "app": " " }),
+            json!({ "app": 7 }),
+            json!({}),
+        ] {
+            assert!(
+                matches!(spec(refused.clone()), Err(ActionError::InvalidArgs(_))),
+                "{refused}"
+            );
+        }
+        // The runtime refuses it before it starts anything.
+        let plugin = SystemPlugin::new(Arc::new(Recorder::default()));
+        assert!(matches!(
+            plugin.invoke(
+                &ctx(),
+                LAUNCH_APPLICATION,
+                &json!({ "app": "code", "args": [1] })
+            ),
+            Err(ActionError::InvalidArgs(_))
+        ));
     }
 
     #[test]

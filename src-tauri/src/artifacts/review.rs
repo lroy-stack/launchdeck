@@ -3,7 +3,8 @@
 //!
 //! Three kinds run something on the computer or the network: a shell
 //! command, a request (`http.request`, and any other host definition marked
-//! privileged), a program launched by path or with arguments. The fourth,
+//! privileged), and any launch but one of a plain application name without
+//! arguments, read with the runtime's own parser. The fourth,
 //! an instruction to an agent, is shown and never needs a decision. Plugin
 //! actions are never review items: a plugin cannot be privileged, and its
 //! network access stays behind the grants a person gives.
@@ -12,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::env::Environment;
+use super::format::is_bidi;
 use crate::actions::definition::{Assignment, ProviderKind};
 use crate::plugins::system;
 
@@ -106,28 +108,65 @@ pub fn classify(assignment: &Assignment, env: &Environment) -> Option<ReviewKind
     }
 }
 
-/// A launch by path (`/` or `\` in the application) or with arguments.
+/// Every launch but one of a plain application name with no argument, read
+/// by the runtime's own parser: what the review sees is what would start.
+/// A launch the runtime refuses is reviewed too.
 fn launches_program(args: &Value) -> bool {
-    let by_path = text(args, "app").contains(['/', '\\']);
-    by_path || !launch_args(args).is_empty()
+    system::launch_spec(args).map_or(true, |spec| {
+        !plain_application(&spec.app) || !spec.args.is_empty()
+    })
 }
 
-/// The launch arguments, one per line or as a list, without empty ones.
-fn launch_args(args: &Value) -> Vec<String> {
-    match args.get("args") {
-        Some(Value::String(lines)) => lines
-            .lines()
-            .map(str::trim)
-            .filter(|l| !l.is_empty())
-            .map(String::from)
-            .collect(),
-        Some(Value::Array(list)) => list
-            .iter()
-            .filter_map(Value::as_str)
-            .filter(|a| !a.trim().is_empty())
-            .map(String::from)
-            .collect(),
-        _ => Vec::new(),
+/// A name the system looks an application up by, never a path: ASCII
+/// letters and digits, space, dot, underscore, hyphen and parentheses, not
+/// starting with a dot. No separator of any system, no look-alike of one,
+/// no home directory, nothing a command interpreter reads.
+fn plain_application(app: &str) -> bool {
+    !app.is_empty()
+        && !app.starts_with('.')
+        && app
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, ' ' | '.' | '_' | '-' | '(' | ')'))
+}
+
+/// The application and each argument as the runtime passes them, one after
+/// the other; a word that is empty or holds a space, a quote or a control
+/// character is quoted, so every argument shows where it starts and ends.
+fn launch_text(args: &Value) -> String {
+    match system::launch_spec(args) {
+        Ok(spec) => std::iter::once(&spec.app)
+            .chain(&spec.args)
+            .map(|word| shown(word))
+            .collect::<Vec<_>>()
+            .join(" "),
+        Err(refused) => format!(
+            "{} (LaunchDeck will not start it: {})",
+            shown(text(args, "app")),
+            refused.message()
+        ),
+    }
+}
+
+fn shown(word: &str) -> String {
+    let plain = !word.is_empty()
+        && !word
+            .chars()
+            .any(|c| c.is_whitespace() || c.is_control() || c == '"' || is_bidi(c));
+    if plain {
+        word.to_string()
+    } else {
+        let quoted = Value::from(word).to_string();
+        quoted.chars().map(escape_bidi).collect()
+    }
+}
+
+/// A direction control written as an escape, so it cannot reorder what a
+/// person reads.
+fn escape_bidi(c: char) -> String {
+    if is_bidi(c) {
+        format!("\\u{:04x}", u32::from(c))
+    } else {
+        c.to_string()
     }
 }
 
@@ -152,10 +191,7 @@ fn review_text(kind: ReviewKind, assignment: &Assignment) -> String {
             }
         }
         ReviewKind::SendsRequest => assignment.definition_id(),
-        ReviewKind::LaunchesProgram => std::iter::once(text(args, "app").to_string())
-            .chain(launch_args(args))
-            .collect::<Vec<_>>()
-            .join(" "),
+        ReviewKind::LaunchesProgram => launch_text(args),
         ReviewKind::InstructsAgent if assignment.action == AGENT_NEW_TASK => {
             match text(args, "cwd") {
                 "" => text(args, "task").to_string(),
@@ -221,8 +257,12 @@ mod tests {
         for (provider, known) in &env.providers {
             for (action, def) in &known.actions {
                 let found = classify(&a(provider, action, json!({})), &env);
+                // A launch without an application is one the runtime refuses,
+                // and is reviewed as every launch it cannot show to be plain.
                 let expected = if def.privileged {
                     true
+                } else if provider == system::ID {
+                    action == system::LAUNCH_APPLICATION
                 } else {
                     provider == AGENT_CONTROL
                         && [AGENT_NEW_TASK, AGENT_CONTINUE].contains(&action.as_str())
@@ -285,6 +325,145 @@ mod tests {
                 "{runs}"
             );
         }
+    }
+
+    /// Launches as the runtime would read them, fed to the runtime's parser
+    /// and to the review alike: whatever the runtime would pass beyond a
+    /// plain application name is reviewed, and the review shows it.
+    #[test]
+    fn a_launch_is_reviewed_unless_a_plain_name_without_arguments() {
+        let launch = |args: &Value| kind(&a("system", "launchApplication", args.clone()));
+        for quiet in [
+            json!({ "app": "code" }),
+            json!({ "app": "Visual Studio Code" }),
+            json!({ "app": "x-terminal-emulator" }),
+            json!({ "app": "Adobe Photoshop (Beta)" }),
+            json!({ "app": "tool_v2.1" }),
+            json!({ "app": "code", "args": " \n " }),
+            json!({ "app": "code", "args": [] }),
+            json!({ "app": "code", "args": null }),
+        ] {
+            let spec = system::launch_spec(&quiet).unwrap();
+            assert!(spec.args.is_empty(), "{quiet}");
+            assert_eq!(launch(&quiet), None, "{quiet}");
+        }
+        let hostile = [
+            // Arguments the runtime passes, however empty.
+            json!({ "app": "code", "args": [""] }),
+            json!({ "app": "code", "args": [" "] }),
+            json!({ "app": "code", "args": ["", " "] }),
+            json!({ "app": "code", "args": "--new-window" }),
+            // Arguments the runtime refuses.
+            json!({ "app": "code", "args": 1 }),
+            json!({ "app": "code", "args": { "a": "b" } }),
+            json!({ "app": "code", "args": true }),
+            json!({ "app": "code", "args": ["--x", 1] }),
+            // Names that are not a plain application name.
+            json!({ "app": "calc & whoami" }),
+            json!({ "app": "calc | more" }),
+            json!({ "app": "calc ^& x" }),
+            json!({ "app": "%COMSPEC%" }),
+            json!({ "app": "\"calc\"" }),
+            json!({ "app": "calc > out" }),
+            json!({ "app": "calc\nwhoami" }),
+            json!({ "app": "calc\u{0}x" }),
+            json!({ "app": "~calc" }),
+            json!({ "app": "~/bin/calc" }),
+            json!({ "app": ".hidden" }),
+            json!({ "app": ".." }),
+            json!({ "app": "bin\u{2215}calc" }),
+            json!({ "app": "bin\u{2044}calc" }),
+            json!({ "app": "bin\u{FF0F}calc" }),
+            json!({ "app": "bin\u{29F8}calc" }),
+            json!({ "app": "/usr/bin/code" }),
+            json!({ "app": "C:\\Tools\\code.exe" }),
+            json!({ "app": "calc;whoami" }),
+            json!({ "app": "$(whoami)" }),
+            // No application the runtime would start.
+            json!({ "app": " " }),
+            json!({ "app": 7 }),
+            json!({}),
+        ];
+        for args in &hostile {
+            assert_eq!(
+                launch(args),
+                Some(ReviewKind::LaunchesProgram),
+                "{args} is not reviewed"
+            );
+        }
+    }
+
+    /// The runtime finds a provider and an action by their exact ids, so a
+    /// case variant of an action that runs things is no review item because
+    /// it never runs: the one gate every run passes refuses it by its id.
+    #[tokio::test]
+    async fn a_case_variant_is_neither_reviewed_nor_run() {
+        let rt = testkit::headless().await;
+        for (provider, action, args) in [
+            ("Shell", "execute", json!({ "command": "true" })),
+            ("SHELL", "execute", json!({ "command": "true" })),
+            ("shell", "Execute", json!({ "command": "true" })),
+            (
+                "SYSTEM",
+                "launchApplication",
+                json!({ "app": "/usr/bin/true" }),
+            ),
+            (
+                "System",
+                "launchapplication",
+                json!({ "app": "/usr/bin/true" }),
+            ),
+            (
+                "system",
+                "LaunchApplication",
+                json!({ "app": "/usr/bin/true" }),
+            ),
+            ("HTTP", "request", json!({ "url": "http://127.0.0.1:9" })),
+            ("http", "REQUEST", json!({ "url": "http://127.0.0.1:9" })),
+            ("Agent-Control", "newTask", json!({ "task": "x" })),
+            ("agent-control", "NewTask", json!({ "task": "x" })),
+        ] {
+            let assignment = a(provider, action, args);
+            assert_eq!(kind(&assignment), None, "{provider}.{action}");
+            let issues = rt.validate_assignment(&assignment).unwrap_err();
+            let message = &issues[0].message;
+            let unknown = message.ends_with("is not installed or was removed")
+                || message.contains(&format!("has no action `{action}`"));
+            assert!(unknown, "{provider}.{action}: {message}");
+        }
+    }
+
+    #[test]
+    fn a_launch_is_reviewed_as_the_runtime_passes_it() {
+        let text = |args: Value| {
+            let assignment = a("system", "launchApplication", args);
+            ReviewItem::new(
+                Location {
+                    surface_source_id: "dev".into(),
+                    page_id: "home".into(),
+                    control_id: "g.0.0".into(),
+                    slot: Slot::Press,
+                },
+                "Pad",
+                kind(&assignment).unwrap(),
+                &assignment,
+            )
+            .text
+        };
+        // Every argument the runtime passes is visible, each on its own.
+        assert_eq!(
+            text(json!({ "app": "code", "args": ["", " ", "a b"] })),
+            "code \"\" \" \" \"a b\""
+        );
+        assert_eq!(
+            text(json!({ "app": "Visual Studio Code", "args": "--wait" })),
+            "\"Visual Studio Code\" --wait"
+        );
+        // One the runtime refuses says so.
+        assert_eq!(
+            text(json!({ "app": "code", "args": 1 })),
+            "code (LaunchDeck will not start it: `args` is text, one argument per line)"
+        );
     }
 
     #[test]
