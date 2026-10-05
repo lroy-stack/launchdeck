@@ -71,3 +71,21 @@ async fn the_catalog_fixture_has_every_field_the_runtime_emits() {
         .collect();
     assert_eq!(causes, BTreeSet::from(["provider".into(), "state".into()]));
 }
+
+/// The app version has one source, `Cargo.toml`: every provider that ships
+/// inside the app reports it, and only installed plugins have their own.
+#[tokio::test(flavor = "multi_thread")]
+async fn every_first_party_provider_reports_the_app_version() {
+    let fresh = catalog_scenario::capture().await;
+    let first_party: Vec<_> = fresh["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|p| p["kind"] != "plugin")
+        .map(|p| (p["id"].as_str().unwrap(), p["version"].as_str().unwrap()))
+        .collect();
+    assert!(first_party.len() >= 6, "{first_party:?}");
+    for (id, version) in first_party {
+        assert_eq!(version, env!("CARGO_PKG_VERSION"), "{id}");
+    }
+}

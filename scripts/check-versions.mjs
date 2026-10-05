@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// The app version is written in package.json and src-tauri/Cargo.toml (and in
-// src-tauri/tauri.conf.json when it has one); they must be equal. Exit 1 if not.
+// The app version has one source, src-tauri/Cargo.toml: Tauri reads it from
+// there, so src-tauri/tauri.conf.json must have no version, and package.json
+// keeps a copy that must be equal. Exit 1 if not.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -23,7 +24,10 @@ export function cargoPackageVersion(toml) {
   return null;
 }
 
-/** One sentence per version that is missing or differs from package.json's. */
+/**
+ * One sentence per problem: a version missing or different from package.json's,
+ * or any version in tauri.conf.json (`tauriVersion` is its raw value, `undefined` when absent).
+ */
 export function versionProblems({ packageVersion, cargoVersion, tauriVersion }) {
   if (!packageVersion) return [`${PACKAGE_JSON} has no version`];
   const problems = [];
@@ -31,20 +35,18 @@ export function versionProblems({ packageVersion, cargoVersion, tauriVersion }) 
   else if (cargoVersion !== packageVersion) {
     problems.push(`${CARGO_TOML} says ${cargoVersion}, ${PACKAGE_JSON} says ${packageVersion}`);
   }
-  if (tauriVersion !== undefined && tauriVersion !== packageVersion) {
-    problems.push(`${TAURI_CONF} says ${tauriVersion}, ${PACKAGE_JSON} says ${packageVersion}`);
+  if (tauriVersion !== undefined) {
+    problems.push(`${TAURI_CONF} has a version (${tauriVersion}); remove it, Tauri reads ${CARGO_TOML}`);
   }
   return problems;
 }
 
 const readJson = (file) => JSON.parse(fs.readFileSync(path.join(ROOT, file), "utf8"));
 
-// tauri.conf.json's `version` is a version or the path of a package.json that holds one.
+// tauri.conf.json's `version` as written (a version or a path to a package.json), or undefined.
 function tauriVersion() {
   if (!fs.existsSync(path.join(ROOT, TAURI_CONF))) return undefined;
-  const version = readJson(TAURI_CONF).version;
-  if (typeof version !== "string" || !version.endsWith(".json")) return version;
-  return readJson(path.join(path.dirname(TAURI_CONF), version)).version;
+  return readJson(TAURI_CONF).version;
 }
 
 function main() {
@@ -56,7 +58,7 @@ function main() {
   const problems = versionProblems(versions);
   for (const problem of problems) console.error(`versions: ${problem}`);
   if (problems.length) return 1;
-  console.log(`versions: ${versions.packageVersion} everywhere`);
+  console.log(`versions: ${versions.packageVersion} in ${CARGO_TOML} and ${PACKAGE_JSON}, none in ${TAURI_CONF}`);
   return 0;
 }
 

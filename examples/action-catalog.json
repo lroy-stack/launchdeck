@@ -1303,7 +1303,7 @@
       "kind": "builtin",
       "name": "HTTP request",
       "status": "ready",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "description": "Move between surfaces and pages.",
@@ -1311,7 +1311,7 @@
       "kind": "builtin",
       "name": "Navigation",
       "status": "ready",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "description": "Run a command on this computer.",
@@ -1319,7 +1319,7 @@
       "kind": "builtin",
       "name": "Shell command",
       "status": "ready",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "description": "Open links, launch apps, press shortcuts and control media volume.",
@@ -1335,7 +1335,7 @@
       "kind": "module",
       "name": "Agent Control",
       "status": "ready",
-      "version": "0.3.0"
+      "version": "0.2.0"
     },
     {
       "description": "A counter that remembers its value between presses and reports a level, never a number of pads.",

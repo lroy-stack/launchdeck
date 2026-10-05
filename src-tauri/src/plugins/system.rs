@@ -125,7 +125,7 @@ impl Plugin for SystemPlugin {
         PluginManifest {
             id: ID.into(),
             name: "System".into(),
-            version: "0.2.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             description: "Open links, launch apps, press shortcuts and control media volume."
                 .into(),
             kind: ProviderKind::Builtin,
