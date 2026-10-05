@@ -136,7 +136,7 @@ No fixture under `examples/` was regenerated or changed.
 
 Checked: the YAML parses, and `actionlint` 1.7.12 reports nothing.
 
-**Not run.** The workflow runs on a push to `main` or on a pull request; nothing has been pushed.
+**Not run yet.** The branch was pushed and draft pull request #1 opened to run it. Run `37301909131` (2026-10-05 11:16 UTC): none of the three jobs started. GitHub: "The job was not started because recent account payments have failed or your spending limit needs to be increased." The repository is private, so Actions minutes are billed to the account. This says nothing about the workflow, which was never evaluated.
 
 Not done from section 5: the desktop suite job (Linux, on demand or nightly, item 3).
 
