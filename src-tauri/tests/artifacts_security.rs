@@ -25,6 +25,7 @@ mod artifact_world;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
+use std::time::{Duration, Instant};
 
 use artifact_world::{Configuration, World};
 use launchdeck_lib::artifacts::{
@@ -33,6 +34,7 @@ use launchdeck_lib::artifacts::{
     ParsedArtifact, PreviewOutcome, RejectionCode as R, Resolution, ReviewItem, ReviewKind, Runs,
     Slot,
 };
+use launchdeck_lib::core::model::ControlPos;
 use launchdeck_lib::core::runtime::{NullEmitter, Runtime, RuntimeConfig};
 use launchdeck_lib::plugins::keyboard::{Combo, Keyboard};
 use launchdeck_lib::plugins::ActionError;
@@ -1324,8 +1326,7 @@ fn a_request_the_runtime_would_not_send_is_refused() {
 }
 
 /// Every file of the hostile folder is refused, except the valid ones whose
-/// launches must be reviewed or can never run; a refused file leaves no
-/// import to apply.
+/// launches must be reviewed or can never run.
 #[test]
 fn every_hostile_fixture_is_refused() {
     let mut names: Vec<String> = std::fs::read_dir(fixtures().join("hostile"))
@@ -1334,7 +1335,6 @@ fn every_hostile_fixture_is_refused() {
         .collect();
     names.sort();
     assert!(names.len() >= 30, "{names:?}");
-    let service = &shared().world.service;
     for name in names {
         let bytes = hostile(&name);
         let valid = name.starts_with("review-") || name.starts_with("never-runs-");
@@ -1343,11 +1343,6 @@ fn every_hostile_fixture_is_refused() {
             matches!(outcome, InspectOutcome::Plan { .. }),
             valid,
             "{name}"
-        );
-        let nothing = ImportDecisions::default();
-        assert_eq!(
-            service.apply(&"0".repeat(32), &nothing, ""),
-            ApplyOutcome::Expired
         );
     }
     assert!(shared().world.configuration() == shared().baseline);
@@ -1594,6 +1589,22 @@ async fn apply_replace_of_an_edited_instance_without_confirmation() {
         matches!(outcome, ApplyOutcome::Applied { .. }),
         "{outcome:?}"
     );
+    let replace = ImportDecisions {
+        resolution: Some(Resolution::Replace { instance: 1 }),
+        ..decisions.clone()
+    };
+
+    // As it was imported, the surface is not edited: the digest recorded
+    // on import is the one a later plan computes.
+    let untouched = previewed(&world, &replace);
+    let instance = &untouched.existing[0];
+    assert!(instance.identical_content);
+    assert!(
+        instance.surfaces.iter().all(|s| !s.locally_edited),
+        "{:?}",
+        instance.surfaces
+    );
+    assert!(untouched.ready, "{:?}", untouched.blockers);
 
     // The imported surface is edited here.
     let ws = world.rt.snapshot().workspace;
@@ -1601,10 +1612,6 @@ async fn apply_replace_of_an_edited_instance_without_confirmation() {
     copy.label = "Copy that".into();
     world.rt.update_control("studio", "home", copy).unwrap();
 
-    let replace = ImportDecisions {
-        resolution: Some(Resolution::Replace { instance: 1 }),
-        ..decisions.clone()
-    };
     let plan = previewed(&world, &replace);
     let outcome = refused_import(&world, &plan.plan_id, &replace, &plan.plan_digest);
     assert_eq!(blocked(&outcome), [(B::OverwriteEditsNotConfirmed, None)]);
@@ -1693,6 +1700,15 @@ async fn apply_expired_plan_id() {
     let id = &replaced.plan_id;
     let outcome = refused_import(&world, id, &decisions, &replaced.plan_digest);
     assert_eq!(outcome, ApplyOutcome::Expired);
+
+    // A refused file replaces the pending import too: nothing is left to
+    // apply.
+    let before_a_refused_file = previewed(&world, &decisions);
+    let refused = world.service.inspect(b"PK\x03\x04", "studio.ldpack");
+    assert!(matches!(refused, InspectOutcome::Rejected { .. }));
+    let id = &before_a_refused_file.plan_id;
+    let outcome = refused_import(&world, id, &decisions, &before_a_refused_file.plan_digest);
+    assert_eq!(outcome, ApplyOutcome::Expired);
 }
 
 /// The positive control: a Pack whose pads run things imports with those
@@ -1766,4 +1782,20 @@ async fn kept_pads_are_imported_as_written_and_run_nothing() {
         json!({ "command": "echo build" })
     );
     world.assert_nothing_ran();
+
+    // The recording shell does see a run: a press on the pad, after the
+    // import, runs its command once. So "nothing ran" above is not blind.
+    world.rt.activate_surface("studio", None).unwrap();
+    let pad = ControlPos::grid(0, 0);
+    let handle = world.rt.virtual_handle();
+    let until = Instant::now() + Duration::from_secs(20);
+    while handle.frame().get(pad).is_none() && Instant::now() < until {
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    handle.press(pad, 100).unwrap();
+    handle.release(pad).unwrap();
+    while world.shell.runs() == 0 && Instant::now() < until {
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    assert_eq!(world.shell.runs(), 1, "a press runs the kept command");
 }
