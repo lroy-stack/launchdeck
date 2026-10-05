@@ -37,7 +37,7 @@ F0 00 20 29 02 0C 0A F7        which LED feedback? (answer … 0A <internal> <ex
 F0 00 20 29 02 0C 09 F7        are the LEDs on? (answer … 09 <00 asleep | 01 awake> F7)
 ```
 
-The answer names the model's family and four firmware digits, shown in the device's details as the bootloader shows them (a captured X reply reads `0238`). The X is accepted with family `03 01` (Ableton's scripts and a captured reply) or `13 01` (what X-PRM p6 prints, a copy of the Mini MK3's). A unit that answers as its bootloader (second family byte `11`, inferred for the X from the Mini MK3's manual) is sent nothing more and is listed as failed: "The Launchpad is in its bootloader. Unplug it and plug it in again." One that answers with another model's family is turned down the same way: "LaunchDeck could not confirm which Launchpad this is. Press Look again." Both wait for Look again. A unit that does not answer, as through a driver that drops SysEx, is taken anyway after 500 ms.
+The answer names the model's family and four firmware digits, shown in the device's details as the bootloader shows them (a captured X reply reads `0238`). The X is accepted with family `03 01` (Ableton's scripts and a captured reply) or `13 01` (what X-PRM p6 prints, a copy of the Mini MK3's). A unit that answers as its bootloader (second family byte `11`, inferred for the X from the Mini MK3's manual) is sent nothing more and is listed as failed: "The Launchpad is in its bootloader. Unplug it and plug it in again." One that answers with another model's family is turned down the same way: "LaunchDeck could not confirm which Launchpad this is. Press Look again." Both wait for Look again, or for the unit to be plugged in again. A unit that does not answer, as through a driver that drops SysEx, is taken anyway after 500 ms.
 
 **Taking it.** The first render that has the answers, or the first one 500 ms after the questions, asks for Programmer mode and reads it back:
 
@@ -126,7 +126,7 @@ grid 8 x 8, aux top 8, side 8, logo, rgb, velocity, no pressure, no native anima
 ## Lifecycle in LaunchDeck
 
 1. Every 3 seconds (and on **Rescan**) `NovationHardware` lists the MIDI ports, `ports.rs` sorts them into units, and the device manager registers any Launchpad X it finds as a device. Unplugged, unconnected hardware is forgotten.
-2. **Connect** opens the MIDI in and out ports and asks the unit who it is; the next render takes it (Programmer mode, the LEDs cleared, then decoded input is forwarded), as described above. A unit in its bootloader or of another model is listed as failed until Look again.
+2. **Connect** opens the MIDI in and out ports and asks the unit who it is; the next render takes it (Programmer mode, the LEDs cleared, then decoded input is forwarded), as described above. A unit in its bootloader or of another model is listed as failed until Look again, or until it is unplugged and plugged in again.
 3. While connected, the unit is asked every 2 s whether it is still in Programmer mode, and taken again if it is not (see Keeping it above). If a render fails (cable pulled) the device is disconnected and `device.disconnected` is published. The virtual device is unaffected.
 4. **Disconnect** clears the LEDs, returns to Live mode and closes the ports.
 

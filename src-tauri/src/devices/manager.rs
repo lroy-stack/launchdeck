@@ -293,8 +293,11 @@ impl DeviceManager {
                 }
                 continue;
             };
-            // A failed attempt waits for Look again instead of repeating every few seconds.
-            let retry = if entry.problem.is_some() {
+            // A unit in use that went missing connects again when it returns,
+            // whatever its last attempt said: it was plugged in again. A
+            // failed attempt or a refusal otherwise waits for Look again
+            // instead of repeating every few seconds.
+            let retry = if entry.problem.is_some() && !entry.unplugged {
                 retry_failed
             } else {
                 entry.in_use
@@ -784,6 +787,29 @@ mod tests {
         );
         hw.refuse(false);
         assert_eq!(look(&mut m, true).to_connect, [LPX_ID]);
+        assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Connected, None)));
+    }
+
+    #[test]
+    fn a_refused_unit_plugged_in_again_as_its_sentence_asks_is_tried_again() {
+        let hw = FakeHardware::default();
+        let mut m = manager(&hw);
+        hw.plug(&[LPX_ID]);
+        look(&mut m, false);
+        hw.refuse(true);
+        m.render(LPX_ID, &SurfaceFrame::default());
+        assert_eq!(status_of(&m, LPX_ID).unwrap().0, DeviceStatus::Failed);
+
+        hw.plug(&[]);
+        look(&mut m, false);
+        assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Unplugged, None)));
+        hw.refuse(false);
+        hw.plug(&[LPX_ID]);
+        assert_eq!(
+            look(&mut m, false).to_connect,
+            [LPX_ID],
+            "back: tried again"
+        );
         assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Connected, None)));
     }
 
