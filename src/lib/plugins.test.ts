@@ -149,7 +149,7 @@ describe("preview transport and plugins", () => {
       legacySecrets: { entries: [], unreadable: false },
     });
     await expect(t.invoke("plugins_rescan")).rejects.toMatch(/desktop app/);
-    for (const command of ["plugins_set_permission", "plugins_set_secret", "plugins_clear_secret", "plugins_migrate_legacy_secrets", "plugins_discard_legacy_secrets"]) {
+    for (const command of ["plugins_set_permission", "plugins_set_secret", "plugins_clear_secret", "plugins_migrate_legacy_secrets", "plugins_discard_legacy_secrets", "plugins_migrate_plugin_legacy_secrets", "plugins_remove_plugin_legacy_secrets"]) {
       await expect(t.invoke(command, { id: "x" })).rejects.toMatch(/desktop app/);
     }
   });

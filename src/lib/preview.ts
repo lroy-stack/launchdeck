@@ -329,6 +329,8 @@ export async function createPreviewTransport() {
       case "plugins_clear_secret":
       case "plugins_migrate_legacy_secrets":
       case "plugins_discard_legacy_secrets":
+      case "plugins_migrate_plugin_legacy_secrets":
+      case "plugins_remove_plugin_legacy_secrets":
         throw PLUGINS_IN_PREVIEW;
       case "agents_command":
       case "agents_set_access":

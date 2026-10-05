@@ -138,3 +138,31 @@ pub(crate) async fn plugins_discard_legacy_secrets(state: State<'_, AppState>) -
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())
 }
+
+/// Move one plugin's plain-text secrets into the credential store: each is
+/// written, read back and compared, and only then removed from `plugins.json`.
+/// If anything fails nothing is removed, and the error says why.
+#[tauri::command]
+pub(crate) async fn plugins_migrate_plugin_legacy_secrets(
+    state: State<'_, AppState>,
+    id: String,
+) -> CmdResult<PluginInfo> {
+    let host = state.runtime.plugin_host().clone();
+    tauri::async_runtime::spawn_blocking(move || host.migrate_plugin_legacy_secrets(&id))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+/// Delete one plugin's plain-text secrets from `plugins.json` without moving them.
+#[tauri::command]
+pub(crate) async fn plugins_remove_plugin_legacy_secrets(
+    state: State<'_, AppState>,
+    id: String,
+) -> CmdResult<PluginInfo> {
+    let host = state.runtime.plugin_host().clone();
+    tauri::async_runtime::spawn_blocking(move || host.remove_plugin_legacy_secrets(&id))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}

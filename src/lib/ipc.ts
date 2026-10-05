@@ -187,6 +187,10 @@ export const api = {
     migrateLegacySecrets: (): Promise<LegacyMigration> => call("plugins_migrate_legacy_secrets", legacyMigrationSchema),
     /** Delete them without moving them. Resolves with how many there were. */
     discardLegacySecrets: (): Promise<number> => call("plugins_discard_legacy_secrets", z.number()),
+    /** Move one plugin's plain-text secrets into the credential store. Rejects, with the reason, leaving them untouched, if any step fails. */
+    migratePluginLegacySecrets: (id: string): Promise<PluginInfo> => call("plugins_migrate_plugin_legacy_secrets", pluginInfoSchema, { id }),
+    /** Delete one plugin's plain-text secrets without moving them. */
+    removePluginLegacySecrets: (id: string): Promise<PluginInfo> => call("plugins_remove_plugin_legacy_secrets", pluginInfoSchema, { id }),
   },
   /** Auto Context: the surface follows the application in front. */
   context: {

@@ -119,7 +119,7 @@ Commands (UI to Rust), all registered in `src-tauri/src/lib.rs`:
 | Auto Context | `context_status`, `context_update` (save Auto on or off, the rules and the fallback), `context_resume` (end a manual override) |
 | Devices and events | `connect_device`, `disconnect_device`, `rescan_devices`, `send_event` |
 | Agent Control | `agents_command`, `agents_focus`, `agents_dismiss`, `agents_set_access`, `agents_demo`, `agents_update_settings`, `agents_hook_setup`, `agents_rotate_hook_token` |
-| Installed plugins | `plugins_list`, `plugins_set_enabled`, `plugins_set_config`, `plugins_reload`, `plugins_rescan`, `plugins_logs`, `plugins_set_permission` (allow, deny or revoke one address), `plugins_set_secret`, `plugins_clear_secret`, `plugins_migrate_legacy_secrets`, `plugins_discard_legacy_secrets` |
+| Installed plugins | `plugins_list`, `plugins_set_enabled`, `plugins_set_config`, `plugins_reload`, `plugins_rescan`, `plugins_logs`, `plugins_set_permission` (allow, deny or revoke one address), `plugins_set_secret`, `plugins_clear_secret`, `plugins_migrate_legacy_secrets`, `plugins_discard_legacy_secrets`, `plugins_migrate_plugin_legacy_secrets` and `plugins_remove_plugin_legacy_secrets` (one plugin's plain-text secrets) |
 
 No command returns a secret's value, and none reports which application was in front in the past.
 
