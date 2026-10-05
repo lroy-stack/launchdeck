@@ -32,6 +32,7 @@ pub use content::{
 pub(in crate::artifacts) use cross::assignments;
 pub use cross::{check_cross, compute_requirements};
 pub use envelope::{ArtifactKind, ArtifactV1};
+pub(in crate::artifacts) use manifest::web_address;
 pub use manifest::{
     check_manifest, Author, AuxRequirement, CreatedWith, DependencyV1, GridRequirement, InputDef,
     InputOption, InputType, InputValue, Integrity, ManifestV1, Requirements, TestedKind,

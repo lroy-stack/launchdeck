@@ -37,7 +37,7 @@ const MAX_FILE_NAME: usize = 128;
 const UTF8_BOM: &[u8] = b"\xEF\xBB\xBF";
 /// The categories of LaunchDeck's own surfaces (its starters and a blank
 /// surface); any other imports as `custom`.
-const KNOWN_CATEGORIES: [&str; 6] = [
+pub(super) const KNOWN_CATEGORIES: [&str; 6] = [
     "agents",
     "development",
     "productivity",

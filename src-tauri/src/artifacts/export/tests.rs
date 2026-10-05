@@ -150,6 +150,7 @@ fn hand_env() -> Environment {
             device("Odd Model", DeviceKind::Hardware, true),
         ],
         recent_applications: Vec::new(),
+        ..Environment::default()
     }
 }
 

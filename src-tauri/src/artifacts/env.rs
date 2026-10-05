@@ -1,20 +1,25 @@
-//! What export and import know about this installation, as plain data: the
+//! What export and import know about this installation: as plain data, the
 //! app's version, the Context Engine's namespace, the registered providers
-//! with the definitions of their actions, the devices and the applications
-//! seen recently.
+//! with the definitions of their actions, who offers states and events, the
+//! devices and the applications seen recently; and, for import, the
+//! runtime's own checks through a [`PlanHost`].
 //!
-//! Nothing here holds the runtime or reaches it: `artifacts::service` builds an
-//! [`Environment`] from the runtime's getters, tests build one by hand, and
-//! everything that reads it stays a pure function.
+//! Nothing here holds the runtime's state: `artifacts::service` builds an
+//! [`Environment`] from the runtime's getters and implements [`PlanHost`]
+//! over its checks, tests build both by hand, and everything that reads it
+//! stays a function of what it is given.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
+use std::sync::Arc;
 
-use crate::actions::definition::{Catalog, ProviderKind, ProviderStatus};
+use crate::actions::definition::{Assignment, Catalog, Issue, ProviderKind, ProviderStatus};
 use crate::actions::params::ParamDef;
 use crate::context::identity::ApplicationIdentity;
 use crate::devices::{DeviceCapabilities, DeviceKind};
+use crate::state::definition::ObservableDefinition;
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default)]
 pub struct Environment {
     /// This build's version, written as `createdWith.version`.
     pub app_version: String,
@@ -23,9 +28,40 @@ pub struct Environment {
     pub namespace: Option<String>,
     /// Every registered provider, by id.
     pub providers: BTreeMap<String, KnownProvider>,
+    /// Who offers states or events, by provider id: the Observable
+    /// Catalog's providers (the runtime, the devices, Agent Control, the
+    /// plugins). An event rule naming any other source listens to an
+    /// outside program.
+    pub observable_sources: BTreeSet<String>,
     pub devices: Vec<KnownDevice>,
     /// Applications seen recently, to offer as answers to an application input.
     pub recent_applications: Vec<ApplicationIdentity>,
+    /// The runtime's checks, which import runs on what it would save. None:
+    /// nothing is checked against what is installed (export needs nothing).
+    pub host: Option<Arc<dyn PlanHost>>,
+}
+
+/// What import asks of the running app beyond plain data: the checks the
+/// runtime itself makes before it saves an assignment or a state rule.
+/// `artifacts::service` implements it over the runtime, tests with a double.
+/// An implementation must not take the runtime's workspace lock: the plan is
+/// built again inside `Runtime::commit_workspace`, which holds it.
+pub trait PlanHost: Send + Sync {
+    /// The gate every assignment passes before it is saved
+    /// (`Runtime::validate_assignment`): the provider and action exist, the
+    /// arguments fit, the provider's own check passes. An issue may name
+    /// the parameter it is about.
+    fn validate_assignment(&self, assignment: &Assignment) -> Result<Assignment, Vec<Issue>>;
+
+    /// The definition of a state or an event a provider declares now, as the
+    /// state hub holds it.
+    fn state_definition(&self, provider: &str, id: &str) -> Option<ObservableDefinition>;
+}
+
+impl fmt::Debug for dyn PlanHost {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("PlanHost")
+    }
 }
 
 /// A registered provider. `Builtin` and `Module` providers are part of

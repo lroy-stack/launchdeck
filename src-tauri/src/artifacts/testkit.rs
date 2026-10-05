@@ -60,8 +60,15 @@ pub(super) async fn environment(app_version: &str) -> Environment {
         app_version: app_version.into(),
         namespace: None,
         providers: Environment::providers_from(&rt.catalog()),
+        observable_sources: rt
+            .observables()
+            .providers
+            .into_iter()
+            .map(|p| p.id)
+            .collect(),
         devices,
         recent_applications: Vec::new(),
+        host: None,
     }
 }
 

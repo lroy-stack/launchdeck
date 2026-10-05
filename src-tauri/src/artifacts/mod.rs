@@ -19,6 +19,8 @@
 //!   preview of what is written and what is left out
 //! * `inspect` the bytes of a file, treated as hostile, read in the order of
 //!   plan 7.3 into a [`ParsedArtifact`] or refused with a [`Rejection`]
+//! * `plan`    what importing a parsed file would do to the workspace, with
+//!   the person's decisions ([`ImportPlan`]), changing nothing
 
 mod env;
 mod export;
@@ -26,12 +28,13 @@ mod format;
 mod inspect;
 mod json;
 mod limits;
+mod plan;
 mod review;
 
 #[cfg(test)]
 mod testkit;
 
-pub use env::{Environment, KnownAction, KnownDevice, KnownProvider};
+pub use env::{Environment, KnownAction, KnownDevice, KnownProvider, PlanHost};
 pub use export::{
     export, ExportCode, ExportIssue, ExportMetadata, ExportPreview, ExportRequest, ExportResult,
     ExportedRule, ExportedSurface, ExtraIdentity, InputBinding, Parameter, RuleInput, Stripped,
@@ -43,6 +46,13 @@ pub use json::{
     content_digest, prepass, to_canonical, to_canonical_members, JsonProblem, PrepassError,
 };
 pub use limits::ArtifactLimits;
+pub use plan::{
+    plan, AddedRule, AddedSurface, ArtifactSummary, Blocker, BlockerCode, Compatibility,
+    DependencyCheck, DependencyStatus, DeviceFit, ExistingInstance, ExistingSurface,
+    ImportDecisions, ImportPlan, PlanEffects, PlanSource, PlanWarning, PlanWarningCode,
+    PlannedInput, PlannedRule, PlannedSurface, Relation, ReplacedSurface, Resolution, RuleOutcome,
+    Runs, SurfaceAction, UsedBy,
+};
 pub use review::{classify, Location, ReviewItem, ReviewKind, Slot};
 
 /// `format` of a Surface file.

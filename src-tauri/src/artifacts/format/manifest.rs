@@ -566,7 +566,7 @@ fn check_default(at: &str, input: &InputDef, value: &InputValue) -> Result<(), R
 }
 
 /// An http or https address with a host and no user name or password.
-fn web_address(value: &str) -> bool {
+pub(in crate::artifacts) fn web_address(value: &str) -> bool {
     url::Url::parse(value).is_ok_and(|u| {
         matches!(u.scheme(), "http" | "https")
             && u.host().is_some()
