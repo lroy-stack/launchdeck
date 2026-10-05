@@ -11,7 +11,7 @@ import { applyDelta } from "../lib/observables";
 import type { Catalog, ContextStatus, Control, ControlPos, Frame, ObservableCatalog, ObservablesDelta, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Surface, Workspace, Page } from "../lib/schema";
 import { emptyObservableCatalog, posKey } from "../lib/schema";
 
-export type View = "home" | "agents" | "surface" | "plugins" | "settings";
+export type View = "home" | "agents" | "surface" | "plugins" | "settings" | "import";
 export type AgentsTab = "overview" | "sessions" | "adapters" | "surface";
 
 const MAX_EVENTS = 120;

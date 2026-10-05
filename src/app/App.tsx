@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { AgentsView } from "../features/agents/AgentsView";
+import { ImportView } from "../features/artifacts/ImportView";
 import { HomeView } from "../features/home/HomeView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { PluginsView } from "../features/plugins/PluginsView";
@@ -51,6 +52,7 @@ export function App() {
         {view === "surface" && <SurfaceView />}
         {view === "plugins" && <PluginsView />}
         {view === "settings" && <SettingsView />}
+        {view === "import" && <ImportView />}
       </div>
       <div className="toasts" role="status" aria-live="polite">
         {toasts.map((t) => (

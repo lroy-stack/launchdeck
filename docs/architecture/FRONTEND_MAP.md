@@ -29,10 +29,10 @@ The architecture check enforces all of these. ESLint (`no-restricted-imports` in
 
 | Directory | Owns | May import |
 | --- | --- | --- |
-| `src/app` | `App.tsx`: the window shell, the switch between views, the toasts and the fatal screen; `Sidebar.tsx` (navigation, surfaces, the Auto Context control) | everything |
+| `src/app` | `App.tsx`: the window shell, the switch between views, the toasts and the fatal screen; `Sidebar.tsx` (navigation, surfaces with their Imported badge, Import…, the Auto Context control) | everything |
 | `src/components` | `PadGrid.tsx` (the pads of a page, drawn by the surface view and the Agents view's Agent Control surface tab); `ActivityFeed.tsx` (recent events, on Home and in the live panel); `forms/ParamForm.tsx` (a form drawn from a parameter schema, an action's or an observable's) and `forms/ColorField.tsx` (a colour as a picker, a hex field and swatches), which the Inspector and the feedback editor share | `src/lib`, `src/stores` |
 | `src/features/agents` | the Agents view: `AgentsView`, `Overview`, `Sessions`, `Adapters`, `SurfaceTab` and their `parts` | shared |
-| `src/features/artifacts` | Surface files and Packs: `contract.test.ts` (the artifact replies of `examples/artifacts`, parsed with the schemas) | shared |
+| `src/features/artifacts` | Surface files and Packs: `ImportView` (choose a file, Rust's plan or refusal, apply, the report), `PlanSections` (the sections of an import plan, each choice sent back whole as decisions; Rust computes ids, conflicts, dependencies and validity), `text` (the wording), `contract.test.ts` (the artifact replies of `examples/artifacts`, parsed with the schemas) | shared |
 | `src/features/context` | Auto Context: `ContextPanel` (rules, fallback, status), `ContextControl` (the sidebar switch), `text.ts` (the wording) | shared |
 | `src/features/editor` | the Inspector: `Inspector`, `AssignmentEditor` | shared; `src/features/feedback`, `src/features/library` |
 | `src/features/feedback` | the feedback editor: `FeedbackEditor`, `StateRules`, `EventRules`, `LooksEditor`, `LookSelect`, `ObservablePicker`, `LiveFeedback`, `useReview`, `parts`, and the test helper `testkit.tsx` | shared |

@@ -83,9 +83,14 @@ export function Sidebar() {
       <div className="side-section">
         <div className="side-title">
           <span>Surfaces</span>
-          <button type="button" className="icon-btn" aria-label="New surface" onClick={() => setCreating("")}>
-            +
-          </button>
+          <span className="side-actions">
+            <button type="button" className="side-link" onClick={() => setView("import")}>
+              Import…
+            </button>
+            <button type="button" className="icon-btn" aria-label="New surface" onClick={() => setCreating("")}>
+              +
+            </button>
+          </span>
         </div>
         <ul className="surface-list">
           {workspace?.surfaces.map((s) => {
@@ -95,6 +100,11 @@ export function Sidebar() {
                 <button type="button" className={`surface-item${on ? " on" : ""}`} onClick={() => open(s.id)}>
                   <span className="surface-icon">{s.icon ?? "▦"}</span>
                   <span>{s.name}</span>
+                  {s.importedFrom && (
+                    <span className="pill ghost tiny" title={`Imported from ${s.importedFrom.artifactName} ${s.importedFrom.artifactVersion}`}>
+                      Imported
+                    </span>
+                  )}
                 </button>
               </li>
             );

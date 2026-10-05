@@ -616,3 +616,32 @@ textarea { resize: vertical; }
 .context-add .field { flex: 1 1 150px; min-width: 0; }
 .context-add small { flex-basis: 100%; }
 @media (max-width: 900px) { .context-rule { grid-template-columns: 22px 1fr auto; } .context-rule select, .rule-actions { grid-column: 2 / -1; } }
+
+/* Surface files and Packs ------------------------------------------------- */
+.side-actions { display: inline-flex; align-items: center; gap: 2px; }
+.side-link { background: transparent; border: 0; border-radius: 6px; padding: 2px 6px; color: var(--text-3); font-size: 11px; letter-spacing: 0.02em; text-transform: none; }
+.side-link:hover { background: var(--panel-2); color: var(--text); }
+.surface-item .pill.tiny { margin-left: auto; font-size: 10px; padding: 0 6px; }
+.artifacts .panel h2 { font-size: 17px; letter-spacing: -0.01em; }
+.artifacts .panel h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); font-weight: 600; }
+.artifact-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.artifact-description { color: var(--text-2); max-width: 70ch; white-space: pre-line; }
+.choices { display: flex; flex-direction: column; gap: 6px; }
+.choices .check, .artifacts .plain .check { font-size: 12.5px; align-items: flex-start; }
+.choices input, .artifacts .plain .check input { margin-top: 2px; }
+.artifacts .plain li.stacked { flex-direction: column; gap: 2px; }
+.artifacts .review li { flex-wrap: wrap; }
+.artifacts .review pre { flex-basis: 100%; }
+.question { max-width: 520px; }
+.question > label { font-size: 12px; color: var(--text-2); }
+.import-actions { position: sticky; bottom: 0; display: flex; flex-direction: column; gap: 8px; max-width: 820px; padding: 12px 0 4px; background: linear-gradient(transparent, var(--bg) 30%); }
+.import-actions .row { justify-content: flex-end; }
+.blockers li { color: #fbbf24; font-size: 12.5px; }
+.import-failure { max-width: 820px; display: flex; flex-direction: column; gap: 6px; }
+.artifact-details { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 8px 0; }
+.artifact-details dt { color: var(--text-3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; padding-top: 2px; }
+.artifact-details dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.artifacts details summary { cursor: pointer; color: var(--text-3); font-size: 12px; }
+.remap { border-collapse: collapse; font-size: 12px; }
+.remap th { text-align: left; color: var(--text-3); font-weight: 600; padding: 4px 12px 4px 0; }
+.remap td { padding: 3px 12px 3px 0; }
