@@ -82,7 +82,7 @@ After the change:
 
 `LAUNCHDECK_CARGO` selects the cargo binary these scripts run (default `cargo`), for example a wrapper that pins the toolchain and the target directory.
 
-These scripts are introduced by package A2 of `PRODUCTIZATION_PLAN.md`. Before A2 lands, run the pieces directly: `npm run typecheck`, `npm run lint`, `npm test`, and from `src-tauri/` `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`.
+Each piece also runs alone: `npm run typecheck`, `npm run lint`, `npm test`, `npm run versions:check`, `npm run docs:links`, and for Rust `npm run rust:fmt`, `rust:clippy`, `rust:test` (arguments after `--` reach cargo, for example `npm run rust:test -- --test context_engine`). `npm run hooks:install` turns on an opt-in pre-commit hook that checks only what is staged: the architecture check, `cargo fmt` when Rust is staged, ESLint and tsc when TypeScript is staged.
 
 ## Regenerating a contract fixture
 

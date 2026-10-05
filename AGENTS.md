@@ -25,7 +25,7 @@ From the repository root:
 | `npm run check:arch` | the architecture check alone (`-- --report` for the large-file report) |
 
 * `LAUNCHDECK_CARGO` selects the cargo binary these scripts run (default `cargo`).
-* The four scripts above come with package A2 of `PRODUCTIZATION_PLAN.md`. Without them, run `npm run typecheck`, `npm run lint`, `npm test`, and `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` in `src-tauri/`.
+* `npm run hooks:install` turns on an opt-in pre-commit hook (staged files only: architecture check, `cargo fmt`, ESLint, tsc).
 * Single pieces: `npm run typecheck`, `npm run lint`, `npm test` (Vitest), `npm run build`; Rust: `cargo test --manifest-path src-tauri/Cargo.toml [--test <name>]`.
 * Regenerate a contract fixture only for an intended change of what Rust emits, and name it in the commit: `cargo run --manifest-path src-tauri/Cargo.toml --example dump_<name> > examples/<fixture>.json` (the example-to-fixture table is in `docs/architecture/ENGINEERING_RULES.md`).
 
