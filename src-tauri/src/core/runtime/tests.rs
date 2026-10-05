@@ -4,7 +4,7 @@ use crate::core::model::{Animation, ControlPos, Rgb, Visual};
 use crate::devices::virtual_device::VIRTUAL_ID;
 use crate::plugins::keyboard::{Combo, Keyboard};
 use crate::plugins::ActionError;
-use crate::state::feedback::FeedbackRule;
+use crate::state::feedback::{FeedbackRule, Hold};
 
 struct NoKeyboard;
 impl Keyboard for NoKeyboard {
