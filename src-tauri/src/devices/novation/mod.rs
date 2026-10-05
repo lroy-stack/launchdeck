@@ -17,6 +17,8 @@ mod launchpad_mini_mk3;
 mod launchpad_x;
 mod layout;
 mod leds;
+#[cfg(test)]
+mod measure_tests;
 mod palette;
 mod ports;
 #[cfg(test)]
