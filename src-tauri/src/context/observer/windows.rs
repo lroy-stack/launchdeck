@@ -13,8 +13,8 @@
 //! inside `ApplicationFrameHost.exe`. What it cannot see: a process running
 //! elevated while LaunchDeck is not (it is reported as nothing in front).
 //!
-//! **Not compiled or run where this was written** (a Linux machine without the
-//! Windows Rust target). It is written against windows-sys 0.61.2 as vendored.
+//! Written; never compiled (no Windows machine; CI blocked by account
+//! billing). It is written against windows-sys 0.61.2.
 
 use std::ptr::null_mut;
 use std::sync::OnceLock;

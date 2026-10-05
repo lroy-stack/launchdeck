@@ -9,9 +9,9 @@
 //! A read every two seconds stands behind the notifications, so that one that
 //! was missed corrects itself.
 //!
-//! **Not compiled or run where this was written** (a Linux machine without the
-//! macOS Rust target). It is written against objc2-app-kit 0.3.2,
-//! objc2-foundation 0.3.2 and block2 0.6.2 as vendored.
+//! Compiled and clippy-clean on macOS 15.4.1 arm64 with Rust 1.97.0; not yet
+//! seen running in the app (manual check NEXT_PHASE 4.2). It is written
+//! against objc2-app-kit 0.3.2, objc2-foundation 0.3.2 and block2 0.6.2.
 
 use std::ptr::NonNull;
 use std::time::Duration;
