@@ -90,6 +90,10 @@ fn write_plugin(plugins: &Path, manifest: &Value) {
 }
 
 fn world(manifest: &Value, store: Arc<dyn SecretStore>) -> World {
+    world_with(manifest, saved_settings(), store)
+}
+
+fn world_with(manifest: &Value, settings: Value, store: Arc<dyn SecretStore>) -> World {
     let root = tempfile::tempdir().unwrap();
     let (plugins, data) = (root.path().join("plugins"), root.path().join("data"));
     fs::create_dir_all(&data).unwrap();
@@ -97,10 +101,8 @@ fn world(manifest: &Value, store: Arc<dyn SecretStore>) -> World {
     let state = data.join("plugins.json");
     fs::write(
         &state,
-        serde_json::to_vec_pretty(
-            &json!({ "schemaVersion": 1, "plugins": { ID: saved_settings() } }),
-        )
-        .unwrap(),
+        serde_json::to_vec_pretty(&json!({ "schemaVersion": 1, "plugins": { ID: settings } }))
+            .unwrap(),
     )
     .unwrap();
     let registry = PluginRegistry::default();
@@ -198,6 +200,27 @@ impl SecretStore for GarblingStore {
     }
     fn set(&self, s: &SecretRef, value: &str) -> Result<(), SecretError> {
         self.0.set(s, &format!("{value}-garbled"))
+    }
+    fn delete(&self, s: &SecretRef) -> Result<(), SecretError> {
+        self.0.delete(s)
+    }
+    fn kind(&self) -> StoreKind {
+        StoreKind::Keychain
+    }
+}
+
+/// A credential store that keeps every key but one.
+struct RefusesOneKey(MemoryStore, &'static str);
+
+impl SecretStore for RefusesOneKey {
+    fn get(&self, s: &SecretRef) -> Result<Option<String>, SecretError> {
+        self.0.get(s)
+    }
+    fn set(&self, s: &SecretRef, value: &str) -> Result<(), SecretError> {
+        if s.key == self.1 {
+            return Err(SecretError::Store("the value is too long for it".into()));
+        }
+        self.0.set(s, value)
     }
     fn delete(&self, s: &SecretRef) -> Result<(), SecretError> {
         self.0.delete(s)
@@ -440,7 +463,8 @@ async fn a_store_that_refuses_the_write_leaves_the_plain_value_untouched() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_store_that_gives_back_something_else_leaves_the_plain_value_untouched() {
-    let w = world(&manifest(3), Arc::new(GarblingStore::default()));
+    let store = Arc::new(GarblingStore::default());
+    let w = world(&manifest(3), store.clone());
     let before = w.file();
     let said = w
         .host
@@ -450,13 +474,16 @@ async fn a_store_that_gives_back_something_else_leaves_the_plain_value_untouched
     assert!(said.contains("did not return what was written"), "{said}");
     assert!(!said.contains(PLAIN));
     assert_eq!(w.file(), before, "nothing persisted");
-    // Trying again does not mistake the wrong value for a good one.
-    let said = w
+    // The wrong value is not left in the store, so trying again neither
+    // mistakes it for a good one nor is blocked by it.
+    assert_eq!(store.get(&token()).unwrap(), None);
+    let again = w
         .host
         .migrate_plugin_legacy_secrets(ID)
         .unwrap_err()
         .to_string();
-    assert!(said.contains("different value"), "{said}");
+    assert_eq!(again, said);
+    assert_eq!(store.get(&token()).unwrap(), None);
     assert_eq!(w.file(), before);
     assert_eq!(
         w.host
@@ -467,6 +494,35 @@ async fn a_store_that_gives_back_something_else_leaves_the_plain_value_untouched
             .migration_required,
         ["token"]
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_migration_that_fails_for_one_key_leaves_the_store_as_it_was() {
+    let mut m = manifest(3);
+    m["config"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({ "key": "pin", "type": "string", "secret": true }));
+    let mut settings = saved_settings();
+    settings["config"]["pin"] = json!("plain-pin");
+    let store = Arc::new(RefusesOneKey(MemoryStore::new(), "pin"));
+    let w = world_with(&m, settings, store.clone());
+    let before = w.file();
+    let said = w
+        .host
+        .migrate_plugin_legacy_secrets(ID)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        said.contains("`pin`") && said.contains("too long"),
+        "{said}"
+    );
+    assert_eq!(w.file(), before, "nothing persisted");
+    // `token` was written and read back, then taken out again: all or nothing.
+    assert_eq!(store.get(&token()).unwrap(), None);
+    let migration = w.host.get(ID).unwrap().secret_migration.unwrap();
+    assert_eq!(migration.migration_required, ["pin", "token"]);
+    assert!(migration.needs_update.is_empty(), "{migration:?}");
 }
 
 #[tokio::test(flavor = "multi_thread")]

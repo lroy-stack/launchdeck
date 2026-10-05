@@ -319,6 +319,8 @@ pub struct Moved {
     /// one entered after the plain file stopped being used.
     pub kept: Vec<SecretRef>,
     /// Not moved, and why. Nothing was lost: the plain value is where it was.
+    /// A value written but not read back equal was deleted from the store
+    /// again, unless the reason says it could not be.
     pub failed: Vec<(SecretRef, String)>,
 }
 
@@ -335,16 +337,29 @@ pub fn move_into(store: &dyn SecretStore, entries: &[(SecretRef, String)]) -> Mo
                 Err(e) => out.failed.push((secret.clone(), e.to_string())),
                 Ok(()) => match store.get(secret) {
                     Ok(Some(back)) if &back == value => out.moved.push(secret.clone()),
-                    Ok(_) => out.failed.push((
-                        secret.clone(),
-                        "the store did not return what was written".into(),
-                    )),
-                    Err(e) => out.failed.push((secret.clone(), e.to_string())),
+                    read => {
+                        let why = match read {
+                            Err(e) => e.to_string(),
+                            Ok(_) => "the store did not return what was written".into(),
+                        };
+                        out.failed
+                            .push((secret.clone(), take_back(store, secret, why)));
+                    }
                 },
             },
         }
     }
     out
+}
+
+/// Delete what was just written for `secret`, which the store held nothing
+/// for before: a value that did not read back equal is not one to keep, and
+/// left there it would pass for one already moved on the next attempt.
+fn take_back(store: &dyn SecretStore, secret: &SecretRef, why: String) -> String {
+    match store.delete(secret) {
+        Ok(()) => why,
+        Err(e) => format!("{why}; what was written could not be deleted again: {e}"),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -605,6 +620,43 @@ mod tests {
         assert_eq!(some.moved, vec![token()]);
         assert_eq!(some.failed.len(), 1);
         assert_eq!(some.failed[0].0, SecretRef::new("acme.music", "key"));
+    }
+
+    /// A store that keeps something other than what it is given.
+    #[derive(Default)]
+    struct Garbling(MemoryStore);
+
+    impl SecretStore for Garbling {
+        fn get(&self, s: &SecretRef) -> Result<Option<String>, SecretError> {
+            self.0.get(s)
+        }
+        fn set(&self, s: &SecretRef, value: &str) -> Result<(), SecretError> {
+            self.0.set(s, &format!("{value}-garbled"))
+        }
+        fn delete(&self, s: &SecretRef) -> Result<(), SecretError> {
+            self.0.delete(s)
+        }
+        fn kind(&self) -> StoreKind {
+            StoreKind::Memory
+        }
+    }
+
+    #[test]
+    fn a_value_the_store_does_not_give_back_is_taken_out_again() {
+        let store = Garbling::default();
+        let entries = vec![(token(), "plain-one".to_string())];
+        let first = move_into(&store, &entries);
+        assert!(first.moved.is_empty() && first.kept.is_empty());
+        assert_eq!(first.failed.len(), 1);
+        assert_eq!(
+            store.get(&token()).unwrap(),
+            None,
+            "the wrong value is not left in the store"
+        );
+        // So a second attempt does not take a wrong value for one already there.
+        let again = move_into(&store, &entries);
+        assert!(again.kept.is_empty());
+        assert_eq!(again.failed, first.failed);
     }
 
     #[test]

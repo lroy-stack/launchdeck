@@ -409,7 +409,8 @@ impl PluginHost {
     /// Move the plain values of one plugin into the credential store: each is
     /// written, read back and compared, and only when every one of them is
     /// safely there are they removed from `plugins.json`. If anything fails,
-    /// `plugins.json` is left as it was and the error says why.
+    /// `plugins.json` is left as it was, what this attempt wrote to the store
+    /// is deleted again, and the error says why.
     pub fn migrate_plugin_legacy_secrets(&self, id: &str) -> Result<PluginInfo, HostError> {
         let store = &self.inner.secrets;
         let mut data = self.data();
@@ -430,24 +431,25 @@ impl PluginHost {
             return Ok(self.info(&data, &plugin));
         }
         let done = move_settings(store.as_ref(), &entries);
-        if !done.failed.is_empty() {
-            let said = not_moved(&done.failed);
-            plugin.log().host(Level::Warn, &said);
+        let removed = if done.failed.is_empty() {
+            self.persist_without(&mut data, id, &entries)
+        } else {
+            Err(HostError::Invalid(not_moved(&done.failed)))
+        };
+        if let Err(e) = removed {
+            Self::undo_writes(&mut data, store.as_ref(), &done.moved);
+            plugin.log().host(Level::Warn, &e.to_string());
+            let detail = match done.failed.len() {
+                0 => "plugins.json not saved, nothing removed".to_string(),
+                n => format!("failed {n}, nothing removed"),
+            };
             self.inner.grants.record(
                 AuditEntry::new("secrets.migrated", Actor::User)
                     .plugin(id)
-                    .detail(&format!("failed {}, nothing removed", done.failed.len())),
+                    .detail(&detail),
             );
-            return Err(HostError::Invalid(said));
+            return Err(e);
         }
-        let mut saved = data.saved.clone();
-        if let Some(settings) = saved.plugins.get_mut(id) {
-            for (secret, _) in &entries {
-                settings.config.remove(&secret.key);
-            }
-        }
-        self.persist(&saved)?;
-        data.saved = saved;
         for (secret, _) in &entries {
             Self::now_stored(&mut data, secret);
         }
@@ -463,6 +465,35 @@ impl PluginHost {
         Ok(self.info(&data, &plugin))
     }
 
+    /// Delete from the store what a failed migration wrote there, so that
+    /// the store is as it was. One that cannot be deleted is still there, and
+    /// is known to be.
+    fn undo_writes(data: &mut Data, store: &dyn SecretStore, written: &[SecretRef]) {
+        for secret in written {
+            if store.delete(secret).is_err() {
+                Self::now_stored(data, secret);
+            }
+        }
+    }
+
+    /// Remove `entries` from plugin `id`'s settings and save `plugins.json`.
+    fn persist_without(
+        &self,
+        data: &mut Data,
+        id: &str,
+        entries: &[(SecretRef, String)],
+    ) -> Result<(), HostError> {
+        let mut saved = data.saved.clone();
+        if let Some(settings) = saved.plugins.get_mut(id) {
+            for (secret, _) in entries {
+                settings.config.remove(&secret.key);
+            }
+        }
+        self.persist(&saved)?;
+        data.saved = saved;
+        Ok(())
+    }
+
     /// Delete the plain values of one plugin from `plugins.json` without
     /// moving them. Nothing else changes.
     pub fn remove_plugin_legacy_secrets(&self, id: &str) -> Result<PluginInfo, HostError> {
@@ -476,14 +507,7 @@ impl PluginHost {
         if entries.is_empty() {
             return Ok(self.info(&data, &plugin));
         }
-        let mut saved = data.saved.clone();
-        if let Some(settings) = saved.plugins.get_mut(id) {
-            for (secret, _) in &entries {
-                settings.config.remove(&secret.key);
-            }
-        }
-        self.persist(&saved)?;
-        data.saved = saved;
+        self.persist_without(&mut data, id, &entries)?;
         for (secret, _) in &entries {
             plugin.log().host(
                 Level::Info,
