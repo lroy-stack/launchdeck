@@ -27,7 +27,8 @@ use crate::devices::manager::{DeviceChange, DeviceManager, DeviceStatus};
 use crate::devices::midi::testkit::{port, FakeMidi};
 use crate::devices::midi::{MidiBackend, PortInfo};
 use crate::devices::{
-    DeviceError, DeviceInput, InputKind, Led, LedCell, ModeState, SurfaceDevice, SurfaceFrame,
+    DeviceError, DeviceInput, DeviceSetting, InputKind, Led, LedCell, ModeState, SurfaceDevice,
+    SurfaceFrame,
 };
 use crate::platform::Platform;
 
@@ -1281,4 +1282,196 @@ fn malformed_and_unknown_messages_from_a_mini_mk3_are_ignored() {
         ControlPos::grid(0, 7),
         "still read"
     );
+}
+
+// ---- brightness ----------------------------------------------------------------
+
+const READ_MINI_BRIGHTNESS: &str = "F0 00 20 29 02 0D 08 F7";
+const MINI_LIVE: &str = "F0 00 20 29 02 0D 0E 00 F7";
+
+/// The Mini MK3 taken, with every LED of a frame drawn; what was sent is
+/// dropped.
+fn mini_drawn(sim: &SimLaunchpad, clock: &FakeClock) -> (FakeMidi, Mk3Device, SurfaceFrame) {
+    let (midi, mut dev, _rx) = mini_acquired(sim, clock);
+    let frame = rainbow(&dev);
+    dev.render(&frame).unwrap();
+    sent(&midi);
+    (midi, dev, frame)
+}
+
+/// The next render sends every LED of the frame, in one message.
+fn assert_redrawn(midi: &FakeMidi, dev: &mut Mk3Device, frame: &SurfaceFrame) {
+    dev.render(frame).unwrap();
+    let redraw = sent(midi);
+    assert_eq!(redraw.len(), 1, "one message");
+    assert_eq!(redraw[0].len(), 413, "all 81 LEDs");
+}
+
+#[test]
+fn brightness_is_read_then_set_and_the_units_own_level_given_back_on_release() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, frame) = mini_drawn(&sim, &FakeClock::new());
+    dev.apply(DeviceSetting::Brightness(Some(50))).unwrap();
+    assert_eq!(
+        sent(&midi),
+        [hex(READ_MINI_BRIGHTNESS), hex("F0 00 20 29 02 0D 08 40 F7")]
+    );
+    assert_eq!(sim.brightness(), 0x40);
+    assert_redrawn(&midi, &mut dev, &frame);
+    assert_eq!(dev.details().brightness, Some(50));
+
+    dev.apply(DeviceSetting::Brightness(Some(100))).unwrap();
+    assert_eq!(
+        sent(&midi),
+        [hex(READ_MINI_BRIGHTNESS), hex("F0 00 20 29 02 0D 08 7F F7")]
+    );
+    dev.render(&frame).unwrap();
+    sent(&midi);
+    dev.apply(DeviceSetting::Brightness(Some(0))).unwrap();
+    sent(&midi);
+
+    dev.disconnect().unwrap();
+    assert_eq!(
+        sent(&midi),
+        [
+            mini_clear(),
+            hex("F0 00 20 29 02 0D 08 7F F7"),
+            hex(MINI_LIVE)
+        ],
+        "the first level read, not one LaunchDeck set"
+    );
+    assert_eq!(sim.brightness(), 0x7F);
+}
+
+#[test]
+fn the_devices_own_level_is_given_back_at_once_and_not_again_on_release() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, frame) = mini_drawn(&sim, &FakeClock::new());
+    dev.apply(DeviceSetting::Brightness(Some(50))).unwrap();
+    dev.render(&frame).unwrap();
+    sent(&midi);
+    dev.apply(DeviceSetting::Brightness(None)).unwrap();
+    assert_eq!(sent(&midi), [hex("F0 00 20 29 02 0D 08 7F F7")]);
+    assert_eq!(sim.brightness(), 0x7F);
+    assert_redrawn(&midi, &mut dev, &frame);
+    assert_eq!(dev.details().brightness, Some(100), "the level read");
+    dev.disconnect().unwrap();
+    assert_eq!(sent(&midi), [mini_clear(), hex(MINI_LIVE)]);
+}
+
+#[test]
+fn a_level_read_just_before_release_is_still_given_back() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, _frame) = mini_drawn(&sim, &FakeClock::new());
+    dev.apply(DeviceSetting::Brightness(Some(50))).unwrap();
+    sent(&midi);
+    dev.disconnect().unwrap();
+    assert_eq!(
+        sent(&midi),
+        [
+            mini_clear(),
+            hex("F0 00 20 29 02 0D 08 7F F7"),
+            hex(MINI_LIVE)
+        ]
+    );
+}
+
+#[test]
+fn a_preference_set_before_the_unit_is_taken_is_applied_when_it_is() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, _rx) = mini_with(&sim, &FakeClock::new());
+    dev.apply(DeviceSetting::Brightness(Some(50))).unwrap();
+    assert_eq!(
+        sent(&midi),
+        mini_probe(),
+        "nothing before the unit is taken"
+    );
+    dev.render(&lower_left_pink()).unwrap();
+    sent(&midi);
+    dev.render(&lower_left_pink()).unwrap();
+    assert_eq!(
+        sent(&midi),
+        [
+            hex(READ_MINI_BRIGHTNESS),
+            hex("F0 00 20 29 02 0D 08 40 F7"),
+            mini_clear(),
+            hex(MINI_FRAME),
+        ]
+    );
+    assert_eq!(sim.brightness(), 0x40);
+}
+
+#[test]
+fn the_launchpad_x_is_given_brightness_with_its_own_product_byte() {
+    let (midi, sim, mut dev, _rx) = on_sim();
+    dev.apply(DeviceSetting::Brightness(Some(25))).unwrap();
+    assert_eq!(
+        midi.take_sent(),
+        to_output(&[
+            hex("F0 00 20 29 02 0C 08 F7"),
+            hex("F0 00 20 29 02 0C 08 20 F7")
+        ])
+    );
+    assert_eq!(sim.brightness(), 0x20);
+}
+
+#[test]
+fn a_firmware_that_does_not_answer_brightness_is_said_not_to_support_it() {
+    let sim = SimLaunchpad::mini().without_command(0x08);
+    let clock = FakeClock::new();
+    let (midi, mut dev, frame) = mini_drawn(&sim, &clock);
+    assert!(dev.features().brightness);
+    dev.apply(DeviceSetting::Brightness(Some(50))).unwrap();
+    dev.render(&frame).unwrap();
+    clock.advance(REPLY_TIMEOUT);
+    dev.render(&frame).unwrap();
+    assert!(!dev.features().brightness);
+    assert_eq!(
+        dev.details().notice.as_deref(),
+        Some(
+            "Firmware version 0531 does not support brightness. Novation Components can update it."
+        )
+    );
+    let error = dev.apply(DeviceSetting::Brightness(Some(20))).unwrap_err();
+    assert!(matches!(error, DeviceError::Unavailable(_)), "{error:?}");
+    sent(&midi);
+    dev.disconnect().unwrap();
+    assert_eq!(
+        sent(&midi),
+        [mini_clear(), hex(MINI_LIVE)],
+        "nothing to give back"
+    );
+}
+
+#[test]
+fn the_manager_applies_the_preferred_brightness_now_and_after_every_reconnect() {
+    let ports = m1();
+    let sim = SimLaunchpad::mini();
+    let frame = mini_frame();
+    let (midi, mut m, _rx) = mini_taken(&ports, &sim, &frame);
+    m.set_preferred_brightness(Some(50));
+    assert_eq!(
+        sent(&midi),
+        [hex(READ_MINI_BRIGHTNESS), hex("F0 00 20 29 02 0D 08 40 F7")]
+    );
+    assert_eq!(m.list()[0].details.brightness, Some(50));
+
+    midi.set_ports(&[], &[]);
+    m.rescan_hardware(false);
+    sim.power_cycle();
+    assert_eq!(sim.brightness(), 0x7F);
+    midi.set_ports(&ports.inputs, &ports.outputs);
+    assert_eq!(look(&mut m), [MINI_ID]);
+    for _ in 0..2 {
+        m.render(MINI_ID, &frame);
+    }
+    let again = sent(&midi);
+    assert_eq!(
+        again[6..8],
+        [hex(READ_MINI_BRIGHTNESS), hex("F0 00 20 29 02 0D 08 40 F7")],
+        "probe, enter, then the brightness before the clear frame"
+    );
+    assert_eq!(again[8], mini_clear());
+    assert_eq!(sim.brightness(), 0x40);
+    assert_shows(&sim, &frame);
 }

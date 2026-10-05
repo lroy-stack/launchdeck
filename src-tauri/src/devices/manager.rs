@@ -11,7 +11,7 @@ use super::novation::NovationHardware;
 use super::source::HardwareSource;
 use super::{
     AnimationCaps, AuxCaps, DeviceCapabilities, DeviceDetails, DeviceError, DeviceFeatures,
-    DeviceIdentity, DeviceKind, InputSender, SurfaceDevice, SurfaceFrame,
+    DeviceIdentity, DeviceKind, DeviceSetting, InputSender, SurfaceDevice, SurfaceFrame,
 };
 use crate::platform::Platform;
 
@@ -64,6 +64,26 @@ impl Entry {
                 .flatten(),
             details,
             features: self.device.features(),
+        }
+    }
+
+    /// Gives the device a setting if it has the feature; a failure is
+    /// logged, since the device keeps working without it.
+    fn give(&mut self, setting: DeviceSetting) {
+        let features = self.device.features();
+        let has = match setting {
+            DeviceSetting::Brightness(_) => features.brightness,
+            DeviceSetting::Sleep(_) => features.sleep,
+        };
+        if !has {
+            return;
+        }
+        if let Err(e) = self.device.apply(setting) {
+            log::warn!(
+                "`{}` did not take {setting:?}: {e} ({})",
+                self.identity.id,
+                e.detail().unwrap_or("no detail")
+            );
         }
     }
 
@@ -149,6 +169,9 @@ pub struct DeviceManager {
     unsupported: Vec<DeviceIdentity>,
     hardware: Box<dyn HardwareSource>,
     input: InputSender,
+    /// The LED brightness in percent every device with the feature is
+    /// given when it connects; `None` leaves each its own.
+    brightness: Option<u8>,
 }
 
 impl DeviceManager {
@@ -163,6 +186,7 @@ impl DeviceManager {
             unsupported: Vec::new(),
             hardware,
             input,
+            brightness: None,
         }
     }
 
@@ -211,16 +235,21 @@ impl DeviceManager {
             .ok_or_else(|| DeviceError::Unknown(id.to_string()))
     }
 
-    /// Connect a device. A failure is remembered as the device's problem
-    /// until a later attempt succeeds or the person disconnects it.
+    /// Connect a device and give it the preferred brightness. A failure is
+    /// remembered as the device's problem until a later attempt succeeds
+    /// or the person disconnects it.
     pub fn connect(&mut self, id: &str) -> Result<DeviceChange, DeviceError> {
         let input = self.input.clone();
+        let brightness = self.brightness;
         let entry = self.entry_mut(id)?;
         match entry.device.connect(input) {
             Ok(()) => {
                 entry.in_use = true;
                 entry.unplugged = false;
                 entry.problem = None;
+                if brightness.is_some() {
+                    entry.give(DeviceSetting::Brightness(brightness));
+                }
                 entry.announced = entry.device.details();
                 Ok(DeviceChange::Connected(id.to_string()))
             }
@@ -235,6 +264,30 @@ impl DeviceManager {
                 Err(e)
             }
         }
+    }
+
+    /// The LED brightness in percent for every device with the feature, or
+    /// each device's own level (`None`): given to the connected ones now,
+    /// and to every device when it connects.
+    pub fn set_preferred_brightness(&mut self, percent: Option<u8>) {
+        self.brightness = percent;
+        for entry in &mut self.entries {
+            if entry.device.is_connected() {
+                entry.give(DeviceSetting::Brightness(percent));
+                entry.announced = entry.device.details();
+            }
+        }
+    }
+
+    /// Gives one connected device a setting.
+    pub fn apply(&mut self, id: &str, setting: DeviceSetting) -> Result<(), DeviceError> {
+        let entry = self.entry_mut(id)?;
+        if !entry.device.is_connected() {
+            return Err(DeviceError::NotConnected);
+        }
+        entry.device.apply(setting)?;
+        entry.announced = entry.device.details();
+        Ok(())
     }
 
     pub fn disconnect(&mut self, id: &str) -> Result<DeviceChange, DeviceError> {

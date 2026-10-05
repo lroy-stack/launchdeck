@@ -160,6 +160,7 @@ impl Runtime {
 
         let (input_tx, mut input_rx) = unbounded_channel::<DeviceInput>();
         let mut devices = DeviceManager::new(input_tx);
+        devices.set_preferred_brightness(config.workspace.preferences.device_brightness);
         let (vdev, vhandle) = VirtualLaunchpadX::new();
         {
             let emitter = config.emitter.clone();

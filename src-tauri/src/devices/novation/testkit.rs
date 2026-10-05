@@ -142,6 +142,9 @@ struct SimState {
     /// Acts on what it receives but its answers never arrive, as through a
     /// driver that drops SysEx.
     silent: bool,
+    /// Commands its firmware does not know: it neither obeys nor answers
+    /// them, as an older firmware might.
+    unknown: Vec<u8>,
     layout: u8,
     /// Internal and external LED feedback, 0 or 1.
     feedback: (u8, u8),
@@ -226,6 +229,13 @@ impl SimLaunchpad {
         self
     }
 
+    /// A firmware that does not know this command: it is neither obeyed
+    /// nor answered.
+    pub fn without_command(self, command: u8) -> Self {
+        self.state().unknown.push(command);
+        self
+    }
+
     /// From now on its answers never arrive (`true`), or arrive again.
     pub fn set_silent(&self, silent: bool) {
         self.state().silent = silent;
@@ -296,6 +306,7 @@ impl SimLaunchpad {
         *s = SimState {
             bootloader: s.bootloader,
             silent: s.silent,
+            unknown: s.unknown.clone(),
             ..SimState::powered_on(s.model)
         };
     }
@@ -325,6 +336,7 @@ impl SimState {
             model,
             bootloader: false,
             silent: false,
+            unknown: Vec::new(),
             layout: model.live_layout,
             feedback: (1, 1),
             awake: true,
@@ -380,7 +392,7 @@ impl SimState {
         }
         match inner {
             [0x00, 0x20, 0x29, 0x02, product, command, data @ ..]
-                if *product == self.model.product =>
+                if *product == self.model.product && !self.unknown.contains(command) =>
             {
                 self.command(*command, data)
             }
@@ -605,6 +617,18 @@ mod tests {
         assert!(!sim.in_programmer_mode());
         assert!(ask(&sim, "F0 00 20 29 02 0D 0E F7").is_empty());
         assert!(sim.press(ControlPos::grid(0, 0)).is_empty());
+    }
+
+    #[test]
+    fn a_firmware_without_a_command_neither_obeys_nor_answers_it() {
+        let sim = SimLaunchpad::mini().without_command(0x08);
+        assert!(ask(&sim, "F0 00 20 29 02 0D 08 F7").is_empty());
+        ask(&sim, "F0 00 20 29 02 0D 08 20 F7");
+        assert_eq!(sim.brightness(), 0x7F);
+        assert_eq!(
+            ask(&sim, "F0 00 20 29 02 0D 09 F7"),
+            [hex("F0 00 20 29 02 0D 09 01 F7")]
+        );
     }
 
     #[test]

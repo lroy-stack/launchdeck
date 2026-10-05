@@ -24,7 +24,7 @@ use super::session::{Action, Session};
 use crate::devices::midi::{MessageFramer, MidiBackend, MidiLink, OnBytes};
 use crate::devices::{
     DeviceCapabilities, DeviceDetails, DeviceError, DeviceFeatures, DeviceIdentity, DeviceInput,
-    DeviceKind, InputSender, SurfaceDevice, SurfaceFrame,
+    DeviceKind, DeviceSetting, InputSender, SurfaceDevice, SurfaceFrame,
 };
 
 /// Replies kept until the next render reads them; a unit that sends more
@@ -84,7 +84,15 @@ impl Mk3Device {
                 self.gate.store(open, Ordering::Release);
                 Ok(())
             }
+            Action::Invalidate => {
+                self.leds.invalidate();
+                Ok(())
+            }
         }
+    }
+
+    fn act_all(&mut self, actions: Vec<Action>) -> Result<(), DeviceError> {
+        actions.into_iter().try_for_each(|action| self.act(action))
     }
 
     /// What the input callback does with each call's bytes.
@@ -136,6 +144,8 @@ impl SurfaceDevice for Mk3Device {
     }
 
     fn disconnect(&mut self) -> Result<(), DeviceError> {
+        let replies: Vec<Reply> = lock(&self.replies).drain(..).collect();
+        self.session.last_replies(replies);
         for action in self.session.release() {
             // The unit may be gone: what cannot be sent is not sent.
             let _ = self.act(action);
@@ -188,7 +198,21 @@ impl SurfaceDevice for Mk3Device {
     }
 
     fn features(&self) -> DeviceFeatures {
-        self.profile.features
+        self.session.features()
+    }
+
+    fn apply(&mut self, setting: DeviceSetting) -> Result<(), DeviceError> {
+        if self.link.is_none() {
+            return Err(DeviceError::NotConnected);
+        }
+        let now = (self.clock)();
+        let actions = match setting {
+            DeviceSetting::Brightness(percent) => self.session.set_brightness(now, percent)?,
+            DeviceSetting::Sleep(_) => {
+                return Err(DeviceError::Unavailable("sleep".into()));
+            }
+        };
+        self.act_all(actions)
     }
 }
 

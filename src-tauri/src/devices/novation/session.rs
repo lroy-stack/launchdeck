@@ -24,21 +24,29 @@
 //! Programmer mode: one that never answered keeps its could-not-be-confirmed
 //! notice.
 //!
+//! Brightness (section 12.1) is set when the unit is taken and whenever
+//! the person changes it: the level is read, then set; the unit answers the
+//! question before it applies the setting, so the first answer since
+//! connect is the person's own level. A unit whose firmware leaves the
+//! question unanswered while it answers the others is said not to support
+//! brightness, in a notice.
+//!
 //! On release the clear frame, the LED feedback the unit had if LaunchDeck
-//! changed it, Live mode, then the layout the unit showed before, unless
-//! Live mode lands there anyway. What release gives back is what the unit
-//! first reported: taking it again after a takeover reads the unit again,
-//! but what LaunchDeck or the other program set there is not the person's.
-//! Replies that carry another model's product byte are ignored.
+//! changed it, the brightness it had if LaunchDeck changed it, Live mode,
+//! then the layout the unit showed before, unless Live mode lands there
+//! anyway. What release gives back is what the unit first reported: taking
+//! it again after a takeover reads the unit again, but what LaunchDeck or
+//! the other program set there is not the person's. Replies that carry
+//! another model's product byte are ignored.
 
 use std::time::{Duration, Instant};
 
 use super::profile::ModelProfile;
 use super::protocol::{
-    feedback, programmer_mode, query, select_layout, sleep, Reply, FEEDBACK, INQUIRY, LAYOUT, MODE,
-    SLEEP,
+    brightness, feedback, programmer_mode, query, select_layout, sleep, Reply, BRIGHTNESS,
+    FEEDBACK, INQUIRY, LAYOUT, MODE, SLEEP,
 };
-use crate::devices::{DeviceDetails, DeviceError, ModeState};
+use crate::devices::{DeviceDetails, DeviceError, DeviceFeatures, ModeState};
 
 /// How long a question to the unit waits for its answer. Some drivers may
 /// drop SysEx: then LaunchDeck goes on without the answer.
@@ -57,6 +65,9 @@ const BOOTLOADER: u8 = 0x11;
 
 /// The layout byte of Programmer mode (MINI-PRM p7).
 const PROGRAMMER_LAYOUT: u8 = 0x7F;
+
+/// The highest brightness level (MINI-PRM p22).
+const BRIGHTNESS_MAX: u8 = 0x7F;
 
 /// Where the session is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -94,6 +105,8 @@ pub(crate) enum Action {
     Clear,
     /// Forward the unit's input (`true`) or not.
     Gate(bool),
+    /// Forget what the LEDs show: the next frame is sent whole.
+    Invalidate,
 }
 
 #[derive(Debug)]
@@ -117,6 +130,29 @@ pub(crate) struct Session {
     heartbeat: Option<Heartbeat>,
     /// When the unit was found back in Live mode, within the window.
     takeovers: Vec<Instant>,
+    brightness: Brightness,
+    /// What the unit's firmware turned out not to do.
+    unsupported: Unsupported,
+}
+
+/// The LED brightness LaunchDeck sets, and the unit's own.
+#[derive(Debug, Default, Clone, Copy)]
+struct Brightness {
+    /// The level to set, 0-127; `None` leaves the unit's own.
+    wanted: Option<u8>,
+    /// The first level the unit reported since connect: what release
+    /// gives back.
+    saved: Option<u8>,
+    /// LaunchDeck set a level the unit still shows.
+    changed: bool,
+    /// When the question still unanswered was sent.
+    asked: Option<Instant>,
+}
+
+/// Features of the profile that this unit's firmware does not answer for.
+#[derive(Debug, Default, Clone, Copy)]
+struct Unsupported {
+    brightness: bool,
 }
 
 /// What the unit reported before it was taken; `None` for what it did not
@@ -153,6 +189,8 @@ impl Session {
             feedback_changed: false,
             heartbeat: None,
             takeovers: Vec::new(),
+            brightness: Brightness::default(),
+            unsupported: Unsupported::default(),
         }
     }
 
@@ -166,10 +204,66 @@ impl Session {
         self.phase == Phase::Owned
     }
 
-    /// The ports are open: ask who the unit is and what it shows.
+    /// The ports are open: ask who the unit is and what it shows. A
+    /// brightness asked for before is kept.
     pub(crate) fn opened(&mut self, now: Instant) -> Vec<Action> {
+        let wanted = self.brightness.wanted;
         *self = Self::new(self.profile);
+        self.brightness.wanted = wanted;
         self.probe(now)
+    }
+
+    /// What the unit can do: its profile's features, less what its
+    /// firmware turned out not to answer for.
+    pub(crate) fn features(&self) -> DeviceFeatures {
+        let mut features = self.profile.features;
+        features.brightness &= !self.unsupported.brightness;
+        features
+    }
+
+    /// LED brightness in percent, or the unit's own (`None`): set now if
+    /// the unit is held, otherwise when it is taken.
+    pub(crate) fn set_brightness(
+        &mut self,
+        now: Instant,
+        percent: Option<u8>,
+    ) -> Result<Vec<Action>, DeviceError> {
+        if !self.features().brightness {
+            return Err(self.unavailable("brightness"));
+        }
+        self.brightness.wanted = percent.map(level);
+        if self.phase != Phase::Owned {
+            return Ok(Vec::new());
+        }
+        let mut actions = match (self.brightness.wanted, self.brightness.saved) {
+            (Some(level), _) => self.brighten(now, level),
+            (None, Some(own)) if self.brightness.changed => {
+                self.brightness.changed = false;
+                vec![Action::Send(brightness(self.profile.product, own))]
+            }
+            (None, _) => return Ok(Vec::new()),
+        };
+        // Whether the unit keeps showing its LEDs through a change is not
+        // documented: they are sent again.
+        actions.push(Action::Invalidate);
+        Ok(actions)
+    }
+
+    /// Replies that arrived after the last render, read just before release
+    /// for what it gives back.
+    pub(crate) fn last_replies(&mut self, replies: Vec<Reply>) {
+        for reply in replies {
+            match reply {
+                Reply::Readback {
+                    product,
+                    command: BRIGHTNESS,
+                    data,
+                } if product == self.profile.product.0 && data.len() == 1 => {
+                    self.read_brightness(data[0])
+                }
+                _ => {}
+            }
+        }
     }
 
     /// A render tick, with the replies that arrived since the last one.
@@ -185,7 +279,10 @@ impl Session {
             Phase::Entering { since } if self.programmer.is_some() || timed_out(since, now) => {
                 self.take(now)
             }
-            Phase::Owned => self.beat(now),
+            Phase::Owned => {
+                self.unanswered(now);
+                self.beat(now)
+            }
             _ => Vec::new(),
         });
         actions
@@ -207,6 +304,9 @@ impl Session {
                             external == 1,
                         )));
                     }
+                }
+                if let (true, Some(own)) = (self.brightness.changed, self.brightness.saved) {
+                    actions.push(Action::Send(brightness(product, own)));
                 }
                 actions.push(Action::Send(programmer_mode(product, false)));
                 // Live mode lands in the profile's Live layout; another one
@@ -249,14 +349,47 @@ impl Session {
             ModeState::Unconfirmed => Some(format!(
                 "{name} connected, but Programmer Mode could not be confirmed."
             )),
-            _ => None,
+            _ => self.firmware_notice(),
+        };
+        let brightness = if self.unsupported.brightness {
+            None
+        } else {
+            self.brightness
+                .wanted
+                .or(self.brightness.saved)
+                .map(percent)
         };
         DeviceDetails {
             firmware: self.firmware.clone(),
             mode,
+            brightness,
             notice,
             ..DeviceDetails::default()
         }
+    }
+
+    /// What the unit's firmware does not answer for, with its version.
+    fn firmware_notice(&self) -> Option<String> {
+        let firmware = self.firmware.as_deref()?;
+        let missing: Vec<&str> = [("brightness", self.unsupported.brightness)]
+            .into_iter()
+            .filter_map(|(name, missing)| missing.then_some(name))
+            .collect();
+        (!missing.is_empty()).then(|| {
+            format!(
+                "Firmware version {firmware} does not support {}. Novation Components can update it.",
+                missing.join(" or ")
+            )
+        })
+    }
+
+    /// The refusal of a feature the unit cannot do.
+    fn unavailable(&self, feature: &str) -> DeviceError {
+        let firmware = self.firmware.as_deref().unwrap_or("unknown");
+        DeviceError::Unavailable(format!(
+            "{feature} on a {} with firmware {firmware}",
+            self.profile.name
+        ))
     }
 
     fn mode(&self) -> ModeState {
@@ -282,6 +415,14 @@ impl Session {
                     self.profile.name
                 );
             }
+            (
+                _,
+                Reply::Readback {
+                    command: BRIGHTNESS,
+                    data,
+                    ..
+                },
+            ) if data.len() == 1 => self.read_brightness(data[0]),
             (Phase::Probing { .. }, Reply::Readback { command, data, .. }) => {
                 self.probed(command, &data)
             }
@@ -394,8 +535,50 @@ impl Session {
         if self.seen.asleep == Some(true) {
             actions.push(Action::Send(sleep(product, true)));
         }
+        if let (Some(level), true) = (self.brightness.wanted, self.features().brightness) {
+            actions.extend(self.brighten(now, level));
+        }
         actions.extend([Action::Clear, Action::Gate(true)]);
         actions
+    }
+
+    /// Reads the unit's brightness, then sets this level: the unit answers
+    /// before it applies the setting.
+    fn brighten(&mut self, now: Instant, level: u8) -> Vec<Action> {
+        self.brightness.changed = true;
+        self.brightness.asked = Some(now);
+        let product = self.profile.product;
+        vec![
+            Action::Send(query(product, BRIGHTNESS)),
+            Action::Send(brightness(product, level)),
+        ]
+    }
+
+    /// The unit's brightness: the first answer since connect is its own.
+    fn read_brightness(&mut self, level: u8) {
+        self.brightness.asked = None;
+        self.brightness
+            .saved
+            .get_or_insert(level.min(BRIGHTNESS_MAX));
+    }
+
+    /// A brightness question unanswered while the unit answered who it is
+    /// and whether it is in Programmer mode: its firmware does not know it.
+    fn unanswered(&mut self, now: Instant) {
+        let Some(asked) = self.brightness.asked else {
+            return;
+        };
+        if !timed_out(asked, now) {
+            return;
+        }
+        self.brightness.asked = None;
+        if self.firmware.is_some() && self.programmer.is_some() {
+            log::info!(
+                "the {} did not answer the brightness question: not supported",
+                self.profile.name
+            );
+            self.unsupported.brightness = true;
+        }
     }
 
     /// Counts an unanswered heartbeat, and asks again when one is due.
@@ -451,7 +634,33 @@ fn timed_out(since: Instant, now: Instant) -> bool {
     now.saturating_duration_since(since) >= REPLY_TIMEOUT
 }
 
+/// Percent 0-100 to a brightness level 0-127, rounded: 50 is `40h`.
+fn level(percent: u8) -> u8 {
+    let level = (u16::from(percent.min(100)) * u16::from(BRIGHTNESS_MAX) + 50) / 100;
+    level as u8
+}
+
+/// A brightness level 0-127 to percent, rounded.
+fn percent(level: u8) -> u8 {
+    let max = u16::from(BRIGHTNESS_MAX);
+    ((u16::from(level.min(BRIGHTNESS_MAX)) * 100 + max / 2) / max) as u8
+}
+
 /// Four digits 0-9 as one string: `0531`.
 fn digits(version: [u8; 4]) -> String {
     version.iter().map(|d| char::from(b'0' + d % 10)).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{level, percent};
+
+    #[test]
+    fn brightness_percent_and_levels_round_to_each_other() {
+        assert_eq!([0, 25, 50, 100, 255].map(level), [0, 32, 64, 127, 127]);
+        assert_eq!([0, 32, 64, 127, 255].map(percent), [0, 25, 50, 100, 100]);
+        for p in 0..=100 {
+            assert_eq!(percent(level(p)), p, "{p} %");
+        }
+    }
 }
