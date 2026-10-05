@@ -79,8 +79,8 @@ impl Walked {
     }
 }
 
-/// One member name or array index as a pointer segment.
-fn segment(key: &str) -> String {
+/// One member name or array index as a JSON pointer segment.
+pub(super) fn segment(key: &str) -> String {
     key.replace('~', "~0").replace('/', "~1")
 }
 

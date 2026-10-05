@@ -10,10 +10,14 @@
 //! * `limits`  every limit of the format, and [`ArtifactLimits`] for the UI
 //! * `json`    the pre-pass over the raw text, the content digest, the
 //!   canonical writer
+//! * `format`  the v1 types, their conversion to and from the workspace
+//!   model, and their structural checks
 
+mod format;
 mod json;
 mod limits;
 
+pub use format::*;
 pub use json::{
     content_digest, prepass, to_canonical, to_canonical_members, JsonProblem, PrepassError,
 };
