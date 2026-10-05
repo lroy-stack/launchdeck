@@ -15,7 +15,6 @@
 
 use std::collections::HashSet;
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -184,9 +183,16 @@ impl Drop for Staging {
 
 /// Copy the manifest and the module of a validated example into a staging
 /// folder in `root`, and validate the copy: it must be the very bytes that
-/// were validated, or the example changed while it was being copied.
+/// were validated, or the example changed while it was being copied. The
+/// manifest is read again as a scan reads it (a regular file, not a symbolic
+/// link, within the size limit).
 fn stage(example: &Candidate, root: &Path) -> Result<Staging, InstallError> {
-    let manifest = read_manifest(&example.dir)?;
+    let manifest = discovery::read_plain_file(
+        &example.dir.join(MANIFEST_FILE),
+        MAX_MANIFEST_BYTES,
+        MANIFEST_FILE,
+    )
+    .map_err(InstallError::Copy)?;
     let staging = Staging::create(root, &example.manifest.id)?;
     let write = |name: &str, bytes: &[u8]| {
         write_atomic(&staging.path().join(name), bytes)
@@ -203,33 +209,6 @@ fn stage(example: &Candidate, root: &Path) -> Result<Staging, InstallError> {
         ));
     }
     Ok(staging)
-}
-
-/// The manifest's bytes, refusing a symbolic link and anything over the size
-/// a scan reads.
-fn read_manifest(dir: &Path) -> Result<Vec<u8>, InstallError> {
-    let path = dir.join(MANIFEST_FILE);
-    let refuse = |why: String| InstallError::Copy(format!("{MANIFEST_FILE}: {why}"));
-    for p in [dir, path.as_path()] {
-        let meta = fs::symlink_metadata(p).map_err(|e| refuse(e.to_string()))?;
-        if meta.file_type().is_symlink() {
-            return Err(refuse(format!(
-                "{} is a symbolic link, which is not allowed",
-                p.display()
-            )));
-        }
-    }
-    let mut bytes = Vec::new();
-    fs::File::open(&path)
-        .and_then(|f| {
-            f.take(MAX_MANIFEST_BYTES as u64 + 1)
-                .read_to_end(&mut bytes)
-        })
-        .map_err(|e| refuse(e.to_string()))?;
-    if bytes.len() > MAX_MANIFEST_BYTES {
-        return Err(refuse(format!("larger than {MAX_MANIFEST_BYTES} bytes")));
-    }
-    Ok(bytes)
 }
 
 #[cfg(test)]

@@ -65,7 +65,7 @@ pub struct Scan {
 }
 
 /// Read a regular file (not a symlink) of at most `max` bytes.
-fn read_plain_file(path: &Path, max: usize, what: &str) -> Result<Vec<u8>, String> {
+pub(super) fn read_plain_file(path: &Path, max: usize, what: &str) -> Result<Vec<u8>, String> {
     let meta = fs::symlink_metadata(path).map_err(|e| format!("cannot read {what}: {e}"))?;
     if meta.file_type().is_symlink() {
         return Err(format!("{what} is a symbolic link, which is not allowed"));
