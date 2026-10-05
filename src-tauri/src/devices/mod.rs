@@ -4,13 +4,17 @@
 //! `SurfaceFrame` and `DeviceInput`. Raw MIDI bytes live exclusively in
 //! `novation`; the MIDI transport in `midi` (`midir` only in
 //! `midi/system.rs`). The device manager finds hardware through a
-//! `source::HardwareSource` and knows no model.
+//! `source::HardwareSource` and knows no model. What LaunchDeck observed on
+//! a device beyond its frames is in `features`.
 
+mod features;
 pub mod manager;
 mod midi;
 mod novation;
 mod source;
 pub mod virtual_device;
+
+pub use features::{DeviceDetails, ModeState};
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
@@ -31,18 +35,39 @@ pub enum DeviceError {
     Unknown(String),
     #[error("Not supported yet: LaunchDeck works with the Launchpad X.")]
     Unsupported(String),
+    #[error("The Launchpad is in its bootloader. Unplug it and plug it in again.")]
+    Bootloader(String),
+    #[error("LaunchDeck could not confirm which Launchpad this is. Press Look again.")]
+    OtherModel(String),
+    /// Holds the model's name, which the sentence says.
+    #[error("Another program is using the {0}. Press Look again to use it here.")]
+    TakenOver(String),
+    #[error("This device cannot do that.")]
+    Unavailable(String),
 }
 
 impl DeviceError {
     /// The operating system's text or the device id behind the sentence.
     pub fn detail(&self) -> Option<&str> {
         match self {
-            DeviceError::NotConnected => None,
+            DeviceError::NotConnected | DeviceError::TakenOver(_) => None,
             DeviceError::Port(d)
             | DeviceError::Midi(d)
             | DeviceError::Unknown(d)
-            | DeviceError::Unsupported(d) => Some(d),
+            | DeviceError::Unsupported(d)
+            | DeviceError::Bootloader(d)
+            | DeviceError::OtherModel(d)
+            | DeviceError::Unavailable(d) => Some(d),
         }
+    }
+
+    /// The device turned LaunchDeck down: trying again by itself would not
+    /// help, so it waits for the person to press Look again.
+    pub(crate) fn is_refusal(&self) -> bool {
+        matches!(
+            self,
+            DeviceError::Bootloader(_) | DeviceError::OtherModel(_) | DeviceError::TakenOver(_)
+        )
     }
 }
 
@@ -186,4 +211,9 @@ pub trait SurfaceDevice: Send {
     fn is_connected(&self) -> bool;
     fn render(&mut self, frame: &SurfaceFrame) -> Result<(), DeviceError>;
     fn clear(&mut self) -> Result<(), DeviceError>;
+    /// What LaunchDeck observed on the device; the defaults for a device
+    /// that reports nothing.
+    fn details(&self) -> DeviceDetails {
+        DeviceDetails::default()
+    }
 }

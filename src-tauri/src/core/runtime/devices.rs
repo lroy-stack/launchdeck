@@ -61,6 +61,8 @@ impl Runtime {
                     types::DEVICE_DISCONNECTED,
                     json!({ "deviceId": id }),
                 ),
+                // Only the device list changed: the state below carries it.
+                DeviceChange::Updated(_) => {}
             }
         }
         self.emit_state();
@@ -118,5 +120,150 @@ fn sentence(e: DeviceError) -> String {
     match e.detail() {
         Some(detail) => format!("{e} Details: {detail}"),
         None => e.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
+    use serde_json::Value;
+
+    use super::super::{ui, Runtime, RuntimeConfig, UiEmitter};
+    use crate::devices::{
+        AnimationCaps, AuxCaps, DeviceCapabilities, DeviceDetails, DeviceError, DeviceIdentity,
+        DeviceKind, InputSender, ModeState, SurfaceDevice, SurfaceFrame,
+    };
+    use crate::events::types;
+    use crate::plugins::keyboard::{Combo, Keyboard};
+    use crate::plugins::ActionError;
+    use crate::surfaces::default_workspace;
+
+    const ID: &str = "noticing:1";
+
+    /// A device whose details the test changes.
+    struct Noticing {
+        details: Arc<Mutex<DeviceDetails>>,
+        connected: bool,
+    }
+
+    impl SurfaceDevice for Noticing {
+        fn identity(&self) -> DeviceIdentity {
+            DeviceIdentity {
+                id: ID.into(),
+                name: "Noticing".into(),
+                model: "noticing".into(),
+                kind: DeviceKind::Hardware,
+            }
+        }
+        fn capabilities(&self) -> DeviceCapabilities {
+            DeviceCapabilities {
+                grid: None,
+                aux: AuxCaps::default(),
+                rgb: true,
+                velocity: false,
+                pressure: false,
+                animations: AnimationCaps::default(),
+            }
+        }
+        fn connect(&mut self, _input: InputSender) -> Result<(), DeviceError> {
+            self.connected = true;
+            Ok(())
+        }
+        fn disconnect(&mut self) -> Result<(), DeviceError> {
+            self.connected = false;
+            Ok(())
+        }
+        fn is_connected(&self) -> bool {
+            self.connected
+        }
+        fn render(&mut self, _frame: &SurfaceFrame) -> Result<(), DeviceError> {
+            Ok(())
+        }
+        fn clear(&mut self) -> Result<(), DeviceError> {
+            Ok(())
+        }
+        fn details(&self) -> DeviceDetails {
+            self.details.lock().unwrap().clone()
+        }
+    }
+
+    /// Every state the runtime sends the UI.
+    #[derive(Default)]
+    struct States(Mutex<Vec<Value>>);
+
+    impl UiEmitter for States {
+        fn emit(&self, event: &str, payload: Value) {
+            if event == ui::STATE {
+                self.0.lock().unwrap().push(payload);
+            }
+        }
+    }
+
+    impl States {
+        fn mode_of(&self, id: &str) -> Vec<Value> {
+            self.0
+                .lock()
+                .unwrap()
+                .iter()
+                .flat_map(|s| s["devices"].as_array().cloned().unwrap_or_default())
+                .filter(|d| d["identity"]["id"] == id)
+                .map(|d| d["details"]["mode"].clone())
+                .collect()
+        }
+    }
+
+    struct NoKeyboard;
+    impl Keyboard for NoKeyboard {
+        fn press(&self, _combo: &Combo) -> Result<(), ActionError> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn changed_details_send_the_state_again_and_publish_no_event() {
+        let states = Arc::new(States::default());
+        let rt = Runtime::start(RuntimeConfig {
+            workspace: default_workspace(),
+            store: None,
+            emitter: states.clone(),
+            keyboard: Arc::new(NoKeyboard),
+            scan_hardware: false,
+            serve_external: false,
+            demo_pace: 1.0,
+            plugin_dirs: vec![],
+            secrets: None,
+            observer: None,
+        })
+        .await;
+        let details = Arc::new(Mutex::new(DeviceDetails::default()));
+        rt.lock().devices.register(Box::new(Noticing {
+            details: details.clone(),
+            connected: false,
+        }));
+        rt.connect_device(ID).unwrap();
+        assert_eq!(states.mode_of(ID).last(), Some(&Value::from("none")));
+
+        *details.lock().unwrap() = DeviceDetails {
+            mode: ModeState::Confirmed,
+            ..DeviceDetails::default()
+        };
+        // The render loop draws every 40 ms; the next tick sees the change.
+        for _ in 0..100 {
+            if states.mode_of(ID).last() == Some(&Value::from("confirmed")) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert_eq!(states.mode_of(ID).last(), Some(&Value::from("confirmed")));
+        let events: Vec<String> = rt
+            .snapshot()
+            .recent_events
+            .into_iter()
+            .filter(|e| e.payload["deviceId"] == ID)
+            .map(|e| e.kind)
+            .collect();
+        assert_eq!(events, [types::DEVICE_CONNECTED], "no event of its own");
     }
 }
