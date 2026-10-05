@@ -20,7 +20,8 @@ use crate::artifacts::testkit;
 use crate::context::identity::{ApplicationIdentity, MACOS, WINDOWS, X11};
 use crate::context::rules::{ContextRule, ContextSettings, Fallback};
 use crate::core::model::{
-    ContextHint, Control, ControlPos, Page, Preferences, Rgb, Surface, Workspace, SCHEMA_VERSION,
+    ContextHint, Control, ControlPos, ImportOrigin, Page, Preferences, Rgb, Surface, Workspace,
+    SCHEMA_VERSION,
 };
 use crate::devices::{AnimationCaps, AuxCaps, DeviceCapabilities, DeviceKind, GridCaps};
 use crate::platform::Platform;
@@ -490,6 +491,53 @@ fn surfaces_get_the_id_they_prefer_once() {
     // An id another surface prefers is not given away.
     assert_eq!(artifact_ids(&["a", "a", "a-2"]), ["a", "a-3", "a-2"]);
     assert!(artifact_ids(&[]).is_empty());
+}
+
+fn imported(mut s: Surface, source_id: &str, instance: u32) -> Surface {
+    s.imported_from = Some(ImportOrigin {
+        format: "launchdeck.pack".into(),
+        artifact_id: "acme.studio".into(),
+        artifact_name: "Studio".into(),
+        artifact_version: "1.0.0".into(),
+        instance,
+        source_surface_id: source_id.into(),
+        content_digest: format!("sha256:{}", "c".repeat(64)),
+        surface_digest: format!("sha256:{}", "d".repeat(64)),
+    });
+    s
+}
+
+/// A surface imported earlier is written with the id its file gave it, so
+/// a file exported again keeps the ids of the one it came from; where two
+/// imported surfaces came from the same id, each keeps its local id.
+/// Where it came from is never written.
+#[test]
+fn an_imported_surface_is_exported_with_the_id_its_file_gave_it() {
+    let ws = workspace(vec![
+        surface("mixer", vec![]),
+        imported(surface("mixer-2", vec![]), "mixer", 1),
+        imported(surface("lights-2", vec![]), "lights", 1),
+        imported(surface("lights-3", vec![]), "lights", 2),
+    ]);
+    let ids = |chosen: &[&str]| -> Vec<String> {
+        let (_, artifact) = written(&export(&ws, &hand_env(), &pack(chosen)));
+        artifact
+            .content
+            .surfaces
+            .into_iter()
+            .map(|s| s.id)
+            .collect()
+    };
+    assert_eq!(ids(&["mixer-2"]), ["mixer"]);
+    // The local surface that has the id first keeps it.
+    assert_eq!(ids(&["mixer", "mixer-2"]), ["mixer", "mixer-2"]);
+    assert_eq!(ids(&["lights-2", "lights-3"]), ["lights-2", "lights-3"]);
+    assert_eq!(ids(&["lights-3"]), ["lights"]);
+
+    let (text, _) = written(&export(&ws, &hand_env(), &pack(&["mixer-2", "lights-2"])));
+    for absent in ["importedFrom", "acme.studio", "instance", &"c".repeat(64)] {
+        assert!(!text.contains(absent), "{absent}");
+    }
 }
 
 // What a file never carries.

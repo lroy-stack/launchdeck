@@ -50,8 +50,10 @@ pub(super) fn choose<'w>(
         .iter()
         .filter(|s| ids.contains(&s.id))
         .collect();
-    // The local id. A surface imported earlier will offer the id its file gave it (C4).
-    let preferred: Vec<&str> = surfaces.iter().map(|s| s.id.as_str()).collect();
+    let preferred: Vec<&str> = surfaces
+        .iter()
+        .map(|s| preferred_id(s, &surfaces))
+        .collect();
     surfaces
         .into_iter()
         .zip(artifact_ids(&preferred))
@@ -60,6 +62,20 @@ pub(super) fn choose<'w>(
             artifact_id,
         })
         .collect()
+}
+
+/// The id its file gave a surface imported earlier, when no other chosen
+/// surface came from the same id; otherwise the local id.
+fn preferred_id<'w>(surface: &'w Surface, chosen: &[&'w Surface]) -> &'w str {
+    let source = |s: &'w Surface| {
+        s.imported_from
+            .as_ref()
+            .map(|origin| origin.source_surface_id.as_str())
+    };
+    match source(surface) {
+        Some(id) if chosen.iter().filter(|s| source(s) == Some(id)).count() == 1 => id,
+        _ => surface.id.as_str(),
+    }
 }
 
 /// Each preferred id once: the first to prefer an id gets it, a later one
