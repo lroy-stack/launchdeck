@@ -125,13 +125,14 @@ No command returns a secret's value, and none reports which application was in f
 
 Events (Rust to UI): `runtime-state`, `workspace-changed`, `runtime-event`, `virtual-frame`, `observables-changed` (the catalog or a value in it changed), `context-changed` (the Auto Context status), `agents-changed` (a full snapshot with a monotonic `rev`, so an older one is ignored) and `agent-notification`.
 
-Six files under `examples/` are contract fixtures, each written by an example program in `src-tauri/examples/` from the real runtime:
+Seven files under `examples/` are contract fixtures, each written by an example program in `src-tauri/examples/` from the real runtime:
 
 | Fixture | Written by | Holds |
 | --- | --- | --- |
 | `default-workspace.json` | `dump_workspace` | The starter workspace |
 | `agents-snapshot.json` | `dump_agents` | A running Agent Control |
 | `plugins-overview.json` | `dump_plugins` | The Plugins screen payload, from real example plugins |
+| `plugin-examples.json` | `dump_plugin_examples` | The example plugins the app ships, as the Plugins screen offers them |
 | `action-catalog.json` | `dump_catalog` | The Action Library catalog of the same setup |
 | `observables.json` | `dump_observables` | The Observable Catalog, the messages the interface hears and three explanations of a control |
 | `context-status.json` | `dump_context` | The Auto Context status in each mode |

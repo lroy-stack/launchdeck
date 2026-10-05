@@ -1,0 +1,26 @@
+[
+  {
+    "description": "A counter that remembers its value between presses and reports a level, never a number of pads.",
+    "id": "example.counter",
+    "installed": true,
+    "name": "Counter Plugin",
+    "network": false,
+    "version": "0.2.0"
+  },
+  {
+    "description": "Says hello, tells the deck about it, and shows the smallest complete plugin.",
+    "id": "example.hello",
+    "installed": false,
+    "name": "Hello Plugin",
+    "network": false,
+    "version": "0.1.0"
+  },
+  {
+    "description": "Turn lights and switches on and off, and show on a pad whether they are on. Talks to your own Home Assistant, and only to it.",
+    "id": "example.home-assistant",
+    "installed": false,
+    "name": "Home Assistant",
+    "network": true,
+    "version": "0.1.0"
+  }
+]

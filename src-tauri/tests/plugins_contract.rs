@@ -1,8 +1,11 @@
 //! Guards the IPC contract between the Rust plugins overview and the TypeScript
-//! schemas. The TypeScript tests parse `examples/plugins-overview.json`; this
-//! test makes sure that file still has every field the runtime emits. It also
-//! keeps the SDK's version one number in two places.
+//! schemas. The TypeScript tests parse `examples/plugins-overview.json` and
+//! `examples/plugin-examples.json`; these tests make sure each file still has
+//! every field the runtime emits. It also keeps the SDK's version one number in
+//! two places.
 
+#[path = "support/plugin_examples_scenario.rs"]
+mod plugin_examples_scenario;
 #[path = "support/plugins_scenario.rs"]
 mod plugins_scenario;
 
@@ -51,6 +54,28 @@ fn the_plugins_fixture_has_every_field_the_runtime_emits() {
         missing.is_empty(),
         "examples/plugins-overview.json is out of date, missing {missing:?}.\n\
          Refresh it: cargo run --example dump_plugins > ../examples/plugins-overview.json"
+    );
+}
+
+#[test]
+fn the_plugin_examples_fixture_has_every_field_the_runtime_emits() {
+    let fixture_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../examples/plugin-examples.json"
+    );
+    let text = std::fs::read_to_string(fixture_path).expect("examples/plugin-examples.json exists");
+    let fixture: Value = serde_json::from_str(&text).expect("fixture is JSON");
+
+    let fresh = plugin_examples_scenario::capture();
+    let (mut have, mut want) = (BTreeSet::new(), BTreeSet::new());
+    paths(&fixture, "", &mut have);
+    paths(&fresh, "", &mut want);
+    assert!(!want.is_empty(), "the app ships no example plugin: {fresh}");
+    let missing: Vec<_> = want.difference(&have).collect();
+    assert!(
+        missing.is_empty(),
+        "examples/plugin-examples.json is out of date, missing {missing:?}.\n\
+         Refresh it: cargo run --example dump_plugin_examples > ../examples/plugin-examples.json"
     );
 }
 

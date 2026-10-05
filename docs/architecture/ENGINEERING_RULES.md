@@ -97,6 +97,7 @@ cargo run --manifest-path src-tauri/Cargo.toml --example dump_<name> > examples/
 | `dump_workspace` | `examples/default-workspace.json` |
 | `dump_agents` | `examples/agents-snapshot.json` |
 | `dump_plugins` | `examples/plugins-overview.json` |
+| `dump_plugin_examples` | `examples/plugin-examples.json` |
 | `dump_catalog` | `examples/action-catalog.json` |
 | `dump_observables` | `examples/observables.json` |
 | `dump_context` | `examples/context-status.json` |

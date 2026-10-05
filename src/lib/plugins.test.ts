@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import examplesJson from "../../examples/plugin-examples.json";
 import overviewJson from "../../examples/plugins-overview.json";
 import { createPreviewTransport } from "./preview";
 import { exampleInfoSchema, pluginManifestSchema, pluginsOverviewSchema, scanReportSchema } from "./schema";
@@ -137,10 +139,18 @@ describe("plugins contract with Rust", () => {
     expect(scanReportSchema.parse({ loaded: 1, reloaded: 0, unchanged: 2, removed: 0, issues: 1 }).issues).toBe(1);
   });
 
-  it("parses an example plugin as Rust describes it (the shape tests/plugin_install.rs pins)", () => {
-    const wire = { id: "example.home-assistant", name: "Home Assistant", version: "0.1.0", description: "Lights.", installed: false, network: true };
-    expect(exampleInfoSchema.parse(wire)).toEqual(wire);
-    expect(exampleInfoSchema.safeParse({ ...wire, installed: undefined }).success).toBe(false);
+  // `examples/plugin-examples.json`: what `plugins_examples` answers for the
+  // three examples the app ships, Counter installed (`cargo run --example
+  // dump_plugin_examples`, guarded by tests/plugins_contract.rs).
+  it("parses the example plugins as Rust describes them", () => {
+    const examples = z.array(exampleInfoSchema).parse(examplesJson);
+    expect(examples).toEqual(examplesJson);
+    expect(examples.map((e) => [e.id, e.installed, e.network])).toEqual([
+      ["example.counter", true, false],
+      ["example.hello", false, false],
+      ["example.home-assistant", false, true],
+    ]);
+    expect(exampleInfoSchema.safeParse({ ...examples[0], installed: undefined }).success).toBe(false);
   });
 });
 
