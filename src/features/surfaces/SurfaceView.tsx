@@ -17,6 +17,7 @@ export function SurfaceView() {
   const select = useStore((s) => s.select);
   const showLabels = useStore((s) => s.showLabels);
   const toggleLabels = useStore((s) => s.toggleLabels);
+  const startExport = useStore((s) => s.startExport);
 
   const core = { workspace, state };
   const surface = activeSurface(core);
@@ -40,6 +41,9 @@ export function SurfaceView() {
           <p>{surface.description}</p>
         </div>
         <div className="head-actions">
+          <button type="button" className="btn small" onClick={() => startExport(surface.id)}>
+            Export…
+          </button>
           <label className="check">
             <input type="checkbox" checked={showLabels} onChange={toggleLabels} /> Labels
           </label>

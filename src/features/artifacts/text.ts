@@ -2,7 +2,8 @@
 // what an import would do and what is wrong; this only says it.
 
 import { plural } from "../../lib/format";
-import type { ArtifactKind, DependencyCheck, DependencyStatus, DeviceFit, ExistingInstance, ImportReport, ReviewKind, RuleOutcome } from "../../lib/schema";
+import type { ArtifactKind, DependencyCheck, DependencyStatus, DeviceFit, ExistingInstance, ExportPreview, ImportReport, ReviewKind, RuleOutcome } from "../../lib/schema";
+import type { AskedType } from "./request";
 
 export const KIND: Record<ArtifactKind, string> = { surface: "Surface file", pack: "Pack" };
 
@@ -99,4 +100,27 @@ export function reportText(r: ImportReport): string[] {
   }
   if (r.rulesAdded > 0 && !r.autoContext) out.push("Auto Context is off: the new rules apply once you turn it on in Settings.");
   return out;
+}
+
+/** The systems a context rule can also name its application on, for export. */
+export const SYSTEMS: ReadonlyArray<{ namespace: string; label: string; example: string }> = [
+  { namespace: "macos", label: "macOS", example: "com.microsoft.VSCode" },
+  { namespace: "windows", label: "Windows", example: "Code.exe" },
+  { namespace: "x11", label: "Linux (X11)", example: "Code" },
+];
+
+export const systemName = (namespace: string): string => SYSTEMS.find((s) => s.namespace === namespace)?.label ?? namespace;
+
+export const ASK = "Ask the person importing this";
+
+export const ASKED_TYPE: Record<AskedType, string> = { path: "A path", url: "A web address", string: "Text" };
+
+/** What a file never carries, counted, as one sentence; empty when nothing was left out. */
+export function strippedText(s: ExportPreview["stripped"]): string {
+  const parts = [
+    s.legacyBindings > 0 ? plural(s.legacyBindings, "binding from an older version", "bindings from an older version") : "",
+    s.legacyActions > 0 ? plural(s.legacyActions, "action only an older version knew", "actions only an older version knew") : "",
+    s.contextHints > 0 ? plural(s.contextHints, "context hint") : "",
+  ].filter(Boolean);
+  return parts.length > 0 ? `Left out: ${parts.join(", ")}.` : "";
 }

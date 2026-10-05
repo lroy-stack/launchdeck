@@ -11,7 +11,7 @@ import { applyDelta } from "../lib/observables";
 import type { Catalog, ContextStatus, Control, ControlPos, Frame, ObservableCatalog, ObservablesDelta, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Surface, Workspace, Page } from "../lib/schema";
 import { emptyObservableCatalog, posKey } from "../lib/schema";
 
-export type View = "home" | "agents" | "surface" | "plugins" | "settings" | "import";
+export type View = "home" | "agents" | "surface" | "plugins" | "settings" | "import" | "export";
 export type AgentsTab = "overview" | "sessions" | "adapters" | "surface";
 
 const MAX_EVENTS = 120;
@@ -59,6 +59,9 @@ interface Store {
   showLabels: boolean;
   toasts: Toast[];
 
+  /** The surfaces the export view opens with; `seq` changes each time it is opened. */
+  exportStart: { seq: number; surfaceIds: string[] };
+
   libraryOpen: boolean;
   libraryQuery: string;
   libraryCategory: string | null;
@@ -73,6 +76,8 @@ interface Store {
   setAgentsTab: (t: AgentsTab) => void;
   /** Open the Agents section on a tab (used by notifications and pads). */
   showAgents: (tab?: AgentsTab) => void;
+  /** Open the export view, with this surface chosen when one is given. */
+  startExport: (surfaceId?: string) => void;
   select: (pos: ControlPos | null) => void;
   toggleLabels: () => void;
   toast: (text: string, tone?: Toast["tone"]) => void;
@@ -151,6 +156,7 @@ export const useStore = create<Store>((set, get) => ({
   selected: null,
   showLabels: true,
   toasts: [],
+  exportStart: { seq: 0, surfaceIds: [] },
 
   libraryOpen: true,
   libraryQuery: "",
@@ -228,6 +234,7 @@ export const useStore = create<Store>((set, get) => ({
   setView: (view) => set({ view }),
   setAgentsTab: (agentsTab) => set({ agentsTab }),
   showAgents: (tab) => set((s) => ({ view: "agents", agentsTab: tab ?? s.agentsTab })),
+  startExport: (surfaceId) => set((s) => ({ view: "export", exportStart: { seq: s.exportStart.seq + 1, surfaceIds: surfaceId ? [surfaceId] : [] } })),
   select: (selected) => set({ selected }),
   toggleLabels: () => set((s) => ({ showLabels: !s.showLabels })),
 

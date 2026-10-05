@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { AgentsView } from "../features/agents/AgentsView";
+import { ExportView } from "../features/artifacts/ExportView";
 import { ImportView } from "../features/artifacts/ImportView";
 import { HomeView } from "../features/home/HomeView";
 import { SettingsView } from "../features/settings/SettingsView";
@@ -12,6 +13,7 @@ export function App() {
   const ready = useStore((s) => s.ready);
   const fatal = useStore((s) => s.fatal);
   const view = useStore((s) => s.view);
+  const exportSeq = useStore((s) => s.exportStart.seq);
   const preview = useStore((s) => s.preview);
   const toasts = useStore((s) => s.toasts);
   const dismiss = useStore((s) => s.dismissToast);
@@ -53,6 +55,7 @@ export function App() {
         {view === "plugins" && <PluginsView />}
         {view === "settings" && <SettingsView />}
         {view === "import" && <ImportView />}
+        {view === "export" && <ExportView key={exportSeq} />}
       </div>
       <div className="toasts" role="status" aria-live="polite">
         {toasts.map((t) => (

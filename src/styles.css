@@ -645,3 +645,10 @@ textarea { resize: vertical; }
 .remap { border-collapse: collapse; font-size: 12px; }
 .remap th { text-align: left; color: var(--text-3); font-weight: 600; padding: 4px 12px 4px 0; }
 .remap td { padding: 3px 12px 3px 0; }
+.meta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; }
+.meta-grid .wide { grid-column: 1 / -1; }
+.export-rule { padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 10px; }
+.identities li { gap: 8px; }
+.artifacts .values li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.artifacts .values code.value { align-self: flex-start; max-width: 100%; overflow-wrap: anywhere; white-space: pre-wrap; }
+@media (max-width: 900px) { .meta-grid { grid-template-columns: 1fr; } }

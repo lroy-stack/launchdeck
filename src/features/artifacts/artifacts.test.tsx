@@ -8,17 +8,22 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import exportJson from "../../../examples/artifacts/export-preview.json";
 import missingJson from "../../../examples/artifacts/import-plan-missing.json";
 import planJson from "../../../examples/artifacts/import-plan.json";
 import rejectedJson from "../../../examples/artifacts/inspect-rejected.json";
+import { App } from "../../app/App";
 import { Sidebar } from "../../app/Sidebar";
 import { api } from "../../lib/ipc";
 import {
   artifactLimitsSchema,
+  exportPreviewSchema,
   inspectOutcomeSchema,
   type ApplyOutcome,
   type ArtifactLimits,
   type ExampleInfo,
+  type ExportPreview,
+  type ExportRequest,
   type ImportDecisions,
   type ImportOrigin,
   type ImportPlan,
@@ -27,7 +32,9 @@ import {
   type PluginsOverview,
 } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
+import { ExportView } from "./ExportView";
 import { ImportView } from "./ImportView";
+import { buildRequest, emptyForm, withSurface, type ExportForm } from "./request";
 import { EXPIRED, NOTHING_CHANGED, PUBLISHER, STALE } from "./text";
 
 const planOf = (json: unknown): ImportPlan => {
@@ -461,5 +468,227 @@ describe("the sidebar", () => {
     const badges = screen.getAllByText("Imported");
     expect(badges).toHaveLength(1);
     expect(badges[0]!.closest("li")!.textContent).toContain("Development");
+  });
+});
+
+// ---- export ---------------------------------------------------------------------
+
+const EXPORT = exportPreviewSchema.parse(exportJson);
+const SAVED = { fileName: "development-1.0.0.ldpack", folder: "/Users/someone/Downloads", sizeBytes: 23178, contentDigest: EXPORT.contentDigest };
+const DOCKER = EXPORT.parameters.find((p) => p.at.controlId === "g.3.0" && p.at.pageId === "home")!;
+
+/** A request for one surface with nothing else asked: what the view sends first. */
+const plainRequest = (surfaceIds: string[]): ExportRequest => ({
+  kind: "surface",
+  surfaceIds,
+  metadata: { id: "", name: "", version: "" },
+  includeContextRules: false,
+  inputs: [],
+  bindings: [],
+  ruleInputs: [],
+  extraIdentities: [],
+});
+
+/** Stand in for Rust's export: every request is previewed as `answer` says, and saved. */
+function exporter(answer: (request: ExportRequest) => ExportPreview = () => EXPORT) {
+  vi.spyOn(api.artifacts, "limits").mockResolvedValue(LIMITS);
+  return {
+    preview: vi.spyOn(api.artifacts, "exportPreview").mockImplementation(async (request) => answer(request)),
+    save: vi.spyOn(api.artifacts, "exportSave").mockResolvedValue(SAVED),
+    show: vi.spyOn(api.artifacts, "showExport").mockResolvedValue(undefined),
+  };
+}
+
+async function openExport(surfaceId?: string) {
+  off = await useStore.getState().init();
+  useStore.getState().startExport(surfaceId);
+  render(<ExportView />);
+  return userEvent.setup();
+}
+
+describe("exporting surfaces", () => {
+  it("previews the chosen surface, saves what was previewed and offers to show the file", async () => {
+    const { preview, save, show } = exporter();
+    const user = await openExport("development");
+    await waitFor(() => expect(preview).toHaveBeenCalledWith(plainRequest(["development"])));
+    expect((screen.getByRole("checkbox", { name: "Development" }) as HTMLInputElement).checked).toBe(true);
+    // Left empty, the name, version and id are Rust's proposals.
+    expect((await screen.findByRole("textbox", { name: "Name" })).getAttribute("placeholder")).toBe("Development");
+    expect(screen.getByRole("textbox", { name: "Version" }).getAttribute("placeholder")).toBe("1.0.0");
+    expect(screen.getByRole("textbox", { name: "Id" }).getAttribute("placeholder")).toBe("launchdeck-examples.development");
+    const summary = section("What the file holds");
+    expect(within(summary).getByText(EXPORT.fileName)).toBeTruthy();
+    for (const item of EXPORT.review) expect(within(summary).getByText(item.text)).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(save).toHaveBeenCalledWith(plainRequest(["development"]));
+    expect(await screen.findByText(`Saved ${SAVED.fileName} in ${SAVED.folder}.`)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Show" }));
+    expect(show).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the name, version and author typed, and Rust's errors stop the file from being saved", async () => {
+    const refused: ExportPreview = { ...EXPORT, errors: [{ code: "invalidMetadata", message: "The version \"one\" is not a version such as 1.2.0.", at: "/manifest/version" }] };
+    const { preview, save } = exporter((r) => (r.metadata.version === "one" ? refused : EXPORT));
+    const user = await openExport("development");
+    await user.type(await screen.findByRole("textbox", { name: "Version" }), "one");
+    await user.type(screen.getByRole("textbox", { name: "Author" }), "Ada");
+    await waitFor(() =>
+      expect(preview).toHaveBeenLastCalledWith({ ...plainRequest(["development"]), metadata: { id: "", name: "", version: "one", author: { name: "Ada" } } }),
+    );
+    expect(await screen.findByText('The version "one" is not a version such as 1.2.0.')).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("makes a Pack with the context rules, and asks the person importing for a value instead of carrying it", async () => {
+    const { preview } = exporter((r) => (r.includeContextRules ? EXPORT : { ...EXPORT, contextRules: [] }));
+    const user = await openExport("development");
+    await user.click(await screen.findByRole("checkbox", { name: "Include Auto Context rules" }));
+    await waitFor(() => expect(preview).toHaveBeenLastCalledWith({ ...plainRequest(["development"]), kind: "pack", includeContextRules: true }));
+
+    const values = section("Values on this computer");
+    const docker = within(values).getByText(DOCKER.value!).closest("li")!;
+    await user.click(within(docker).getByRole("checkbox", { name: "Ask the person importing this" }));
+    await waitFor(() =>
+      expect(preview).toHaveBeenLastCalledWith({
+        ...plainRequest(["development"]),
+        kind: "pack",
+        includeContextRules: true,
+        inputs: [{ id: "input_1", type: "string", label: "Docker: command" }],
+        bindings: [{ at: DOCKER.at, arg: "command", input: "input_1" }],
+      }),
+    );
+
+    const rules = section("Context rules");
+    await user.click(within(rules).getByRole("checkbox", { name: "Ask the person importing for the application" }));
+    await waitFor(() =>
+      expect(preview).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          inputs: [
+            { id: "input_1", type: "string", label: "Docker: command" },
+            { id: "input_2", type: "application", label: "Application for Development" },
+          ],
+          ruleInputs: [{ rule: 0, input: "input_2" }],
+        }),
+      ),
+    );
+  });
+
+  it("adds the application's id on another system to a rule", async () => {
+    const linuxOnly: ExportPreview = {
+      ...EXPORT,
+      contextRules: EXPORT.contextRules.map((r) => ({ ...r, application: { name: "Visual Studio Code", identities: [{ namespace: "x11", id: "Code" }] } })),
+    };
+    const { preview } = exporter(() => linuxOnly);
+    const user = await openExport("development");
+    await user.click(await screen.findByRole("checkbox", { name: "Include Auto Context rules" }));
+    const rules = section("Context rules");
+    await user.selectOptions(await within(rules).findByRole("combobox", { name: "Other system" }), "macos");
+    await user.type(within(rules).getByRole("textbox", { name: "Id on that system" }), "com.microsoft.VSCode");
+    await user.click(within(rules).getByRole("button", { name: "Add" }));
+    await waitFor(() =>
+      expect(preview).toHaveBeenLastCalledWith(expect.objectContaining({ extraIdentities: [{ rule: 0, namespace: "macos", id: "com.microsoft.VSCode" }] })),
+    );
+  });
+
+  it("starts with nothing chosen from the sidebar, and sends the surfaces in workspace order", async () => {
+    const { preview } = exporter();
+    off = await useStore.getState().init();
+    render(<Sidebar />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Export…" }));
+    expect(useStore.getState().view).toBe("export");
+    cleanup();
+    render(<ExportView />);
+    // No surface: Rust says what is missing.
+    await waitFor(() => expect(preview).toHaveBeenCalledWith({ ...plainRequest([]), kind: "pack" }));
+    const user = userEvent.setup();
+    const order = useStore.getState().workspace!.surfaces.map((s) => s.id);
+    const [first, second] = [order[0]!, order[1]!];
+    const name = (id: string) => useStore.getState().workspace!.surfaces.find((s) => s.id === id)!.name;
+    await user.click(screen.getByRole("checkbox", { name: name(second) }));
+    await user.click(screen.getByRole("checkbox", { name: name(first) }));
+    await waitFor(() => expect(preview).toHaveBeenLastCalledWith({ ...plainRequest([first, second]), kind: "pack" }));
+  });
+
+  it("opens from a surface's Export… with that surface chosen", async () => {
+    const { preview } = exporter();
+    render(<App />);
+    await waitFor(() => expect(useStore.getState().ready).toBe(true));
+    useStore.setState({ view: "surface" });
+    const surface = useStore.getState().state!.activeSurfaceId;
+    const name = useStore.getState().workspace!.surfaces.find((s) => s.id === surface)!.name;
+    const head = (await screen.findByRole("heading", { name, level: 1 })).closest("header")!;
+    await userEvent.setup().click(within(head).getByRole("button", { name: "Export…" }));
+    await waitFor(() => expect(preview).toHaveBeenCalledWith(plainRequest([surface])));
+    expect(screen.getByRole("heading", { name: "Export", level: 1 })).toBeTruthy();
+  });
+});
+
+describe("the export request", () => {
+  const at = (controlId: string) => ({ surfaceSourceId: "development", pageId: "home", controlId, slot: "press" as const });
+  const form: ExportForm = {
+    ...emptyForm(["development", "productivity"]),
+    metadata: { id: " ", name: " Studio ", version: "1.2.0", description: "", author: "", authorUrl: " https://example.com ", license: "MIT" },
+    includeContextRules: true,
+    asked: [{ at: at("g.3.0"), arg: "command", type: "string", label: "Docker: command ", surface: "development" }],
+    askedApps: [{ rule: 0, label: "Your editor", surface: "development" }],
+    extras: [
+      { rule: 0, namespace: "macos", id: "com.microsoft.VSCode", surface: "development" },
+      { rule: 1, namespace: "windows", id: "Code.exe", surface: "productivity" },
+    ],
+  };
+
+  it("numbers the questions, values first, and trims what was typed", () => {
+    expect(buildRequest(form)).toEqual({
+      kind: "pack",
+      surfaceIds: ["development", "productivity"],
+      metadata: { id: "", name: "Studio", version: "1.2.0", author: { name: "", url: "https://example.com" }, license: "MIT" },
+      includeContextRules: true,
+      inputs: [
+        { id: "input_1", type: "string", label: "Docker: command" },
+        { id: "input_2", type: "application", label: "Your editor" },
+      ],
+      bindings: [{ at: at("g.3.0"), arg: "command", input: "input_1" }],
+      ruleInputs: [{ rule: 0, input: "input_2" }],
+      // Rule 0's application is asked of the person importing: no other ids for it.
+      extraIdentities: [{ rule: 1, namespace: "windows", id: "Code.exe" }],
+    });
+  });
+
+  it("leaves the rules' choices out while rules are not included", () => {
+    const request = buildRequest({ ...form, includeContextRules: false });
+    expect(request.ruleInputs).toEqual([]);
+    expect(request.extraIdentities).toEqual([]);
+    expect(request.inputs.map((i) => i.id)).toEqual(["input_1"]);
+  });
+
+  it("is a Surface file for one surface with nothing else, a Pack otherwise", () => {
+    expect(buildRequest(emptyForm(["development"])).kind).toBe("surface");
+    expect(buildRequest({ ...emptyForm(["development"]), includeContextRules: true }).kind).toBe("pack");
+    expect(buildRequest({ ...emptyForm(["development"]), asked: form.asked }).kind).toBe("pack");
+    expect(buildRequest(emptyForm(["development", "productivity"])).kind).toBe("pack");
+  });
+
+  it("keeps the surfaces in workspace order, and forgets what was asked about one no longer chosen", () => {
+    const order = ["agent-control", "development", "productivity"];
+    expect(withSurface(form, order, "agent-control", true).surfaceIds).toEqual(order);
+    const without = withSurface(form, order, "development", false);
+    expect(without.surfaceIds).toEqual(["productivity"]);
+    expect(without.asked).toEqual([]);
+    expect(without.askedApps).toEqual([]);
+    expect(without.extras.map((e) => e.surface)).toEqual(["productivity"]);
+  });
+});
+
+describe("saving an export", () => {
+  it("says why the file could not be saved", async () => {
+    const { save } = exporter();
+    save.mockRejectedValue("LaunchDeck may not write in Downloads. Allow it in System Settings, Privacy & Security, Files and Folders.");
+    const user = await openExport("development");
+    await waitFor(() => expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText(/may not write in Downloads/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Show" })).toBeNull();
   });
 });

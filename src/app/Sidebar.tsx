@@ -18,6 +18,7 @@ export function Sidebar() {
   const state = useStore((s) => s.state);
   const attempt = useStore((s) => s.attempt);
   const select = useStore((s) => s.select);
+  const startExport = useStore((s) => s.startExport);
   const pending = useStore((s) => s.agents.summary.pendingApprovals);
   const failed = useStore((s) => s.agents.summary.failedSessions);
   const requests = useStore((s) => s.permissionRequests);
@@ -86,6 +87,9 @@ export function Sidebar() {
           <span className="side-actions">
             <button type="button" className="side-link" onClick={() => setView("import")}>
               Import…
+            </button>
+            <button type="button" className="side-link" onClick={() => startExport()}>
+              Export…
             </button>
             <button type="button" className="icon-btn" aria-label="New surface" onClick={() => setCreating("")}>
               +
