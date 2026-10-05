@@ -131,8 +131,10 @@ pub enum ExportCode {
     /// A binding, rule input or extra identity that names nothing exported.
     InvalidBinding,
     InvalidIdentity,
-    /// A text argument that is an address with a user name or password.
-    CredentialInUrl,
+    /// A value shaped like a credential (an address with a user name or
+    /// password, a token in an address, an authorization header, a webhook
+    /// id) in an argument not asked of the importer, or in an input's default.
+    Credential,
     TooMany,
     TooLarge,
     InvalidContent,

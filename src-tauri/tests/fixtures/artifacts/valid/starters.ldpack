@@ -11,8 +11,46 @@
     },
     "description": "The five starter surfaces of LaunchDeck.",
     "id": "launchdeck-examples.starters",
+    "inputs": [
+      {
+        "description": "The address of your Home Assistant webhook for this pad.",
+        "id": "lights_webhook",
+        "label": "Lights webhook",
+        "type": "url"
+      },
+      {
+        "description": "The address of your Home Assistant webhook for this pad.",
+        "id": "movie_webhook",
+        "label": "Movie webhook",
+        "type": "url"
+      },
+      {
+        "description": "The address of your Home Assistant webhook for this pad.",
+        "id": "work_webhook",
+        "label": "Work webhook",
+        "type": "url"
+      },
+      {
+        "description": "The address of your Home Assistant webhook for this pad.",
+        "id": "warmer_webhook",
+        "label": "Warmer webhook",
+        "type": "url"
+      },
+      {
+        "description": "The address of your Home Assistant webhook for this pad.",
+        "id": "cooler_webhook",
+        "label": "Cooler webhook",
+        "type": "url"
+      },
+      {
+        "description": "The address of your Home Assistant webhook for this pad.",
+        "id": "lock_webhook",
+        "label": "Lock webhook",
+        "type": "url"
+      }
+    ],
     "integrity": {
-      "content": "sha256:db7eca0e829d891a60ef9ca70b737d65c993fe3790557ff5730205b9f3d3be0c"
+      "content": "sha256:05502111fe0746c8c960d0df084674cf99261c34ba44548da0bcb4c2a19f71cf"
     },
     "license": "MIT",
     "name": "Starters",
@@ -3073,7 +3111,10 @@
                   "action": "request",
                   "args": {
                     "method": "POST",
-                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lights"
+                    "url": ""
+                  },
+                  "inputs": {
+                    "url": "lights_webhook"
                   },
                   "provider": "http"
                 },
@@ -3112,7 +3153,10 @@
                   "action": "request",
                   "args": {
                     "method": "POST",
-                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-movie"
+                    "url": ""
+                  },
+                  "inputs": {
+                    "url": "movie_webhook"
                   },
                   "provider": "http"
                 },
@@ -3151,7 +3195,10 @@
                   "action": "request",
                   "args": {
                     "method": "POST",
-                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-work"
+                    "url": ""
+                  },
+                  "inputs": {
+                    "url": "work_webhook"
                   },
                   "provider": "http"
                 },
@@ -3190,7 +3237,10 @@
                   "action": "request",
                   "args": {
                     "method": "POST",
-                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-warmer"
+                    "url": ""
+                  },
+                  "inputs": {
+                    "url": "warmer_webhook"
                   },
                   "provider": "http"
                 },
@@ -3229,7 +3279,10 @@
                   "action": "request",
                   "args": {
                     "method": "POST",
-                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-cooler"
+                    "url": ""
+                  },
+                  "inputs": {
+                    "url": "cooler_webhook"
                   },
                   "provider": "http"
                 },
@@ -3268,7 +3321,10 @@
                   "action": "request",
                   "args": {
                     "method": "POST",
-                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lock"
+                    "url": ""
+                  },
+                  "inputs": {
+                    "url": "lock_webhook"
                   },
                   "provider": "http"
                 },
@@ -3889,7 +3945,10 @@
                   "action": "request",
                   "args": {
                     "method": "POST",
-                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lights"
+                    "url": ""
+                  },
+                  "inputs": {
+                    "url": "lights_webhook"
                   },
                   "provider": "http"
                 },

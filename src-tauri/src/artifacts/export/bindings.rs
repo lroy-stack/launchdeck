@@ -4,20 +4,25 @@
 //!
 //! A bound argument is written as the input's default, or empty without
 //! one: its value on this computer is what the person chose to ask the
-//! importer for, and never leaves it (security finding SF-2).
+//! importer for, and never leaves it (security finding SF-2). A default may
+//! not carry a credential either.
 
 use serde_json::Value;
 
+use super::credentials::credential_in;
 use super::preview::{Collected, ExportCode};
 use super::request::{ExportRequest, InputBinding};
 use super::surfaces::slot_of;
-use crate::artifacts::format::{ArtifactKind, AssignmentV1, InputType, InputValue, SurfaceV1};
+use crate::artifacts::format::{
+    ArtifactKind, AssignmentV1, InputDef, InputType, InputValue, SurfaceV1,
+};
 use crate::artifacts::json::segment;
 
 /// Record each binding of `request` on the assignment it names, with the
 /// input's default in place of the argument's value, or say why it cannot
 /// be. A Surface file has no inputs, so no bindings.
 pub(super) fn bind(surfaces: &mut [SurfaceV1], request: &ExportRequest, found: &mut Collected) {
+    check_defaults(&request.inputs, found);
     if request.bindings.is_empty() {
         return;
     }
@@ -68,6 +73,27 @@ fn default_text(request: &ExportRequest, input: &str) -> String {
     match default {
         Some(InputValue::Text { value }) => value.clone(),
         _ => String::new(),
+    }
+}
+
+/// A default shaped like a credential is an error: it would be written in
+/// every argument bound to its input.
+fn check_defaults(inputs: &[InputDef], found: &mut Collected) {
+    for (i, input) in inputs.iter().enumerate() {
+        let Some(InputValue::Text { value }) = &input.default else {
+            continue;
+        };
+        if let Some(what) = credential_in(&Value::String(value.clone())) {
+            found.error(
+                ExportCode::Credential,
+                format!(
+                    "The default of the input \"{}\" carries a password or token: {what}. \
+                     Remove it from the default.",
+                    input.id
+                ),
+                Some(format!("/manifest/inputs/{i}/default")),
+            );
+        }
     }
 }
 

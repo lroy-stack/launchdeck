@@ -271,8 +271,56 @@ fn starters_with_rules() -> Workspace {
     ws
 }
 
+/// The Home Assistant webhooks of the Smart Home and Accessibility
+/// starters, each asked of the importer: a webhook id is a credential.
+fn webhook_inputs() -> (Vec<InputDef>, Vec<InputBinding>) {
+    let hooks = [
+        (
+            "lights",
+            "Lights",
+            vec![("smart-home", "g.0.0"), ("accessibility", "g.4.0")],
+        ),
+        ("movie", "Movie", vec![("smart-home", "g.2.0")]),
+        ("work", "Work", vec![("smart-home", "g.4.0")]),
+        ("warmer", "Warmer", vec![("smart-home", "g.0.2")]),
+        ("cooler", "Cooler", vec![("smart-home", "g.2.2")]),
+        ("lock", "Lock", vec![("smart-home", "g.4.2")]),
+    ];
+    let mut inputs = Vec::new();
+    let mut bindings = Vec::new();
+    for (name, label, pads) in hooks {
+        let id = format!("{name}_webhook");
+        inputs.push(InputDef {
+            label: format!("{label} webhook"),
+            description: "The address of your Home Assistant webhook for this pad.".into(),
+            ..input(&id, InputType::Url)
+        });
+        for (surface, control) in pads {
+            let page = if surface == "accessibility" {
+                "help"
+            } else {
+                "home"
+            };
+            bindings.push(InputBinding {
+                at: Location {
+                    surface_source_id: surface.into(),
+                    page_id: page.into(),
+                    control_id: control.into(),
+                    slot: Slot::Press,
+                },
+                arg: "url".into(),
+                input: id.clone(),
+            });
+        }
+    }
+    (inputs, bindings)
+}
+
 fn starters_request() -> ExportRequest {
+    let (inputs, bindings) = webhook_inputs();
     ExportRequest {
+        inputs,
+        bindings,
         metadata: ExportMetadata {
             id: String::new(),
             name: "Starters".into(),
@@ -742,7 +790,7 @@ fn an_address_with_credentials_is_an_error() {
         ],
     )]);
     let errors = refused(&ws, &pack(&["web"]));
-    assert_eq!(codes(&errors), [E::CredentialInUrl, E::CredentialInUrl]);
+    assert_eq!(codes(&errors), [E::Credential, E::Credential]);
     assert_eq!(
         errors[0].at.as_deref(),
         Some("/content/surfaces/0/pages/0/controls/0/press/args/url")
@@ -1155,6 +1203,102 @@ fn a_bound_argument_leaves_its_local_value_home() {
         export(&local_workspace(), &hand_env(), &local_request()),
         result
     );
+}
+
+/// SF-2: a value shaped like a credential is refused unless the person
+/// asks the importer for it; the message names the pad, never the value.
+#[test]
+fn a_credential_is_refused_unless_bound() {
+    let shapes = [
+        json!({ "url": "https://user:LEAK@example.com/x" }),
+        json!({ "url": "https://example.com/x?token=LEAK" }),
+        json!({ "url": "https://example.com/x?a=1&Key=LEAK" }),
+        json!({ "url": "https://example.com/x?APIKEY=LEAK" }),
+        json!({ "url": "https://example.com/x?api_key=LEAK" }),
+        json!({ "url": "https://example.com/x?access_token=LEAK" }),
+        json!({ "url": "https://example.com/x?auth=LEAK" }),
+        json!({ "url": "https://example.com/x?secret=LEAK" }),
+        json!({ "url": "https://example.com/x?password=LEAK" }),
+        json!({ "url": "https://example.com/x?sig=LEAK" }),
+        json!({ "url": "https://example.com/x?Signature=LEAK" }),
+        json!({ "url": "http://homeassistant.local:8123/api/webhook/LEAK" }),
+        json!({ "url": "curl -s 'https://example.com/x?token=LEAK'" }),
+        json!({ "url": "curl -H 'Authorization: Bearer LEAK' https://example.com" }),
+        json!({ "url": "proxy-authorization: Basic LEAK" }),
+        json!({ "url": "Cookie: session=LEAK" }),
+        json!({ "url": "X-Api-Key: LEAK" }),
+        json!({ "url": { "headers": { "Authorization": "Bearer LEAK" } } }),
+        json!({ "url": ["x", { "x-api-key": "LEAK" }] }),
+    ];
+    for args in shapes {
+        let ws = workspace(vec![surface(
+            "home",
+            vec![pad(0, "Hook", a("acme.notes", "mark", args.clone()))],
+        )]);
+        let errors = refused(&ws, &pack(&["home"]));
+        assert_eq!(codes(&errors), [E::Credential], "{args}");
+        assert_eq!(
+            errors[0].at.as_deref(),
+            Some("/content/surfaces/0/pages/0/controls/0/press/args/url"),
+            "{args}"
+        );
+        let message = &errors[0].message;
+        assert!(
+            message.contains("\"Hook\"") && message.contains("input"),
+            "{message}"
+        );
+        assert!(!message.contains("LEAK"), "{message}");
+        // Bound to an input with a clean default, it is written.
+        if args["url"].is_string() {
+            let mut hook = input("hook", InputType::String);
+            hook.default = Some(InputValue::Text {
+                value: "https://example.com/hook".into(),
+            });
+            let request = ExportRequest {
+                inputs: vec![hook],
+                bindings: vec![bound("g.0.0", "url", "hook")],
+                ..pack(&["home"])
+            };
+            let (text, _) = written(&export(&ws, &hand_env(), &request));
+            assert!(!text.contains("LEAK"), "{args}");
+        }
+    }
+    // Plain addresses, hosts and paths are fine.
+    for args in [
+        json!({ "url": "https://example.com/a?page=2&keyboard=1&tokens=3" }),
+        json!({ "url": "https://example.com/api/webhooks" }),
+        json!({ "url": "https://example.com/x?token=" }),
+        json!({ "url": "example.com" }),
+        json!({ "url": "/home/me/notes" }),
+        json!({ "url": "mailto:me@example.com" }),
+        json!({ "url": "Authorization is needed" }),
+        json!({ "url": { "headers": { "Accept": "text/plain" } } }),
+    ] {
+        let ws = workspace(vec![surface(
+            "home",
+            vec![pad(0, "Hook", a("acme.notes", "mark", args.clone()))],
+        )]);
+        written(&export(&ws, &hand_env(), &pack(&["home"])));
+    }
+}
+
+/// SF-2: an input's default may not carry a credential either.
+#[test]
+fn a_default_carries_no_credential() {
+    let ws = local_workspace();
+    for value in [
+        "https://example.com/x?token=LEAK",
+        "http://ha.local:8123/api/webhook/LEAK",
+    ] {
+        let mut request = local_request();
+        request.inputs[0].default = Some(InputValue::Text {
+            value: value.into(),
+        });
+        let errors = refused(&ws, &request);
+        assert_eq!(codes(&errors), [E::Credential], "{value}");
+        assert_eq!(errors[0].at.as_deref(), Some("/manifest/inputs/0/default"));
+        assert!(!errors[0].message.contains("LEAK"));
+    }
 }
 
 // Review, suggestions and parameters.

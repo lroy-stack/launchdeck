@@ -10,10 +10,11 @@
 //! * `select`        the chosen surfaces and the ids the file gives them
 //! * `surfaces`      each surface as the file carries it: legacy actions
 //!   stripped, surface references; then, once bound, review items,
-//!   credentials in addresses, arguments to offer as inputs
+//!   credentials, arguments to offer as inputs
 //! * `bindings`      the request's input bindings, on the exported
 //!   assignments: a bound argument carries the input's default, never its
 //!   value on this computer
+//! * `credentials`   values shaped like a credential
 //! * `rules`         the context rules, their application inputs and extra
 //!   identities
 //! * `dependencies`  the plugins the content uses (plan 7.6)
@@ -23,6 +24,7 @@
 
 mod assemble;
 mod bindings;
+mod credentials;
 mod dependencies;
 mod metadata;
 mod preview;

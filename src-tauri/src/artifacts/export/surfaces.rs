@@ -3,11 +3,12 @@
 //! context hint; `export_surface` then strips legacy actions and marks and
 //! renames references to exported surfaces. Once the input bindings are in
 //! (`bindings`), `look_over` reads each assignment as it will be written:
-//! what a person should look at before sharing, credentials in addresses,
-//! and the text arguments to offer as inputs.
+//! what a person should look at before sharing, credentials, and the text
+//! arguments to offer as inputs.
 
 use serde_json::Value;
 
+use super::credentials::credential_in;
 use super::preview::{Collected, ExportCode, Parameter, SuggestedType, Suggestion};
 use super::select::{Chosen, IdTable};
 use crate::actions::definition::Assignment;
@@ -203,40 +204,26 @@ fn review_warning(kind: ReviewKind, label: &str) -> String {
     format!("The pad \"{label}\" {what}: check it holds no password or token before sharing.")
 }
 
-/// A text argument that is an address with a user name or password blocks
-/// the file, unless the person asks the importer for it: whoever receives
-/// the file would receive the credentials.
+/// A text shaped like a credential blocks the file, unless the person asks
+/// the importer for the argument (a bound argument carries the input's
+/// default, checked on its own): whoever receives the file would receive it.
 fn refuse_credentials(exported: &AssignmentV1, place: &Place<'_>, found: &mut Collected) {
     for (name, value) in &exported.args {
         if exported.inputs.contains_key(name) {
             continue;
         }
-        if texts(value).any(has_credentials) {
+        if let Some(what) = credential_in(value) {
             found.error(
-                ExportCode::CredentialInUrl,
+                ExportCode::Credential,
                 format!(
-                    "The pad \"{}\" has an address with a user name or password in \"{name}\". \
-                     Remove them before sharing.",
+                    "The pad \"{}\" carries a password or token in \"{name}\": {what}. \
+                     Bind \"{name}\" to an input so the importer gives their own, or remove it.",
                     place.label
                 ),
                 Some(format!("{}/args/{}", place.pointer, segment(name))),
             );
         }
     }
-}
-
-/// Every text in a value, at any depth.
-fn texts(value: &Value) -> Box<dyn Iterator<Item = &str> + '_> {
-    match value {
-        Value::String(s) => Box::new(std::iter::once(s.as_str())),
-        Value::Array(items) => Box::new(items.iter().flat_map(texts)),
-        Value::Object(map) => Box::new(map.values().flat_map(texts)),
-        _ => Box::new(std::iter::empty()),
-    }
-}
-
-fn has_credentials(text: &str) -> bool {
-    url::Url::parse(text.trim()).is_ok_and(|u| !u.username().is_empty() || u.password().is_some())
 }
 
 /// Every text argument is a parameter the importer could be asked for; one
