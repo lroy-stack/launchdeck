@@ -69,6 +69,17 @@ describe("renaming in place", () => {
   });
 });
 
+describe("the browser preview", () => {
+  it("refuses what Rust refuses, in the same words, and changes nothing", async () => {
+    off = await useStore.getState().init();
+    const before = surface("productivity");
+    await expect(api.updateSurface("productivity", "Tasks", "x".repeat(401), null)).rejects.toThrow("A description can have at most 400 characters.");
+    await expect(api.updateSurface("productivity", "Tasks", "", "123456789")).rejects.toThrow("An icon can have at most 8 characters.");
+    await expect(api.updateSurface("productivity", " ", "", null)).rejects.toThrow("A surface name needs 1 to 40 characters.");
+    expect(surface("productivity")).toEqual(before);
+  });
+});
+
 describe("deleting asks first", () => {
   it("names the Auto Context rules that go with a surface, and Cancel changes nothing", async () => {
     const user = userEvent.setup();

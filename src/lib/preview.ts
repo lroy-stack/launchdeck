@@ -293,10 +293,12 @@ export async function createPreviewTransport() {
         return pushWorkspace();
       }
       case "update_surface": {
-        const s = surfaceOf(args.surfaceId);
-        s.name = checkedName(args.name, "surface");
-        s.description = String(args.description).trim();
-        s.icon = String(args.icon ?? "").trim() || null;
+        const name = checkedName(args.name, "surface");
+        const description = String(args.description).trim();
+        if ([...description].length > 400) throw "A description can have at most 400 characters.";
+        const icon = String(args.icon ?? "").trim() || null;
+        if (icon && [...icon].length > 8) throw "An icon can have at most 8 characters.";
+        Object.assign(surfaceOf(args.surfaceId), { name, description, icon });
         return pushWorkspace();
       }
       case "rename_page": {
