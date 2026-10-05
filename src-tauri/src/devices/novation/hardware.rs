@@ -45,7 +45,6 @@ impl HardwareSource for NovationHardware {
             .units
             .into_iter()
             .partition(|u| DRIVEN.iter().any(|p| p.model == u.profile.model));
-        let driven: Vec<FoundUnit> = driven.into_iter().map(e2_identity).collect();
         let unsupported = waiting
             .iter()
             .map(|u| ports::unsupported(u.profile.name, u.number))
@@ -78,16 +77,6 @@ impl HardwareSource for NovationHardware {
             unit.clone(),
             self.backend.clone(),
         )))
-    }
-}
-
-/// E2's id (the model and the slug of the input's name) and the bare model
-/// name, until stable unit ids replace them.
-fn e2_identity(unit: FoundUnit) -> FoundUnit {
-    FoundUnit {
-        id: format!("{}:{}", unit.profile.model, ports::slug(&unit.input.name)),
-        name: unit.profile.name.to_string(),
-        ..unit
     }
 }
 
@@ -148,7 +137,7 @@ mod tests {
             port("Launchpad X LPX MIDI In", "1002"),
         );
         let mut m = manager(&midi);
-        let id = "launchpad-x:launchpad-x-lpx-midi-out";
+        let id = "launchpad-x:1";
 
         let rescan = m.rescan_hardware(false);
         assert_eq!(rescan.to_connect, [id]);
@@ -238,5 +227,76 @@ mod tests {
             assert_eq!(midi.open_links(), 0);
             assert!(midi.take_sent().is_empty());
         }
+    }
+
+    #[test]
+    fn two_identical_units_get_their_own_ids_and_names() {
+        // D-X3: both got the id of their identical port name, and the
+        // manager dropped the second.
+        let midi = FakeMidi::default();
+        for (input, output) in [("1001", "1002"), ("2001", "2002")] {
+            midi.add(
+                port("Launchpad X LPX MIDI Out", input),
+                port("Launchpad X LPX MIDI In", output),
+            );
+        }
+        let mut m = manager(&midi);
+        assert_eq!(look(&mut m), ["launchpad-x:1", "launchpad-x:2"]);
+        assert_eq!(
+            listed(&m),
+            [
+                (
+                    "launchpad-x:1".to_string(),
+                    "Launchpad X".to_string(),
+                    DeviceStatus::Connected
+                ),
+                (
+                    "launchpad-x:2".to_string(),
+                    "Launchpad X (2)".to_string(),
+                    DeviceStatus::Connected
+                ),
+            ]
+        );
+        assert_eq!(outputs_used(&midi), ["1002", "2002"]);
+    }
+
+    #[test]
+    fn a_unit_replugged_on_a_new_alsa_client_keeps_its_id() {
+        // D-X3: the id embedded the ALSA client number, new on every replug.
+        let alsa = |client: u32| {
+            [
+                port(
+                    &format!("Launchpad X:Launchpad X LPX DAW In {client}:0"),
+                    &format!("{client}:0"),
+                ),
+                port(
+                    &format!("Launchpad X:Launchpad X LPX MIDI In {client}:1"),
+                    &format!("{client}:1"),
+                ),
+            ]
+        };
+        let midi = FakeMidi::default();
+        midi.set_ports(&alsa(28), &alsa(28));
+        let mut m = manager_on(&midi, Platform::Linux);
+        assert_eq!(look(&mut m), ["launchpad-x:1"]);
+
+        midi.set_ports(&[], &[]);
+        assert_eq!(
+            m.rescan_hardware(false).changes,
+            [DeviceChange::Disconnected("launchpad-x:1".into())]
+        );
+        midi.take_sent();
+
+        midi.set_ports(&alsa(32), &alsa(32));
+        assert_eq!(look(&mut m), ["launchpad-x:1"], "the same unit again");
+        let status = listed(&m)
+            .into_iter()
+            .map(|(id, _, s)| (id, s))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            status,
+            [("launchpad-x:1".to_string(), DeviceStatus::Connected)]
+        );
+        assert_eq!(outputs_used(&midi), ["32:1"], "on its new port");
     }
 }

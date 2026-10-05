@@ -364,7 +364,7 @@ mod tests {
     use crate::devices::source::{Found, HardwareScan, HardwareSource, UNSUPPORTED_MODEL};
     use std::sync::{Arc, Mutex};
 
-    const LPX_ID: &str = "launchpad-x:launchpad-x-lpx-midi";
+    const LPX_ID: &str = "launchpad-x:1";
 
     const GRID: DeviceCapabilities = DeviceCapabilities {
         grid: Some(crate::devices::GridCaps {

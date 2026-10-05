@@ -19,7 +19,7 @@ const IN_NAME: &str = "Launchpad X LPX MIDI Out";
 const OUT_NAME: &str = "Launchpad X LPX MIDI In";
 const IN_ID: &str = "1001";
 const OUT_ID: &str = "1002";
-const DEVICE_ID: &str = "launchpad-x:launchpad-x-lpx-midi-out";
+const DEVICE_ID: &str = "launchpad-x:1";
 
 const ENTER: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x01, 0xF7];
 const EXIT: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x00, 0xF7];

@@ -20,7 +20,7 @@ Each system names them differently. `src-tauri/src/devices/novation/ports.rs` re
 | Linux, kernel 5.13 or later | `Launchpad X:Launchpad X LPX MIDI In 28:1` (one duplex port) | `…LPX DAW In 28:0` | the word after `LPX` |
 | Linux, older kernels | `Launchpad X:Launchpad X MIDI 2 28:1` | `…MIDI 1 28:0` | `MIDI n` is interface n |
 
-Several units: Linux gives each its own ALSA client (`28` above), Windows classic adds a leading `2- ` and new style a ` (2)`, and macOS gives identical names, so there the k-th MIDI input is paired with the k-th MIDI output. Other Launchpad models are listed once per unit as not supported and never opened. Every name above is derived from Novation's documents, Microsoft's naming rules, the Linux sources and community projects; the fixtures are in `novation/ports_tests.rs`. **None of it has been observed on a real system**: no Launchpad X, Windows machine or Linux desktop was available.
+Several units: Linux gives each its own ALSA client (`28` above), Windows classic adds a leading `2- ` and new style a ` (2)`, and macOS gives identical names, so there the k-th MIDI input is paired with the k-th MIDI output. Units are numbered in the order of their MIDI input: ids `launchpad-x:1`, `launchpad-x:2`, …, names `Launchpad X`, `Launchpad X (2)`, …. The id does not contain a port name or an ALSA client number, so a unit plugged in again keeps `launchpad-x:1`; nothing about ports is saved, so with two units which physical one is number 1 may change after a replug. Other Launchpad models are listed once per unit as not supported and never opened. Every name above is derived from Novation's documents, Microsoft's naming rules, the Linux sources and community projects; the fixtures are in `novation/ports_tests.rs`. **None of it has been observed on a real system**: no Launchpad X, Windows machine or Linux desktop was available.
 
 ## Programmer mode
 
@@ -122,4 +122,5 @@ grid 8 x 8, aux top 8, side 8, logo, rgb, velocity, no pressure, no native anima
 * Auxiliary numbers unverified.
 * No palette colours, no hardware animation, no pressure (aftertouch) support.
 * The editor shows the first connected device. Several units may be connected, and all receive the same frame.
+* With two identical units, which one is `launchpad-x:1` follows the system's port order and may change after a replug.
 * Linux needs the ALSA sequencer (`libasound2`). Browser Web MIDI is not used.

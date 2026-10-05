@@ -459,7 +459,7 @@ fn numbered(name: &str, number: u32) -> String {
     }
 }
 
-pub(crate) fn slug(name: &str) -> String {
+fn slug(name: &str) -> String {
     let slug: String = name
         .chars()
         .map(|c| {
