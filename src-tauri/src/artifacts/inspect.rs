@@ -23,13 +23,14 @@ use serde_json::value::RawValue;
 use serde_json::Value;
 
 use super::format::{
-    check_content, check_cross, check_manifest, echo, is_bidi, plain_message, ArtifactKind,
-    ContentV1, ManifestV1, Rejection, RejectionCode,
+    check_content, check_cross, check_manifest, echo, plain_message, ArtifactKind, ContentV1,
+    ManifestV1, Rejection, RejectionCode,
 };
 use super::json::{content_digest, prepass, segment};
 use super::limits::MAX_FILE_BYTES;
 use super::review::check_visible;
 use super::FORMAT_VERSION;
+use crate::actions::params::hidden_char;
 
 /// Characters of a file name kept for display.
 const MAX_FILE_NAME: usize = 128;
@@ -57,8 +58,9 @@ pub struct ParsedArtifact {
     /// `integrity.content`, checked against the content as it is in the file.
     pub content_digest: String,
     pub size_bytes: usize,
-    /// The name the file came with, without control or direction characters
-    /// and at most 128 characters long. Shown, never used as a path.
+    /// The name the file came with, without control characters or any other
+    /// character a person cannot see, and at most 128 characters long.
+    /// Shown, never used as a path.
     pub file_name: String,
     pub warnings: Vec<InspectWarning>,
 }
@@ -329,12 +331,13 @@ fn reason(e: &serde_json::Error) -> String {
     plain_message(full.strip_suffix(&position).unwrap_or(&full))
 }
 
-/// The name as it may be shown: no control or direction character, at most
+/// The name as it may be shown: no control character and nothing else a
+/// person cannot see (the review's [`hidden_char`]), at most
 /// [`MAX_FILE_NAME`] characters.
 fn shown_name(file_name: &str) -> String {
     file_name
         .chars()
-        .filter(|&c| !c.is_control() && !is_bidi(c))
+        .filter(|&c| !c.is_control() && !hidden_char(c))
         .take(MAX_FILE_NAME)
         .collect()
 }
@@ -435,6 +438,11 @@ mod tests {
     #[test]
     fn a_file_name_is_shown_without_hidden_characters() {
         assert_eq!(shown_name("a\u{202E}b\u{0}c\nd.ldpack"), "abcd.ldpack");
+        // Every character a person cannot see, the review's own set.
+        assert_eq!(
+            shown_name("star\u{200B}ters\u{FEFF}\u{AD}\u{E0041}\u{2028}.ldpack"),
+            "starters.ldpack"
+        );
         assert_eq!(shown_name(&"é".repeat(200)).chars().count(), MAX_FILE_NAME);
     }
 
