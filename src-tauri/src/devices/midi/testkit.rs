@@ -1,7 +1,9 @@
 //! `FakeMidi`: an in-memory `MidiBackend` for tests. It lists the ports a test
 //! sets, records every message sent as `(output id, bytes)`, delivers bytes a
 //! test injects to the callback of an open input, can refuse opens (a busy
-//! port) and can remove ports (an unplugged unit).
+//! port) and can remove ports (an unplugged unit). A device model bound to an
+//! output (a `Responder`) receives what is sent there and answers on its
+//! input, synchronously, as the hardware would.
 
 use std::sync::{Arc, Mutex};
 
@@ -10,6 +12,12 @@ use crate::devices::DeviceError;
 
 /// What the fake says when an open is refused.
 pub(crate) const BUSY: &str = "port is in use by another client";
+
+/// A device behind a fake output: what it sends back for each message it
+/// receives there.
+pub(crate) trait Responder: Send {
+    fn respond(&mut self, message: &[u8]) -> Vec<Vec<u8>>;
+}
 
 #[derive(Clone, Default)]
 pub(crate) struct FakeMidi(Arc<Mutex<FakeState>>);
@@ -22,6 +30,16 @@ struct FakeState {
     /// Callbacks of the open inputs: (link serial, input id, callback).
     inputs: Vec<(u64, String, Arc<Mutex<OnBytes>>)>,
     next_serial: u64,
+    bindings: Vec<Binding>,
+}
+
+type SharedResponder = Arc<Mutex<Box<dyn Responder>>>;
+
+/// A responder behind an output, answering on an input.
+struct Binding {
+    output: String,
+    input: String,
+    device: SharedResponder,
 }
 
 pub(crate) fn port(name: &str, id: &str) -> PortInfo {
@@ -87,6 +105,26 @@ impl FakeMidi {
     pub fn open_links(&self) -> usize {
         self.state().inputs.len()
     }
+
+    /// Puts a device behind the output with this id: every message sent
+    /// there reaches it, and each of its answers arrives, before `send`
+    /// returns, at the input with `input_id` if a link has it open.
+    pub fn bind(&self, output_id: &str, input_id: &str, device: impl Responder + 'static) {
+        self.state().bindings.push(Binding {
+            output: output_id.into(),
+            input: input_id.into(),
+            device: Arc::new(Mutex::new(Box::new(device))),
+        });
+    }
+
+    /// The device bound to this output and the input it answers on.
+    fn bound(&self, output_id: &str) -> Option<(String, SharedResponder)> {
+        self.state()
+            .bindings
+            .iter()
+            .find(|b| b.output == output_id)
+            .map(|b| (b.input.clone(), b.device.clone()))
+    }
 }
 
 impl MidiBackend for FakeMidi {
@@ -136,11 +174,21 @@ struct FakeLink {
 
 impl MidiLink for FakeLink {
     fn send(&mut self, bytes: &[u8]) -> Result<(), DeviceError> {
-        let mut s = self.midi.state();
-        if !s.ports.outputs.contains(&self.output) {
-            return Err(DeviceError::Midi("device unplugged".into()));
+        {
+            let mut s = self.midi.state();
+            if !s.ports.outputs.contains(&self.output) {
+                return Err(DeviceError::Midi("device unplugged".into()));
+            }
+            s.sent.push((self.output.id.clone(), bytes.to_vec()));
         }
-        s.sent.push((self.output.id.clone(), bytes.to_vec()));
+        // Answered without holding the fake's state, so that the input
+        // callback may use the fake.
+        if let Some((input, device)) = self.midi.bound(&self.output.id) {
+            let answers = device.lock().unwrap().respond(bytes);
+            for answer in answers {
+                self.midi.inject(&input, &answer);
+            }
+        }
         Ok(())
     }
 

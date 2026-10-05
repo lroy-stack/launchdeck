@@ -7,6 +7,8 @@ use std::sync::Arc;
 
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
+use super::protocol::to_7bit;
+use super::testkit::{SimLaunchpad, SimLed};
 use super::NovationHardware;
 use crate::core::model::{Animation, ControlPos, Rgb};
 use crate::devices::midi::testkit::{port, FakeMidi};
@@ -181,4 +183,120 @@ fn a_missing_input_leaves_no_half_open_adapter() {
     assert_eq!(midi.take_sent(), [], "nothing sent without an input");
     assert!(!dev.is_connected());
     assert_eq!(midi.open_links(), 0);
+}
+
+// ---- the X against a simulated unit -----------------------------------------
+
+/// A connected X with a simulated unit behind its ports.
+fn on_sim() -> (
+    FakeMidi,
+    SimLaunchpad,
+    Box<dyn SurfaceDevice>,
+    UnboundedReceiver<DeviceInput>,
+) {
+    let midi = fake();
+    let sim = SimLaunchpad::x();
+    midi.bind(OUT_ID, IN_ID, sim.clone());
+    let (dev, rx) = connected(&midi);
+    (midi, sim, dev, rx)
+}
+
+/// A different colour on every position the device has.
+fn rainbow(dev: &dyn SurfaceDevice) -> SurfaceFrame {
+    let leds = dev
+        .capabilities()
+        .positions()
+        .into_iter()
+        .zip(0u8..)
+        .map(|(pos, i)| LedCell {
+            pos,
+            led: Led {
+                color: Rgb::new(i * 3, 255 - i * 3, i),
+                animation: Animation::None,
+            },
+        })
+        .collect();
+    SurfaceFrame { leds }
+}
+
+fn shown(color: Rgb) -> SimLed {
+    SimLed::Rgb(to_7bit(color.r), to_7bit(color.g), to_7bit(color.b))
+}
+
+#[test]
+fn the_unit_shows_each_frame_and_is_given_back_dark_in_live_mode() {
+    let (_midi, sim, mut dev, _rx) = on_sim();
+    assert!(sim.in_programmer_mode());
+    let positions = dev.capabilities().positions();
+    for &pos in &positions {
+        assert_eq!(sim.led_at(pos), Some(SimLed::Rgb(0, 0, 0)), "{pos:?}");
+    }
+
+    let mut frame = rainbow(dev.as_ref());
+    dev.render(&frame).unwrap();
+    for cell in &frame.leds {
+        assert_eq!(
+            sim.led_at(cell.pos),
+            Some(shown(cell.led.color)),
+            "{:?}",
+            cell.pos
+        );
+    }
+    frame.leds[5].led.color = Rgb::new(255, 255, 255);
+    dev.render(&frame).unwrap();
+    for cell in &frame.leds {
+        assert_eq!(
+            sim.led_at(cell.pos),
+            Some(shown(cell.led.color)),
+            "{:?}",
+            cell.pos
+        );
+    }
+
+    dev.disconnect().unwrap();
+    assert_eq!(sim.layout(), 0x01, "Live mode, Note layout");
+    for &pos in &positions {
+        assert_eq!(sim.led_at(pos), Some(SimLed::Rgb(0, 0, 0)), "{pos:?}");
+    }
+}
+
+#[test]
+fn every_button_and_pad_of_the_unit_is_read_in_order() {
+    let (midi, sim, dev, mut rx) = on_sim();
+    let buttons: Vec<ControlPos> = dev
+        .capabilities()
+        .positions()
+        .into_iter()
+        .filter(|p| *p != ControlPos::Logo)
+        .collect();
+    assert_eq!(buttons.len(), 64 + 8 + 8);
+    for &pos in &buttons {
+        midi.inject(IN_ID, &sim.press(pos));
+        midi.inject(IN_ID, &sim.release(pos));
+    }
+    for &pos in &buttons {
+        let press = rx.try_recv().unwrap();
+        assert_eq!(
+            (press.pos, press.kind),
+            (pos, InputKind::Pressed { velocity: 127 })
+        );
+        let release = rx.try_recv().unwrap();
+        assert_eq!((release.pos, release.kind), (pos, InputKind::Released));
+    }
+    assert!(sim.press(ControlPos::Logo).is_empty());
+    assert!(rx.try_recv().is_err());
+}
+
+#[test]
+fn pressure_unknown_controls_and_notes_off_the_layout_are_not_input() {
+    let (midi, _sim, _dev, mut rx) = on_sim();
+    for bytes in [
+        [0xA0, 0x0B, 0x40].as_slice(),
+        &[0xD0, 0x40],
+        &[0xB0, 0x63, 0x7F],
+        &[0x90, 0x05, 0x7F],
+    ] {
+        midi.inject(IN_ID, bytes);
+        assert!(rx.try_recv().is_err(), "{bytes:02X?}");
+    }
 }

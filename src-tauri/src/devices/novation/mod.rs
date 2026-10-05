@@ -22,5 +22,7 @@ mod profile;
 mod protocol;
 #[cfg(test)]
 mod protocol_tests;
+#[cfg(test)]
+mod testkit;
 
 pub(crate) use hardware::NovationHardware;
