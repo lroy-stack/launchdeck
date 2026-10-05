@@ -159,7 +159,7 @@ The observer runs whenever LaunchDeck does and the system allows it, including w
 | The state machine (pure; time is passed in) | `context/engine.rs` |
 | Observers | `context/observer/`: `x11.rs`, `macos.rs`, `windows.rs`, and `scripted.rs` for tests |
 | What the interface is told | `context/status.rs`; Tauri event `context-changed`; commands `context_status`, `context_update`, `context_resume` |
-| Runtime integration | `core/runtime.rs`: `activate()` with an origin, `on_foreground`, `settle_context` |
+| Runtime integration | `core/runtime/navigation.rs`: `activate()` with an origin; `core/runtime/context.rs`: `on_foreground`, `settle_context` |
 | Interface | `src/features/context/` |
 
 Tests: the engine as a state machine (`cargo test --lib context::`), the runtime with a scripted observer and the virtual Launchpad (`cargo test --test context_engine`), the status contract (`examples/context-status.json`, `cargo test --test context_contract`), the interface (`npm test`), and the real observer on a real X server (`python3 tools/desktop-e2e/run.py context`).

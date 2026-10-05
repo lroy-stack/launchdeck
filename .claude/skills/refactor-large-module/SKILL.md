@@ -1,6 +1,6 @@
 ---
 name: refactor-large-module
-description: Use when splitting a large LaunchDeck file or moving code between modules without changing behaviour, such as the planned splits of the runtime or lib.rs.
+description: Use when splitting a large LaunchDeck file or moving code between modules without changing behaviour, such as the splits of the runtime and of lib.rs.
 ---
 
 # Refactor a large module

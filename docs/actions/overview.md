@@ -32,7 +32,7 @@ The two ids and the settings are all there is. There is no label, no code and no
 | Unified registry | `actions/registry.rs` | A view over the plugin registry. Builds the catalog, resolves an assignment, and is the one gate (`prepare`) every assignment passes before it is saved or run. |
 | Parameter schema | `actions/params.rs` | The closed set of setting kinds, their validation and their defaults. |
 | Action engine | `actions/mod.rs` | Runs a prepared assignment through its provider. The only place an action executes. |
-| Runtime | `core/runtime.rs` | Press handling, navigation, `action.*` events, automatic states, feedback rules. Unchanged by the library. |
+| Runtime | `core/runtime/` (`input.rs`, `navigation.rs`, `actions.rs`, `feedback.rs`) | Press handling, navigation, `action.*` events, automatic states, feedback rules. Unchanged by the library. |
 | Library and editor | `src/features/library`, `src/features/editor` | Search, categories, drag and drop, the generated form, the replace confirmation, Test run. |
 
 Rust owns the catalog and the final validation. React keeps a copy of the catalog so searching never waits for a round trip, and mirrors the parameter rules only to mark a mistake while it is typed. A test runs every action of the default workspace through both implementations.
