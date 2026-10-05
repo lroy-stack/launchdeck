@@ -9,5 +9,5 @@ export default defineConfig({
   // what the desktop checks write are not that, and are large and busy.
   server: { port: 1420, strictPort: true, host: "127.0.0.1", watch: { ignored: ["**/src-tauri/**", "**/tools/desktop-e2e/.work/**"] } },
   build: { target: "es2022", sourcemap: false },
-  test: { environment: "node", include: ["src/**/*.test.{ts,tsx}"] },
+  test: { environment: "node", include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"] },
 });

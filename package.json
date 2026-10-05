@@ -17,7 +17,8 @@
     "rust:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml --check",
     "rust:check": "cargo check --manifest-path src-tauri/Cargo.toml",
     "rust:test": "cargo test --manifest-path src-tauri/Cargo.toml",
-    "plugins:build": "sh scripts/build-example-plugins.sh"
+    "plugins:build": "sh scripts/build-example-plugins.sh",
+    "check:arch": "node scripts/check-architecture.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.1",
