@@ -193,7 +193,7 @@ NEXT_PHASE.md         what to do next and how to continue on a Mac
 
 * [Next phase](NEXT_PHASE.md): what is unverified, what to do first on macOS, and the milestone after that
 * [Product](docs/product.md)
-* [Architecture](docs/architecture.md)
+* [Architecture](docs/architecture/overview.md)
 * [Surfaces](docs/surfaces.md)
 * State and feedback: [the model](docs/state-and-feedback.md), [observables and the catalog](docs/observables.md), [the feedback editor](docs/feedback-editor.md)
 * [Context Engine](docs/context-engine.md): the surface follows the application in front
