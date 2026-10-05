@@ -552,7 +552,7 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 | 6 | B0 | Documentation truth pass | no | A2 | A5 | done |
 | 7 | A6 | Split `lib.rs` into `commands/` and `tray.rs` | yes | A3 | R1 | done |
 | 8 | R1 | CI workflows within the minutes budget | no | A2 | A6 | done, NOT VERIFIED (a) |
-| 9 | A7 | Split `core/runtime.rs` | yes | A3 | | todo |
+| 9 | A7 | Split `core/runtime.rs` | yes | A3 | | done |
 | 10 | B1 | Context Engine hardening and portable resolver | yes | A5, A7 | | todo |
 | 11 | D1 | Plugin host hardening and `plugins:validate` | yes | A4, A6 | | todo |
 | 11b | D4 | Legacy plaintext secrets: never used, explicit migration | yes | D1 | | todo |
