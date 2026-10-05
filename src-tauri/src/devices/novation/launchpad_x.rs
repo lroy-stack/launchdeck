@@ -19,11 +19,10 @@ use super::{
     protocol::MAX_COLOURSPECS,
 };
 use crate::core::model::{ControlPos, Rgb};
-use crate::devices::midi::{MidiBackend, MidiLink, PortInfo};
+use crate::devices::midi::{MidiBackend, MidiLink, PortInfo, PortSnapshot};
 use crate::devices::{
     AnimationCaps, AuxCaps, DeviceCapabilities, DeviceError, DeviceIdentity, DeviceInput,
-    DeviceKind, GridCaps, InputKind, InputSender, PortNames, PortSource, SurfaceDevice,
-    SurfaceFrame,
+    DeviceKind, GridCaps, InputKind, InputSender, SurfaceDevice, SurfaceFrame,
 };
 
 // ---------------------------------------------------------------------------
@@ -201,10 +200,10 @@ pub(crate) struct Discovery {
 }
 
 /// Sort the system's ports into Launchpad X units and other Launchpads.
-pub(crate) fn discover(ports: &PortNames) -> Discovery {
-    let midi = |names: &[String]| -> Vec<String> {
-        names
-            .iter()
+pub(crate) fn discover(ports: &PortSnapshot) -> Discovery {
+    let midi = |list: &[PortInfo]| -> Vec<String> {
+        list.iter()
+            .map(|p| &p.name)
             .filter(|n| classify_port(n) == Some(PortRole::Midi))
             .cloned()
             .collect()
@@ -220,7 +219,7 @@ pub(crate) fn discover(ports: &PortNames) -> Discovery {
         })
         .collect();
     let mut unsupported: Vec<String> = Vec::new();
-    for name in ports.inputs.iter().chain(&ports.outputs) {
+    for name in ports.inputs.iter().chain(&ports.outputs).map(|p| &p.name) {
         if is_other_launchpad(name) && !unsupported.contains(name) {
             unsupported.push(name.clone());
         }
@@ -231,32 +230,6 @@ pub(crate) fn discover(ports: &PortNames) -> Discovery {
 /// Id of a port of another Launchpad model, listed but never opened.
 pub(crate) fn unsupported_id(port: &str) -> String {
     format!("unsupported:{}", slug(port))
-}
-
-/// The operating system's MIDI ports, through a `MidiBackend`.
-pub(crate) struct SystemPorts {
-    midi: Arc<dyn MidiBackend>,
-}
-
-impl SystemPorts {
-    pub(crate) fn new(midi: Arc<dyn MidiBackend>) -> Self {
-        Self { midi }
-    }
-}
-
-impl PortSource for SystemPorts {
-    fn list(&self) -> PortNames {
-        let ports = self.midi.ports();
-        let names = |list: Vec<PortInfo>| list.into_iter().map(|p| p.name).collect();
-        PortNames {
-            inputs: names(ports.inputs),
-            outputs: names(ports.outputs),
-        }
-    }
-
-    fn launchpad_x(&self, found: DiscoveredDevice) -> Box<dyn SurfaceDevice> {
-        Box::new(LaunchpadX::new(found, self.midi.clone()))
-    }
 }
 
 pub struct LaunchpadX {
@@ -536,9 +509,15 @@ mod tests {
         );
     }
 
-    fn names(list: &[&str]) -> PortNames {
-        let v: Vec<String> = list.iter().map(|s| s.to_string()).collect();
-        PortNames {
+    fn names(list: &[&str]) -> PortSnapshot {
+        let v: Vec<PortInfo> = list
+            .iter()
+            .map(|name| PortInfo {
+                name: name.to_string(),
+                id: name.to_string(),
+            })
+            .collect();
+        PortSnapshot {
             inputs: v.clone(),
             outputs: v,
         }

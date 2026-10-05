@@ -3,11 +3,13 @@
 //! The rest of the runtime only ever sees `SurfaceDevice`, `DeviceCapabilities`,
 //! `SurfaceFrame` and `DeviceInput`. Raw MIDI bytes live exclusively in
 //! `novation`; the MIDI transport in `midi` (`midir` only in
-//! `midi/system.rs`).
+//! `midi/system.rs`). The device manager finds hardware through a
+//! `source::HardwareSource` and knows no model.
 
 pub mod manager;
 mod midi;
 mod novation;
+mod source;
 pub mod virtual_device;
 
 use serde::{Deserialize, Serialize};
@@ -170,24 +172,6 @@ pub struct DeviceInput {
 }
 
 pub type InputSender = UnboundedSender<DeviceInput>;
-
-/// The port names the operating system lists right now.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub(crate) struct PortNames {
-    pub inputs: Vec<String>,
-    pub outputs: Vec<String>,
-}
-
-/// Where hardware comes from: the system's ports, and a device for a unit
-/// found on them. The real one is `novation::launchpad_x::SystemPorts`; tests
-/// give the manager made-up port names and devices.
-pub(crate) trait PortSource: Send {
-    fn list(&self) -> PortNames;
-    /// A device for a Launchpad X found on these ports. Nothing is opened
-    /// until `connect`.
-    fn launchpad_x(&self, found: novation::launchpad_x::DiscoveredDevice)
-        -> Box<dyn SurfaceDevice>;
-}
 
 /// A physical (or virtual) control surface.
 ///

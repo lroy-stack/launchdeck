@@ -3,12 +3,13 @@
 //! the codec both the Mini MK3 and the X speak (the two manuals differ only in
 //! the product byte for everything they hold); a model adds its own data as a
 //! `profile::ModelProfile`, and `ports` finds each model's units on the
-//! system's ports.
+//! system's ports. `NovationHardware` is what the device manager sees.
 
+mod hardware;
 // The port parser and the profiles are put to use by the next commits.
 #[cfg_attr(not(test), expect(dead_code, reason = "used by later packages"))]
 mod launchpad_mini_mk3;
-pub(crate) mod launchpad_x;
+mod launchpad_x;
 #[cfg(test)]
 mod launchpad_x_tests;
 mod layout;
@@ -23,3 +24,5 @@ mod profile;
 mod protocol;
 #[cfg(test)]
 mod protocol_tests;
+
+pub(crate) use hardware::NovationHardware;

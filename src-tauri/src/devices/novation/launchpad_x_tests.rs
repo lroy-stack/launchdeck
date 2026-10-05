@@ -7,12 +7,11 @@ use std::sync::Arc;
 
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
-use super::launchpad_x::{discover, SystemPorts};
+use super::NovationHardware;
 use crate::core::model::{Animation, ControlPos, Rgb};
 use crate::devices::midi::testkit::{port, FakeMidi};
-use crate::devices::{
-    DeviceInput, InputKind, Led, LedCell, PortSource, SurfaceDevice, SurfaceFrame,
-};
+use crate::devices::source::HardwareSource;
+use crate::devices::{DeviceInput, InputKind, Led, LedCell, SurfaceDevice, SurfaceFrame};
 
 /// macOS names: the unit's input is "… Out" and its output "… In".
 const IN_NAME: &str = "Launchpad X LPX MIDI Out";
@@ -32,10 +31,10 @@ fn fake() -> FakeMidi {
 
 /// The device the manager would get for the one unit on these ports.
 fn device(midi: &FakeMidi) -> Box<dyn SurfaceDevice> {
-    let ports = SystemPorts::new(Arc::new(midi.clone()));
-    let mut found = discover(&ports.list()).units;
+    let mut hardware = NovationHardware::new(Arc::new(midi.clone()));
+    let found = hardware.scan().units;
     assert_eq!(found.len(), 1);
-    ports.launchpad_x(found.remove(0))
+    hardware.device(&found[0].id).unwrap()
 }
 
 /// LED indices in `capabilities().positions()` order, written out: the grid
