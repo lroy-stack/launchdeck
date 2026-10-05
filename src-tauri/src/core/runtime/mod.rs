@@ -9,21 +9,21 @@ mod context;
 mod feedback;
 mod input;
 mod navigation;
+mod observables;
 mod startup;
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use super::explain::OverlaySource;
 use super::model::{Assignment, Control, Page, Preferences, Surface, Workspace};
-use super::observables as native;
 use super::validate::validate_control;
-use crate::actions::definition::{Catalog, Issue};
+use crate::actions::definition::Catalog;
 use crate::actions::ActionEngine;
 use crate::agents::adapters::HookManager;
 use crate::agents::demo::DemoAgentAdapter;
@@ -41,17 +41,12 @@ use crate::plugins::external::PluginHost;
 use crate::plugins::keyboard::Keyboard;
 use crate::plugins::PluginManifest;
 use crate::renderer;
-use crate::state::catalog::{self, ObservableCatalog, ObservablesDelta, Source};
-use crate::state::feedback::{prepare_rules, When};
+use crate::state::catalog::ObservableCatalog;
+use crate::state::feedback::prepare_rules;
 use crate::state::index::{ControlRef, FeedbackIndex};
 use crate::state::{Changes, StateHub};
 use crate::surfaces::{blank_surface, default_workspace};
 use feedback::looks_of;
-
-/// Changes to the Observable Catalog that arrive within this window reach the
-/// UI as one message. Feedback is not delayed by it: pads are re-evaluated as
-/// soon as the hub reports.
-const OBSERVABLES_COALESCE: Duration = Duration::from_millis(50);
 
 /// UI event names (Tauri events).
 pub mod ui {
@@ -295,48 +290,6 @@ impl Runtime {
         self.counter.fetch_add(1, Ordering::Relaxed)
     }
 
-    /// The instances of a provider's states that some control's rules read,
-    /// anywhere in the workspace.
-    fn watched_states(&self, provider: &str) -> Vec<crate::state::StateAddress> {
-        let inner = self.lock();
-        let mut seen = std::collections::HashSet::new();
-        let mut out = Vec::new();
-        for surface in &inner.workspace.surfaces {
-            for page in &surface.pages {
-                for control in &page.controls {
-                    for rule in &control.feedback {
-                        if let When::State(c) = &rule.when {
-                            if c.state.provider == provider && seen.insert(c.state.key()) {
-                                out.push(c.state.clone());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        out
-    }
-
-    /// Start the refresh of every plugin that is due. Each runs on a blocking
-    /// thread, like an action; none is started on top of one still running.
-    fn refresh_due(self: &Arc<Self>) {
-        for id in self.plugin_host.due_refreshes() {
-            let watching = self.watched_states(&id);
-            let rt = self.clone();
-            self.handle.spawn(async move {
-                let host = rt.plugin_host.clone();
-                let ctx = crate::plugins::PluginContext::new(
-                    &id,
-                    rt.bus.clone(),
-                    tokio::runtime::Handle::current(),
-                )
-                .with_hub(rt.hub.clone());
-                let _ =
-                    tokio::task::spawn_blocking(move || host.refresh(&id, &ctx, &watching)).await;
-            });
-        }
-    }
-
     // -----------------------------------------------------------------------
     // Observation
     // -----------------------------------------------------------------------
@@ -445,79 +398,6 @@ impl Runtime {
 
     fn publish(&self, source: &str, kind: &str, payload: Value) {
         self.bus.publish(Event::new(source, kind, payload));
-    }
-
-    /// Check an assignment the way saving and running do, without doing either.
-    pub fn validate_assignment(&self, assignment: &Assignment) -> Result<Assignment, Vec<Issue>> {
-        self.engine
-            .registry()
-            .prepare(assignment)
-            .map_err(|e| e.issues())
-    }
-
-    /// The Action Library's catalog, evaluated now.
-    pub fn catalog(&self) -> Catalog {
-        self.engine.registry().catalog()
-    }
-
-    /// Who offers what to observe: the app itself first, then every registered
-    /// provider (built-in, Agent Control, installed plugins).
-    fn observable_sources(&self) -> Vec<Source> {
-        let mut sources = native::sources();
-        sources.extend(self.engine.registry().observable_sources());
-        sources
-    }
-
-    /// Everything a control can observe, states and events, with the values the
-    /// hub holds now. The one list the editor picks from.
-    pub fn observables(&self) -> ObservableCatalog {
-        catalog::build(self.observable_sources(), &self.hub)
-    }
-
-    /// What one state reads now, for an address the editor has built. The
-    /// arguments are checked against the definition, so `2` and `2.0` read the
-    /// same instance and a wrong argument is an error, not an `unknown`.
-    pub fn read_state(
-        &self,
-        provider: &str,
-        id: &str,
-        args: &Value,
-    ) -> Result<crate::state::Observed, String> {
-        let def = self
-            .hub
-            .definition(provider, id)
-            .ok_or_else(|| format!("`{provider}.{id}` is not a state anything offers right now"))?;
-        let address = def.address(args)?;
-        Ok(self.hub.read_address(&address))
-    }
-
-    /// Tell the UI what the hub reported, as one message for a burst. The
-    /// window starts at the first change; whatever arrives within it joins.
-    fn announce_observables(self: &Arc<Self>, changes: Changes) {
-        self.unannounced
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .merge(changes);
-        if self.announce_scheduled.swap(true, Ordering::SeqCst) {
-            return;
-        }
-        let rt = self.clone();
-        self.handle.spawn(async move {
-            tokio::time::sleep(OBSERVABLES_COALESCE).await;
-            // Cleared before the take: a change that lands after it schedules
-            // the next message and is never lost.
-            rt.announce_scheduled.store(false, Ordering::SeqCst);
-            let changes =
-                std::mem::take(&mut *rt.unannounced.lock().unwrap_or_else(|p| p.into_inner()));
-            let delta: ObservablesDelta =
-                catalog::delta(&rt.observable_sources(), &rt.hub, &changes);
-            if !delta.is_empty() {
-                rt.emitter.emit(
-                    ui::OBSERVABLES,
-                    serde_json::to_value(delta).unwrap_or(Value::Null),
-                );
-            }
-        });
     }
 
     // -----------------------------------------------------------------------

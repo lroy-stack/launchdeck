@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use super::input::LONG_PRESS;
 use super::*;
 use crate::core::model::{Animation, ControlPos, Rgb, Visual};
