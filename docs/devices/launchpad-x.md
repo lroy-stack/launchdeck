@@ -48,6 +48,8 @@ F0 00 20 29 02 0C 0E F7        which mode? (the unit answers F0 00 20 29 02 0C 0
 
 The first render that has that answer, or the first one 500 ms later, makes sure the LEDs show what LaunchDeck draws. External LED feedback switched off in the Setup menu hides lighting by notes in Programmer mode (X-UG; whether it also hides the lighting SysEx is unknown), so it is turned on, leaving internal feedback as it was (`F0 00 20 29 02 0C 0A <internal> 01 F7`); LEDs put to sleep are woken (`F0 00 20 29 02 0C 09 01 F7`). Then the clear frame, and only then are presses read: before, a note sent in Note mode would read as a pad press. When the unit answered `01` the device's details say Programmer mode is `confirmed`. Otherwise they say `unconfirmed` and the device list carries the notice "Launchpad X connected, but Programmer Mode could not be confirmed.": LaunchDeck still draws. A reply that carries another model's product byte is ignored.
 
+**Keeping it.** Every 2 s LaunchDeck asks a unit it took `F0 00 20 29 02 0C 0E F7`. An answer of `00` means the unit is back in Live mode: it was unplugged and plugged in again faster than the 3 s port scan noticed, or another program (Ableton Live, for example) switched it. Presses stop counting, and the unit is taken again from the identity questions on, then cleared and drawn whole. The third time within 30 s LaunchDeck leaves the unit to the other program, sends it nothing more (also not on disconnect) and lists it as failed: "Another program is using the Launchpad X. Press Look again to use it here." Three questions in a row without an answer put up the notice "The Launchpad X stopped answering." until the next answer; whether the unit was unplugged is still for the port scan to say.
+
 **Giving it back.** On disconnect, a unit LaunchDeck took gets the clear frame and
 
 ```
@@ -56,7 +58,7 @@ F0 00 20 29 02 0C 0E 00 F7     back to Live mode
 F0 00 20 29 02 0C 00 <layout> F7   the layout the unit showed before
 ```
 
-Live mode lands in Note mode (`01`, X-PRM p7), so the layout is selected again only when the unit showed another one (a Custom mode, for example) and not Programmer mode; a unit that did not say which layout it showed is left in Note mode. A unit that was turned down, or not taken yet, is sent nothing.
+Live mode lands in Note mode (`01`, X-PRM p7), so the layout is selected again only when the unit showed another one (a Custom mode, for example) and not Programmer mode; a unit that did not say which layout it showed is left in Note mode. After the unit was taken again, what it gets back is what it first reported, not what LaunchDeck or another program set in between. A unit that was turned down, or not taken yet, is sent nothing.
 
 ## Pad and button addressing
 
@@ -125,7 +127,7 @@ grid 8 x 8, aux top 8, side 8, logo, rgb, velocity, no pressure, no native anima
 
 1. Every 3 seconds (and on **Rescan**) `NovationHardware` lists the MIDI ports, `ports.rs` sorts them into units, and the device manager registers any Launchpad X it finds as a device. Unplugged, unconnected hardware is forgotten.
 2. **Connect** opens the MIDI in and out ports and asks the unit who it is; the next render takes it (Programmer mode, the LEDs cleared, then decoded input is forwarded), as described above. A unit in its bootloader or of another model is listed as failed until Look again.
-3. If a render fails (cable pulled) the device is disconnected and `device.disconnected` is published. The virtual device is unaffected.
+3. While connected, the unit is asked every 2 s whether it is still in Programmer mode, and taken again if it is not (see Keeping it above). If a render fails (cable pulled) the device is disconnected and `device.disconnected` is published. The virtual device is unaffected.
 4. **Disconnect** clears the LEDs, returns to Live mode and closes the ports.
 
 ## Trying it on real hardware

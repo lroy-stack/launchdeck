@@ -13,17 +13,17 @@ use std::time::Duration;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 use super::device::Mk3Device;
-use super::launchpad_mini_mk3;
 use super::ports;
+use super::profile::ModelProfile;
 use super::protocol::to_7bit;
-use super::session::REPLY_TIMEOUT;
+use super::session::{HEARTBEAT, MISSED_LIMIT, REPLY_TIMEOUT, TAKEOVER_LIMIT};
 use super::testkit::{hex, FakeClock, SimLaunchpad, SimLed};
 use super::NovationHardware;
+use super::{launchpad_mini_mk3, launchpad_x};
 use crate::core::model::{Animation, ControlPos, Rgb};
 use crate::devices::manager::{DeviceChange, DeviceManager, DeviceStatus};
 use crate::devices::midi::testkit::{port, FakeMidi};
 use crate::devices::midi::MidiBackend;
-use crate::devices::source::HardwareSource;
 use crate::devices::{
     DeviceError, DeviceInput, InputKind, Led, LedCell, ModeState, SurfaceDevice, SurfaceFrame,
 };
@@ -40,6 +40,9 @@ const INQUIRY: [u8; 6] = [0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7];
 const READ_LAYOUT: [u8; 8] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x00, 0xF7];
 const READ_FEEDBACK: [u8; 8] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0A, 0xF7];
 const READ_SLEEP: [u8; 8] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x09, 0xF7];
+const ENTER: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x01, 0xF7];
+const READ_MODE: [u8; 8] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0xF7];
+const EXIT: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x00, 0xF7];
 
 /// What connecting sends a Launchpad X.
 fn probe() -> Vec<(String, Vec<u8>)> {
@@ -50,9 +53,6 @@ fn probe() -> Vec<(String, Vec<u8>)> {
         READ_SLEEP.to_vec(),
     ])
 }
-const ENTER: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x01, 0xF7];
-const READ_MODE: [u8; 8] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0xF7];
-const EXIT: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x00, 0xF7];
 
 /// The X's ports with this unit behind them.
 fn fake_with(sim: SimLaunchpad) -> FakeMidi {
@@ -67,12 +67,17 @@ fn fake() -> FakeMidi {
     fake_with(SimLaunchpad::x())
 }
 
-/// The device the manager would get for the one unit on these ports.
+/// The device for the one unit of this model on these macOS ports, as the
+/// hardware source makes it, on the test's clock.
+fn device_for(profile: &'static ModelProfile, midi: &FakeMidi, clock: &FakeClock) -> Mk3Device {
+    let mut units = ports::parse(&midi.ports(), Platform::MacOs, &[profile]).units;
+    assert_eq!(units.len(), 1);
+    Mk3Device::new(units.remove(0), Arc::new(midi.clone())).with_clock(clock.clock())
+}
+
+/// The Launchpad X on these ports, on a clock that stands still.
 fn device(midi: &FakeMidi) -> Box<dyn SurfaceDevice> {
-    let mut hardware = NovationHardware::new(Arc::new(midi.clone()), Platform::MacOs);
-    let found = hardware.scan().units;
-    assert_eq!(found.len(), 1);
-    hardware.device(&found[0].id).unwrap()
+    Box::new(device_for(&launchpad_x::PROFILE, midi, &FakeClock::new()))
 }
 
 /// LED indices in `capabilities().positions()` order, written out: the grid
@@ -115,7 +120,12 @@ fn frame(pos: ControlPos, color: Rgb) -> SurfaceFrame {
 }
 
 fn connected(midi: &FakeMidi) -> (Box<dyn SurfaceDevice>, UnboundedReceiver<DeviceInput>) {
-    let mut dev = device(midi);
+    connect(device(midi))
+}
+
+fn connect(
+    mut dev: Box<dyn SurfaceDevice>,
+) -> (Box<dyn SurfaceDevice>, UnboundedReceiver<DeviceInput>) {
     let (tx, rx) = unbounded_channel();
     dev.connect(tx).unwrap();
     (dev, rx)
@@ -124,7 +134,13 @@ fn connected(midi: &FakeMidi) -> (Box<dyn SurfaceDevice>, UnboundedReceiver<Devi
 /// Connected and taken: the unit answered, one render entered Programmer
 /// mode and the next took the unit. What was sent until then is dropped.
 fn acquired(midi: &FakeMidi) -> (Box<dyn SurfaceDevice>, UnboundedReceiver<DeviceInput>) {
-    let (mut dev, rx) = connected(midi);
+    take(midi, connected(midi))
+}
+
+fn take(
+    midi: &FakeMidi,
+    (mut dev, rx): (Box<dyn SurfaceDevice>, UnboundedReceiver<DeviceInput>),
+) -> (Box<dyn SurfaceDevice>, UnboundedReceiver<DeviceInput>) {
     for _ in 0..2 {
         dev.render(&SurfaceFrame::default()).unwrap();
     }
@@ -162,6 +178,29 @@ fn connect_asks_who_the_unit_is_and_the_next_render_takes_it() {
     let details = dev.details();
     assert_eq!(details.firmware.as_deref(), Some("0238"));
     assert_eq!((details.mode, details.notice), (ModeState::Confirmed, None));
+}
+
+#[test]
+fn an_owned_unit_is_asked_every_two_seconds_whether_it_is_in_programmer_mode() {
+    // D-X9: a power cycle or another program leaving Programmer mode went
+    // unnoticed.
+    let midi = fake();
+    let clock = FakeClock::new();
+    let device = device_for(&launchpad_x::PROFILE, &midi, &clock);
+    let (mut dev, _rx) = take(&midi, connect(Box::new(device)));
+    let none = SurfaceFrame::default();
+    clock.advance(HEARTBEAT - Duration::from_millis(1));
+    dev.render(&none).unwrap();
+    assert_eq!(midi.take_sent(), []);
+    clock.advance(Duration::from_millis(1));
+    dev.render(&none).unwrap();
+    assert_eq!(midi.take_sent(), to_output(&[READ_MODE.to_vec()]));
+    dev.render(&none).unwrap();
+    assert_eq!(midi.take_sent(), [], "the unit answered 01");
+    clock.advance(HEARTBEAT);
+    dev.render(&none).unwrap();
+    assert_eq!(midi.take_sent(), to_output(&[READ_MODE.to_vec()]));
+    assert_eq!(dev.details().notice, None);
 }
 
 #[test]
@@ -421,10 +460,7 @@ fn mini_with(
     let midi = FakeMidi::default();
     midi.add(port(MINI_IN, MINI_IN_ID), port(MINI_OUT, MINI_OUT_ID));
     midi.bind(MINI_OUT_ID, MINI_IN_ID, sim.clone());
-    let profiles = [&launchpad_mini_mk3::PROFILE];
-    let mut units = ports::parse(&midi.ports(), Platform::MacOs, &profiles).units;
-    assert_eq!(units.len(), 1);
-    let mut dev = Mk3Device::new(units.remove(0), Arc::new(midi.clone())).with_clock(clock.clock());
+    let mut dev = device_for(&launchpad_mini_mk3::PROFILE, &midi, clock);
     let (tx, rx) = unbounded_channel();
     dev.connect(tx).unwrap();
     (midi, dev, rx)
@@ -683,6 +719,113 @@ fn leds_hidden_by_the_setup_menu_show_while_launchdeck_draws() {
         "the person's feedback, before Live mode"
     );
     assert_eq!(sim.feedback(), (1, 0));
+}
+
+const READ_MINI_MODE: &str = "F0 00 20 29 02 0D 0E F7";
+
+#[test]
+fn a_power_cycled_unit_is_taken_again_and_drawn_whole() {
+    // D-X9: a power cycle within the 3 s port scan left the unit in Live
+    // mode with no input and a cache that no longer matched its LEDs.
+    let sim = SimLaunchpad::mini();
+    let clock = FakeClock::new();
+    let (midi, mut dev, mut rx) = mini_acquired(&sim, &clock);
+    let frame = rainbow(&dev);
+    dev.render(&frame).unwrap();
+    sent(&midi);
+
+    sim.power_cycle();
+    clock.advance(HEARTBEAT);
+    dev.render(&frame).unwrap();
+    assert_eq!(sent(&midi), [hex(READ_MINI_MODE)]);
+    dev.render(&frame).unwrap();
+    assert_eq!(sent(&midi), mini_probe(), "it answered 00: taken again");
+    midi.inject(MINI_IN_ID, &hex("90 30 7F"));
+    assert!(rx.try_recv().is_err(), "a note from Keys is no press");
+    dev.render(&frame).unwrap();
+    assert_eq!(
+        sent(&midi),
+        [hex("F0 00 20 29 02 0D 0E 01 F7"), hex(READ_MINI_MODE)]
+    );
+    dev.render(&frame).unwrap();
+    let redraw = sent(&midi);
+    assert_eq!(redraw.len(), 2);
+    assert_eq!(redraw[0], mini_clear());
+    assert_eq!(redraw[1].len(), 413, "every LED of the frame");
+    for cell in &frame.leds {
+        assert_eq!(sim.led_at(cell.pos), Some(shown(cell.led.color)));
+    }
+    assert_eq!(dev.details().mode, ModeState::Confirmed);
+}
+
+#[test]
+fn a_unit_another_program_keeps_taking_is_left_to_it() {
+    let sim = SimLaunchpad::mini();
+    let clock = FakeClock::new();
+    let (midi, mut dev, _rx) = mini_acquired(&sim, &clock);
+    let f = lower_left_pink();
+    for _ in 1..TAKEOVER_LIMIT {
+        sim.take_over();
+        clock.advance(HEARTBEAT);
+        // Asked, found in Live mode and probed, entered, taken.
+        for _ in 0..4 {
+            dev.render(&f).unwrap();
+        }
+        assert!(sim.in_programmer_mode());
+    }
+    sim.take_over();
+    clock.advance(HEARTBEAT);
+    dev.render(&f).unwrap();
+    sent(&midi);
+    for _ in 0..2 {
+        let error = dev.render(&f).unwrap_err();
+        assert!(matches!(error, DeviceError::TakenOver(_)), "{error:?}");
+        assert_eq!(
+            error.to_string(),
+            "Another program is using the Launchpad Mini MK3. Press Look again to use it here."
+        );
+        assert_eq!(sent(&midi), Vec::<Vec<u8>>::new());
+    }
+    dev.disconnect().unwrap();
+    assert_eq!(sent(&midi), Vec::<Vec<u8>>::new(), "nothing to give back");
+    assert_eq!(sim.layout(), 0x00, "the other program's layout");
+}
+
+#[test]
+fn a_unit_that_stops_answering_gets_a_notice_until_it_answers_again() {
+    let sim = SimLaunchpad::mini();
+    let clock = FakeClock::new();
+    let (midi, mut dev, _rx) = mini_acquired(&sim, &clock);
+    let f = lower_left_pink();
+    sim.set_silent(true);
+    for _ in 0..MISSED_LIMIT {
+        assert_eq!(dev.details().notice, None);
+        clock.advance(HEARTBEAT);
+        dev.render(&f).unwrap();
+        clock.advance(REPLY_TIMEOUT);
+        dev.render(&f).unwrap();
+    }
+    let details = dev.details();
+    assert_eq!(details.mode, ModeState::Confirmed);
+    assert_eq!(
+        details.notice.as_deref(),
+        Some("The Launchpad Mini MK3 stopped answering.")
+    );
+    assert_eq!(
+        sim.led_at(ControlPos::grid(0, 7)),
+        Some(SimLed::Rgb(127, 0, 64))
+    );
+    assert_eq!(
+        sent(&midi).len(),
+        1 + MISSED_LIMIT as usize,
+        "frame, questions"
+    );
+
+    sim.set_silent(false);
+    clock.advance(HEARTBEAT);
+    dev.render(&f).unwrap();
+    dev.render(&f).unwrap();
+    assert_eq!(dev.details().notice, None);
 }
 
 // ---- refusals through the device manager --------------------------------------

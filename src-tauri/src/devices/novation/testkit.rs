@@ -226,6 +226,11 @@ impl SimLaunchpad {
         self
     }
 
+    /// From now on its answers never arrive (`true`), or arrive again.
+    pub fn set_silent(&self, silent: bool) {
+        self.state().silent = silent;
+    }
+
     /// The layout shown now (MINI-PRM p7); `7Fh` is Programmer mode.
     pub fn layout(&self) -> u8 {
         self.state().layout
