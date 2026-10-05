@@ -166,7 +166,7 @@ impl SurfaceDevice for Mk3Device {
         if !self.session.draws() {
             return Ok(());
         }
-        let plan = self.leds.plan(frame);
+        let plan = self.leds.plan(frame, self.profile.capabilities.animations);
         for message in plan.messages(self.profile.product) {
             self.send(&message)?;
         }
