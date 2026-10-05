@@ -1,8 +1,11 @@
 //! Editing: the changes a person makes to the workspace (controls, surfaces,
-//! pages, a reset, the preferences), checked, saved and announced.
+//! pages, a reset, the preferences), checked, saved and announced; and the
+//! commit of a whole new workspace, saved before it is shown.
 
-use super::{control_key, Runtime};
-use crate::core::model::{Assignment, Control, Page, Preferences, Surface};
+use std::collections::{HashMap, HashSet};
+
+use super::{control_key, Inner, Runtime};
+use crate::core::model::{Assignment, Control, Page, Preferences, Surface, Workspace};
 use crate::core::validate::validate_control;
 use crate::state::feedback::prepare_rules;
 use crate::state::index::ControlRef;
@@ -16,7 +19,94 @@ fn describe_issues(issues: &[crate::state::feedback::RuleIssue]) -> String {
         .join("; ")
 }
 
+/// Why [`Runtime::commit_workspace`] left everything as it was.
+#[derive(Debug)]
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "artifact import (C5) and surface removal (E3) use it"
+    )
+)]
+pub(crate) enum CommitError<E> {
+    /// The new workspace could not be built: what the builder said.
+    Build(E),
+    /// The new workspace could not be saved: why.
+    Save(String),
+}
+
 impl Runtime {
+    /// Replace the workspace with one built from the current one, saved
+    /// before it is shown. Under the lock, `build` makes the candidate from
+    /// the workspace as it is, the store saves it, and only then is it
+    /// swapped in; any error returns before the swap, so the workspace in
+    /// memory and `workspace.json` stay as they were. Import and the removal
+    /// of a surface go through here, never through `persist`, which only
+    /// logs a failed save.
+    ///
+    /// After the swap, as after a reset: the index is rebuilt, every
+    /// control's look derived again, the surface on screen replaced by the
+    /// first one if it is gone (and the page by the surface's first if that
+    /// is gone), and Auto Context told that its settings may have changed.
+    /// Controls the commit changed or removed lose their temporary looks, as
+    /// an edited control does. The workspace and context are announced once.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "artifact import (C5) and surface removal (E3) use it"
+        )
+    )]
+    pub(crate) fn commit_workspace<E>(
+        &self,
+        build: impl FnOnce(&Workspace) -> Result<Workspace, E>,
+    ) -> Result<(), CommitError<E>> {
+        let target = {
+            let mut guard = self.lock();
+            let inner: &mut Inner = &mut guard;
+            let mut candidate = build(&inner.workspace).map_err(CommitError::Build)?;
+            if candidate.surface(&inner.active_surface).is_none() {
+                // Saved as it will be shown, so the next start opens it too.
+                candidate.last_active_surface = candidate.surfaces.first().map(|s| s.id.clone());
+            }
+            if let Some(store) = &self.store {
+                store
+                    .save(&candidate)
+                    .map_err(|e| CommitError::Save(e.to_string()))?;
+            }
+            let was_auto = inner.workspace.context.auto;
+            let previous = std::mem::replace(&mut inner.workspace, candidate);
+            let unchanged = unchanged_controls(&previous, &inner.workspace);
+            inner.overlay.retain(|key, _| unchanged.contains(key));
+            Self::keep_something_on_screen(inner);
+            self.rebuild_index(inner);
+            self.evaluate_all(inner);
+            Self::with_context(inner, |engine, world| {
+                engine.settings_changed(was_auto, world)
+            })
+        };
+        self.emit_workspace();
+        self.show_for_context(target);
+        self.emit_context();
+        Ok(())
+    }
+
+    /// The first surface (on its first page) when the one on screen is
+    /// gone; the surface's first page when only the page is.
+    fn keep_something_on_screen(inner: &mut Inner) {
+        let page_of = |s: &Surface| s.home_page().map(|p| p.id.clone()).unwrap_or_default();
+        match inner.workspace.surface(&inner.active_surface) {
+            Some(surface) if surface.page(&inner.active_page).is_some() => {}
+            Some(surface) => inner.active_page = page_of(surface),
+            None => {
+                let first = inner.workspace.surfaces.first();
+                inner.active_page = first.map(page_of).unwrap_or_default();
+                inner.active_surface = first.map(|s| s.id.clone()).unwrap_or_default();
+                inner.held.clear();
+            }
+        }
+    }
+
     pub fn update_control(
         &self,
         surface_id: &str,
@@ -244,4 +334,27 @@ impl Runtime {
         }
         self.emit_workspace();
     }
+}
+
+/// The keys of the controls that are in both workspaces, exactly as they were.
+fn unchanged_controls(before: &Workspace, after: &Workspace) -> HashSet<String> {
+    let before = controls_by_key(before);
+    controls_by_key(after)
+        .into_iter()
+        .filter(|(key, control)| before.get(key) == Some(control))
+        .map(|(key, _)| key)
+        .collect()
+}
+
+fn controls_by_key(ws: &Workspace) -> HashMap<String, &Control> {
+    ws.surfaces
+        .iter()
+        .flat_map(|s| {
+            s.pages.iter().flat_map(move |p| {
+                p.controls
+                    .iter()
+                    .map(move |c| (control_key(&s.id, &p.id, &c.id), c))
+            })
+        })
+        .collect()
 }

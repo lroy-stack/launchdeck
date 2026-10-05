@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use serde_json::json;
 
+use super::editing::CommitError;
 use super::input::LONG_PRESS;
 use super::*;
 use crate::core::model::{
@@ -557,6 +558,175 @@ async fn new_controls_surfaces_and_pages_can_be_created_and_removed() {
     rt.remove_control(&id, &page, "g.3.3").unwrap();
     assert!(rt.remove_control(&id, &page, "g.3.3").is_err());
     assert!(rt.create_surface("   ").is_err());
+}
+
+/// The names of the UI events a runtime emitted.
+#[derive(Default)]
+struct Recorder(std::sync::Mutex<Vec<String>>);
+
+impl UiEmitter for Recorder {
+    fn emit(&self, event: &str, _payload: Value) {
+        self.0.lock().unwrap().push(event.to_string());
+    }
+}
+
+impl Recorder {
+    fn count(&self, event: &str) -> usize {
+        self.0
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|e| *e == event)
+            .count()
+    }
+
+    fn clear(&self) {
+        self.0.lock().unwrap().clear();
+    }
+}
+
+async fn start_recorded(store: &Store) -> (Arc<Runtime>, Arc<Recorder>) {
+    let recorder = Arc::new(Recorder::default());
+    let rt = Runtime::start(RuntimeConfig {
+        workspace: store.load_or_default(default_workspace),
+        store: Some(Store::new(store.path().parent().unwrap())),
+        emitter: recorder.clone(),
+        keyboard: Arc::new(NoKeyboard),
+        scan_hardware: false,
+        serve_external: false,
+        demo_pace: 1.0,
+        plugin_dirs: vec![],
+        secrets: None,
+        observer: None,
+    })
+    .await;
+    (rt, recorder)
+}
+
+/// The workspace with one more surface, and a context rule for it (so
+/// what Auto Context reports changes too).
+fn with_extra_surface(current: &Workspace) -> Workspace {
+    use crate::context::identity::ApplicationIdentity;
+    use crate::context::rules::ContextRule;
+    let mut ws = current.clone();
+    ws.surfaces
+        .push(crate::surfaces::blank_surface("extra", "Extra"));
+    ws.context.rules.push(ContextRule {
+        application: ApplicationIdentity::new("x11", "gimp", "GIMP"),
+        surface_id: "extra".into(),
+        page_id: None,
+    });
+    ws
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_commit_saves_the_new_workspace_then_shows_it_and_says_so_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::new(dir.path());
+    let (rt, events) = start_recorded(&store).await;
+    events.clear();
+
+    rt.commit_workspace(|current| Ok::<_, ()>(with_extra_surface(current)))
+        .unwrap();
+
+    let shown = rt.snapshot().workspace;
+    assert!(shown.surface("extra").is_some());
+    assert_eq!(shown.context.rules.len(), 1);
+    let saved = store.load_or_default(|| panic!("the commit saves the workspace"));
+    assert_eq!(saved, shown);
+    assert_eq!(rt.context().settings.rules.len(), 1);
+    assert_eq!(events.count(ui::WORKSPACE), 1);
+    assert_eq!(events.count(ui::CONTEXT), 1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_commit_that_cannot_be_built_or_saved_changes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::new(dir.path());
+    store.save(&default_workspace()).unwrap();
+    let file = std::fs::read(store.path()).unwrap();
+    let (rt, events) = start_recorded(&store).await;
+    events.clear();
+    let before = rt.snapshot().workspace;
+
+    let built = rt.commit_workspace(|_| Err::<Workspace, _>("refused"));
+    assert!(matches!(built, Err(CommitError::Build("refused"))));
+
+    // A directory where the save writes its temporary file: the save fails.
+    std::fs::create_dir_all(dir.path().join("workspace.json.tmp/blocker")).unwrap();
+    let saved = rt.commit_workspace(|current| Ok::<_, ()>(with_extra_surface(current)));
+    let Err(CommitError::Save(why)) = saved else {
+        panic!("the save must fail: {saved:?}");
+    };
+    assert!(why.contains("io error"), "{why}");
+
+    assert_eq!(rt.snapshot().workspace, before);
+    assert!(rt.context().settings.rules.is_empty());
+    assert_eq!(std::fs::read(store.path()).unwrap(), file);
+    assert_eq!(events.count(ui::WORKSPACE), 0);
+    assert_eq!(events.count(ui::CONTEXT), 0);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn removing_the_surface_on_screen_through_a_commit_shows_the_first_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::new(dir.path());
+    let (rt, _) = start_recorded(&store).await;
+    rt.activate_surface("productivity", None).unwrap();
+
+    rt.commit_workspace(|current| {
+        let mut ws = current.clone();
+        ws.surfaces.retain(|s| s.id != "productivity");
+        Ok::<_, ()>(ws)
+    })
+    .unwrap();
+
+    let ws = rt.snapshot().workspace;
+    let first = &ws.surfaces[0];
+    let state = rt.state();
+    assert_eq!(state.active_surface_id, first.id);
+    assert_eq!(state.active_page_id, first.home_page().unwrap().id);
+    // What is saved names a surface that exists.
+    let saved = store.load_or_default(|| panic!("the commit saves the workspace"));
+    assert_eq!(
+        saved.last_active_surface.as_deref(),
+        Some(first.id.as_str())
+    );
+    assert_eq!(saved, ws);
+}
+
+/// A commit starts over every control it changes or removes, as an edit
+/// does: no temporary look survives on it. Controls it leaves as they were
+/// keep theirs.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_commit_drops_the_temporary_looks_of_controls_it_changes() {
+    let rt = start(bound_workspace(), None).await;
+    rt.publish_external(Event::new("beta", "task.started", Value::Null));
+    wait_until("beta pad running", || {
+        state(&rt, "bound", "home", "g.1.0").as_deref() == Some("running")
+    })
+    .await;
+    let relabel = |control: &'static str| {
+        move |current: &Workspace| {
+            let mut ws = current.clone();
+            let page = &mut ws.surface_mut("bound").unwrap().pages[0];
+            let c = page.controls.iter_mut().find(|c| c.id == control).unwrap();
+            c.label = format!("{} again", c.label);
+            Ok::<_, ()>(ws)
+        }
+    };
+
+    rt.commit_workspace(relabel("g.0.0")).unwrap();
+    assert_eq!(
+        state(&rt, "bound", "home", "g.1.0").as_deref(),
+        Some("running")
+    );
+
+    rt.commit_workspace(relabel("g.1.0")).unwrap();
+    assert_ne!(
+        state(&rt, "bound", "home", "g.1.0").as_deref(),
+        Some("running")
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
