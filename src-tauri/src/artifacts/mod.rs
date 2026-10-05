@@ -21,7 +21,10 @@
 //!   plan 7.3 into a [`ParsedArtifact`] or refused with a [`Rejection`]
 //! * `plan`    what importing a parsed file would do to the workspace, with
 //!   the person's decisions ([`ImportPlan`]), changing nothing
+//! * `apply`   the workspace an import writes, exactly the plan's effects,
+//!   and the runtime's checks it passes before it is saved
 
+mod apply;
 mod env;
 mod export;
 mod format;

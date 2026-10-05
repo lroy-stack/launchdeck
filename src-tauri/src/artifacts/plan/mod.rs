@@ -36,8 +36,4 @@ pub use types::{
     PlanSource, PlanWarning, PlanWarningCode, PlannedInput, PlannedRule, PlannedSurface, Relation,
     ReplacedSurface, RuleOutcome, SurfaceAction, UsedBy,
 };
-#[expect(
-    unused_imports,
-    reason = "apply (C5) writes each assignment and records each surface's digest with them"
-)]
 pub(in crate::artifacts) use {inputs::bound, instances::surface_digest};
