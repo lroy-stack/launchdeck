@@ -155,6 +155,23 @@ export async function createPreviewTransport() {
     push();
   };
 
+  // The same refusals as the runtime, in the same words.
+  const surfaceOf = (id: unknown) => {
+    const s = workspace.surfaces.find((x) => x.id === id);
+    if (!s) throw "That surface no longer exists.";
+    return s;
+  };
+  const pageOf = (s: Workspace["surfaces"][number], id: unknown) => {
+    const p = s.pages.find((x) => x.id === id);
+    if (!p) throw "That page no longer exists.";
+    return p;
+  };
+  const checkedName = (raw: unknown, what: string): string => {
+    const name = String(raw).trim();
+    if (name.length === 0 || [...name].length > 40) throw `A ${what} name needs 1 to 40 characters.`;
+    return name;
+  };
+
   /** The Plugins screen lists built-in providers from their catalog entries. */
   const bundledManifests = (): PluginManifest[] =>
     catalog.providers
@@ -259,6 +276,39 @@ export async function createPreviewTransport() {
         s?.pages.push({ id, name: String(args.name), controls: [] });
         pushWorkspace();
         return id;
+      }
+      case "remove_surface": {
+        const s = surfaceOf(args.surfaceId);
+        if (workspace.surfaces.length === 1) throw `${s.name} is the only surface, so it cannot be deleted. Create another one first.`;
+        workspace.surfaces = workspace.surfaces.filter((x) => x !== s);
+        const fallback = contextSettings.fallback;
+        contextSettings = {
+          ...contextSettings,
+          rules: contextSettings.rules.filter((r) => r.surfaceId !== s.id),
+          fallback: fallback.kind === "surface" && fallback.surfaceId === s.id ? { kind: "keep" } : fallback,
+        };
+        if (state.activeSurfaceId === s.id) activate(workspace.surfaces[0]!.id);
+        emit("context-changed", context());
+        return pushWorkspace();
+      }
+      case "update_surface": {
+        const s = surfaceOf(args.surfaceId);
+        s.name = checkedName(args.name, "surface");
+        s.description = String(args.description).trim();
+        s.icon = String(args.icon ?? "").trim() || null;
+        return pushWorkspace();
+      }
+      case "rename_page": {
+        pageOf(surfaceOf(args.surfaceId), args.pageId).name = checkedName(args.name, "page");
+        return pushWorkspace();
+      }
+      case "remove_page": {
+        const s = surfaceOf(args.surfaceId);
+        const p = pageOf(s, args.pageId);
+        if (s.pages.length === 1) throw `${p.name} is the only page of ${s.name}, so it cannot be deleted.`;
+        s.pages = s.pages.filter((x) => x !== p);
+        if (state.activeSurfaceId === s.id && state.activePageId === p.id) state.activePageId = s.pages[0]!.id;
+        return pushWorkspace();
       }
       case "update_preferences":
         workspace.preferences = args.preferences as Workspace["preferences"];

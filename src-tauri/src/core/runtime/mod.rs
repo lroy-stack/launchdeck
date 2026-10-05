@@ -165,6 +165,8 @@ enum By {
     Person,
     /// The context engine, for the application in front.
     Context,
+    /// The runtime itself: the surface or page on screen was removed.
+    Runtime,
 }
 
 /// A temporary look: an unbound pad running an action, or an event rule's look

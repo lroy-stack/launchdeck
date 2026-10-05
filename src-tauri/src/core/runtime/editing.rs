@@ -1,9 +1,18 @@
 //! Editing: the changes a person makes to the workspace (controls, surfaces,
 //! pages, a reset, the preferences), checked, saved and announced.
+//!
+//! `commit_workspace` is the transactional path: the change is made on a
+//! copy, the copy is saved, and only then does it replace the workspace.
+//! Renaming and deleting surfaces and pages go through it.
 
-use super::{control_key, Runtime};
-use crate::core::model::{Assignment, Control, Page, Preferences, Surface};
+use std::collections::HashSet;
+use std::fmt;
+
+use super::{control_key, By, Inner, Runtime};
+use crate::context::rules::Fallback;
+use crate::core::model::{Assignment, Control, Page, Preferences, Surface, Workspace};
 use crate::core::validate::validate_control;
+use crate::persistence::PersistError;
 use crate::state::feedback::prepare_rules;
 use crate::state::index::ControlRef;
 use crate::surfaces::{blank_surface, default_workspace};
@@ -243,5 +252,225 @@ impl Runtime {
             self.persist(&inner);
         }
         self.emit_workspace();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The commit primitive, and managing surfaces and pages
+// ---------------------------------------------------------------------------
+
+/// The most characters a surface or page name, a surface description and a
+/// surface icon may have.
+const NAME_MAX: usize = 40;
+const DESCRIPTION_MAX: usize = 400;
+const ICON_MAX: usize = 8;
+
+/// Why a change to the workspace was not made. Either way, nothing changed.
+#[derive(Debug)]
+pub(crate) enum CommitError<E> {
+    /// The change itself was refused.
+    Refused(E),
+    /// The changed workspace could not be saved.
+    NotSaved(PersistError),
+}
+
+impl<E: fmt::Display> fmt::Display for CommitError<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CommitError::Refused(e) => e.fmt(f),
+            CommitError::NotSaved(e) => {
+                write!(
+                    f,
+                    "The change could not be saved, so nothing changed ({e})."
+                )
+            }
+        }
+    }
+}
+
+impl Runtime {
+    /// Change the workspace as a whole: `build` makes the changed copy, the
+    /// copy is saved, and only when that worked does it replace the
+    /// workspace. Then the feedback index, every control's look and Auto
+    /// Context follow, and if the surface or page on screen is gone, another
+    /// one is shown. An error returns before anything changed.
+    pub(crate) fn commit_workspace<E>(
+        &self,
+        build: impl FnOnce(&Workspace) -> Result<Workspace, E>,
+    ) -> Result<(), CommitError<E>> {
+        let (replacement, target) = {
+            let mut inner = self.lock();
+            let mut candidate = build(&inner.workspace).map_err(CommitError::Refused)?;
+            keep_last_active_valid(&mut candidate);
+            if let Some(store) = &self.store {
+                store.save(&candidate).map_err(CommitError::NotSaved)?;
+            }
+            let was_auto = inner.workspace.context.auto;
+            inner.workspace = candidate;
+            drop_stale_looks(&mut inner);
+            self.rebuild_index(&mut inner);
+            self.evaluate_all(&mut inner);
+            let target = Self::with_context(&mut inner, |engine, world| {
+                engine.settings_changed(was_auto, world)
+            });
+            (replacement_on_screen(&inner), target)
+        };
+        if let Some((surface, page)) = replacement {
+            if let Err(e) = self.activate(&surface, Some(&page), By::Runtime) {
+                log::warn!("could not show {surface}/{page}: {e}");
+            }
+        }
+        self.emit_workspace();
+        self.show_for_context(target);
+        self.emit_context();
+        Ok(())
+    }
+
+    /// Delete a surface. The last one is refused. Auto Context rules that
+    /// show it go with it, and a fallback that shows it goes back to keeping
+    /// what is on screen. Navigation pads elsewhere keep their arguments, so
+    /// pressing one says the surface is missing.
+    pub fn remove_surface(&self, surface_id: &str) -> Result<(), String> {
+        self.commit_workspace(|ws| {
+            let surface = ws.surface(surface_id).ok_or_else(missing_surface)?;
+            if ws.surfaces.len() == 1 {
+                return Err(format!(
+                    "{} is the only surface, so it cannot be deleted. Create another one first.",
+                    surface.name
+                ));
+            }
+            let mut next = ws.clone();
+            next.surfaces.retain(|s| s.id != surface_id);
+            next.context.rules.retain(|r| r.surface_id != surface_id);
+            if matches!(&next.context.fallback,
+                Fallback::Surface { surface_id: shown, .. } if shown == surface_id)
+            {
+                next.context.fallback = Fallback::Keep;
+            }
+            Ok(next)
+        })
+        .map_err(|e| e.to_string())
+    }
+
+    /// Rename a surface and change its description and icon. An empty icon
+    /// is no icon.
+    pub fn update_surface(
+        &self,
+        surface_id: &str,
+        name: &str,
+        description: &str,
+        icon: Option<String>,
+    ) -> Result<(), String> {
+        let name = checked_name(name, "surface")?;
+        let description = description.trim().to_string();
+        if description.chars().count() > DESCRIPTION_MAX {
+            return Err(format!(
+                "A description can have at most {DESCRIPTION_MAX} characters."
+            ));
+        }
+        let icon = icon.map(|i| i.trim().to_string()).filter(|i| !i.is_empty());
+        if icon.as_ref().is_some_and(|i| i.chars().count() > ICON_MAX) {
+            return Err(format!("An icon can have at most {ICON_MAX} characters."));
+        }
+        self.commit_workspace(|ws| -> Result<Workspace, String> {
+            let mut next = ws.clone();
+            let surface = next.surface_mut(surface_id).ok_or_else(missing_surface)?;
+            surface.name = name;
+            surface.description = description;
+            surface.icon = icon;
+            Ok(next)
+        })
+        .map_err(|e| e.to_string())
+    }
+
+    pub fn rename_page(&self, surface_id: &str, page_id: &str, name: &str) -> Result<(), String> {
+        let name = checked_name(name, "page")?;
+        self.commit_workspace(|ws| -> Result<Workspace, String> {
+            let mut next = ws.clone();
+            let surface = next.surface_mut(surface_id).ok_or_else(missing_surface)?;
+            let page = surface
+                .pages
+                .iter_mut()
+                .find(|p| p.id == page_id)
+                .ok_or_else(missing_page)?;
+            page.name = name;
+            Ok(next)
+        })
+        .map_err(|e| e.to_string())
+    }
+
+    /// Delete a page. A surface's last page is refused. When it is the page
+    /// on screen, the surface's first page is shown.
+    pub fn remove_page(&self, surface_id: &str, page_id: &str) -> Result<(), String> {
+        self.commit_workspace(|ws| {
+            let mut next = ws.clone();
+            let surface = next.surface_mut(surface_id).ok_or_else(missing_surface)?;
+            let page = surface.page(page_id).ok_or_else(missing_page)?;
+            if surface.pages.len() == 1 {
+                return Err(format!(
+                    "{} is the only page of {}, so it cannot be deleted.",
+                    page.name, surface.name
+                ));
+            }
+            surface.pages.retain(|p| p.id != page_id);
+            Ok(next)
+        })
+        .map_err(|e| e.to_string())
+    }
+}
+
+fn missing_surface() -> String {
+    "That surface no longer exists.".into()
+}
+
+fn missing_page() -> String {
+    "That page no longer exists.".into()
+}
+
+/// `what` names the thing the name is for, in the sentence.
+fn checked_name(name: &str, what: &str) -> Result<String, String> {
+    let name = name.trim();
+    if name.is_empty() || name.chars().count() > NAME_MAX {
+        return Err(format!("A {what} name needs 1 to {NAME_MAX} characters."));
+    }
+    Ok(name.to_string())
+}
+
+/// The surface the next start opens on must exist.
+fn keep_last_active_valid(workspace: &mut Workspace) {
+    let gone = workspace
+        .last_active_surface
+        .as_deref()
+        .is_some_and(|id| workspace.surface(id).is_none());
+    if gone {
+        workspace.last_active_surface = workspace.surfaces.first().map(|s| s.id.clone());
+    }
+}
+
+/// Temporary looks of controls that no longer exist.
+fn drop_stale_looks(inner: &mut Inner) {
+    let keys: HashSet<String> = inner
+        .workspace
+        .surfaces
+        .iter()
+        .flat_map(|s| {
+            s.pages.iter().flat_map(move |p| {
+                p.controls
+                    .iter()
+                    .map(move |c| control_key(&s.id, &p.id, &c.id))
+            })
+        })
+        .collect();
+    inner.overlay.retain(|key, _| keys.contains(key));
+}
+
+/// What to show when the surface or the page on screen is gone: the
+/// surface's first page, or the first surface.
+fn replacement_on_screen(inner: &Inner) -> Option<(String, String)> {
+    let home = |s: &Surface| s.home_page().map(|p| (s.id.clone(), p.id.clone()));
+    match inner.workspace.surface(&inner.active_surface) {
+        Some(s) if s.page(&inner.active_page).is_some() => None,
+        Some(s) => home(s),
+        None => inner.workspace.surfaces.first().and_then(home),
     }
 }

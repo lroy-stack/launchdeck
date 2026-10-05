@@ -6,6 +6,7 @@ import { activePage, activeSurface, primaryDeviceOf, useStore } from "../../stor
 import { Inspector } from "../editor/Inspector";
 import { ActionLibrary } from "../library/ActionLibrary";
 import { LivePanel } from "./LivePanel";
+import { DeleteSurface, PageItem, SurfaceDetails } from "./SurfaceManage";
 import { PadGrid } from "../../components/PadGrid";
 
 export function SurfaceView() {
@@ -34,12 +35,17 @@ export function SurfaceView() {
   return (
     <div className={`surface-view mode-${mode}`}>
       <header className="surface-head">
-        <div className="titles">
-          <span className="eyebrow">{surface.category}</span>
-          <h1>{surface.name}</h1>
-          <p>{surface.description}</p>
-        </div>
+        {mode === "edit" ? (
+          <SurfaceDetails surface={surface} />
+        ) : (
+          <div className="titles">
+            <span className="eyebrow">{surface.category}</span>
+            <h1>{surface.name}</h1>
+            <p>{surface.description}</p>
+          </div>
+        )}
         <div className="head-actions">
+          {mode === "edit" && <DeleteSurface surface={surface} />}
           <label className="check">
             <input type="checkbox" checked={showLabels} onChange={toggleLabels} /> Labels
           </label>
@@ -91,21 +97,19 @@ function PagesNav({ surface, page, layout }: { surface: Surface; page: Page; lay
   return (
     <nav className={layout === "strip" ? "pages strip" : "pages"} aria-label="Pages">
       {layout === "column" && <h4>Pages</h4>}
-      {surface.pages.map((p) => (
-        <button
-          key={p.id}
-          type="button"
-          className={`page-item${p.id === page.id ? " on" : ""}`}
-          aria-current={p.id === page.id ? "page" : undefined}
-          onClick={() => {
-            select(null);
-            void attempt(() => api.activatePage(p.id));
-          }}
-        >
-          <span>{p.name}</span>
-          <small>{plural(p.controls.length, "control")}</small>
-        </button>
-      ))}
+      {surface.pages.map((p) => {
+        const open = () => {
+          select(null);
+          void attempt(() => api.activatePage(p.id));
+        };
+        if (mode === "edit") return <PageItem key={p.id} surface={surface} page={p} current={p.id === page.id} onOpen={open} />;
+        return (
+          <button key={p.id} type="button" className={`page-item${p.id === page.id ? " on" : ""}`} aria-current={p.id === page.id ? "page" : undefined} onClick={open}>
+            <span>{p.name}</span>
+            <small>{plural(p.controls.length, "control")}</small>
+          </button>
+        );
+      })}
       {mode === "edit" &&
         (newPage === null ? (
           <button type="button" className="page-item add" onClick={() => setNewPage("")}>

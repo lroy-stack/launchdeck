@@ -454,6 +454,19 @@ textarea { resize: vertical; }
 .pages.strip .page-item { flex-direction: row; align-items: center; gap: 8px; min-height: 32px; padding: 4px 12px; border: 1px solid var(--line-2); }
 .pages.strip .page-item.on { box-shadow: none; border-color: var(--accent-2); background: #1d2140; }
 .pages.strip .page-item.add { border-style: dashed; }
+/* Managing a surface while editing: its details in the header, the page menu, confirmations. */
+.surface-details { display: flex; flex-direction: column; gap: 6px; flex: 1; max-width: 560px; }
+.surface-details .row { align-items: center; gap: 8px; }
+.surface-details .surface-icon { width: 52px; flex: none; text-align: center; }
+.surface-details .surface-name { font-size: 18px; font-weight: 600; }
+.surface-details .surface-description { font-size: 12.5px; color: var(--text-2); }
+.page-slot { position: relative; display: inline-flex; align-items: center; gap: 2px; }
+.page-menu { position: absolute; top: 100%; right: 0; z-index: 5; display: flex; flex-direction: column; min-width: 120px; margin-top: 4px; padding: 4px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 8px; }
+.page-menu button { background: transparent; border: 0; border-radius: 6px; padding: 5px 9px; text-align: left; color: var(--text); }
+.page-menu button:hover:not(:disabled) { background: var(--panel); }
+.page-menu button:disabled { opacity: 0.4; cursor: default; }
+.confirm { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid #5a2a2a; border-radius: 8px; background: #1d1214; color: var(--text); }
+.page-slot .confirm { position: absolute; top: 100%; left: 0; z-index: 5; margin-top: 4px; min-width: 260px; }
 .pad.drop-ready { outline: 1px dashed var(--accent-2); outline-offset: -3px; }
 .pad.drop-over { outline: 2px solid var(--accent); outline-offset: -2px; background-color: #7c8cff22; }
 .pad-flag { position: absolute; top: 2px; right: 3px; min-width: 14px; height: 14px; border-radius: 7px; background: var(--warn); color: #1a1405; font-size: 10px; font-weight: 700; line-height: 14px; text-align: center; }

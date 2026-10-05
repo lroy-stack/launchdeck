@@ -1,6 +1,6 @@
 //! The workspace as the UI sees and edits it: the snapshot, the virtual
-//! Launchpad X (its frame and its pads), Live/Edit, activation, editing,
-//! reset and preferences.
+//! Launchpad X (its frame and its pads), Live/Edit, activation, editing
+//! (controls, surfaces, pages), reset and preferences.
 
 use tauri::State;
 
@@ -92,6 +92,45 @@ pub(crate) fn add_page(
     name: String,
 ) -> CmdResult<String> {
     state.runtime.add_page(&surface_id, &name)
+}
+
+/// The commands that rename or delete return nothing: the UI follows the
+/// workspace event.
+#[tauri::command]
+pub(crate) fn remove_surface(state: State<'_, AppState>, surface_id: String) -> CmdResult<()> {
+    state.runtime.remove_surface(&surface_id)
+}
+
+#[tauri::command]
+pub(crate) fn update_surface(
+    state: State<'_, AppState>,
+    surface_id: String,
+    name: String,
+    description: String,
+    icon: Option<String>,
+) -> CmdResult<()> {
+    state
+        .runtime
+        .update_surface(&surface_id, &name, &description, icon)
+}
+
+#[tauri::command]
+pub(crate) fn rename_page(
+    state: State<'_, AppState>,
+    surface_id: String,
+    page_id: String,
+    name: String,
+) -> CmdResult<()> {
+    state.runtime.rename_page(&surface_id, &page_id, &name)
+}
+
+#[tauri::command]
+pub(crate) fn remove_page(
+    state: State<'_, AppState>,
+    surface_id: String,
+    page_id: String,
+) -> CmdResult<()> {
+    state.runtime.remove_page(&surface_id, &page_id)
 }
 
 #[tauri::command]

@@ -134,6 +134,17 @@ export const api = {
     call("remove_control", null, { surfaceId, pageId, controlId }),
   createSurface: (name: string): Promise<string> => call("create_surface", z.string(), { name }),
   addPage: (surfaceId: string, name: string): Promise<string> => call("add_page", z.string(), { surfaceId, name }),
+  /**
+   * Rust refuses the last surface. Auto Context rules that show it are removed and a fallback that shows it goes back
+   * to keeping what is on screen. The new workspace arrives as an event, like every edit below.
+   */
+  removeSurface: (surfaceId: string): Promise<void> => call("remove_surface", null, { surfaceId }),
+  /** Name 1-40 characters, description up to 400, icon up to 8 (empty or `null`: no icon); Rust says what is wrong. */
+  updateSurface: (surfaceId: string, name: string, description: string, icon: string | null): Promise<void> =>
+    call("update_surface", null, { surfaceId, name, description, icon }),
+  renamePage: (surfaceId: string, pageId: string, name: string): Promise<void> => call("rename_page", null, { surfaceId, pageId, name }),
+  /** Rust refuses a surface's last page. */
+  removePage: (surfaceId: string, pageId: string): Promise<void> => call("remove_page", null, { surfaceId, pageId }),
   resetWorkspace: (): Promise<void> => call("reset_workspace", null),
   updatePreferences: (preferences: Preferences): Promise<void> => call("update_preferences", null, { preferences }),
   /** Runs an assignment now, as if a pad had triggered it, and resolves with what it returned or rejects with why it failed. */
