@@ -79,7 +79,7 @@ RGB colourspecs in the lighting SysEx (verified in the manual):
 F0 00 20 29 02 0C 03  03 <index> <r> <g> <b>  [03 <index> <r> <g> <b> ...]  F7
 ```
 
-Colour channels are 7-bit, so `0..255` is scaled to `0..127`. The manual allows up to 81 colourspecs per message; larger updates are chunked. There are exactly 81 LEDs (64 grid + 8 top + 8 side + 1 logo). Only LEDs whose colour changed are sent.
+Colour channels are 7-bit, so `0..255` is scaled to `0..127`. The manual allows up to 81 colourspecs per message; larger updates are chunked. There are exactly 81 LEDs (64 grid + 8 top + 8 side + 1 logo). Only LEDs whose 7-bit colour changed are sent: a change that scales to the colour the pad already shows (255 and 254 are both `7F`) sends nothing. All the changes of one frame go in one message.
 
 Clear sends every known LED as black.
 
