@@ -17,12 +17,14 @@
 
 use serde_json::{json, Value};
 
-use super::*;
+use super::build::{ctl, g, plugin};
+use super::navigation::surface_switchers;
 use crate::agents::model::{CommandKind, Status};
 use crate::agents::observables;
 use crate::agents::plugin::PLUGIN_ID;
 use crate::agents::service::SLOT_COUNT;
 use crate::agents::visual::{self, command_visual, CommandState};
+use crate::core::model::{Assignment, Control, ControlPos, Page, Rgb, Span, Surface};
 use crate::state::feedback::{FeedbackRule, Test};
 use crate::state::Scalar;
 
