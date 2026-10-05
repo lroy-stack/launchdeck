@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Read the code, nothing else. No step needs a secret, a token or network
+# access beyond the package registries.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Smaller builds and cache; backtraces keep their file and line.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu-24.04 is pinned: ubuntu-latest moves to 26.04 in November 2026
+        # (actions/runner-images#14748), and nothing has been built against its
+        # WebKitGTK yet. macos-latest is macOS 26 on Apple silicon.
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    # Windows has never been run: its failures are listed, not hidden. Remove once green.
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
+    timeout-minutes: 60
+    steps:
+      - name: Keep line endings as committed
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # The toolchain this was verified with on Linux and macOS. Moving to a
+      # newer one (new clippy lints included) is a change of its own.
+      - uses: dtolnay/rust-toolchain@1.97.0
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev libasound2-dev \
+            libxkbcommon-dev libxdo-dev libssl-dev
+
+      # Fast checks first (formatting, types, lint), then tests and builds.
+      - run: npm ci
+      - name: Type check
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Rust format
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Frontend tests
+        run: npm test
+      - name: Frontend build
+        run: npm run build
+      - name: Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --no-fail-fast
