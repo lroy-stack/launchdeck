@@ -601,6 +601,7 @@ R3, R4 and R5 declare only A2 so that they still run if a feature package fails;
 | R-17 | Scope creep beyond rule zero | medium / high | deferred list (section 4); reviewers reject new subsystems |
 | R-18 | Tauri CLI warning on the `.app` identifier | certain / low | record only |
 | R-19 | SF-1, found by a background security review of `9f70375`: artifact review and the runtime parse `system.launchApplication` differently (empty list arguments; on Windows `cmd /C start` lets `& | < > ^ %` in an unreviewed `app` chain commands) | certain / critical for imported files | fixed in C3 first: one shared launch parser in `plugins::system`, strict review rule, runtime refuses NUL, line breaks and Windows cmd metacharacters; differential tests and hostile fixtures; Windows NOT VERIFIED (e) |
+| R-20 | SF-2, found by a background security review of `8f1b25a`: an argument bound to a Pack input kept the exporter's local value in the file (webhook ids, tokens in URLs, home paths) | certain / high | fixed in C3 after SF-1: bound arguments exported as the input default or empty; credential-shaped values refused unless bound; preview names them without values |
 
 ## 14. Definition of Done
 
