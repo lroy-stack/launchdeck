@@ -938,7 +938,7 @@ fn the_digest_covers_what_is_written_and_nothing_else() {
     assert_eq!(first.plan_digest, again.plan_digest);
     assert_ne!(first.plan_id, again.plan_id);
 
-    // A device unplugged, another plugin version: the same writes.
+    // A device unplugged: the same writes.
     let mut unplugged = env();
     for d in &mut unplugged.devices {
         d.connected = false;
@@ -958,6 +958,20 @@ fn the_digest_covers_what_is_written_and_nothing_else() {
         plan_of(&file, &ws, &ImportDecisions::default()).plan_digest,
         first.plan_digest
     );
+
+    // Another version of a plugin the file uses: another dependency status,
+    // the same writes.
+    let file = with_inputs(true);
+    let decisions = answers(&[
+        ("folder", text(&full_path("srv"))),
+        ("hook", text("https://example.com/x")),
+    ]);
+    let before = plan_of(&file, &ws, &decisions);
+    let mut upgraded = env();
+    upgraded.providers.get_mut("acme.notes").unwrap().version = "2.0.0".into();
+    let after = plan(&file, &ws, &upgraded, &decisions);
+    assert_ne!(after.dependencies, before.dependencies);
+    assert_eq!(after.plan_digest, before.plan_digest);
 }
 
 // Inputs.
