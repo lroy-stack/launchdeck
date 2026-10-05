@@ -98,9 +98,9 @@ Not yet. The hook endpoint covers Claude Code and Codex approvals with real desc
 
 If built, it would be tested the way the rest of Agent Control is: a real `AgentControl` and bridge in the test process, a real translator connected to them, and assertions on the resulting agent state, approval lifecycle, audit entries and the virtual Launchpad's frame. It would need cases for approval granted, rejected, expired, control not granted, connection lost mid-wait, and a model-supplied status that the bridge refuses.
 
-## Agent Packs
+## Sharing a translator
 
-A pack that ships the translator would declare it as an `adapter` piece with `transport: "bridge"`, like the example in [adapter-sdk.md](adapter-sdk.md#agent-packs). Nothing loads packs today, so this is a statement of where it would fit, not a feature.
+A translator is adapter code, so it would ship as a program that speaks the Agent Bridge. The Pack file format carries no adapters in its first version; adapters are a candidate for a later one (see [adapter-sdk.md](adapter-sdk.md#sharing-adapters-not-built)). This is a statement of where it would fit, not a feature.
 
 ## Platform ideas outside Agent Control
 

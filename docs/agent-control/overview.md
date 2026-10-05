@@ -101,12 +101,11 @@ Agent Control observes and steers agents that already exist. It is not, and will
 
 | Path | What it holds |
 | --- | --- |
-| `src-tauri/src/agents/` | The module: `model`, `visual`, `adapter`, `service`, `bridge`, `adapters/`, `audit`, `settings`, `notify`, `pack`, `plugin`, `view`, `demo`. |
+| `src-tauri/src/agents/` | The module: `model`, `visual`, `adapter`, `service`, `bridge`, `adapters/`, `audit`, `settings`, `notify`, `plugin`, `view`, `demo`. |
 | `src-tauri/src/surfaces/agent_control.rs` | The Agent Control surface definition. |
 | `src/features/agents/` | The Agents section of the desktop UI. |
 | `src/lib/agents.ts` | Zod schemas and helpers for what Rust sends. |
 | `examples/generic-agent/` | A dependency-free Agent Bridge client. |
-| `examples/agent-pack/` | An example Agent Pack manifest. |
 | `examples/agents-snapshot.json` | A snapshot captured from the runtime; the contract fixture for the UI. |
 
 ## Documents

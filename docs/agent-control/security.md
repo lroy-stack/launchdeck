@@ -132,13 +132,13 @@ These are real and deliberate to state.
 
 ## Future: permission isolation for adapters
 
-Today an in-process adapter is trusted code limited by its API. If third parties ship adapters (for example in an Agent Pack), that is not enough. The direction, none of it built:
+Today an in-process adapter is trusted code limited by its API. If third parties ship adapters (for example in a later version of the Pack format, which may carry them), that is not enough. The direction, none of it built:
 
 * **Out of process by default.** Third-party adapters run as separate processes speaking the Agent Bridge, which already has the right shape: they can only describe their own agents. An adapter that needs more says so in its manifest.
-* **Declared permissions.** A pack manifest lists what an adapter needs: the network hosts it may reach, the folders it may read, whether it may spawn processes, the capabilities it may register. They are shown before install and enforced by a sandbox (WASM or an OS sandbox), the way the plugin design already plans.
+* **Declared permissions.** An adapter's manifest lists what it needs: the network hosts it may reach, the folders it may read, whether it may spawn processes, the capabilities it may register. They are shown before install and enforced by a sandbox (WASM or an OS sandbox), the way the plugin design already plans.
 * **Per-capability grants.** Control becomes a set: approve and reject without spawn, pause without cancel. The person's grant is stored per agent and capability.
 * **A bridge token** with a scope per client, so that a registration can be tied to a program the person recognises.
-* **Signed packs and a revocation list**, described in [roadmap/marketplace.md](../roadmap/marketplace.md).
+* **Signed packages and a revocation list**, described in [roadmap/marketplace.md](../roadmap/marketplace.md).
 * **Auditable by construction.** Anything an isolated adapter does on the person's behalf is an `AdapterHost` call, which is already the thing the audit log records.
 
 The architecture supports this without redesign because adapters already see nothing but `AdapterHost` and are already owned per agent. What is missing is the enforcement around them, not a different model.

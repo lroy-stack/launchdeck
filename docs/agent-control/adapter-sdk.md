@@ -159,33 +159,14 @@ Codex runs hooks as commands, not as HTTP calls, so the setup uses a one-line `c
 
 Turn on the **Hook endpoint** on the Adapters tab. It generates a token, shows ready-made snippets, and keeps everything on `127.0.0.1`. The token is passed through an environment variable (`LAUNCHDECK_HOOK_TOKEN`), so the settings files you edit never contain it. Then allow control for the agent on its card. Details and limits of the endpoint are in [security.md](security.md#the-hook-endpoint).
 
-## Agent Packs
+## Sharing adapters (not built)
 
-An **Agent Pack** is the planned unit of sharing: a manifest that ties together the pieces above. The manifest type exists today, with validation and tests, so the architecture is real. Nothing loads, installs or runs a pack, and there is no marketplace backend.
+There is no way to share an adapter as a file today. An adapter is shared as code: compiled into LaunchDeck, or a separate program that speaks the [Agent Bridge](bridge-protocol.md).
 
-A pack can carry five kinds of piece. Adapters, plugins and surfaces are referenced by id and version range. State mappings and workflow templates are data.
+LaunchDeck's unit of sharing is the **Pack**, a portable JSON file of surfaces, their pads and feedback, and optional context rules; its format is specified in [PRODUCTIZATION_PLAN.md section 7](../../PRODUCTIZATION_PLAN.md#7-portable-artifacts-plan). Format version 1 carries no agent pieces. Adapters, state mappings (a provider's status words to normalized statuses) and workflow templates (named starting tasks) are candidates for a later Pack format version. Two rules from an earlier draft manifest, which was validated but never loaded, would carry over:
 
-```json
-{
-  "schemaVersion": 1,
-  "type": "pack",
-  "id": "example.release-watch",
-  "name": "Release watch",
-  "version": "0.1.0",
-  "requires": { "launchdeck": ">=0.2.0" },
-  "includes": [
-    { "type": "adapter", "id": "example.release-script", "version": "^0.1.0", "transport": "bridge" },
-    { "type": "plugin", "id": "example.release-notes", "version": "^0.1.0" },
-    { "type": "surface", "id": "example.release-board", "version": "^0.1.0" },
-    { "type": "stateMapping", "adapter": "example.release-script",
-      "map": { "building": "running", "awaiting-review": "waiting", "shipped": "completed" } },
-    { "type": "workflowTemplate", "id": "smoke-tests", "label": "Smoke tests",
-      "task": "Run the smoke tests against the release candidate" }
-  ]
-}
-```
-
-The full file is `examples/agent-pack/pack.json`, and the types are in `src-tauri/src/agents/pack.rs`. Validation is strict: ids are lowercase and dotted, a manifest cannot name a file path or a command, a state mapping cannot target `approval_required` or `offline` (an adapter cannot report those through a status update), and the same piece cannot appear twice. The wider install flow, signing and review screen are sketched in [roadmap/marketplace.md](../roadmap/marketplace.md); a pack is the `pack` type described there.
+* A state mapping may not target `approval_required` or `offline`: an adapter cannot report those through a status update.
+* A workflow template carries text, never a command.
 
 ## Testing an adapter
 

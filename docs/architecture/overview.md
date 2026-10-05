@@ -52,7 +52,7 @@ Providers (the runtime, Agent Control, installed plugins) write *states* to the 
 2. **Plugins never see positions.** A plugin publishes an event (`plugin.state.changed {key, value}` for built-ins, a declared event type for installed ones). A control's *feedback rules* decide it cares: an event rule reacts to the event, a state rule to the value a provider reports.
 3. **UI state is not runtime state.** Zustand holds the selected pad, the current view and toasts. The workspace, active surface, page, mode and every control state arrive from Rust and are never written locally.
 4. **Everything crossing IPC is validated.** Rust validates edits (`core/validate.rs`), TypeScript parses payloads with Zod (`src/lib/schema.ts`).
-5. **Agent Control is a module, not a core concept.** The runtime constructs and hosts it at startup, but the model, device, renderer and action layers know nothing about agents, and the agent domain names no vendor. Tool-specific code is confined to `agents/adapters/`. A test fails if the Agent Control surface or an Agent Pack manifest names one.
+5. **Agent Control is a module, not a core concept.** The runtime constructs and hosts it at startup, but the model, device, renderer and action layers know nothing about agents, and the agent domain names no vendor. Tool-specific code is confined to `agents/adapters/`. A test fails if the production code of the agent domain or the Agent Control surface names one.
 
 ## One press, end to end
 

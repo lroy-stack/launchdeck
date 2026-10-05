@@ -9,7 +9,6 @@
 //! * `view`     read models for the desktop UI
 //! * `bridge`   the Agent Bridge: the adapter contract over a localhost WebSocket
 //! * `settings`, `notify`  lightweight persistence and policy
-//! * `pack`     the Agent Pack manifest (declarative; nothing loads it yet)
 //! * `audit`    the crate's audit trail, [`crate::audit`], kept at this path too
 //!
 //! Nothing in this module knows MIDI, pads or LEDs. Surfaces bind to the
@@ -24,7 +23,6 @@ pub mod demo;
 pub mod model;
 pub mod notify;
 pub mod observables;
-pub mod pack;
 pub mod plugin;
 pub mod service;
 pub mod settings;
