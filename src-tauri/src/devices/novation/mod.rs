@@ -15,6 +15,11 @@ mod launchpad_mini_mk3;
 mod launchpad_x;
 mod layout;
 mod leds;
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "the lighting planner uses it next")
+)]
+mod palette;
 mod ports;
 #[cfg(test)]
 mod ports_tests;
