@@ -8,22 +8,19 @@ Source: Novation, *Launchpad X Programmer's Reference Manual*.
 
 ## Ports
 
-A Launchpad X exposes two MIDI port pairs:
+A Launchpad X has two USB-MIDI interfaces (X-PRM p6): the **DAW** interface first and the **MIDI** interface second. LaunchDeck opens only the MIDI interface, which carries Programmer-mode notes, CCs and lighting SysEx; the DAW interface is recognised and never opened.
 
-| Port name (typical) | Use |
-| --- | --- |
-| `LPX MIDI In/Out` | Used by LaunchDeck. Carries Programmer-mode notes, CCs and lighting SysEx. |
-| `LPX DAW In/Out` | DAW integration. Ignored. |
+Each system names them differently. `src-tauri/src/devices/novation/ports.rs` reads every name on its own, with the system as a parameter, and pairs the unit's MIDI input with its MIDI output:
 
-OS names differ, so `classify_port` matches loosely and is tested on examples:
+| System | MIDI interface (input / output) | DAW interface | How the role is told |
+| --- | --- | --- | --- |
+| macOS | `Launchpad X LPX MIDI Out` / `Launchpad X LPX MIDI In` | `… LPX DAW Out` / `… LPX DAW In` | the word after `LPX` |
+| Windows, classic names | `MIDIIN2 (LPX MIDI)` / `MIDIOUT2 (LPX MIDI)` | `LPX MIDI` (both directions) | the `MIDIIN2`/`MIDIOUT2` wrapper is interface 2; a bare name is interface 1, the DAW one |
+| Windows MIDI Services, new style | `LPX MIDI Out` / `LPX MIDI In` | `LPX DAW Out` / `LPX DAW In` | the word after `LPX` |
+| Linux, kernel 5.13 or later | `Launchpad X:Launchpad X LPX MIDI In 28:1` (one duplex port) | `…LPX DAW In 28:0` | the word after `LPX` |
+| Linux, older kernels | `Launchpad X:Launchpad X MIDI 2 28:1` | `…MIDI 1 28:0` | `MIDI n` is interface n |
 
-| OS | Example |
-| --- | --- |
-| macOS | `LPX MIDI`, `LPX DAW` |
-| Linux (ALSA) | `Launchpad X:Launchpad X LPX MIDI 28:1` |
-| Windows | `MIDIIN2 (LPX MIDI)` |
-
-A name containing `daw` is the DAW port. A name containing `lpx` or `launchpad x` and `midi` is the MIDI port. On Windows the second interface carries Programmer mode.
+Several units: Linux gives each its own ALSA client (`28` above), Windows classic adds a leading `2- ` and new style a ` (2)`, and macOS gives identical names, so there the k-th MIDI input is paired with the k-th MIDI output. Other Launchpad models are listed once per unit as not supported and never opened. Every name above is derived from Novation's documents, Microsoft's naming rules, the Linux sources and community projects; the fixtures are in `novation/ports_tests.rs`. **None of it has been observed on a real system**: no Launchpad X, Windows machine or Linux desktop was available.
 
 ## Programmer mode
 
@@ -106,7 +103,7 @@ grid 8 x 8, aux top 8, side 8, logo, rgb, velocity, no pressure, no native anima
 
 ## Lifecycle in LaunchDeck
 
-1. Every 3 seconds (and on **Rescan**) `discover()` lists MIDI ports and registers any Launchpad X it finds as a device. Unplugged, unconnected hardware is forgotten.
+1. Every 3 seconds (and on **Rescan**) `NovationHardware` lists the MIDI ports, `ports.rs` sorts them into units, and the device manager registers any Launchpad X it finds as a device. Unplugged, unconnected hardware is forgotten.
 2. **Connect** opens the MIDI in and out ports, sends Programmer mode, clears the LEDs and starts forwarding decoded input.
 3. If a render fails (cable pulled) the device is disconnected and `device.disconnected` is published. The virtual device is unaffected.
 4. **Disconnect** clears the LEDs, returns to Live mode and closes the ports.

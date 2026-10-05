@@ -43,6 +43,15 @@ impl FakeMidi {
         s.ports.outputs.push(output);
     }
 
+    /// Replaces every listed port, in the system's order: inputs and outputs
+    /// need not come in pairs.
+    pub fn set_ports(&self, inputs: &[PortInfo], outputs: &[PortInfo]) {
+        self.state().ports = PortSnapshot {
+            inputs: inputs.to_vec(),
+            outputs: outputs.to_vec(),
+        };
+    }
+
     /// Removes every port with this id, as when a unit is unplugged.
     pub fn remove(&self, id: &str) {
         let mut s = self.state();

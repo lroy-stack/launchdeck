@@ -14,11 +14,9 @@
 
 use super::profile::{ModelProfile, Role};
 use crate::devices::midi::{PortInfo, PortSnapshot};
+use crate::devices::source::UNSUPPORTED_MODEL;
 use crate::devices::{DeviceIdentity, DeviceKind};
 use crate::platform::Platform;
-
-/// The model of a Launchpad LaunchDeck lists but does not drive.
-const UNSUPPORTED_MODEL: &str = "unsupported";
 
 /// Tokens that start the name of a Novation model no profile describes.
 const OTHER_NOVATION: [&str; 2] = ["launchpad", "lppromk3"];

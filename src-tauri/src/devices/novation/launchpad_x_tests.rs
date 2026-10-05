@@ -12,6 +12,7 @@ use crate::core::model::{Animation, ControlPos, Rgb};
 use crate::devices::midi::testkit::{port, FakeMidi};
 use crate::devices::source::HardwareSource;
 use crate::devices::{DeviceInput, InputKind, Led, LedCell, SurfaceDevice, SurfaceFrame};
+use crate::platform::Platform;
 
 /// macOS names: the unit's input is "… Out" and its output "… In".
 const IN_NAME: &str = "Launchpad X LPX MIDI Out";
@@ -31,7 +32,7 @@ fn fake() -> FakeMidi {
 
 /// The device the manager would get for the one unit on these ports.
 fn device(midi: &FakeMidi) -> Box<dyn SurfaceDevice> {
-    let mut hardware = NovationHardware::new(Arc::new(midi.clone()));
+    let mut hardware = NovationHardware::new(Arc::new(midi.clone()), Platform::MacOs);
     let found = hardware.scan().units;
     assert_eq!(found.len(), 1);
     hardware.device(&found[0].id).unwrap()

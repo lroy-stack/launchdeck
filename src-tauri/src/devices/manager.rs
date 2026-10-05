@@ -13,6 +13,7 @@ use super::{
     AnimationCaps, AuxCaps, DeviceCapabilities, DeviceError, DeviceIdentity, DeviceKind,
     InputSender, SurfaceDevice, SurfaceFrame,
 };
+use crate::platform::Platform;
 
 /// What a person is told after a connect attempt failed. The operating
 /// system's text goes to the log and to the error of the connect command.
@@ -112,7 +113,7 @@ pub struct DeviceManager {
 
 impl DeviceManager {
     pub fn new(input: InputSender) -> Self {
-        let hardware = NovationHardware::new(Arc::new(SystemMidi));
+        let hardware = NovationHardware::new(Arc::new(SystemMidi), Platform::current());
         Self::with_hardware(input, Box::new(hardware))
     }
 

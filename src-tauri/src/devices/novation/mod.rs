@@ -6,17 +6,15 @@
 //! system's ports. `NovationHardware` is what the device manager sees.
 
 mod hardware;
-// The port parser and the profiles are put to use by the next commits.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by later packages"))]
 mod launchpad_mini_mk3;
 mod launchpad_x;
 #[cfg(test)]
 mod launchpad_x_tests;
 mod layout;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by later packages"))]
 mod ports;
 #[cfg(test)]
 mod ports_tests;
+// The product byte, inquiry families and Live layout are read from M5 on.
 #[cfg_attr(not(test), expect(dead_code, reason = "used by later packages"))]
 mod profile;
 // The Mini MK3 packages (M3-M8) put the rest of the codec to use.
