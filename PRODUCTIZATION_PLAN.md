@@ -554,7 +554,7 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 | 8 | R1 | CI workflows within the minutes budget | no | A2 | A6 | done, NOT VERIFIED (a) |
 | 9 | A7 | Split `core/runtime.rs` | yes | A3 | | done |
 | 10 | B1 | Context Engine hardening and portable resolver | yes | A5, A7 | | done |
-| 11 | D1 | Plugin host hardening and `plugins:validate` | yes | A4, A6 | | todo |
+| 11 | D1 | Plugin host hardening and `plugins:validate` | yes | A4, A6 | | done |
 | 11b | D4 | Legacy plaintext secrets: never used, explicit migration | yes | D1 | | todo |
 | 12 | D2 | Install bundled example plugins | yes | D1, D4 | | todo |
 | 13 | D3 | Reproducible example plugins and author docs | yes | D1 | | todo |
