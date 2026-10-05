@@ -557,7 +557,7 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 | 11 | D1 | Plugin host hardening and `plugins:validate` | yes | A4, A6 | | done |
 | 11b | D4 | Legacy plaintext secrets: never used, explicit migration | yes | D1 | | done; real Keychain and the card in the app NOT VERIFIED (f) |
 | 12 | D2 | Install bundled example plugins | yes | D1, D4 | | done; the resource path inside a built bundle NOT VERIFIED until R5; the Install button and Show plugins folder in the app NOT VERIFIED (f) |
-| 13 | D3 | Reproducible example plugins and author docs | yes | D1 | | todo |
+| 13 | D3 | Reproducible example plugins and author docs | yes | D1 | | done; `--check` reproduced the four modules on macOS only (Linux, Windows, other Node versions NOT VERIFIED (a, d, e)); C Ping not rebuilt (no wasm-capable clang here); the in-app steps of the author flow NOT VERIFIED (f) |
 | 14 | C1 | Artifact format core | yes | A6 | | todo |
 | 15 | C2 | Artifact export | yes | C1 | | todo |
 | 16 | C3 | Artifact inspect and hostile fixtures | yes | C2 | | todo |
