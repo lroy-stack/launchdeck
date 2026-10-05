@@ -276,24 +276,27 @@ pub(super) fn planned_surfaces(
         .collect()
 }
 
-/// Providers of the surface's pads and state rules that nothing here is.
+/// Providers the surface's pads name that have no actions here, and
+/// providers its state rules name that offer nothing here.
 fn missing_providers(surface: &SurfaceV1, env: &Environment) -> Vec<String> {
-    let known = |p: &str| env.providers.contains_key(p) || env.observable_sources.contains(p);
+    let has_actions = |p: &&str| env.providers.contains_key(*p);
+    let offers = |p: &&str| has_actions(p) || env.observable_sources.contains(*p);
     let controls = surface.pages.iter().flat_map(|p| &p.controls);
     let actions = controls
         .clone()
         .flat_map(|c| [&c.press, &c.long_press])
         .flatten()
-        .map(|a| a.provider.as_str());
+        .map(|a| a.provider.as_str())
+        .filter(|p| !has_actions(p));
     let states = controls
         .flat_map(|c| &c.feedback)
         .filter_map(|rule| match &rule.when {
             When::State(s) => Some(s.state.provider.as_str()),
             When::Event(_) => None,
-        });
+        })
+        .filter(|p| !offers(p));
     actions
         .chain(states)
-        .filter(|p| !known(p))
         .map(str::to_string)
         .collect::<BTreeSet<_>>()
         .into_iter()

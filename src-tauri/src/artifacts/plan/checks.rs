@@ -220,7 +220,8 @@ fn fits_on(control: &ControlV1, caps: &DeviceCapabilities) -> bool {
 
 /// Providers this version of LaunchDeck does not have, outside programs
 /// feedback listens to, and pads that open a surface by an id the file
-/// does not rename.
+/// does not rename. A pad needs a provider with actions: one that only
+/// offers states and events (the runtime, the devices) has none to run.
 pub(super) fn provider_warnings(
     content: &ContentV1,
     env: &Environment,
@@ -228,7 +229,7 @@ pub(super) fn provider_warnings(
 ) {
     for p in walk::assignments(content) {
         let a = p.assignment;
-        if !is_plugin(&a.provider) && !known(env, &a.provider) {
+        if !is_plugin(&a.provider) && env.provider(&a.provider).is_none() {
             warn(
                 warnings,
                 W::UnknownHostProvider,

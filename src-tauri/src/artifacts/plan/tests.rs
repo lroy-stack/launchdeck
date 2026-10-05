@@ -1541,6 +1541,7 @@ fn a_provider_this_version_lacks_and_an_outside_source_are_said() {
         FeedbackRule::event("ci", "build.failed").show("red"),
         FeedbackRule::event("device", "control.pressed").show("red"),
         FeedbackRule::state(StateAddress::new("weather", "rain"), Test::HasValue).show("red"),
+        FeedbackRule::state(StateAddress::new("runtime", "surface"), Test::HasValue).show("red"),
     ];
     let open = a(
         "navigation",
@@ -1556,6 +1557,8 @@ fn a_provider_this_version_lacks_and_an_outside_source_are_said() {
                 pad(0, "Beam", Some(a("teleport", "beam", json!({})))),
                 listen,
                 pad(2, "Away", Some(open)),
+                // The devices offer states and events, and no action.
+                pad(3, "Blink", Some(a("device", "blink", json!({})))),
             ],
         )],
         vec![],
@@ -1586,9 +1589,16 @@ fn a_provider_this_version_lacks_and_an_outside_source_are_said() {
                 W::ExternalSurfaceReference,
                 "/content/surfaces/0/pages/0/controls/2/press/args/surfaceId"
             ),
+            (
+                W::UnknownHostProvider,
+                "/content/surfaces/0/pages/0/controls/3/press/provider"
+            ),
         ]
     );
-    assert_eq!(p.surfaces[0].missing_providers, ["teleport", "weather"]);
+    assert_eq!(
+        p.surfaces[0].missing_providers,
+        ["device", "teleport", "weather"]
+    );
 }
 
 #[test]
