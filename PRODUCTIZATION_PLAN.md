@@ -547,7 +547,7 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 | 1 | A1 | Architecture docs and agent entrypoints | no | — | | done |
 | 2 | A2 | Quality commands, architecture check, hook, toolchain pin | no | A1 | | done |
 | 3 | A3 | Rust boundary fixes: audit, identifiers, platform | yes | A2 | A4 | done |
-| 4 | A4 | Frontend structure and boundaries | no | A2 | A3 | todo |
+| 4 | A4 | Frontend structure and boundaries | no | A2 | A3 | done |
 | 5 | A5 | Decompose `surfaces/mod.rs` | yes | A3 | B0 | todo |
 | 6 | B0 | Documentation truth pass | no | A2 | A5 | todo |
 | 7 | A6 | Split `lib.rs` into `commands/` and `tray.rs` | yes | A3 | R1 | todo |
