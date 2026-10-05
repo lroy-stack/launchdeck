@@ -340,7 +340,7 @@ fn the_text_is_what_runs() {
             "request",
             json!({ "method": "POST", "url": "https://example.com/hook", "body": "{\"a\":1}" })
         )),
-        "POST https://example.com/hook\n\n{\"a\":1}"
+        "POST https://example.com/hook (to example.com, port 443)\n\n{\"a\":1}"
     );
     assert_eq!(
         item(a(
@@ -348,7 +348,7 @@ fn the_text_is_what_runs() {
             "request",
             json!({ "url": "https://example.com" })
         )),
-        "GET https://example.com"
+        "GET https://example.com (to example.com, port 443)"
     );
     assert_eq!(
         item(a(
@@ -416,7 +416,7 @@ fn the_text_is_read_as_the_runtime_reads_it() {
             "request",
             json!({ "method": "post", "url": "https://example.com/h", "body": " " })
         ),
-        "POST https://example.com/h"
+        "POST https://example.com/h (to example.com, port 443)"
     );
     assert_eq!(
         item(
@@ -424,7 +424,7 @@ fn the_text_is_read_as_the_runtime_reads_it() {
             "request",
             json!({ "method": "", "url": "https://example.com/h" })
         ),
-        "GET https://example.com/h"
+        "GET https://example.com/h (to example.com, port 443)"
     );
     // A blank instruction continues; a blank folder is no folder.
     assert_eq!(
@@ -562,37 +562,9 @@ fn no_review_text_holds_a_hidden_character() {
     );
 }
 
-/// Every default-ignorable code point of Unicode is hidden, and nothing
-/// a person reads as text is: one predicate for the review and inspect.
+/// The format's direction controls are among the hidden characters.
 #[test]
-fn hidden_is_every_default_ignorable_code_point() {
-    for c in [
-        'a',
-        'é',
-        ' ',
-        '\n',
-        '\t',
-        '/',
-        '\u{2215}',
-        '\u{1F600}',
-        '\u{3000}',
-    ] {
-        assert!(!hidden(c), "{c:?}");
-    }
-    let ignorable = [
-        0xAD, 0x34F, 0x61C, 0x115F, 0x1160, 0x17B4, 0x17B5, 0x180B, 0x180E, 0x180F, 0x200B, 0x200F,
-        0x202A, 0x2060, 0x2064, 0x2065, 0x206F, 0x3164, 0xFE00, 0xFE0F, 0xFEFF, 0xFFA0, 0xFFF0,
-        0xFFF8, 0x1BCA0, 0x1BCA3, 0x1D173, 0x1D17A, 0xE0000, 0xE0001, 0xE007F, 0xE0100, 0xE01EF,
-        0xE0FFF,
-    ];
-    for code in ignorable {
-        let c = char::from_u32(code).unwrap();
-        assert!(hidden(c), "U+{code:04X}");
-    }
-    for code in [0xAC, 0x34E, 0x1161, 0x17B6, 0x2070, 0xFE10, 0xFFF9, 0xE1000] {
-        assert!(!hidden(char::from_u32(code).unwrap()), "U+{code:04X}");
-    }
-    // The format's direction controls are among them.
+fn every_direction_control_is_hidden() {
     let all = (0..=0x10FFFF).filter_map(char::from_u32);
     assert!(all
         .filter(|&c| crate::artifacts::format::is_bidi(c))
@@ -614,18 +586,117 @@ fn an_address_in_other_scripts_shows_its_host_in_punycode() {
         };
         ReviewItem::new(at, "Pad", kind, &assignment).text
     };
+    let refused = "(LaunchDeck will not send it: The address is read differently by the HTTP \
+                   client and by a browser.)";
     assert_eq!(
         text("https://\u{430}pple.com/login"),
-        "GET https://\u{430}pple.com/login (host xn--pple-43d.com)"
+        format!("GET https://\u{430}pple.com/login (host xn--pple-43d.com) {refused}")
     );
     assert_eq!(
         text("https://xn--pple-43d.com/"),
-        "GET https://xn--pple-43d.com/"
+        "GET https://xn--pple-43d.com/ (to xn--pple-43d.com, port 443)"
     );
+    // Only the host decides: a path in other scripts goes where it says.
     assert_eq!(
         text("https://example.com/caf\u{e9}"),
-        "GET https://example.com/caf\u{e9}"
+        "GET https://example.com/caf\u{e9} (to example.com, port 443)"
     );
+}
+
+/// SF-4: the review states where a request goes, as the runtime would
+/// send it, and a host definition marked privileged shows every argument.
+#[test]
+fn a_request_states_its_destination() {
+    let text = |assignment: Assignment, env: &Environment| {
+        let kind = classify(&assignment, env).unwrap();
+        let at = Location {
+            surface_source_id: "dev".into(),
+            page_id: "home".into(),
+            control_id: "g.0.0".into(),
+            slot: Slot::Press,
+        };
+        ReviewItem::new(at, "Pad", kind, &assignment).text
+    };
+    let env = Environment::default();
+    let request = |url: &str| a("http", "request", json!({ "url": url }));
+    assert_eq!(
+        text(request("https://evil.example#@trusted.example"), &env),
+        "GET https://evil.example#@trusted.example (to evil.example, port 443)"
+    );
+    assert_eq!(
+        text(request("https://trusted.example@evil.example/"), &env),
+        "GET https://trusted.example@evil.example/ (LaunchDeck will not send it: The address \
+         carries a user name or password, which LaunchDeck does not send.)"
+    );
+    let privileged = KnownProvider {
+        kind: crate::actions::definition::ProviderKind::Builtin,
+        name: "Future".into(),
+        version: "1.0.0".into(),
+        status: ProviderStatus::Ready,
+        actions: BTreeMap::from([(
+            "send".to_string(),
+            KnownAction {
+                params: vec![],
+                privileged: true,
+            },
+        )]),
+    };
+    let env = Environment {
+        providers: BTreeMap::from([("future".to_string(), privileged)]),
+        ..Environment::default()
+    };
+    assert_eq!(
+        text(
+            a("future", "send", json!({ "to": "x", "secret\u{200B}": 1 })),
+            &env
+        ),
+        "future.send {\"secret\\u200b\":1,\"to\":\"x\"}"
+    );
+}
+
+/// SF-4: a file whose request would go elsewhere than the review shows is
+/// refused at the address; an address asked of the importer, or one the
+/// runtime refuses anyway (not http), is left to the import's own checks.
+#[test]
+fn a_request_address_read_two_ways_is_refused() {
+    let file = |args: Value, inputs: &[(&str, &str)]| {
+        let mut assignment =
+            crate::artifacts::format::AssignmentV1::from_model(&a("http", "request", args));
+        for (arg, input) in inputs {
+            assignment.inputs.insert(arg.to_string(), input.to_string());
+        }
+        let content = json!({ "surfaces": [ { "id": "s", "name": "S", "category": "custom",
+            "pages": [ { "id": "home", "name": "Home", "controls": [
+                { "id": "g.0.0", "pos": { "kind": "grid", "col": 0, "row": 0 }, "label": "Pad",
+                  "visual": { "color": "#ff0000" }, "press": assignment } ] } ] } ] });
+        serde_json::from_value::<ContentV1>(content).unwrap()
+    };
+    let at = "/content/surfaces/0/pages/0/controls/0/press/args/url";
+    for url in [
+        "https://trusted.example@evil.example/",
+        "https://trusted.example\\@evil.example/",
+        "http://0x7f.1/",
+        "https://\u{430}pple.com/",
+    ] {
+        let refused = check_visible(&file(json!({ "url": url }), &[])).unwrap_err();
+        assert_eq!(
+            (refused.code, refused.at.as_deref()),
+            (crate::artifacts::RejectionCode::InvalidContent, Some(at)),
+            "{url}"
+        );
+    }
+    for (url, inputs) in [
+        ("https://example.com/hook", &[][..]),
+        ("", &[("url", "hook")][..]),
+        ("", &[][..]),
+        ("mailto:me@example.com", &[][..]),
+    ] {
+        assert_eq!(
+            check_visible(&file(json!({ "url": url }), inputs)),
+            Ok(()),
+            "{url}"
+        );
+    }
 }
 
 /// A file whose action that runs things hides a character in an

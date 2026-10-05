@@ -15,12 +15,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::env::Environment;
-use super::format::{assignments, echo, ContentV1, Rejection, RejectionCode};
+use super::format::{assignments, echo, AssignmentV1, ContentV1, Rejection, RejectionCode};
 use super::json::segment;
 use crate::actions::builtin::{
-    http_request_of, shell_command, HttpRequest, HTTP, HTTP_REQUEST, SHELL, SHELL_EXECUTE,
+    http_request_of, request_destination, shell_command, HttpRequest, HTTP, HTTP_REQUEST, SHELL,
+    SHELL_EXECUTE,
 };
 use crate::actions::definition::{Assignment, ProviderKind};
+use crate::actions::params::hidden_char as hidden;
 use crate::agents::plugin::{
     instruction_of, new_task_of, CONTINUE as AGENT_CONTINUE, NEW_TASK as AGENT_NEW_TASK,
     PLUGIN_ID as AGENT_CONTROL,
@@ -175,44 +177,6 @@ fn word(w: &str) -> String {
     out
 }
 
-/// A character a person cannot see, or that reorders the text around it: a
-/// control character other than a line break or a tab, a line or paragraph
-/// separator, and every default-ignorable code point. The one predicate of
-/// the review's escaping and of [`check_visible`] (SF-3, SF-3b).
-fn hidden(c: char) -> bool {
-    (c.is_control() && !matches!(c, '\n' | '\t'))
-        || matches!(c, '\u{2028}' | '\u{2029}')
-        || default_ignorable(c)
-}
-
-/// Unicode's `Default_Ignorable_Code_Point` (DerivedCoreProperties.txt):
-/// what a renderer shows as nothing, such as zero-width spaces and joiners,
-/// direction marks, embeddings, overrides and isolates (the format's
-/// `is_bidi` is part of it), variation selectors, fillers, tags and the
-/// soft hyphen.
-fn default_ignorable(c: char) -> bool {
-    matches!(
-        u32::from(c),
-        0x00AD
-            | 0x034F
-            | 0x061C
-            | 0x115F..=0x1160
-            | 0x17B4..=0x17B5
-            | 0x180B..=0x180F
-            | 0x200B..=0x200F
-            | 0x202A..=0x202E
-            | 0x2060..=0x206F
-            | 0x3164
-            | 0xFE00..=0xFE0F
-            | 0xFEFF
-            | 0xFFA0
-            | 0xFFF0..=0xFFF8
-            | 0x1BCA0..=0x1BCA3
-            | 0x1D173..=0x1D17A
-            | 0xE0000..=0xE0FFF
-    )
-}
-
 /// The one escaping of every review text (SF-3): each [`hidden`] character
 /// is written as an escape (`\r`, `\u001b`, `\u202e`), so nothing in a text
 /// hides or reorders what a person reads. A multi-line text keeps its line
@@ -254,13 +218,28 @@ fn review_text(kind: ReviewKind, assignment: &Assignment) -> String {
                 == (HTTP, HTTP_REQUEST) =>
         {
             let HttpRequest { method, url, body } = http_request_of(args);
-            let request = format!("{} {}", visible(&method, false), shown_address(&url));
+            let destination = match request_destination(&url) {
+                Ok(to) => format!("to {}, port {}", visible(&to.host, false), to.port),
+                Err(refused) => format!(
+                    "LaunchDeck will not send it: {}",
+                    visible(&refused.message(), false)
+                ),
+            };
+            let request = format!(
+                "{} {} ({destination})",
+                visible(&method, false),
+                shown_address(&url)
+            );
             match body {
                 Some(body) => format!("{request}\n\n{}", visible(&body, true)),
                 None => request,
             }
         }
-        ReviewKind::SendsRequest => visible(&assignment.definition_id(), false),
+        ReviewKind::SendsRequest => format!(
+            "{} {}",
+            visible(&assignment.definition_id(), false),
+            visible(&assignment.args.to_string(), false)
+        ),
         ReviewKind::LaunchesProgram => launch_text(args, Platform::current()),
         ReviewKind::InstructsAgent if assignment.action == AGENT_NEW_TASK => {
             match new_task_of(args) {
@@ -311,24 +290,49 @@ fn runs_things(provider: &str, action: &str) -> bool {
 /// A file in which an action that runs things holds a [`hidden`] character
 /// in an argument, at any depth, is refused at that argument (SF-3): the
 /// review would have to show an escape where the action runs the character.
+/// So is a request whose address the runtime would send elsewhere than a
+/// person is shown (SF-4).
 pub(crate) fn check_visible(content: &ContentV1) -> Result<(), Rejection> {
-    let found = assignments(content)
-        .filter(|(_, a)| runs_things(&a.provider, &a.action))
-        .find_map(|(at, a)| {
-            let name = a.args.iter().find(|(_, v)| hides(v)).map(|(n, _)| n)?;
-            Some((format!("{at}/args/{}", segment(name)), name))
-        });
-    match found {
-        None => Ok(()),
-        Some((at, name)) => Err(Rejection::at(
-            RejectionCode::InvalidContent,
-            at,
-            format!(
-                "An action that runs something holds, in \"{}\", a character a person cannot see or that reorders the text around it.",
-                echo(name)
-            ),
-        )),
+    for (at, a) in assignments(content).filter(|(_, a)| runs_things(&a.provider, &a.action)) {
+        if let Some(name) = a.args.keys().find(|name| hides(&a.args[*name])) {
+            return Err(Rejection::at(
+                RejectionCode::InvalidContent,
+                format!("{at}/args/{}", segment(name)),
+                format!(
+                    "An action that runs something holds, in \"{}\", a character a person \
+                     cannot see or that reorders the text around it.",
+                    echo(name)
+                ),
+            ));
+        }
+        check_address(&at, a)?;
     }
+    Ok(())
+}
+
+/// The address of a request written in the file: the runtime's own reading
+/// must accept it. An address asked of the importer is checked once it is
+/// given, and one that is not http or https is the runtime's to refuse.
+fn check_address(at: &str, a: &AssignmentV1) -> Result<(), Rejection> {
+    const URL: &str = "url";
+    if (a.provider.as_str(), a.action.as_str()) != (HTTP, HTTP_REQUEST)
+        || a.inputs.contains_key(URL)
+    {
+        return Ok(());
+    }
+    let Some(Value::String(url)) = a.args.get(URL) else {
+        return Ok(());
+    };
+    if !(url.starts_with("http://") || url.starts_with("https://")) {
+        return Ok(());
+    }
+    request_destination(url).map(|_| ()).map_err(|refused| {
+        Rejection::at(
+            RejectionCode::InvalidContent,
+            format!("{at}/args/{URL}"),
+            refused.message(),
+        )
+    })
 }
 
 /// Whether any text in `value`, at any depth, holds a [`hidden`] character.

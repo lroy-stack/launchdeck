@@ -1,0 +1,64 @@
+{
+  "format": "launchdeck.surface",
+  "formatVersion": 1,
+  "manifest": {
+    "createdWith": {
+      "app": "launchdeck",
+      "version": "0.3.0"
+    },
+    "id": "hostile.request-idn-host",
+    "integrity": {
+      "content": "sha256:804f71108306b364686f6b8f40cd46e2f499293a59114bb04838cd49cd9d3fb1"
+    },
+    "name": "Hostile",
+    "requirements": {
+      "aux": {
+        "side": 0,
+        "top": 0
+      },
+      "grid": {
+        "minHeight": 1,
+        "minWidth": 1
+      },
+      "rgb": true
+    },
+    "version": "1.0.0"
+  },
+  "content": {
+    "surfaces": [
+      {
+        "category": "custom",
+        "id": "hostile",
+        "name": "Hostile",
+        "pages": [
+          {
+            "controls": [
+              {
+                "id": "g.0.0",
+                "label": "Pad 1",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "request",
+                  "args": {
+                    "method": "POST",
+                    "url": "https://аpple.com/login"
+                  },
+                  "provider": "http"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              }
+            ],
+            "id": "home",
+            "name": "Home"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -207,6 +207,44 @@ pub fn valid_param_name(s: &str) -> bool {
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
+/// A character a person cannot see, or that reorders the text around it: a
+/// control character other than a line break or a tab, a line or paragraph
+/// separator, and every default-ignorable code point. The one predicate of
+/// what a reviewed action may not hide (an artifact's review and inspect)
+/// and of the addresses the runtime refuses to send to.
+pub(crate) fn hidden_char(c: char) -> bool {
+    (c.is_control() && !matches!(c, '\n' | '\t'))
+        || matches!(c, '\u{2028}' | '\u{2029}')
+        || default_ignorable(c)
+}
+
+/// Unicode's `Default_Ignorable_Code_Point` (DerivedCoreProperties.txt):
+/// what a renderer shows as nothing, such as zero-width spaces and joiners,
+/// direction marks, embeddings, overrides and isolates, variation
+/// selectors, fillers, tags and the soft hyphen.
+fn default_ignorable(c: char) -> bool {
+    matches!(
+        u32::from(c),
+        0x00AD
+            | 0x034F
+            | 0x061C
+            | 0x115F..=0x1160
+            | 0x17B4..=0x17B5
+            | 0x180B..=0x180F
+            | 0x200B..=0x200F
+            | 0x202A..=0x202E
+            | 0x2060..=0x206F
+            | 0x3164
+            | 0xFE00..=0xFE0F
+            | 0xFEFF
+            | 0xFFA0
+            | 0xFFF0..=0xFFF8
+            | 0x1BCA0..=0x1BCA3
+            | 0x1D173..=0x1D17A
+            | 0xE0000..=0xE0FFF
+    )
+}
+
 fn text_ok(s: &str, max: usize) -> bool {
     s.chars().count() <= max && !s.chars().any(|c| c.is_control() && c != '\n')
 }
@@ -459,6 +497,40 @@ pub fn normalize(defs: &[ParamDef], args: &Value) -> Result<Value, Vec<Issue>> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// Every default-ignorable code point of Unicode is hidden, and nothing
+    /// a person reads as text is.
+    #[test]
+    fn hidden_is_every_default_ignorable_code_point() {
+        for c in [
+            'a',
+            'é',
+            ' ',
+            '\n',
+            '\t',
+            '/',
+            '\u{2215}',
+            '\u{1F600}',
+            '\u{3000}',
+        ] {
+            assert!(!hidden_char(c), "{c:?}");
+        }
+        let ignorable = [
+            0xAD, 0x34F, 0x61C, 0x115F, 0x1160, 0x17B4, 0x17B5, 0x180B, 0x180E, 0x180F, 0x200B,
+            0x200F, 0x202A, 0x2060, 0x2064, 0x2065, 0x206F, 0x3164, 0xFE00, 0xFE0F, 0xFEFF, 0xFFA0,
+            0xFFF0, 0xFFF8, 0x1BCA0, 0x1BCA3, 0x1D173, 0x1D17A, 0xE0000, 0xE0001, 0xE007F, 0xE0100,
+            0xE01EF, 0xE0FFF,
+        ];
+        for code in ignorable {
+            assert!(hidden_char(char::from_u32(code).unwrap()), "U+{code:04X}");
+        }
+        for code in [0xAC, 0x34E, 0x1161, 0x17B6, 0x2070, 0xFE10, 0xFFF9, 0xE1000] {
+            assert!(!hidden_char(char::from_u32(code).unwrap()), "U+{code:04X}");
+        }
+        for c in ['\0', '\r', '\u{1b}', '\u{85}', '\u{2028}', '\u{2029}'] {
+            assert!(hidden_char(c), "{c:?}");
+        }
+    }
 
     fn defs() -> Vec<ParamDef> {
         vec![

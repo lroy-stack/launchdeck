@@ -1,0 +1,64 @@
+{
+  "format": "launchdeck.surface",
+  "formatVersion": 1,
+  "manifest": {
+    "createdWith": {
+      "app": "launchdeck",
+      "version": "0.3.0"
+    },
+    "id": "hostile.request-userinfo",
+    "integrity": {
+      "content": "sha256:fb22c70712534897f4263ae181fe9bef635abe1dca0c1cd2d80b615508c832c0"
+    },
+    "name": "Hostile",
+    "requirements": {
+      "aux": {
+        "side": 0,
+        "top": 0
+      },
+      "grid": {
+        "minHeight": 1,
+        "minWidth": 1
+      },
+      "rgb": true
+    },
+    "version": "1.0.0"
+  },
+  "content": {
+    "surfaces": [
+      {
+        "category": "custom",
+        "id": "hostile",
+        "name": "Hostile",
+        "pages": [
+          {
+            "controls": [
+              {
+                "id": "g.0.0",
+                "label": "Pad 1",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "request",
+                  "args": {
+                    "method": "POST",
+                    "url": "https://trusted.example@evil.example/hook"
+                  },
+                  "provider": "http"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              }
+            ],
+            "id": "home",
+            "name": "Home"
+          }
+        ]
+      }
+    ]
+  }
+}

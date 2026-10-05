@@ -790,7 +790,11 @@ fn an_address_with_credentials_is_an_error() {
         ],
     )]);
     let errors = refused(&ws, &pack(&["web"]));
-    assert_eq!(codes(&errors), [E::Credential, E::Credential]);
+    // The request's address is also one the runtime would not send (SF-4).
+    assert_eq!(
+        codes(&errors),
+        [E::Credential, E::Credential, E::InvalidContent]
+    );
     assert_eq!(
         errors[0].at.as_deref(),
         Some("/content/surfaces/0/pages/0/controls/0/press/args/url")
@@ -1197,7 +1201,13 @@ fn a_bound_argument_leaves_its_local_value_home() {
         .iter()
         .map(|r| r.text.as_str())
         .collect();
-    assert_eq!(review, ["POST https://example.com/hook", ""]);
+    assert_eq!(
+        review,
+        [
+            "POST https://example.com/hook (to example.com, port 443)",
+            ""
+        ]
+    );
     // Determinism is unchanged.
     assert_eq!(
         export(&local_workspace(), &hand_env(), &local_request()),
@@ -1369,7 +1379,10 @@ fn pads_that_run_things_are_listed_for_review() {
         kinds,
         [
             (ReviewKind::LaunchesProgram, "code --wait"),
-            (ReviewKind::SendsRequest, "POST https://example.com/h"),
+            (
+                ReviewKind::SendsRequest,
+                "POST https://example.com/h (to example.com, port 443)"
+            ),
             (ReviewKind::InstructsAgent, "Report"),
         ]
     );

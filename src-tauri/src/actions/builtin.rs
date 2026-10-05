@@ -14,7 +14,7 @@ use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 
 use super::definition::{Issue, ProviderKind};
-use super::params::{ParamDef, RefTarget, MAX_TEXT_VALUE};
+use super::params::{hidden_char, ParamDef, RefTarget, MAX_TEXT_VALUE};
 use crate::core::model::Rgb;
 use crate::plugins::{ActionDef, ActionError, Plugin, PluginContext, PluginManifest};
 
@@ -303,12 +303,7 @@ impl Plugin for HttpProvider {
     fn check(&self, action: &str, args: &Value) -> Result<(), Issue> {
         if action == HTTP_REQUEST {
             let url = args.get("url").and_then(Value::as_str).unwrap_or_default();
-            if !(url.starts_with("http://") || url.starts_with("https://")) {
-                return Err(Issue::param(
-                    "url",
-                    "URL must start with http:// or https://",
-                ));
-            }
+            request_destination(url).map_err(|e| Issue::param("url", e.message()))?;
         }
         Ok(())
     }
@@ -350,6 +345,62 @@ pub(crate) fn http_request_of(args: &Value) -> HttpRequest {
     }
 }
 
+/// Where a request goes, as the HTTP client that sends it reads the
+/// address.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Destination {
+    /// `http` or `https`.
+    pub scheme: String,
+    /// Lowercase; an IPv6 address in brackets.
+    pub host: String,
+    pub port: u16,
+}
+
+/// The one reading of an `http.request` address (security finding SF-4),
+/// by the runtime before it sends and by an artifact's review: the
+/// destination as the HTTP client (`http::Uri`) reads it. Refused: an
+/// address that is not http or https; that carries a user name or a
+/// password; that holds a backslash, a blank or a hidden character; or
+/// whose scheme, host or port a browser's parser (WHATWG, the `url` crate)
+/// reads differently. What a person is shown is then where it goes.
+pub(crate) fn request_destination(url: &str) -> Result<Destination, ActionError> {
+    let refused = |why: &str| Err(ActionError::InvalidArgs(why.to_string()));
+    if !(url.starts_with("http://") || url.starts_with("https://")) {
+        return refused("URL must start with http:// or https://");
+    }
+    if url.contains('\\') {
+        return refused("The address contains a backslash, which address readers disagree about.");
+    }
+    if url.chars().any(char::is_whitespace) {
+        return refused("The address contains a blank, such as a space or a tab.");
+    }
+    if url.chars().any(hidden_char) {
+        return refused("The address contains a character a person cannot see.");
+    }
+    let differ = "The address is read differently by the HTTP client and by a browser.";
+    let (Ok(client), Ok(browser)) = (url.parse::<ureq::http::Uri>(), url::Url::parse(url)) else {
+        return refused(differ);
+    };
+    let with_user = client.authority().is_some_and(|a| a.as_str().contains('@'));
+    if with_user || !browser.username().is_empty() || browser.password().is_some() {
+        return refused(
+            "The address carries a user name or password, which LaunchDeck does not send.",
+        );
+    }
+    let scheme = client.scheme_str().unwrap_or_default().to_ascii_lowercase();
+    let host = client.host().unwrap_or_default().to_ascii_lowercase();
+    let port = client
+        .port_u16()
+        .unwrap_or(if scheme == "https" { 443 } else { 80 });
+    let same = browser.scheme() == scheme
+        && browser.host_str() == Some(host.as_str())
+        && browser.port_or_known_default() == Some(port);
+    if !same || host.is_empty() {
+        return refused(differ);
+    }
+    Ok(Destination { scheme, host, port })
+}
+
 fn http_request(request: HttpRequest) -> Result<Value, ActionError> {
     let HttpRequest { method, url, body } = request;
     let url = url.as_str();
@@ -358,11 +409,7 @@ fn http_request(request: HttpRequest) -> Result<Value, ActionError> {
             "unsupported HTTP method `{method}`"
         )));
     }
-    if !(url.starts_with("http://") || url.starts_with("https://")) {
-        return Err(ActionError::InvalidArgs(
-            "URL must start with http:// or https://".into(),
-        ));
-    }
+    request_destination(url)?;
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(HTTP_TIMEOUT))
         .http_status_as_error(false)
@@ -438,6 +485,59 @@ mod tests {
             |method: &str, url: &str| http_request_of(&json!({ "method": method, "url": url }));
         assert!(http_request(request("TRACE", "http://127.0.0.1")).is_err());
         assert!(http_request(request("GET", "file:///etc/passwd")).is_err());
+    }
+
+    /// SF-4: one reading of an address, the HTTP client's, which a browser's
+    /// parser must agree with on scheme, host and port.
+    #[test]
+    fn a_request_goes_only_where_both_parsers_agree() {
+        let to = |url: &str| {
+            let d = request_destination(url).unwrap_or_else(|e| panic!("{url}: {e}"));
+            (d.scheme, d.host, d.port)
+        };
+        assert_eq!(
+            to("https://Example.com/a?b=1"),
+            ("https".into(), "example.com".into(), 443)
+        );
+        assert_eq!(
+            to("http://127.0.0.1:8123/api"),
+            ("http".into(), "127.0.0.1".into(), 8123)
+        );
+        assert_eq!(to("http://[::1]/x"), ("http".into(), "[::1]".into(), 80));
+        for (url, why) in [
+            ("ftp://example.com", "http:// or https://"),
+            ("HTTPS://example.com", "http:// or https://"),
+            ("https://user:pw@example.com/", "user name or password"),
+            (
+                "https://trusted.example@evil.example/",
+                "user name or password",
+            ),
+            (
+                "https://trusted.example:443@evil.example/",
+                "user name or password",
+            ),
+            ("https://trusted.example\\@evil.example/", "backslash"),
+            ("https://evil.example\\trusted.example/", "backslash"),
+            ("https://example.com/a b", "blank"),
+            ("https://example.com/\t", "blank"),
+            ("https://example.com/\u{200B}", "cannot see"),
+            ("https://example.com/\u{0}", "cannot see"),
+            ("https://\u{430}pple.com/", "read differently"),
+            ("http://0x7f.1/", "read differently"),
+            ("http://2130706433/", "read differently"),
+            ("https://", "read differently"),
+        ] {
+            let refused = request_destination(url).unwrap_err().message();
+            assert!(refused.contains(why), "{url:?}: {refused}");
+        }
+        // The runtime refuses what the review would not show truthfully,
+        // before any network use; so does the editor's check.
+        let request = |url: &str| http_request_of(&json!({ "url": url }));
+        assert!(http_request(request("https://trusted.example@127.0.0.1:9/")).is_err());
+        let issue = HttpProvider
+            .check(HTTP_REQUEST, &json!({ "url": "https://a\\@b/" }))
+            .unwrap_err();
+        assert_eq!(issue.param.as_deref(), Some("url"));
     }
 
     #[tokio::test]

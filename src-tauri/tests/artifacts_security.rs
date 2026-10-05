@@ -1208,6 +1208,28 @@ fn an_action_that_runs_things_hides_no_character() {
     }
 }
 
+/// A request the runtime would send elsewhere than its review shows (SF-4):
+/// a user name before the host, a backslash, a host two parsers read
+/// differently, a host in other scripts.
+#[test]
+fn a_request_goes_only_where_it_is_shown() {
+    for name in [
+        "request-userinfo.ldsurface",
+        "request-backslash.ldsurface",
+        "request-numeric-host.ldsurface",
+        "request-idn-host.ldsurface",
+    ] {
+        assert_eq!(
+            refused(&hostile(name), name),
+            at(
+                R::InvalidContent,
+                "/content/surfaces/0/pages/0/controls/0/press/args/url"
+            ),
+            "{name}"
+        );
+    }
+}
+
 /// Every file of the hostile folder is refused, except the valid ones whose
 /// launches must be reviewed or can never run.
 #[test]
