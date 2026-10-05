@@ -613,6 +613,8 @@ describe("exporting surfaces", () => {
 
   it("opens from a surface's Export… with that surface chosen", async () => {
     const { preview } = exporter();
+    // Past the first run, which takes the place of the shell while the flag is off.
+    await api.setOnboardingDone(true);
     render(<App />);
     await waitFor(() => expect(useStore.getState().ready).toBe(true));
     useStore.setState({ view: "surface" });
