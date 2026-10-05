@@ -1,0 +1,6 @@
+# The toolchain LaunchDeck is built, formatted and linted with, here and in CI.
+# Moving to a newer one (new clippy lints included) is a change of its own.
+[toolchain]
+channel = "1.97.0"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
