@@ -567,7 +567,7 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 | 20 | C7 | Artifact documentation | no | C5 | C6 | todo |
 | 21 | E1 | Error UX and structured issues | yes | A4, A6, A7 | | todo |
 | 22 | E2 | Device status | yes | A4, A7 | | done; unplug, replug, a busy port and other Launchpad models exercised with fake ports only, real hardware NOT VERIFIED (b); the app window NOT VERIFIED (f) |
-| 23 | E3 | Surface management, onboarding flag, load notice | yes | A7 | | todo |
+| 23 | E3 | Surface management, onboarding flag, load notice | yes | A7 | | done; `commit_workspace` added here as 7.11 specifies (C4 adds the same on the main lane: keep one at the merge); the app window, Show folder and the banner NOT VERIFIED (f) |
 | 24 | E4 | First run and starter content | yes | E2, E3, A5 | | todo |
 | 25 | E5 | Settings, About, single version source | yes | E3, D2 | | todo |
 | 26 | E6 | Empty states and readable activity | no | A4 | R2 | todo |
