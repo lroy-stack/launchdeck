@@ -53,6 +53,11 @@ tempfile = "3"
 wat = "1"
 tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread", "time"] }
 
+# examples/foreground.rs runs the main run loop, which delivers the activation
+# notifications on macOS.
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSRunLoop", "NSDate"] }
+
 [profile.release]
 lto = true
 codegen-units = 1
