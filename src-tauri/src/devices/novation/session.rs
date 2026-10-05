@@ -40,7 +40,14 @@
 //! probe's sleep question while it answers the others is said not to
 //! support sleep.
 //!
-//! On release a unit LaunchDeck put to sleep is woken, then the clear
+//! Text (section 12.3) scrolls over the frame, which is still drawn
+//! underneath. No message says when a scroll ends: one that does not loop
+//! is taken as over after `(characters × 6 + 9) / speed` seconds (a
+//! column of 6 per character is an assumption). When it stops or is over
+//! the next frame is sent whole.
+//!
+//! On release a running scroll is stopped, a unit LaunchDeck put to sleep
+//! is woken, then the clear
 //! frame, the LED feedback the unit had if LaunchDeck changed it, the
 //! brightness it had if LaunchDeck changed it, Live mode, then the layout
 //! the unit showed before, unless Live mode lands there anyway. What
@@ -53,10 +60,12 @@ use std::time::{Duration, Instant};
 
 use super::profile::ModelProfile;
 use super::protocol::{
-    brightness, feedback, programmer_mode, query, select_layout, sleep, Reply, BRIGHTNESS,
-    FEEDBACK, INQUIRY, LAYOUT, MODE, SLEEP,
+    brightness, feedback, programmer_mode, query, select_layout, sleep, text, text_stop, to_7bit,
+    Reply, TextColour, BRIGHTNESS, FEEDBACK, INQUIRY, LAYOUT, MODE, SLEEP,
 };
-use crate::devices::{DeviceDetails, DeviceError, DeviceFeatures, ModeState};
+use crate::devices::{
+    DeviceDetails, DeviceError, DeviceFeatures, ModeState, ScrollDirection, TextScroll,
+};
 
 /// How long a question to the unit waits for its answer. Some drivers may
 /// drop SysEx: then LaunchDeck goes on without the answer.
@@ -78,6 +87,13 @@ const PROGRAMMER_LAYOUT: u8 = 0x7F;
 
 /// The highest brightness level (MINI-PRM p22).
 const BRIGHTNESS_MAX: u8 = 0x7F;
+
+/// The fastest scroll the text command carries, pads per second (p20).
+const TEXT_SPEED_MAX: u8 = 63;
+/// Pad columns per character of scrolling text, and the columns the text
+/// takes to come in and leave: an assumption, the font is undocumented.
+const TEXT_COLUMNS_PER_CHAR: u64 = 6;
+const TEXT_COLUMNS_EXTRA: u64 = 9;
 
 /// Where the session is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -146,6 +162,9 @@ pub(crate) struct Session {
     brightness: Brightness,
     /// LaunchDeck put the LEDs to sleep and has not seen them wake.
     asleep: bool,
+    /// Text LaunchDeck is scrolling: when it is taken as over, `None` for
+    /// a scroll that loops.
+    scroll: Option<Option<Instant>>,
     /// What the unit's firmware turned out not to do.
     unsupported: Unsupported,
 }
@@ -207,6 +226,7 @@ impl Session {
             takeovers: Vec::new(),
             brightness: Brightness::default(),
             asleep: false,
+            scroll: None,
             unsupported: Unsupported::default(),
         }
     }
@@ -258,6 +278,44 @@ impl Session {
         let mut actions = vec![Action::Send(sleep(product, true))];
         actions.extend(self.woke());
         Ok(actions)
+    }
+
+    /// Scrolls text over the frame, or stops the scroll (`None`), on a unit
+    /// LaunchDeck holds.
+    pub(crate) fn scroll_text(
+        &mut self,
+        now: Instant,
+        scroll: Option<&TextScroll>,
+    ) -> Result<Vec<Action>, DeviceError> {
+        if !self.features().scrolling_text {
+            return Err(self.unavailable("scrolling text"));
+        }
+        if self.phase != Phase::Owned {
+            return Err(DeviceError::NotConnected);
+        }
+        let product = self.profile.product;
+        let Some(scroll) = scroll else {
+            self.scroll = None;
+            return Ok(vec![Action::Send(text_stop(product)), Action::Invalidate]);
+        };
+        let speed = scroll.speed.clamp(1, TEXT_SPEED_MAX);
+        let ascii = scroll.text.as_bytes();
+        let over = (!scroll.looping).then(|| now + scroll_time(ascii.len(), speed));
+        self.scroll = Some(over);
+        // Speed bytes from 40h are negative and scroll left to right.
+        let signed = match scroll.direction {
+            ScrollDirection::Left => speed as i8,
+            ScrollDirection::Right => -(speed as i8),
+        };
+        let c = scroll.color;
+        let colour = TextColour::Rgb(to_7bit(c.r), to_7bit(c.g), to_7bit(c.b));
+        Ok(vec![Action::Send(text(
+            product,
+            scroll.looping,
+            signed,
+            colour,
+            ascii,
+        ))])
     }
 
     /// The LEDs are on again: the next frame is sent whole.
@@ -326,7 +384,9 @@ impl Session {
             }
             Phase::Owned => {
                 self.unanswered(now);
-                self.beat(now)
+                let mut actions = self.scrolled(now);
+                actions.extend(self.beat(now));
+                actions
             }
             _ => Vec::new(),
         });
@@ -341,6 +401,9 @@ impl Session {
         match std::mem::replace(&mut self.phase, Phase::Closed) {
             Phase::Entering { .. } | Phase::Owned => {
                 let mut actions = vec![Action::Gate(false)];
+                if self.scroll.take().is_some() {
+                    actions.push(Action::Send(text_stop(product)));
+                }
                 if self.asleep {
                     actions.push(Action::Send(sleep(product, true)));
                     actions.extend(self.woke());
@@ -414,8 +477,8 @@ impl Session {
             mode,
             brightness,
             asleep: self.asleep,
+            scrolling: self.scroll.is_some(),
             notice,
-            ..DeviceDetails::default()
         }
     }
 
@@ -552,6 +615,7 @@ impl Session {
         self.programmer = None;
         self.seen = Reported::default();
         self.heartbeat = None;
+        self.scroll = None;
         let mut actions = Vec::new();
         if std::mem::take(&mut self.asleep) {
             actions.push(Action::Asleep(false));
@@ -642,6 +706,18 @@ impl Session {
             .get_or_insert(level.min(BRIGHTNESS_MAX));
     }
 
+    /// A scroll that does not loop and whose time is up is taken as over:
+    /// the next frame is sent whole.
+    fn scrolled(&mut self, now: Instant) -> Vec<Action> {
+        match self.scroll {
+            Some(Some(over)) if now >= over => {
+                self.scroll = None;
+                vec![Action::Invalidate]
+            }
+            _ => Vec::new(),
+        }
+    }
+
     /// A brightness question unanswered while the unit answered who it is
     /// and whether it is in Programmer mode: its firmware does not know it.
     fn unanswered(&mut self, now: Instant) {
@@ -717,6 +793,12 @@ impl Session {
 
 fn timed_out(since: Instant, now: Instant) -> bool {
     now.saturating_duration_since(since) >= REPLY_TIMEOUT
+}
+
+/// How long text takes to scroll by once, at `speed` pads per second.
+fn scroll_time(chars: usize, speed: u8) -> Duration {
+    let columns = chars as u64 * TEXT_COLUMNS_PER_CHAR + TEXT_COLUMNS_EXTRA;
+    Duration::from_millis(columns * 1000 / u64::from(speed.max(1)))
 }
 
 /// Percent 0-100 to a brightness level 0-127, rounded: 50 is `40h`.

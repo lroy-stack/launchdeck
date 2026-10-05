@@ -27,8 +27,8 @@ use crate::devices::manager::{DeviceChange, DeviceManager, DeviceStatus};
 use crate::devices::midi::testkit::{port, FakeMidi};
 use crate::devices::midi::{MidiBackend, PortInfo};
 use crate::devices::{
-    DeviceError, DeviceInput, DeviceSetting, InputKind, Led, LedCell, ModeState, SurfaceDevice,
-    SurfaceFrame,
+    DeviceError, DeviceInput, DeviceSetting, InputKind, Led, LedCell, ModeState, ScrollDirection,
+    SurfaceDevice, SurfaceFrame, TextScroll,
 };
 use crate::platform::Platform;
 
@@ -1602,6 +1602,114 @@ fn a_unit_not_taken_yet_cannot_be_put_to_sleep() {
     let (midi, mut dev, _rx) = mini_with(&sim, &FakeClock::new());
     sent(&midi);
     let error = dev.apply(DeviceSetting::Sleep(true)).unwrap_err();
+    assert!(matches!(error, DeviceError::NotConnected), "{error:?}");
+    assert_eq!(sent(&midi), Vec::<Vec<u8>>::new());
+}
+
+// ---- scrolling text --------------------------------------------------------------
+
+const MINI_TEXT_STOP: &str = "F0 00 20 29 02 0D 07 F7";
+
+fn hello(direction: ScrollDirection, looping: bool) -> TextScroll {
+    TextScroll {
+        text: "Hello World".into(),
+        color: Rgb::new(255, 255, 255),
+        speed: 7,
+        direction,
+        looping,
+    }
+}
+
+#[test]
+fn text_scrolls_over_the_frame_and_the_frame_is_drawn_whole_when_it_stops() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, mut frame) = mini_drawn(&sim, &FakeClock::new());
+    dev.scroll_text(Some(&hello(ScrollDirection::Left, true)))
+        .unwrap();
+    assert_eq!(
+        sent(&midi),
+        [hex(
+            "F0 00 20 29 02 0D 07 01 07 01 7F 7F 7F 48 65 6C 6C 6F 20 57 6F 72 6C 64 F7"
+        )]
+    );
+    assert_eq!(sim.text().map(|t| t.text), Some(b"Hello World".to_vec()));
+    assert!(dev.details().scrolling);
+    frame.leds[0].led.color = Rgb::new(255, 255, 255);
+    dev.render(&frame).unwrap();
+    assert_eq!(sent(&midi).len(), 1, "the frame is still drawn underneath");
+
+    dev.scroll_text(None).unwrap();
+    assert_eq!(sent(&midi), [hex(MINI_TEXT_STOP)]);
+    assert_eq!(sim.text(), None);
+    assert!(!dev.details().scrolling);
+    assert_redrawn(&midi, &mut dev, &frame);
+}
+
+#[test]
+fn text_scrolling_to_the_right_has_a_negative_speed() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, _frame) = mini_drawn(&sim, &FakeClock::new());
+    dev.scroll_text(Some(&hello(ScrollDirection::Right, true)))
+        .unwrap();
+    let message = sent(&midi).remove(0);
+    assert_eq!(message[..9], hex("F0 00 20 29 02 0D 07 01 79"));
+    assert_eq!(sim.text().map(|t| t.speed), Some(0x79));
+}
+
+#[test]
+fn a_text_scrolled_once_is_taken_as_over_after_its_estimated_time() {
+    let sim = SimLaunchpad::mini();
+    let clock = FakeClock::new();
+    let (midi, mut dev, frame) = mini_drawn(&sim, &clock);
+    let once = TextScroll {
+        text: "Hi".into(),
+        ..hello(ScrollDirection::Left, false)
+    };
+    dev.scroll_text(Some(&once)).unwrap();
+    assert_eq!(sent(&midi)[0][7], 0x00, "not looping");
+    // (2 characters × 6 + 9) / 7 pads per second = 3 s.
+    clock.advance(Duration::from_millis(2999));
+    dev.render(&frame).unwrap();
+    assert_eq!(sent(&midi), [hex(READ_MINI_MODE)], "only the heartbeat");
+    assert!(dev.details().scrolling);
+    clock.advance(Duration::from_millis(1));
+    assert_redrawn(&midi, &mut dev, &frame);
+    assert!(!dev.details().scrolling);
+}
+
+#[test]
+fn release_stops_a_running_scroll_first() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, _frame) = mini_drawn(&sim, &FakeClock::new());
+    dev.scroll_text(Some(&hello(ScrollDirection::Left, true)))
+        .unwrap();
+    sent(&midi);
+    dev.disconnect().unwrap();
+    assert_eq!(
+        sent(&midi),
+        [hex(MINI_TEXT_STOP), mini_clear(), hex(MINI_LIVE)]
+    );
+    assert_eq!(sim.text(), None);
+}
+
+#[test]
+fn the_launchpad_x_scrolls_text_with_its_own_product_byte() {
+    let (midi, sim, mut dev, _rx) = on_sim();
+    dev.scroll_text(Some(&hello(ScrollDirection::Left, true)))
+        .unwrap();
+    let message = midi.take_sent().remove(0).1;
+    assert_eq!(message[..7], hex("F0 00 20 29 02 0C 07"));
+    assert!(sim.text().is_some());
+}
+
+#[test]
+fn a_unit_not_taken_yet_scrolls_no_text() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, _rx) = mini_with(&sim, &FakeClock::new());
+    sent(&midi);
+    let error = dev
+        .scroll_text(Some(&hello(ScrollDirection::Left, true)))
+        .unwrap_err();
     assert!(matches!(error, DeviceError::NotConnected), "{error:?}");
     assert_eq!(sent(&midi), Vec::<Vec<u8>>::new());
 }

@@ -50,6 +50,35 @@ pub struct TextScroll {
     pub looping: bool,
 }
 
+/// The most characters LaunchDeck scrolls. LaunchDeck's limit: the
+/// device's own is undocumented.
+const TEXT_MAX_CHARS: usize = 64;
+/// The fastest scroll, in pads per second (MINI-PRM p20).
+const TEXT_SPEED_MAX: u8 = 63;
+
+const TEXT_PROBLEM: &str = "Scrolling text takes up to 64 letters, digits and punctuation marks.";
+const SPEED_PROBLEM: &str = "Scrolling text moves at 1 to 63 pads per second.";
+
+impl TextScroll {
+    /// Whether LaunchDeck sends this text: 1 to `TEXT_MAX_CHARS` printable
+    /// ASCII characters (`20h`-`7Eh`, which the device's font is
+    /// documented for) at 1 to `TEXT_SPEED_MAX` pads per second; the
+    /// sentence for the person otherwise.
+    pub fn check(&self) -> Result<(), &'static str> {
+        let text = self.text.as_bytes();
+        if text.is_empty()
+            || text.len() > TEXT_MAX_CHARS
+            || !text.iter().all(|c| (0x20..=0x7E).contains(c))
+        {
+            return Err(TEXT_PROBLEM);
+        }
+        if !(1..=TEXT_SPEED_MAX).contains(&self.speed) {
+            return Err(SPEED_PROBLEM);
+        }
+        Ok(())
+    }
+}
+
 /// Which way scrolling text moves.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -146,6 +175,39 @@ mod tests {
         );
         assert_eq!(serde_json::from_value::<TextScroll>(value).unwrap(), scroll);
         assert_eq!(ScrollDirection::default(), ScrollDirection::Left);
+    }
+
+    #[test]
+    fn text_is_checked_against_launchdecks_limits() {
+        let scroll = |text: &str, speed: u8| TextScroll {
+            text: text.into(),
+            color: Rgb::new(255, 255, 255),
+            speed,
+            direction: ScrollDirection::Left,
+            looping: false,
+        };
+        let longest = "x".repeat(TEXT_MAX_CHARS);
+        for ok in [
+            scroll(" ~Hello, World!", 1),
+            scroll(&longest, TEXT_SPEED_MAX),
+        ] {
+            assert_eq!(ok.check(), Ok(()), "{:?}", ok.text);
+        }
+        let too_long = "x".repeat(TEXT_MAX_CHARS + 1);
+        for text in ["", too_long.as_str(), "é", "café", "tab\there", "\u{7F}"] {
+            assert_eq!(
+                scroll(text, 7).check(),
+                Err("Scrolling text takes up to 64 letters, digits and punctuation marks."),
+                "{text:?}"
+            );
+        }
+        for speed in [0, TEXT_SPEED_MAX + 1, 255] {
+            assert_eq!(
+                scroll("Hi", speed).check(),
+                Err("Scrolling text moves at 1 to 63 pads per second."),
+                "{speed}"
+            );
+        }
     }
 
     #[test]

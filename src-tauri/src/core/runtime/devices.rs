@@ -1,12 +1,12 @@
 //! Devices: drawing the active page on every connected device, the device
 //! list (connect, disconnect, rescan for hardware), and what a device can
-//! be given beyond frames (brightness, sleep).
+//! be given beyond frames (brightness, sleep, scrolling text).
 
 use serde_json::json;
 
 use super::{control_key, Inner, Runtime};
 use crate::devices::manager::{DeviceChange, DeviceInfo};
-use crate::devices::{DeviceError, DeviceSetting};
+use crate::devices::{DeviceError, DeviceSetting, TextScroll};
 
 /// The highest brightness, in percent.
 const BRIGHTNESS_MAX: u8 = 100;
@@ -118,6 +118,20 @@ impl Runtime {
         Ok(())
     }
 
+    /// Scrolls text across a connected device, or stops the scroll
+    /// (`None`). The text is checked against LaunchDeck's limits first.
+    pub fn scroll_device_text(&self, id: &str, text: Option<TextScroll>) -> Result<(), String> {
+        if let Some(text) = &text {
+            text.check()?;
+        }
+        self.lock()
+            .devices
+            .scroll_text(id, text.as_ref())
+            .map_err(sentence)?;
+        self.emit_state();
+        Ok(())
+    }
+
     /// Look for Launchpad X hardware; connect units that are new or came back.
     /// A connect that fails is recorded by the device manager as the unit's
     /// problem.
@@ -166,11 +180,12 @@ mod tests {
     use serde_json::Value;
 
     use super::super::{ui, Runtime, RuntimeConfig, UiEmitter};
+    use crate::core::model::Rgb;
     use crate::core::model::Workspace;
     use crate::devices::{
         AnimationCaps, AuxCaps, DeviceCapabilities, DeviceDetails, DeviceError, DeviceFeatures,
-        DeviceIdentity, DeviceKind, DeviceSetting, InputSender, ModeState, SurfaceDevice,
-        SurfaceFrame,
+        DeviceIdentity, DeviceKind, DeviceSetting, InputSender, ModeState, ScrollDirection,
+        SurfaceDevice, SurfaceFrame, TextScroll,
     };
     use crate::events::types;
     use crate::persistence::Store;
@@ -229,7 +244,12 @@ mod tests {
     }
 
     /// What a device with every feature was given, in order.
-    type Given = Arc<Mutex<Vec<DeviceSetting>>>;
+    #[derive(Default)]
+    struct Record {
+        settings: Vec<DeviceSetting>,
+        texts: Vec<Option<TextScroll>>,
+    }
+    type Given = Arc<Mutex<Record>>;
 
     /// A device with every feature that records what it is given.
     struct Featured {
@@ -282,7 +302,11 @@ mod tests {
             }
         }
         fn apply(&mut self, setting: DeviceSetting) -> Result<(), DeviceError> {
-            self.given.lock().unwrap().push(setting);
+            self.given.lock().unwrap().settings.push(setting);
+            Ok(())
+        }
+        fn scroll_text(&mut self, text: Option<&TextScroll>) -> Result<(), DeviceError> {
+            self.given.lock().unwrap().texts.push(text.cloned());
             Ok(())
         }
     }
@@ -397,7 +421,11 @@ mod tests {
         ))
         .await;
         let given = featured(&rt);
-        assert_eq!(*given.lock().unwrap(), [], "no preference, nothing given");
+        assert_eq!(
+            given.lock().unwrap().settings,
+            [],
+            "no preference, nothing given"
+        );
 
         assert_eq!(
             rt.set_device_brightness(Some(101)).unwrap_err(),
@@ -407,7 +435,7 @@ mod tests {
 
         rt.set_device_brightness(Some(50)).unwrap();
         assert_eq!(
-            *given.lock().unwrap(),
+            given.lock().unwrap().settings,
             [DeviceSetting::Brightness(Some(50))]
         );
         assert_eq!(
@@ -418,7 +446,7 @@ mod tests {
 
         rt.set_device_brightness(None).unwrap();
         assert_eq!(
-            given.lock().unwrap().last(),
+            given.lock().unwrap().settings.last(),
             Some(&DeviceSetting::Brightness(None))
         );
         assert_eq!(on_disk(dir.path()).preferences.device_brightness, None);
@@ -433,7 +461,7 @@ mod tests {
         let rt = Runtime::start(config(workspace, None, Arc::new(States::default()))).await;
         let given = featured(&rt);
         assert_eq!(
-            *given.lock().unwrap(),
+            given.lock().unwrap().settings,
             [DeviceSetting::Brightness(Some(30))]
         );
     }
@@ -450,7 +478,7 @@ mod tests {
         rt.set_device_sleep(FEATURED, true).unwrap();
         rt.set_device_sleep(FEATURED, false).unwrap();
         assert_eq!(
-            *given.lock().unwrap(),
+            given.lock().unwrap().settings,
             [DeviceSetting::Sleep(true), DeviceSetting::Sleep(false)]
         );
         assert_eq!(
@@ -462,6 +490,57 @@ mod tests {
             rt.set_device_sleep(FEATURED, true).unwrap_err(),
             "The device is not connected."
         );
-        assert_eq!(given.lock().unwrap().len(), 2);
+        assert_eq!(given.lock().unwrap().settings.len(), 2);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn text_is_checked_before_it_is_scrolled_and_can_be_stopped() {
+        let rt = Runtime::start(config(
+            default_workspace(),
+            None,
+            Arc::new(States::default()),
+        ))
+        .await;
+        let given = featured(&rt);
+        let text = |text: &str| TextScroll {
+            text: text.into(),
+            color: Rgb::new(255, 255, 255),
+            speed: 7,
+            direction: ScrollDirection::Left,
+            looping: true,
+        };
+        let too_long = "x".repeat(65);
+        for refused in [too_long.as_str(), "é", ""] {
+            assert_eq!(
+                rt.scroll_device_text(FEATURED, Some(text(refused)))
+                    .unwrap_err(),
+                "Scrolling text takes up to 64 letters, digits and punctuation marks.",
+                "{refused:?}"
+            );
+        }
+        let slow = TextScroll {
+            speed: 0,
+            ..text("Hi")
+        };
+        assert_eq!(
+            rt.scroll_device_text(FEATURED, Some(slow)).unwrap_err(),
+            "Scrolling text moves at 1 to 63 pads per second."
+        );
+        assert!(
+            given.lock().unwrap().texts.is_empty(),
+            "nothing refused is sent"
+        );
+
+        rt.scroll_device_text(FEATURED, Some(text("Hello World")))
+            .unwrap();
+        rt.scroll_device_text(FEATURED, None).unwrap();
+        assert_eq!(
+            given.lock().unwrap().texts,
+            [Some(text("Hello World")), None]
+        );
+        assert_eq!(
+            rt.scroll_device_text("nope", None).unwrap_err(),
+            "LaunchDeck does not know this device. Press Look again. Details: nope"
+        );
     }
 }

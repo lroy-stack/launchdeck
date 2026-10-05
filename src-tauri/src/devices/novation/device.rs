@@ -27,7 +27,7 @@ use crate::core::model::ControlPos;
 use crate::devices::midi::{MessageFramer, MidiBackend, MidiLink, OnBytes};
 use crate::devices::{
     DeviceCapabilities, DeviceDetails, DeviceError, DeviceFeatures, DeviceIdentity, DeviceInput,
-    DeviceKind, DeviceSetting, InputKind, InputSender, SurfaceDevice, SurfaceFrame,
+    DeviceKind, DeviceSetting, InputKind, InputSender, SurfaceDevice, SurfaceFrame, TextScroll,
 };
 
 /// Replies kept until the next render reads them; a unit that sends more
@@ -236,6 +236,14 @@ impl SurfaceDevice for Mk3Device {
             DeviceSetting::Brightness(percent) => self.session.set_brightness(now, percent)?,
             DeviceSetting::Sleep(asleep) => self.session.set_sleep(asleep)?,
         };
+        self.act_all(actions)
+    }
+
+    fn scroll_text(&mut self, text: Option<&TextScroll>) -> Result<(), DeviceError> {
+        if self.link.is_none() {
+            return Err(DeviceError::NotConnected);
+        }
+        let actions = self.session.scroll_text((self.clock)(), text)?;
         self.act_all(actions)
     }
 }

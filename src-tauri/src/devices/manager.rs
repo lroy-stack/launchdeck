@@ -12,6 +12,7 @@ use super::source::HardwareSource;
 use super::{
     AnimationCaps, AuxCaps, DeviceCapabilities, DeviceDetails, DeviceError, DeviceFeatures,
     DeviceIdentity, DeviceKind, DeviceSetting, InputSender, SurfaceDevice, SurfaceFrame,
+    TextScroll,
 };
 use crate::platform::Platform;
 
@@ -286,6 +287,17 @@ impl DeviceManager {
             return Err(DeviceError::NotConnected);
         }
         entry.device.apply(setting)?;
+        entry.announced = entry.device.details();
+        Ok(())
+    }
+
+    /// Scrolls text across one connected device, or stops the scroll.
+    pub fn scroll_text(&mut self, id: &str, text: Option<&TextScroll>) -> Result<(), DeviceError> {
+        let entry = self.entry_mut(id)?;
+        if !entry.device.is_connected() {
+            return Err(DeviceError::NotConnected);
+        }
+        entry.device.scroll_text(text)?;
         entry.announced = entry.device.details();
         Ok(())
     }
