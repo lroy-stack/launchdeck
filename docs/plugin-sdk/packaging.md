@@ -8,7 +8,9 @@ acme.notes/            any folder name; the manifest id is what counts
   notes.wasm
 ```
 
-That folder is the whole artifact. Nothing is compiled, downloaded or executed at install time, and the format is the same on every system: the same bytes have been run on Linux and macOS (by the test suites), and have not been run on Windows. To ship it, zip the folder; to install it, unzip into the plugins folder. Compressed bundles, checksums and signatures are not part of the format yet and the manifest does not block adding them (see the [marketplace roadmap](../roadmap/marketplace.md)). There is no marketplace.
+That folder is the whole artifact. Nothing is compiled, downloaded or executed at install time, and the format is the same on every system: the same bytes have been run on Linux and macOS (by the test suites), and have not been run on Windows. To ship it, zip the folder; to install it, unzip into the plugins folder.
+
+There is no package format beyond the folder yet. A zip is only a way to carry it: LaunchDeck does not open zip files and has no "install from a file". No checksum or signature is made or checked, and grants are not tied to a module's contents. The manifest does not block adding them later (see the [marketplace roadmap](../roadmap/marketplace.md)). There is no marketplace. The **Install** buttons on the Plugins screen install only the example plugins that ship with the app (Hello, Counter and Home Assistant), by copying their folders into the plugins folder.
 
 ## Where plugins are searched
 
@@ -22,7 +24,7 @@ That folder is the whole artifact. Nothing is compiled, downloaded or executed a
 
 2. Every folder listed in the `LAUNCHDECK_PLUGINS` environment variable (a path list: `:` on macOS and Linux, `;` on Windows), for development.
 
-Each of those folders contains plugin folders. Only direct children are read. If two folders provide the same plugin id, the earlier one in this order wins and the other is listed under **Installed plugins** as skipped.
+**Show plugins folder** on the Plugins screen creates the first one if needed and shows it. Each of those folders contains plugin folders. Only direct children are read. If two folders provide the same plugin id, the earlier one in this order wins and the other is listed under **Installed plugins** as skipped.
 
 ## When plugins load
 
@@ -57,6 +59,10 @@ Two more things belong to an installed plugin and are kept apart from its settin
 | Secrets | The system's credential store. Never a file: without a store they are unavailable | No. See [secrets](secrets.md). |
 
 Changing a setting that a network address comes from asks for the new address; the grant for the old one stays on file and allows nothing.
+
+## Updating a plugin
+
+Replace the files in the plugin's folder and press **Rescan**: the plugin restarts with the new module. Its settings, its network grants and its secrets stay, because they belong to the plugin's **id**, not to its files. A new version that asks for another address gets nothing for it until the person allows it. The same holds for any module that declares the id: LaunchDeck does not compare a new module with the one the person installed (module hashing is not implemented), so a different plugin put in the folder under the same id inherits the grants and the use of the secrets. See [security](security.md#what-is-not-claimed).
 
 ## Using a plugin from a surface
 

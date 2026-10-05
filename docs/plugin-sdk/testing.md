@@ -25,6 +25,8 @@ Each folder is copied to a temporary plugins folder and scanned by the real plug
 ```text
 /…/examples/plugins/hello
   example.hello 0.1.0 (Hello Plugin): on
+/…/src-tauri/tests/fixtures/plugins/sdk-0.1/hello
+  example.hello 0.1.0 (Hello Plugin): on
   warning: built with SDK 0.1.0, older than this LaunchDeck's 0.2.1: still accepted; rebuild with the current SDK to use what it adds
 /…/bad-module
   example.hello 0.1.0 (Hello Plugin): error, invalidModule
@@ -38,7 +40,7 @@ It does not run actions or `refresh` and makes no network request; **Test run** 
 The Rust workspace tests the SDK on three levels, and plugin authors can borrow the same ideas.
 
 * **Hostile modules in WAT** (`src-tauri/tests/support/wat_plugins.rs`). A small builder turns WebAssembly text into modules that loop forever, trap, grow memory, import WASI, return garbage, return megabytes, publish undeclared events or lie about their protocol. Each case proves the host reports a clear error and keeps running. Add a case when you find a new way a module can misbehave.
-* **Real plugins, full chain** (`src-tauri/tests/plugin_sdk.rs`). The example plugins are discovered from `examples/plugins`, loaded, and driven from pads on the virtual Launchpad X. The strongest test presses a pad, waits for the plugin's event to travel the Event Bus and a real event rule, and asserts the LED frame changed. It also covers the Counter's memory between presses, the C module, disabling and enabling, a crashing plugin next to a healthy one, settings, and duplicates.
+* **Real plugins, full chain** (`src-tauri/tests/plugin_sdk.rs`). The example plugins are discovered from `examples/plugins`, loaded, and driven from pads on the virtual Launchpad X. The strongest test presses a pad, waits for the plugin's event to travel the Event Bus and a real event rule, and asserts the LED frame changed. It also covers the Counter's memory between presses, the C module, disabling and enabling, a crashing plugin next to a healthy one, settings, and duplicates. The same file loads the Hello, Counter and Channels modules that SDK 0.1 built, kept unchanged in `src-tauri/tests/fixtures/plugins/sdk-0.1`, and runs one action of each (`modules_built_with_sdk_0_1_still_load_and_run`), so a host change that breaks plugins built with an older SDK fails a test ([versioning](versioning.md#the-frozen-sdk-01-modules)).
 * **States, full chain** (`src-tauri/tests/plugin_states.rs`). The real Counter and Channels modules run against the virtual Launchpad X with no mocked plugin boundary: load, declare, an action reports a state, the hub holds it, the catalog lists it, a feedback rule changes the pad, **Disable** makes it unavailable and the pad follows, **Enable** reads unknown, and the next report is known again. It also covers scoped instances, two plugins that cannot write each other's states, and refused writes. The cases a module can get wrong (undeclared state, wrong type, unlisted enum value, a call that traps) are unit tests next to the host (`src-tauri/src/plugins/external/state_tests.rs`).
 * **The network broker, for real** (`src-tauri/tests/plugin_network.rs`, and unit tests next to the broker). A probe plugin built with the SDK (`src-tauri/tests/fixtures/plugins/net-probe`) makes requests through the real broker to a real local server (`tests/support/http_server.rs`) that records everything it receives, so a test can assert that a refused request never arrived. Covered: allowed, denied, not requested, not granted, disabled, invalid URLs, wrong scheme, explicit ports, redirects to allowed and to forbidden origins, timeouts, bodies too large in both directions, a malformed response, a plugin that traps mid-request, the per-call and per-minute limits, and an update that asks for more.
 * **Home Assistant, full chain** (`src-tauri/tests/home_assistant.rs`). The real example plugin against a mock Home Assistant (`tests/support/mock_home_assistant.rs`) and the virtual Launchpad X: enable, request, grant, address and token, state `off`, pad Off, press, pending, the call arrives, state `on`, pad On; revoke and nothing arrives; grant again and it recovers. The broker is never mocked. A test also fails if the plugin's id or API paths appear anywhere in LaunchDeck's own source.
@@ -51,6 +53,7 @@ Run them:
 cd src-tauri && cargo test            # all Rust tests, including the SDK ones
 npm test                              # TypeScript, including the plugins contract
 npm run plugins:build                 # rebuild the example modules
+sh scripts/build-example-plugins.sh --check   # rebuild them aside and compare with SHA256SUMS
 npm run plugins:validate -- <folder>  # check plugin folders as LaunchDeck loads them
 ```
 

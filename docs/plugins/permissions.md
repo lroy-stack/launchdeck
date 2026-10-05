@@ -53,6 +53,7 @@ The sidebar shows a count next to **Plugins** while a request is waiting.
 * **A redirect cannot lead out.** If a server redirects to an address you did not grant, the request ends there and nothing is sent to it.
 * **Decisions about addresses a plugin no longer asks for** are listed with **Forget**. They allow nothing.
 * **Turning a plugin off** stops everything it does, whatever it was granted. The grants are kept for when you turn it on again.
+* **A grant belongs to the plugin's id, not to its files.** So do its secrets and settings. When the plugin's folder is replaced, by an update or by a different plugin that uses the same id, the new files get the same grants and their requests carry the same secrets. LaunchDeck does not check that the module is the one you allowed (module hashing is not implemented). Take updates only from the plugin's author.
 
 ## Where decisions are kept
 
