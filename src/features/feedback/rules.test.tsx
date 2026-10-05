@@ -552,9 +552,13 @@ describe("an event rule", () => {
     await user.selectOptions(select(ev, "Event rule 1: add a condition"), "Level");
     await user.selectOptions(select(ev, "Event rule 1 condition: Level"), "High");
     expect(select(ev, "Event rule 1 duration").value).toBe("for");
-    const seconds = within(ev).getByRole("spinbutton", { name: "Event rule 1 seconds" }) as HTMLInputElement;
+    // The bounds are the runtime's limits, which arrive with its review once the draft has been still for a moment.
+    const seconds = await waitFor(() => {
+      const el = within(ev).getByRole("spinbutton", { name: "Event rule 1 seconds" }) as HTMLInputElement;
+      expect(el.min).toBe("0.2");
+      return el;
+    });
     expect(seconds.value).toBe("3");
-    expect(seconds.min).toBe("0.2");
     expect(seconds.max).toBe("60");
     await user.clear(seconds);
     await user.type(seconds, "0.7");
