@@ -681,9 +681,10 @@ fn a_request_states_its_destination() {
     );
 }
 
-/// SF-4: a file whose request would go elsewhere than the review shows is
-/// refused at the address; an address asked of the importer, or one the
-/// runtime refuses anyway (not http), is left to the import's own checks.
+/// SF-4: a file whose request the runtime would not send to the address
+/// the review shows is refused at the address, whatever its scheme; an
+/// address asked of the importer is checked once it is given, and a blank
+/// one sends nothing.
 #[test]
 fn a_request_address_read_two_ways_is_refused() {
     let file = |args: Value, inputs: &[(&str, &str)]| {
@@ -704,8 +705,13 @@ fn a_request_address_read_two_ways_is_refused() {
         "https://trusted.example\\@evil.example/",
         "http://0x7f.1/",
         "https://\u{430}pple.com/",
+        "HTTPS://trusted.example@evil.example/",
+        " https://trusted.example@evil.example/",
+        "mailto:me@example.com",
+        "example.com/hook",
     ] {
         let refused = check_visible(&file(json!({ "url": url }), &[])).unwrap_err();
+        assert!(refused.message.ends_with('.'), "{}", refused.message);
         assert_eq!(
             (refused.code, refused.at.as_deref()),
             (crate::artifacts::RejectionCode::InvalidContent, Some(at)),
@@ -716,7 +722,8 @@ fn a_request_address_read_two_ways_is_refused() {
         ("https://example.com/hook", &[][..]),
         ("", &[("url", "hook")][..]),
         ("", &[][..]),
-        ("mailto:me@example.com", &[][..]),
+        (" \n ", &[][..]),
+        ("ftp://u:p@example.com/", &[("url", "hook")][..]),
     ] {
         assert_eq!(
             check_visible(&file(json!({ "url": url }), inputs)),

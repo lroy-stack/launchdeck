@@ -382,7 +382,7 @@ impl Destination {
 pub(crate) fn request_destination(url: &str) -> Result<Destination, ActionError> {
     let refused = |why: &str| Err(ActionError::InvalidArgs(why.to_string()));
     if !(url.starts_with("http://") || url.starts_with("https://")) {
-        return refused("URL must start with http:// or https://");
+        return refused("The address does not start with http:// or https://.");
     }
     if url.contains('\\') {
         return refused("The address contains a backslash, which address readers disagree about.");

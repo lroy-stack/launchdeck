@@ -323,8 +323,10 @@ pub(crate) fn check_visible(content: &ContentV1) -> Result<(), Rejection> {
 }
 
 /// The address of a request written in the file: the runtime's own reading
-/// must accept it. An address asked of the importer is checked once it is
-/// given, and one that is not http or https is the runtime's to refuse.
+/// must accept it, whatever its scheme, so no file carries an address the
+/// runtime and the review would read apart. An address asked of the
+/// importer is checked once it is given; a blank one (a pad not set up yet)
+/// sends nothing.
 fn check_address(at: &str, a: &AssignmentV1) -> Result<(), Rejection> {
     const URL: &str = "url";
     if (a.provider.as_str(), a.action.as_str()) != (HTTP, HTTP_REQUEST)
@@ -335,7 +337,7 @@ fn check_address(at: &str, a: &AssignmentV1) -> Result<(), Rejection> {
     let Some(Value::String(url)) = a.args.get(URL) else {
         return Ok(());
     };
-    if !(url.starts_with("http://") || url.starts_with("https://")) {
+    if url.trim().is_empty() {
         return Ok(());
     }
     request_destination(url).map(|_| ()).map_err(|refused| {

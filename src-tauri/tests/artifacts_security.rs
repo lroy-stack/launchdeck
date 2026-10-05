@@ -1231,6 +1231,29 @@ fn a_request_goes_only_where_it_is_shown() {
     }
 }
 
+/// A request address the runtime refuses is refused in the file too, so no
+/// file carries an address crafted for one reader and refused by another:
+/// a scheme in capitals, a blank before it, another scheme (SF-4).
+#[test]
+fn a_request_the_runtime_would_not_send_is_refused() {
+    for url in [
+        "HTTPS://trusted.example@evil.example/",
+        " https://trusted.example@evil.example/",
+        "ftp://u:p@example.com/x",
+    ] {
+        let mut v: Value = serde_json::from_slice(&hostile("request-userinfo.ldsurface")).unwrap();
+        v["content"]["surfaces"][0]["pages"][0]["controls"][0]["press"]["args"]["url"] = json!(url);
+        assert_eq!(
+            refused(&sealed(v), "case.ldsurface"),
+            at(
+                R::InvalidContent,
+                "/content/surfaces/0/pages/0/controls/0/press/args/url"
+            ),
+            "{url}"
+        );
+    }
+}
+
 /// Every file of the hostile folder is refused, except the valid ones whose
 /// launches must be reviewed or can never run.
 #[test]
