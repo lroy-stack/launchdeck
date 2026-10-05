@@ -1,4 +1,4 @@
-import type { Control, RuntimeEvent } from "./schema";
+import type { ActionDefinition, Control, RuntimeEvent, Workspace } from "./schema";
 
 export function formatTime(ts: number): string {
   if (!ts) return "";
@@ -8,22 +8,48 @@ export function formatTime(ts: number): string {
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 
-/** One human sentence for a runtime event, for the activity feed. */
-export function describeEvent(e: RuntimeEvent): string {
+/** Names for the ids an event carries. Each returns `undefined` for an id it does not know. */
+export interface EventNames {
+  surface: (surfaceId: string) => string | undefined;
+  page: (surfaceId: string, pageId: string) => string | undefined;
+  action: (definitionId: string) => string | undefined;
+}
+
+const NO_NAMES: EventNames = { surface: () => undefined, page: () => undefined, action: () => undefined };
+
+/** Names from the workspace (surfaces, pages) and the action catalog (actions). */
+export function eventNames(workspace: Workspace | null, actions: readonly ActionDefinition[]): EventNames {
+  const surfaces = new Map((workspace?.surfaces ?? []).map((s) => [s.id, s]));
+  const actionNames = new Map(actions.map((a) => [a.id, a.name]));
+  return {
+    surface: (id) => surfaces.get(id)?.name,
+    page: (surfaceId, pageId) => surfaces.get(surfaceId)?.pages.find((p) => p.id === pageId)?.name,
+    action: (id) => actionNames.get(id),
+  };
+}
+
+/** One human sentence for a runtime event, for the activity feed: names where the ids are known, the ids otherwise. */
+export function describeEvent(e: RuntimeEvent, names: EventNames = NO_NAMES): string {
   const p = (e.payload ?? {}) as Record<string, unknown>;
+  const action = (): string => {
+    const id = str(p.action);
+    return (id && names.action(id)) || id || "action";
+  };
+  const surfaceId = str(p.surfaceId);
+  const pageId = str(p.pageId);
   switch (e.type) {
     case "control.pressed":
       return `Pressed ${str(p.label) || str(p.controlId)}`;
     case "action.started":
-      return `Running ${str(p.action) || "action"}`;
+      return `Running ${action()}`;
     case "action.completed":
-      return `Done ${str(p.action) || "action"}`;
+      return `Done ${action()}`;
     case "action.failed":
-      return `Failed ${str(p.action) || "action"}: ${str(p.error)}`;
+      return `Failed ${action()}: ${str(p.error)}`;
     case "surface.changed":
-      return `Surface → ${str(p.surfaceId)}`;
+      return `Surface → ${names.surface(surfaceId) ?? surfaceId}`;
     case "page.changed":
-      return `Page → ${str(p.pageId)}`;
+      return `Page → ${names.page(surfaceId, pageId) ?? pageId}`;
     case "plugin.state.changed":
       return `${e.source}: ${str(p.key)} = ${str(p.value)}`;
     case "device.connected":
@@ -31,7 +57,7 @@ export function describeEvent(e: RuntimeEvent): string {
     case "device.disconnected":
       return `Device disconnected: ${str(p.deviceId)}`;
     default:
-      return e.type;
+      return `Event ${e.type} from ${e.source}`;
   }
 }
 
