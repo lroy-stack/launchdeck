@@ -2,6 +2,8 @@
 
 A plugin's secret (an access token, an API key) is kept in **the operating system's credential store, or not at all**. LaunchDeck does not write a secret to a file of its own, on any system, for any reason.
 
+**LaunchDeck never hands a plaintext secret stored in `plugins.json` to a plugin, whatever the version of its manifest.** A credential is used from the credential store, or it is unavailable. A plain value an earlier version left behind stays where it is, unused, until the person moves it into the credential store or removes it ([below](#secrets-of-older-plugins)).
+
 | System | Store | Shown as |
 | --- | --- | --- |
 | macOS | Keychain Services (the login keychain) | Keychain |
@@ -40,7 +42,7 @@ For a secret declared by a manifest of schema 4 (see [plugin secrets](../plugin-
 | --- | --- |
 | The workspace (`workspace.json`), exported surfaces | Never |
 | The plugin's manifest and folder | Never |
-| `plugins.json` (settings), `permissions.json` (grants) | Never |
+| `plugins.json` (settings), `permissions.json` (grants) | Never written there. A plain value an earlier version left in `plugins.json` is never read to be used ([below](#secrets-of-older-plugins)). |
 | The audit trail, the plugin's log, LaunchDeck's log | Never. A request is logged as method, address and path only. |
 | Events, snapshots, anything sent to the interface | Never. The interface learns only whether a value is set. |
 | The plugin's WebAssembly memory | Never. The plugin names the secret; LaunchDeck adds `Authorization: Bearer …` to the request after every check has passed, and only for the one address the secret is bound to. |
@@ -72,22 +74,31 @@ Overwriting a file's bytes before deleting it is the most a program can do, and 
 
 ## Secrets of older plugins
 
-Manifests before schema 4 could mark a *setting* as `"secret": true`. That was never a credential store: the value is saved with the plugin's settings in `plugins.json` (owner-only, not encrypted) and is handed to the plugin when it starts.
+Manifests before schema 4 could mark a *setting* as `"secret": true`. That was never a credential store: earlier versions saved the value with the plugin's settings in `plugins.json` (owner-only, not encrypted) and handed it to the plugin when it started. That is over. A value an installation still has is kept, untouched, and **never used**.
 
 | | Schema 1 to 3, `config[].secret` | Schema 4, `secrets` |
 | --- | --- | --- |
-| Stored | `plugins.json`, in the clear | The system's credential store |
-| Reaches the plugin's code | Yes | No |
-| Without a credential store | Works as before | Unavailable |
-| Can leave the computer | No: these plugins have no network access | Only to the one address it is bound to |
+| Where a value is kept | Nowhere new: such a setting can no longer be given a value. One an earlier version left in `plugins.json` stays there until you act | The system's credential store |
+| Reaches the plugin's code | **No**. The module reads the setting as not set, like an optional setting nobody filled in | No |
+| Used to authenticate | No | Yes, by the broker, for the one address it is bound to |
+| Without a credential store | Unavailable | Unavailable |
 
-**They keep working, unchanged.** Changing how an installed plugin receives its configuration would break it, and such a plugin cannot reach the network (the network capability needs schema 4), so the exposure is the plain file on disk. What is new:
+What LaunchDeck does, exactly:
 
-* The setting is flagged on the plugin's card: *An older kind of secret … stored on this computer without encryption and is handed to the plugin. It keeps working as it did.*
-* The plugin's log says the same when it starts.
-* A schema 4 manifest that marks a setting `secret` is **refused**. Nothing new can be stored this way.
+1. **It is never used.** A setting marked `secret` is left out of the configuration a module receives, and the host drops every credential key at the module boundary (`init`) whatever it is given. The plugin loads and runs; only what needs that value does not work. LaunchDeck starts as usual.
+2. **It is never changed by itself.** Starting, reloading, rescanning, saving another setting, disabling or enabling the plugin leave the plain value exactly as it is. Typing a new value for such a setting is refused: it could only be kept in plain text.
+3. **It is reported, by name.** The plugin's card shows **Legacy insecure secret**: *This plugin stores a credential using an obsolete plaintext format. LaunchDeck will no longer use this value. Move it to secure storage to continue using this plugin.* It names the key, never the value, and offers two buttons, **Migrate to secure storage** and **Remove legacy value**. There is no option to keep using the value. The plugin's log says the same when it starts. The notice above (*Secrets kept in plain text by an earlier version*) lists it too, *in the plugin's settings*.
+4. **Migrate to secure storage.** Offered only when a credential store answers; without one the button is disabled and the store's reason is shown. For each plain value of the plugin: it is written to the credential store under the plugin id and the key, **read back and compared**, and only when every one of them is there are they removed from `plugins.json`, which is saved atomically. If any step fails (the store refuses, gives back something else, or already holds a *different* value for that key), `plugins.json` is not touched and the card says why in a sentence. A value the store already holds unchanged counts as moved, so trying again is safe.
+5. **After migrating**, the value is in the credential store. A module still never receives it: a plugin whose manifest is older than schema 4 cannot use it, and its card says that it needs a version that declares this credential under `secrets` (manifest schema 4). When such a version is installed, it declares the same key under `secrets` and LaunchDeck applies the value through the network broker, as for any schema 4 secret.
+6. **Remove legacy value.** Behind a second confirmation. The plain value is removed from `plugins.json`; nothing else changes.
 
-**The way out is the plugin's.** Its author moves to schema 4 and declares the value under `secrets`, with the same key. When you install that version, LaunchDeck finds the value the old version left in `plugins.json`, does not hand it to the new version, and lists it in the same notice as above (*left in the plugin's settings by an older version of it*). **Move** puts it in the credential store, reads it back, and removes it from `plugins.json`; **Delete without moving** just removes it.
+Each step is recorded in the audit trail (`secrets.migrated`, `secrets.legacy_discarded`, with the plugin id and counts), and in the plugin's log by key. No value reaches an error, the audit trail, a log, the interface or a contract fixture.
+
+A schema 4 manifest that marks a setting `secret` is **refused**. The same rules apply to a value an older version of a plugin kept as a setting under a key its current schema 4 manifest declares under `secrets`: listed, never handed to the module, moved or removed on request; once moved, the plugin uses it.
+
+**Move** in the notice above does the same for every plugin at once, value by value: a value in `plugins.json` is removed only when the credential store holds exactly that value afterwards.
+
+These rules are tested with an in-memory store, a store that refuses every write and one that gives back something else, against a module that answers with the configuration it was handed, for manifests of schemas 1 to 4 (`src-tauri/tests/legacy_plaintext_secrets.rs`, `secret_store.rs`), and the card in Vitest (`src/features/plugins/legacySecret.test.tsx`). Migrating into the real macOS Keychain, and the card in the running app, are **NOT VERIFIED**: the macOS checks by hand have not been done (reason (f) of the productization plan).
 
 ## Testing against a real store
 

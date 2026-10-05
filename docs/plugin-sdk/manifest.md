@@ -140,7 +140,7 @@ Settings the person can change on the Plugins screen. `key` is a plain identifie
 
 A setting named by `capabilities.network.hosts` as `{ "setting": key }` must be a `string`, and its `default`, if it has one, must be a URL with a usable origin.
 
-**`"secret": true` (schemas 1 to 3 only).** Such a setting cannot have a default, is never shown and never put in a snapshot or the plugin list, and the host never logs it; the screen only shows whether it is set. It is still handed to the module at `init` and stored in `plugins.json`. Schema 4 refuses the flag: declare the value under [`secrets`](secrets.md), which the module never sees.
+**`"secret": true` (schemas 1 to 3 only).** Such a setting cannot have a default and cannot be given a value. **The module never receives it**: at `init` it reads as not set, whatever `plugins.json` holds, because LaunchDeck never hands a plaintext secret to a plugin. A value an earlier version kept there in plain text is listed on the plugin's card as a *Legacy insecure secret*, never shown or logged, and moved into the credential store or removed only when the person chooses; see [secrets of older plugins](../security/secrets.md#secrets-of-older-plugins). Even once moved, a module of schema 1 to 3 does not get it. Schema 4 refuses the flag: declare the value under [`secrets`](secrets.md), with the same key, and LaunchDeck applies it to requests to its one address; the module never sees it.
 
 ## What each schema adds
 

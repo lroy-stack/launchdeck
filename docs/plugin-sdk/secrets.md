@@ -40,7 +40,7 @@ Schema 4. At most 8.
 | `description` | Optional, up to 280 characters. Say where the person gets the value. |
 | `host` | Required. One of the entries of `capabilities.network.hosts`, written the same way. The only address this secret is ever sent to. |
 
-A schema 4 manifest may not mark a `config` field `"secret": true`: that older flag hides a value from the screen but hands it to the module and stores it in `plugins.json`. Manifests of schemas 1 to 3 that use it keep working exactly as they did.
+A schema 4 manifest may not mark a `config` field `"secret": true`: that older flag kept the value in plain text in `plugins.json`. Manifests of schemas 1 to 3 that use it still load, but the module never receives such a setting: it reads as not set. A value an earlier version kept is moved into the credential store or removed on the person's choice ([secrets of older plugins](../security/secrets.md#secrets-of-older-plugins)); to use it, declare it here under the same key.
 
 ## What LaunchDeck does with it
 
