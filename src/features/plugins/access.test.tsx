@@ -357,7 +357,7 @@ describe("secrets an earlier version kept in plain text", () => {
   it("offers no field for a secret setting of an older plugin and never says it is handed over", async () => {
     await open(fixture);
     const hello = card("Hello Plugin");
-    expect(hello.textContent).toContain("A credential in an obsolete format. LaunchDeck does not keep or use a value for it");
+    expect(hello.textContent).toContain("A credential in an obsolete format. LaunchDeck no longer accepts or uses a value for it");
     expect(within(hello).queryByPlaceholderText(/Enter a/)).toBeNull();
     expect(hello.querySelector('input[type="password"]')).toBeNull();
     expect(document.body.textContent).not.toContain("handed to the plugin. It keeps working");

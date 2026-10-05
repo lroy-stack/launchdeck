@@ -292,8 +292,10 @@ function ConfigField({ pluginId, item, change }: { pluginId: string; item: Plugi
   const initial = String(item.value ?? item.default ?? "");
   const [text, setText] = useState(initial);
   const name = item.label !== item.key ? <b>{item.label}</b> : <code>{item.key}</code>;
-  // A credential in the format of manifests before schema 4. LaunchDeck keeps
-  // no value for it and hands none to the plugin, so there is nothing to type.
+  // A credential in the format of manifests before schema 4. LaunchDeck takes
+  // no new value for it and hands none to the plugin, so there is nothing to
+  // type. A plain value an earlier version left is on the Legacy insecure
+  // secret card.
   if (item.secret) {
     return (
       <div className="field">
@@ -301,7 +303,7 @@ function ConfigField({ pluginId, item, change }: { pluginId: string; item: Plugi
           {name} {item.description}
         </span>
         <small className="hint warn">
-          A credential in an obsolete format. LaunchDeck does not keep or use a value for it; the plugin needs a version that declares it as a secret, kept in
+          A credential in an obsolete format. LaunchDeck no longer accepts or uses a value for it; the plugin needs a version that declares it as a secret, kept in
           secure storage.
         </small>
       </div>
