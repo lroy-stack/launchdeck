@@ -5,7 +5,9 @@
 //! `profile::ModelProfile`, and `ports` finds each model's units on the
 //! system's ports. One `device::Mk3Device` drives a unit of any model: the
 //! `session` says what to send to take and give back the unit, `settings`
-//! what brightness and scrolling text send, `leds` what a frame needs sent. `NovationHardware` is what the device manager sees.
+//! what brightness and scrolling text send, `leds` what a frame needs sent.
+//! `NovationHardware` is what the device manager sees; `virtual_model` is a
+//! software unit of a model, for the virtual device.
 
 mod device;
 #[cfg(test)]
@@ -33,3 +35,10 @@ mod settings;
 mod testkit;
 
 pub(crate) use hardware::NovationHardware;
+#[cfg(test)]
+pub(crate) use launchpad_mini_mk3::PROFILE as LAUNCHPAD_MINI_MK3;
+#[cfg_attr(
+    not(test),
+    expect(unused_imports, reason = "the app registers no virtual Mini yet")
+)]
+pub(crate) use profile::virtual_model;

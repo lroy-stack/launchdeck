@@ -3,8 +3,11 @@
 //! do. Code that works for every model reads a profile; there is no
 //! `if model == …` anywhere.
 
+use super::palette::{nearest, palette_rgb};
 use super::protocol::Product;
-use crate::devices::{DeviceCapabilities, DeviceFeatures};
+use crate::core::model::{Animation, Rgb};
+use crate::devices::virtual_device::VirtualModel;
+use crate::devices::{DeviceCapabilities, DeviceFeatures, Led};
 
 /// What one USB-MIDI interface of a model is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,9 +49,51 @@ impl ModelProfile {
     }
 }
 
+/// A software unit of `profile`: its capabilities, and the features whose
+/// state a simulator can hold (no mode to take, no firmware, no messages
+/// to batch). Its LEDs show what the hardware is sent: a pulse or a flash
+/// in the nearest palette colour (`leds.rs` sends the same entry), a static
+/// colour exactly, an animated LED that is off as off. The renderer passes
+/// pulse and flash only to a model that does them natively.
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "the app registers no virtual Mini yet (plan section 13)"
+    )
+)]
+pub(crate) fn virtual_model(profile: &ModelProfile) -> VirtualModel {
+    fn display(led: Led) -> Led {
+        if led.color == Rgb::OFF {
+            return Led::OFF;
+        }
+        match led.animation {
+            Animation::Pulse | Animation::Flash => Led {
+                color: palette_rgb(nearest(led.color)),
+                animation: led.animation,
+            },
+            Animation::None => led,
+        }
+    }
+    VirtualModel {
+        id: format!("virtual-{}", profile.model),
+        name: format!("Virtual {}", profile.name),
+        model: profile.model.into(),
+        capabilities: profile.capabilities,
+        features: DeviceFeatures {
+            host_mode: false,
+            batched_lighting: false,
+            firmware_version: false,
+            ..profile.features
+        },
+        display,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::devices::novation::palette::{nearest, palette_rgb};
     use crate::devices::novation::{launchpad_mini_mk3, launchpad_x};
 
     #[test]
@@ -124,5 +169,65 @@ mod tests {
                 firmware_version: true,
             }
         );
+    }
+
+    #[test]
+    fn the_virtual_mini_is_the_mini_without_a_mode_firmware_or_batches() {
+        let mini = &launchpad_mini_mk3::PROFILE;
+        let model = virtual_model(mini);
+        assert_eq!(
+            (model.id.as_str(), model.name.as_str(), model.model.as_str()),
+            (
+                "virtual-launchpad-mini-mk3",
+                "Virtual Launchpad Mini MK3",
+                "launchpad-mini-mk3"
+            )
+        );
+        assert_eq!(model.capabilities, mini.capabilities);
+        assert!(!model.capabilities.velocity, "presses report 127");
+        assert_eq!(
+            model.features,
+            DeviceFeatures {
+                host_mode: false,
+                palette: true,
+                batched_lighting: false,
+                flash_period_ms: Some(500),
+                pulse_period_ms: Some(1000),
+                brightness: true,
+                sleep: true,
+                scrolling_text: true,
+                firmware_version: false,
+            }
+        );
+    }
+
+    #[test]
+    fn the_virtual_mini_shows_what_the_hardware_is_sent() {
+        let display = virtual_model(&launchpad_mini_mk3::PROFILE).display;
+        let blue = Rgb::new(40, 110, 255);
+        let entry = palette_rgb(nearest(blue));
+        for animation in [Animation::Pulse, Animation::Flash] {
+            assert_eq!(
+                display(Led {
+                    color: blue,
+                    animation
+                }),
+                Led {
+                    color: entry,
+                    animation
+                },
+                "{animation:?}: the nearest palette entry, still animated"
+            );
+        }
+        let still = Led {
+            color: blue,
+            animation: Animation::None,
+        };
+        assert_eq!(display(still), still, "a static colour is exact");
+        let off_pulse = Led {
+            color: Rgb::OFF,
+            animation: Animation::Pulse,
+        };
+        assert_eq!(display(off_pulse), Led::OFF);
     }
 }
