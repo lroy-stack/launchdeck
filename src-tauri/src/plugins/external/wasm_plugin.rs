@@ -18,7 +18,7 @@ use super::network::{Broker, NetGate};
 use super::sandbox::{CallError, CallOutput, Limits, Refusal, Sandbox, StateGate};
 use super::{EventInfo, ExternalInfo, PluginStatus, ABI_VERSION, SDK_VERSION};
 use crate::actions::definition::ProviderKind;
-use crate::events::external::valid_ident;
+use crate::events::valid_ident;
 use crate::plugins::{ActionDef, ActionError, Plugin, PluginContext, PluginManifest};
 use crate::state::definition::{ObservableDefinition, Write};
 use crate::state::{StateAddress, StateHub};

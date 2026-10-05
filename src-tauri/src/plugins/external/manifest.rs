@@ -14,8 +14,8 @@ use serde_json::Value;
 use super::capabilities::{Capabilities, HostSpec, Origin, MAX_HOSTS};
 use super::{ABI_VERSION, SDK_VERSION};
 use crate::actions::definition::Appearance;
-use crate::actions::params::{normalize, validate_defs, ParamDef};
-use crate::events::external::valid_ident;
+use crate::actions::params::{normalize, valid_param_name, validate_defs, ParamDef};
+use crate::events::valid_ident;
 use crate::plugins::ActionError;
 use crate::state::address::valid_ident as valid_state_id;
 use crate::state::definition::{
@@ -378,15 +378,6 @@ fn valid_main(s: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
 }
 
-fn valid_param(s: &str) -> bool {
-    let mut chars = s.chars();
-    s.len() <= 32
-        && chars
-            .next()
-            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
-        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
-}
-
 pub fn is_host_event_type(kind: &str) -> bool {
     HOST_EVENT_PREFIXES.iter().any(|p| kind.starts_with(p))
 }
@@ -557,7 +548,7 @@ impl ExternalManifest {
             .unwrap_or(&[]);
         let mut seen = HashSet::new();
         for s in &self.secrets {
-            if !valid_param(&s.key) {
+            if !valid_param_name(&s.key) {
                 return invalid(format!(
                     "secret key \"{}\" must be a plain identifier",
                     s.key
@@ -658,7 +649,7 @@ impl ExternalManifest {
             }
             let mut names = HashSet::new();
             for arg in &a.args {
-                if !valid_param(&arg.name) {
+                if !valid_param_name(&arg.name) {
                     return invalid(format!(
                         "action \"{}\" arg \"{}\" must be a plain identifier",
                         a.id, arg.name
@@ -811,7 +802,7 @@ impl ExternalManifest {
         }
         let mut seen = HashSet::new();
         for c in &self.config {
-            if !valid_param(&c.key) {
+            if !valid_param_name(&c.key) {
                 return invalid(format!(
                     "config key \"{}\" must be a plain identifier",
                     c.key

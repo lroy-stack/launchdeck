@@ -19,12 +19,10 @@ pub const MAX_ERROR_LEN: usize = 200;
 pub const MAX_DETAIL_LEN: usize = 120;
 
 /// Identifiers are short and boring on purpose: they end up in events,
-/// logs and file names.
+/// logs and file names. They follow the crate's identifier rule,
+/// `events::valid_ident`, whose length limit is `MAX_ID_LEN`.
 pub fn valid_id(s: &str) -> bool {
-    !s.is_empty()
-        && s.len() <= MAX_ID_LEN
-        && s.chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':' | '-'))
+    crate::events::valid_ident(s)
 }
 
 /// Truncate to `max` characters, collapsing control characters and

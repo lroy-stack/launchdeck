@@ -1,6 +1,6 @@
 //! Local WebSocket interface for external events.
 //!
-//! Security properties (see docs/architecture.md):
+//! Security properties (see docs/architecture/overview.md):
 //! * binds to `127.0.0.1` only, never `0.0.0.0`
 //! * accepts *events* only. There is no message that executes an action,
 //!   a shell command or anything else; at most it changes pad state
@@ -27,7 +27,7 @@ use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, 
 use tokio_tungstenite::tungstenite::http::StatusCode;
 use tokio_tungstenite::tungstenite::protocol::{Message, WebSocketConfig};
 
-use super::{Event, EventBus};
+use super::{valid_ident, Event, EventBus};
 
 const MAX_MESSAGE_BYTES: usize = 64 * 1024;
 const MAX_CONNECTIONS: usize = 16;
@@ -65,14 +65,6 @@ struct Inbound {
 pub enum Parsed {
     Event(Event),
     Ping,
-}
-
-/// Identifier grammar shared by event sources, event types and plugin names.
-pub(crate) fn valid_ident(s: &str) -> bool {
-    !s.is_empty()
-        && s.len() <= 64
-        && s.chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':' | '-'))
 }
 
 /// Tells whether a source name is already taken by something inside LaunchDeck

@@ -17,7 +17,7 @@ use serde_json::Value;
 use super::address::{valid_ident, StateAddress, MAX_ARGS, MAX_ARG_BYTES};
 use super::value::Scalar;
 use crate::actions::params::{normalize, validate_defs, ParamDef, ParamKind};
-use crate::events::external::valid_ident as valid_event_type;
+use crate::events::valid_ident as valid_event_type;
 
 pub const MAX_NAME: usize = 64;
 pub const MAX_DESCRIPTION: usize = 280;

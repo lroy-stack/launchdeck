@@ -62,6 +62,16 @@ pub fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
+/// The identifier rule, 1-64 characters of `[A-Za-z0-9_.:-]`: event sources
+/// and types, plugin action ids and error codes, agent ids. State ids follow
+/// the stricter `state::address::valid_ident`.
+pub(crate) fn valid_ident(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 64
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':' | '-'))
+}
+
 #[derive(Clone)]
 pub struct EventBus {
     tx: broadcast::Sender<Event>,
@@ -111,5 +121,22 @@ mod tests {
         .unwrap();
         assert_eq!(e.kind, "task.completed");
         assert_eq!(e.payload["success"], true);
+    }
+
+    #[test]
+    fn identifiers_are_1_to_64_chars_of_letters_digits_and_four_marks() {
+        let (longest, too_long) = ("x".repeat(64), "x".repeat(65));
+        for ok in [
+            "a",
+            "ci:done",
+            "build_finished",
+            "Example.Counter-2",
+            &longest,
+        ] {
+            assert!(valid_ident(ok), "{ok}");
+        }
+        for bad in ["", "a b", "a/b", "../etc", "é", "a\n", &too_long] {
+            assert!(!valid_ident(bad), "{bad:?}");
+        }
     }
 }

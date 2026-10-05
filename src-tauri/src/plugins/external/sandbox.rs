@@ -36,7 +36,7 @@ use super::network::{
     code as net_code, refusal, NetGate, MAX_REQUESTS_PER_CALL, MAX_REQUEST_MESSAGE,
     NETWORK_BUDGET_PER_CALL,
 };
-use crate::events::external::valid_ident;
+use crate::events::valid_ident;
 use crate::state::definition::Write;
 
 /// Namespace of the host functions a module may import.
