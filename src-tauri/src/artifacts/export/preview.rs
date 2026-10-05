@@ -37,7 +37,8 @@ pub struct ExportPreview {
     pub stripped: Stripped,
     /// Text arguments that look like something to ask the importer for.
     pub suggestions: Vec<Suggestion>,
-    /// Every text argument, so the person can choose to ask the importer.
+    /// Every text argument, so the person can choose to ask the importer;
+    /// one already asked of the importer without its value.
     pub parameters: Vec<Parameter>,
     pub warnings: Vec<ExportIssue>,
     /// Anything here blocks the file.
@@ -96,7 +97,13 @@ pub enum SuggestedType {
 pub struct Parameter {
     pub at: Location,
     pub arg: String,
-    pub value: String,
+    /// The value on this computer; absent when the argument is asked of the
+    /// importer, so it never leaves this computer.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    /// The input that asks the importer for it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input: Option<String>,
 }
 
 /// A warning or an error: a code, a sentence for a person, and the JSON

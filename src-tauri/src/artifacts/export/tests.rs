@@ -13,7 +13,7 @@ use crate::actions::params::{ParamDef, RefTarget};
 use crate::artifacts::env::{Environment, KnownAction, KnownDevice, KnownProvider};
 use crate::artifacts::format::{
     compute_requirements, AppRefV1, ArtifactKind, ArtifactV1, Author, InputDef, InputType,
-    TestedKind, TestedWith,
+    InputValue, TestedKind, TestedWith,
 };
 use crate::artifacts::review::{Location, ReviewKind, Slot};
 use crate::artifacts::testkit;
@@ -1044,6 +1044,119 @@ fn inputs_bindings_and_identities_are_checked() {
     assert_eq!(errors[0].at.as_deref(), Some("/manifest/inputs/2/id"));
 }
 
+/// A pad whose arguments hold what one person's computer knows: a webhook
+/// with its id, a folder in a home directory.
+fn local_workspace() -> Workspace {
+    workspace(vec![surface(
+        "home",
+        vec![
+            pad(
+                0,
+                "Lights",
+                a(
+                    "http",
+                    "request",
+                    json!({ "method": "POST", "url": "http://ha.local:8123/api/webhook/LOCAL-q7z-lights" }),
+                ),
+            ),
+            pad(
+                1,
+                "Notes",
+                a(
+                    "acme.notes",
+                    "mark",
+                    json!({ "folder": "/home/me/LOCAL-q7z-notes", "count": 2 }),
+                ),
+            ),
+            pad(
+                2,
+                "Build",
+                a(
+                    "shell",
+                    "execute",
+                    json!({ "command": "make LOCAL-q7z-target" }),
+                ),
+            ),
+        ],
+    )])
+}
+
+fn bound(control: &str, arg: &str, input: &str) -> InputBinding {
+    InputBinding {
+        at: location("home", control, Slot::Press),
+        arg: arg.into(),
+        input: input.into(),
+    }
+}
+
+fn local_request() -> ExportRequest {
+    let mut hook = input("hook", InputType::Url);
+    hook.default = Some(InputValue::Text {
+        value: "https://example.com/hook".into(),
+    });
+    ExportRequest {
+        inputs: vec![
+            hook,
+            input("folder", InputType::Path),
+            input("target", InputType::String),
+        ],
+        bindings: vec![
+            bound("g.0.0", "url", "hook"),
+            bound("g.1.0", "folder", "folder"),
+            bound("g.2.0", "command", "target"),
+        ],
+        ..pack(&["home"])
+    }
+}
+
+/// SF-2: an argument bound to an input is written as the input's default,
+/// or empty without one. The value the person asked the importer for stays
+/// on this computer: not in the file, not in the preview, not in the review.
+#[test]
+fn a_bound_argument_leaves_its_local_value_home() {
+    let result = export(&local_workspace(), &hand_env(), &local_request());
+    let (text, artifact) = written(&result);
+    let preview = serde_json::to_string(&result.preview).unwrap();
+    for shown in [&text, &preview] {
+        assert!(!shown.contains("LOCAL-q7z"), "{shown}");
+    }
+    let controls = &artifact.content.surfaces[0].pages[0].controls;
+    let arg = |c: usize, name: &str| controls[c].press.as_ref().unwrap().args[name].clone();
+    assert_eq!(arg(0, "url"), json!("https://example.com/hook"));
+    assert_eq!(arg(1, "folder"), json!(""));
+    assert_eq!(arg(1, "count"), json!(2));
+    assert_eq!(arg(2, "command"), json!(""));
+    // The preview names each bound argument as asked of the importer.
+    let asked: Vec<(&str, Option<&str>, Option<&str>)> = result
+        .preview
+        .parameters
+        .iter()
+        .map(|p| (p.arg.as_str(), p.value.as_deref(), p.input.as_deref()))
+        .collect();
+    assert_eq!(
+        asked,
+        [
+            ("method", Some("POST"), None),
+            ("url", None, Some("hook")),
+            ("folder", None, Some("folder")),
+            ("command", None, Some("target")),
+        ]
+    );
+    assert!(result.preview.suggestions.is_empty());
+    let review: Vec<&str> = result
+        .preview
+        .review
+        .iter()
+        .map(|r| r.text.as_str())
+        .collect();
+    assert_eq!(review, ["POST https://example.com/hook", ""]);
+    // Determinism is unchanged.
+    assert_eq!(
+        export(&local_workspace(), &hand_env(), &local_request()),
+        result
+    );
+}
+
 // Review, suggestions and parameters.
 
 #[test]
@@ -1170,19 +1283,19 @@ fn text_arguments_are_offered_and_paths_suggested() {
     )]);
     let result = export(&ws, &hand_env(), &pack(&["dev"]));
     written(&result);
-    let parameters: Vec<(&str, &str)> = result
+    let parameters: Vec<(&str, Option<&str>)> = result
         .preview
         .parameters
         .iter()
-        .map(|p| (p.arg.as_str(), p.value.as_str()))
+        .map(|p| (p.arg.as_str(), p.value.as_deref()))
         .collect();
     assert_eq!(
         parameters,
         [
-            ("command", "/usr/bin/make"),
-            ("folder", "~/notes"),
-            ("app", "C:\\Tools\\x.exe"),
-            ("url", "https://example.com"),
+            ("command", Some("/usr/bin/make")),
+            ("folder", Some("~/notes")),
+            ("app", Some("C:\\Tools\\x.exe")),
+            ("url", Some("https://example.com")),
         ]
     );
     let suggested: Vec<(&str, SuggestedType)> = result
@@ -1423,6 +1536,16 @@ fn the_request_and_the_preview_are_camel_case() {
         preview["contextRules"][1]["application"],
         json!({ "input": "editor" })
     );
-    assert_eq!(preview["suggestions"][0]["suggestedType"], "path");
+    // The bound folder is asked of the importer: no value, no suggestion.
+    assert_eq!(
+        preview["parameters"][1],
+        json!({
+            "at": { "surfaceSourceId": "dev", "pageId": "home", "controlId": "g.1.0", "slot": "press" },
+            "arg": "folder",
+            "input": "folder"
+        })
+    );
+    assert_eq!(preview["parameters"][0]["value"], "make");
+    assert_eq!(preview["suggestions"], json!([]));
     assert_eq!(preview["warnings"][0]["code"], "reviewBeforeSharing");
 }

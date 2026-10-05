@@ -1,10 +1,12 @@
-//! Each chosen surface as the file carries it. The format's conversion
-//! (`SurfaceV1::from_model`) leaves out legacy bindings and the context
-//! hint; here each assignment is then read once: a legacy action is
-//! stripped, references to exported surfaces are marked and renamed, and
-//! what a person should look at before sharing is collected.
+//! Each chosen surface as the file carries it, in two passes. The format's
+//! conversion (`SurfaceV1::from_model`) leaves out legacy bindings and the
+//! context hint; `export_surface` then strips legacy actions and marks and
+//! renames references to exported surfaces. Once the input bindings are in
+//! (`bindings`), `look_over` reads each assignment as it will be written:
+//! what a person should look at before sharing, credentials in addresses,
+//! and the text arguments to offer as inputs.
 
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 use super::preview::{Collected, ExportCode, Parameter, SuggestedType, Suggestion};
 use super::select::{Chosen, IdTable};
@@ -60,22 +62,13 @@ pub(super) fn export_surface(
                 (Slot::Press, &control.press),
                 (Slot::LongPress, &control.long_press),
             ] {
-                let place = Place {
-                    at: Location {
-                        surface_source_id: chosen.artifact_id.clone(),
-                        page_id: page.id.clone(),
-                        control_id: control.id.clone(),
-                        slot,
-                    },
-                    pointer: format!(
-                        "/content/surfaces/{index}/pages/{p}/controls/{c}/{}",
-                        slot.member()
-                    ),
-                    label: &control.label,
-                };
+                let pointer = format!(
+                    "/content/surfaces/{index}/pages/{p}/controls/{c}/{}",
+                    slot.member()
+                );
                 *slot_of(control_dto, slot) = model
                     .as_ref()
-                    .and_then(|a| export_assignment(a, &place, ids, env, found));
+                    .and_then(|a| export_assignment(a, &pointer, &control.label, ids, env, found));
             }
         }
     }
@@ -91,7 +84,8 @@ pub(super) fn slot_of(control: &mut ControlV1, slot: Slot) -> &mut Option<Assign
 
 fn export_assignment(
     a: &Assignment,
-    place: &Place<'_>,
+    pointer: &str,
+    label: &str,
     ids: &IdTable<'_>,
     env: &Environment,
     found: &mut Collected,
@@ -102,9 +96,51 @@ fn export_assignment(
     }
     let mut exported = AssignmentV1::from_model(a);
     if let Some(def) = env.action(&a.provider, &a.action) {
-        mark_surface_refs(&mut exported, def, place, ids, found);
+        mark_surface_refs(&mut exported, def, pointer, label, ids, found);
     }
-    if let Some(kind) = classify(a, env) {
+    Some(exported)
+}
+
+/// Every assignment of the exported surfaces, as it will be written, read
+/// once: a pad that runs things is listed for review (with what the file
+/// carries, a bound argument's answer never), a credential in an argument
+/// not asked of the importer is an error, and every text argument is
+/// offered as an input.
+pub(super) fn look_over(surfaces: &[SurfaceV1], env: &Environment, found: &mut Collected) {
+    for (index, surface) in surfaces.iter().enumerate() {
+        for (p, page) in surface.pages.iter().enumerate() {
+            for (c, control) in page.controls.iter().enumerate() {
+                let pointer = format!("/content/surfaces/{index}/pages/{p}/controls/{c}");
+                for slot in [Slot::Press, Slot::LongPress] {
+                    let place = Place {
+                        at: Location {
+                            surface_source_id: surface.id.clone(),
+                            page_id: page.id.clone(),
+                            control_id: control.id.clone(),
+                            slot,
+                        },
+                        pointer: format!("{pointer}/{}", slot.member()),
+                        label: &control.label,
+                    };
+                    if let Some(a) = assignment_of(control, slot) {
+                        look_at(a, &place, env, found);
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn assignment_of(control: &ControlV1, slot: Slot) -> Option<&AssignmentV1> {
+    match slot {
+        Slot::Press => control.press.as_ref(),
+        Slot::LongPress => control.long_press.as_ref(),
+    }
+}
+
+fn look_at(exported: &AssignmentV1, place: &Place<'_>, env: &Environment, found: &mut Collected) {
+    let model = exported.to_model();
+    if let Some(kind) = classify(&model, env) {
         found.warn(
             ExportCode::ReviewBeforeSharing,
             review_warning(kind, place.label),
@@ -112,11 +148,10 @@ fn export_assignment(
         );
         found
             .review
-            .push(ReviewItem::new(place.at.clone(), place.label, kind, a));
+            .push(ReviewItem::new(place.at.clone(), place.label, kind, &model));
     }
-    refuse_credentials(&exported.args, place, found);
-    offer_arguments(&exported, place, found);
-    Some(exported)
+    refuse_credentials(exported, place, found);
+    offer_arguments(exported, place, found);
 }
 
 /// An argument whose definition is a reference to a surface and that names
@@ -125,7 +160,8 @@ fn export_assignment(
 fn mark_surface_refs(
     exported: &mut AssignmentV1,
     def: &KnownAction,
-    place: &Place<'_>,
+    pointer: &str,
+    label: &str,
     ids: &IdTable<'_>,
     found: &mut Collected,
 ) {
@@ -148,9 +184,9 @@ fn mark_surface_refs(
                 format!(
                     "The pad \"{}\" opens the surface \"{local}\", which is not in this file. \
                      After import it opens that surface only where one has this id.",
-                    place.label
+                    label
                 ),
-                Some(format!("{}/args/{}", place.pointer, segment(&param.name))),
+                Some(format!("{pointer}/args/{}", segment(&param.name))),
             ),
             None => {}
         }
@@ -168,9 +204,13 @@ fn review_warning(kind: ReviewKind, label: &str) -> String {
 }
 
 /// A text argument that is an address with a user name or password blocks
-/// the file: whoever receives it would receive the credentials.
-fn refuse_credentials(args: &Map<String, Value>, place: &Place<'_>, found: &mut Collected) {
-    for (name, value) in args {
+/// the file, unless the person asks the importer for it: whoever receives
+/// the file would receive the credentials.
+fn refuse_credentials(exported: &AssignmentV1, place: &Place<'_>, found: &mut Collected) {
+    for (name, value) in &exported.args {
+        if exported.inputs.contains_key(name) {
+            continue;
+        }
         if texts(value).any(has_credentials) {
             found.error(
                 ExportCode::CredentialInUrl,
@@ -202,6 +242,7 @@ fn has_credentials(text: &str) -> bool {
 /// Every text argument is a parameter the importer could be asked for; one
 /// that looks like a path on this computer is also suggested as one. An
 /// argument naming an exported surface is neither: the import renames it.
+/// A bound argument is listed as asked of the importer, without a value.
 fn offer_arguments(exported: &AssignmentV1, place: &Place<'_>, found: &mut Collected) {
     for (arg, value) in &exported.args {
         let Value::String(text) = value else {
@@ -210,10 +251,20 @@ fn offer_arguments(exported: &AssignmentV1, place: &Place<'_>, found: &mut Colle
         if exported.surface_refs.contains(arg) {
             continue;
         }
+        if let Some(input) = exported.inputs.get(arg) {
+            found.parameters.push(Parameter {
+                at: place.at.clone(),
+                arg: arg.clone(),
+                value: None,
+                input: Some(input.clone()),
+            });
+            continue;
+        }
         found.parameters.push(Parameter {
             at: place.at.clone(),
             arg: arg.clone(),
-            value: text.clone(),
+            value: Some(text.clone()),
+            input: None,
         });
         if looks_like_path(text) {
             found.warn(

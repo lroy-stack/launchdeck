@@ -1,17 +1,22 @@
 //! The request's input bindings (plan 7.8): the answer to an input replaces
 //! a whole text argument of an exported press or long press. Application
 //! inputs bind only to context rules (`rules`), every other input only here.
+//!
+//! A bound argument is written as the input's default, or empty without
+//! one: its value on this computer is what the person chose to ask the
+//! importer for, and never leaves it (security finding SF-2).
 
 use serde_json::Value;
 
 use super::preview::{Collected, ExportCode};
 use super::request::{ExportRequest, InputBinding};
 use super::surfaces::slot_of;
-use crate::artifacts::format::{ArtifactKind, AssignmentV1, InputType, SurfaceV1};
+use crate::artifacts::format::{ArtifactKind, AssignmentV1, InputType, InputValue, SurfaceV1};
 use crate::artifacts::json::segment;
 
-/// Record each binding of `request` on the assignment it names, or say why
-/// it cannot be. A Surface file has no inputs, so no bindings.
+/// Record each binding of `request` on the assignment it names, with the
+/// input's default in place of the argument's value, or say why it cannot
+/// be. A Surface file has no inputs, so no bindings.
 pub(super) fn bind(surfaces: &mut [SurfaceV1], request: &ExportRequest, found: &mut Collected) {
     if request.bindings.is_empty() {
         return;
@@ -34,6 +39,10 @@ pub(super) fn bind(surfaces: &mut [SurfaceV1], request: &ExportRequest, found: &
                         assignment
                             .inputs
                             .insert(binding.arg.clone(), binding.input.clone());
+                        let written = default_text(request, &binding.input);
+                        assignment
+                            .args
+                            .insert(binding.arg.clone(), Value::String(written));
                     }
                 }
             }
@@ -46,6 +55,19 @@ pub(super) fn bind(surfaces: &mut [SurfaceV1], request: &ExportRequest, found: &
                 None,
             ),
         }
+    }
+}
+
+/// What a bound argument is written as: the input's text default, or empty.
+fn default_text(request: &ExportRequest, input: &str) -> String {
+    let default = request
+        .inputs
+        .iter()
+        .find(|i| i.id == input)
+        .and_then(|i| i.default.as_ref());
+    match default {
+        Some(InputValue::Text { value }) => value.clone(),
+        _ => String::new(),
     }
 }
 

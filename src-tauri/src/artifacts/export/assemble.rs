@@ -1,7 +1,7 @@
 //! The export, step by step: choose the surfaces, carry each one, add the
-//! context rules and the input bindings, derive the dependencies and the
-//! manifest, run the format's own checks on the result, and write it with
-//! the canonical writer.
+//! context rules and the input bindings, look over every assignment as it
+//! will be written, derive the dependencies and the manifest, run the
+//! format's own checks on the result, and write it with the canonical writer.
 
 use super::bindings::bind;
 use super::dependencies::dependencies;
@@ -12,7 +12,7 @@ use super::preview::{
 use super::request::ExportRequest;
 use super::rules::export_rules;
 use super::select::{choose, id_table, Chosen};
-use super::surfaces::export_surface;
+use super::surfaces::{export_surface, look_over};
 use crate::artifacts::env::Environment;
 use crate::artifacts::format::{
     check_content, check_cross, check_manifest, compute_requirements, ArtifactKind, ArtifactV1,
@@ -38,6 +38,7 @@ pub fn export(workspace: &Workspace, env: &Environment, request: &ExportRequest)
         export_rules(workspace, request, &chosen, &ids, &mut found);
     check_kind(request, chosen.len(), !context_rules.is_empty(), &mut found);
     bind(&mut surfaces, request, &mut found);
+    look_over(&surfaces, env, &mut found);
     let content = ContentV1 {
         surfaces,
         context_rules,

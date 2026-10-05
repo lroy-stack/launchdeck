@@ -9,9 +9,11 @@
 //!   checks on the result
 //! * `select`        the chosen surfaces and the ids the file gives them
 //! * `surfaces`      each surface as the file carries it: legacy actions
-//!   stripped, surface references, review items, credentials in addresses,
-//!   arguments to offer as inputs
-//! * `bindings`      the request's input bindings, on the exported assignments
+//!   stripped, surface references; then, once bound, review items,
+//!   credentials in addresses, arguments to offer as inputs
+//! * `bindings`      the request's input bindings, on the exported
+//!   assignments: a bound argument carries the input's default, never its
+//!   value on this computer
 //! * `rules`         the context rules, their application inputs and extra
 //!   identities
 //! * `dependencies`  the plugins the content uses (plan 7.6)
