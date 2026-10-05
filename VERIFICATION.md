@@ -171,3 +171,17 @@ Between these lines the two-second safety net repeated the application in front 
 Before and after, side by side: the example as it was before this change (copied from `HEAD` into a temporary example, deleted afterwards) and the new one ran at the same time through the same three switches, and System Events was asked after each `open -a` which application was in front: TextEdit, Finder, Terminal, each confirmed. The new example printed `macos:com.apple.TextEdit`, `macos:com.apple.finder` and `macos:com.apple.Terminal` at 3141, 7235 and 11489 ms. The old one printed `macos:com.brave.Browser` every two seconds until it was stopped: without a running main run loop, `frontmostApplication` does not change either, so its safety net saw nothing.
 
 What this proves: on this Mac, the macOS adapter (`context/observer/macos.rs`) reports the application in front by its bundle identifier through `NSWorkspace`, from the activation notifications, whenever the main run loop runs. What it does not prove: anything about the app. Auto Context in the LaunchDeck window, the checklist of NEXT_PHASE.md section 4.2, is still **NOT VERIFIED**: no person has done the manual checks of section 4.
+
+### Persist cost of a context-driven activation
+
+`the_save_on_context_activation_is_measured` in `src-tauri/src/core/runtime/tests.rs`, an ignored test that measures and checks nothing: a runtime with a real `Store` in a temporary directory and the default workspace (131 072 bytes as saved), 20 activations by Auto Context (`By::Context`) alternating between Development and Productivity. After each, `Runtime::persist` is timed on its own, and so is the part of it that only turns the workspace into text. Command, from `src-tauri/`: `cargo test --lib -- --ignored --nocapture save_on_context_activation`, in the test profile (unoptimized, no debug info), on this Mac's internal SSD.
+
+Three runs with every activation saving, as before package B1:
+
+| Run | `Runtime::persist`, min / median / max | Of which serialising, median | `activate(By::Context)`, median |
+| --- | --- | --- | --- |
+| 1 | 4.55 / 6.09 / 22.09 ms | 2.72 ms | 6.39 ms |
+| 2 | 4.60 / 7.04 / 23.96 ms | 2.50 ms | 7.27 ms |
+| 3 | 5.52 / 6.57 / 30.11 ms | 2.52 ms | 7.03 ms |
+
+Seven earlier runs of drafts of the same test gave medians of 5.87 to 6.75 ms. The median is above the 5 ms that `PRODUCTIZATION_PLAN.md` section 6 set, so context-driven activations stop saving (next commit). The serialising share would be smaller in an optimized build; no release build was made here (disk space), so that is **not measured**. The rest, about 3.5 to 4.5 ms, is writing, syncing and renaming the file, which does not depend on the build.

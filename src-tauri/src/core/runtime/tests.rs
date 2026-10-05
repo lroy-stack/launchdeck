@@ -632,3 +632,49 @@ async fn external_websocket_events_reach_pads_end_to_end() {
         .unwrap()
         .contains("error"));
 }
+
+/// What saving the workspace costs when Auto Context activates a surface, and
+/// what the activation costs: a measurement, not a check. It prints the
+/// numbers VERIFICATION.md records:
+/// `cargo test --lib -- --ignored --nocapture save_on_context_activation`
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "a measurement: run it by name with --ignored --nocapture"]
+async fn the_save_on_context_activation_is_measured() {
+    const ACTIVATIONS: usize = 20;
+    let dir = tempfile::tempdir().unwrap();
+    let rt = start(default_workspace(), Some(Store::new(dir.path()))).await;
+    let mut saves = Vec::new();
+    let mut activations = Vec::new();
+    let mut serialising = Vec::new();
+    for turn in 0..ACTIVATIONS {
+        let surface = ["development", "productivity"][turn % 2];
+        let began = Instant::now();
+        rt.activate(surface, None, By::Context).unwrap();
+        activations.push(began.elapsed());
+        // The save that activation just made, timed on its own, and the part
+        // of it that is only turning the workspace into text.
+        let inner = rt.lock();
+        let began = Instant::now();
+        rt.persist(&inner);
+        saves.push(began.elapsed());
+        let began = Instant::now();
+        serde_json::to_string_pretty(&inner.workspace).unwrap();
+        serialising.push(began.elapsed());
+    }
+    let bytes = std::fs::metadata(dir.path().join("workspace.json"))
+        .unwrap()
+        .len();
+    let report = |what: &str, mut times: Vec<Duration>| {
+        times.sort();
+        let ms = |d: Duration| d.as_secs_f64() * 1000.0;
+        let median = (ms(times[ACTIVATIONS / 2 - 1]) + ms(times[ACTIVATIONS / 2])) / 2.0;
+        println!(
+            "{what}: min {:.2} ms, median {median:.2} ms, max {:.2} ms ({ACTIVATIONS} runs, {bytes} bytes)",
+            ms(times[0]),
+            ms(times[ACTIVATIONS - 1]),
+        );
+    };
+    report("Runtime::persist", saves);
+    report("of which serialising", serialising);
+    report("activate(By::Context)", activations);
+}
