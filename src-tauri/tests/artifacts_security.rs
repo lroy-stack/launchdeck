@@ -55,7 +55,7 @@ fn golden_text(name: &str) -> String {
     std::fs::read_to_string(fixtures().join("valid").join(name)).unwrap()
 }
 
-/// The golden Pack: the five starters, two context rules, six inputs.
+/// The golden Pack: the five starters, two context rules, one input.
 fn pack() -> Value {
     serde_json::from_str(&golden_text("starters.ldpack")).unwrap()
 }
@@ -833,9 +833,9 @@ fn duplicate_control_id() {
 
 // References.
 
-/// The Lights pad of Smart Home, whose `url` asks the importer for
-/// `lights_webhook`.
-const LIGHTS: &str = "/content/surfaces/3/pages/0/controls/0/press";
+/// The Lights pad of Accessibility (its Help page), whose `url` asks the
+/// importer for `lights_webhook`.
+const LIGHTS: &str = "/content/surfaces/4/pages/1/controls/2/press";
 
 #[test]
 fn references_rule_to_a_surface_not_in_the_pack() {
@@ -883,7 +883,7 @@ fn references_surface_refs() {
 fn references_binding_to_an_undeclared_input() {
     assert_eq!(
         pack_refused(
-            |v| v["content"]["surfaces"][3]["pages"][0]["controls"][0]["press"]["inputs"]["url"] =
+            |v| v["content"]["surfaces"][4]["pages"][1]["controls"][2]["press"]["inputs"]["url"] =
                 json!("nowhere")
         ),
         at(R::InvalidContent, &format!("{LIGHTS}/inputs/url"))
@@ -1036,7 +1036,11 @@ fn inputs_default_not_an_option() {
 #[test]
 fn inputs_duplicate_id() {
     assert_eq!(
-        pack_refused(|v| v["manifest"]["inputs"][1]["id"] = json!("lights_webhook")),
+        pack_refused(|v| {
+            let inputs = v["manifest"]["inputs"].as_array_mut().unwrap();
+            let again = inputs[0].clone();
+            inputs.push(again);
+        }),
         at(R::InvalidManifest, "/manifest/inputs/1/id")
     );
 }

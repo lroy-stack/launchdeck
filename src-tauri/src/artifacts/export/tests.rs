@@ -274,21 +274,11 @@ fn starters_with_rules() -> Workspace {
     ws
 }
 
-/// The Home Assistant webhooks of the Smart Home and Accessibility
-/// starters, each asked of the importer: a webhook id is a credential.
+/// The Home Assistant webhook of the Accessibility starter, asked of the
+/// importer: a webhook id is a credential. (The Home starter's pads are the
+/// Home Assistant example plugin's, with example entities and no webhook.)
 fn webhook_inputs() -> (Vec<InputDef>, Vec<InputBinding>) {
-    let hooks = [
-        (
-            "lights",
-            "Lights",
-            vec![("smart-home", "g.0.0"), ("accessibility", "g.4.0")],
-        ),
-        ("movie", "Movie", vec![("smart-home", "g.2.0")]),
-        ("work", "Work", vec![("smart-home", "g.4.0")]),
-        ("warmer", "Warmer", vec![("smart-home", "g.0.2")]),
-        ("cooler", "Cooler", vec![("smart-home", "g.2.2")]),
-        ("lock", "Lock", vec![("smart-home", "g.4.2")]),
-    ];
+    let hooks = [("lights", "Lights", vec![("accessibility", "g.4.0")])];
     let mut inputs = Vec::new();
     let mut bindings = Vec::new();
     for (name, label, pads) in hooks {

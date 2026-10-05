@@ -931,6 +931,30 @@ fn references_resolve() {
     );
 }
 
+/// The plugins a workspace's pads use, by an action or a state rule, each
+/// once: the Home starter's pads are an example plugin's.
+fn plugins_used(workspace: &crate::core::model::Workspace) -> Vec<String> {
+    let mut plugins: Vec<String> = workspace
+        .surfaces
+        .iter()
+        .flat_map(|s| &s.pages)
+        .flat_map(|p| &p.controls)
+        .flat_map(|c| {
+            let actions = c.press.iter().chain(&c.long_press).map(|a| &a.provider);
+            let states = c.feedback.iter().filter_map(|r| match &r.when {
+                crate::state::feedback::When::State(s) => Some(&s.state.provider),
+                crate::state::feedback::When::Event(_) => None,
+            });
+            actions.chain(states)
+        })
+        .filter(|provider| provider.contains('.'))
+        .cloned()
+        .collect();
+    plugins.sort();
+    plugins.dedup();
+    plugins
+}
+
 /// The five starter surfaces, to a file's types and back, lose nothing a
 /// file carries, and as one Pack pass every structural check.
 #[test]
@@ -964,7 +988,15 @@ fn the_starter_surfaces_convert_both_ways() {
         },
         requirements: compute_requirements(&content),
         tested_with: Vec::new(),
-        dependencies: Vec::new(),
+        dependencies: plugins_used(&workspace)
+            .into_iter()
+            .map(|plugin_id| DependencyV1 {
+                plugin_id,
+                name: None,
+                version: "*".into(),
+                required: true,
+            })
+            .collect(),
         inputs: Vec::new(),
         integrity: Integrity {
             content: content.digest().unwrap(),

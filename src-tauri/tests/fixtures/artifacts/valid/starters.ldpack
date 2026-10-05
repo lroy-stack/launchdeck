@@ -9,6 +9,13 @@
       "app": "launchdeck",
       "version": "9.9.9"
     },
+    "dependencies": [
+      {
+        "pluginId": "example.home-assistant",
+        "required": true,
+        "version": "*"
+      }
+    ],
     "description": "The five starter surfaces of LaunchDeck.",
     "id": "launchdeck-examples.starters",
     "inputs": [
@@ -17,40 +24,10 @@
         "id": "lights_webhook",
         "label": "Lights webhook",
         "type": "url"
-      },
-      {
-        "description": "The address of your Home Assistant webhook for this pad.",
-        "id": "movie_webhook",
-        "label": "Movie webhook",
-        "type": "url"
-      },
-      {
-        "description": "The address of your Home Assistant webhook for this pad.",
-        "id": "work_webhook",
-        "label": "Work webhook",
-        "type": "url"
-      },
-      {
-        "description": "The address of your Home Assistant webhook for this pad.",
-        "id": "warmer_webhook",
-        "label": "Warmer webhook",
-        "type": "url"
-      },
-      {
-        "description": "The address of your Home Assistant webhook for this pad.",
-        "id": "cooler_webhook",
-        "label": "Cooler webhook",
-        "type": "url"
-      },
-      {
-        "description": "The address of your Home Assistant webhook for this pad.",
-        "id": "lock_webhook",
-        "label": "Lock webhook",
-        "type": "url"
       }
     ],
     "integrity": {
-      "content": "sha256:05502111fe0746c8c960d0df084674cf99261c34ba44548da0bcb4c2a19f71cf"
+      "content": "sha256:8f50f3d0ecf935ac756a59c1079abd6080c1122e41a3c8725ddecd0e54a2106d"
     },
     "license": "MIT",
     "name": "Starters",
@@ -3077,18 +3054,18 @@
       },
       {
         "category": "smart-home",
-        "description": "Template for Home Assistant style webhooks. Edit the URLs to make it yours.",
+        "description": "Lights and switches through Home Assistant. Needs the Home Assistant example plugin (Plugins, Install), its address and token, and your own entity on each pad.",
         "icon": "⌂",
         "id": "smart-home",
-        "name": "Smart Home",
+        "name": "Home",
         "pages": [
           {
             "controls": [
               {
-                "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+                "description": "Example entity: set your own in the inspector.",
                 "icon": "☀",
                 "id": "g.0.0",
-                "label": "Lights",
+                "label": "Living room",
                 "looks": {
                   "error": {
                     "animation": "flash",
@@ -3108,15 +3085,11 @@
                   "row": 0
                 },
                 "press": {
-                  "action": "request",
+                  "action": "toggle",
                   "args": {
-                    "method": "POST",
-                    "url": ""
+                    "entity": "light.living_room"
                   },
-                  "inputs": {
-                    "url": "lights_webhook"
-                  },
-                  "provider": "http"
+                  "provider": "example.home-assistant"
                 },
                 "span": {
                   "h": 2,
@@ -3127,10 +3100,10 @@
                 }
               },
               {
-                "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
-                "icon": "▶",
+                "description": "Example entity: set your own in the inspector.",
+                "icon": "☀",
                 "id": "g.2.0",
-                "label": "Movie",
+                "label": "Kitchen",
                 "looks": {
                   "error": {
                     "animation": "flash",
@@ -3150,29 +3123,25 @@
                   "row": 0
                 },
                 "press": {
-                  "action": "request",
+                  "action": "toggle",
                   "args": {
-                    "method": "POST",
-                    "url": ""
+                    "entity": "light.kitchen"
                   },
-                  "inputs": {
-                    "url": "movie_webhook"
-                  },
-                  "provider": "http"
+                  "provider": "example.home-assistant"
                 },
                 "span": {
                   "h": 2,
                   "w": 2
                 },
                 "visual": {
-                  "color": "#aa50ff"
+                  "color": "#ff7814"
                 }
               },
               {
-                "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
-                "icon": "⌨",
+                "description": "Example entity: set your own in the inspector.",
+                "icon": "✦",
                 "id": "g.4.0",
-                "label": "Work",
+                "label": "Desk lamp",
                 "looks": {
                   "error": {
                     "animation": "flash",
@@ -3192,15 +3161,11 @@
                   "row": 0
                 },
                 "press": {
-                  "action": "request",
+                  "action": "toggle",
                   "args": {
-                    "method": "POST",
-                    "url": ""
+                    "entity": "light.desk"
                   },
-                  "inputs": {
-                    "url": "work_webhook"
-                  },
-                  "provider": "http"
+                  "provider": "example.home-assistant"
                 },
                 "span": {
                   "h": 2,
@@ -3211,10 +3176,10 @@
                 }
               },
               {
-                "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
-                "icon": "▲",
+                "description": "Example entity: set your own in the inspector.",
+                "icon": "⌂",
                 "id": "g.0.2",
-                "label": "Warmer",
+                "label": "Porch",
                 "looks": {
                   "error": {
                     "animation": "flash",
@@ -3234,29 +3199,25 @@
                   "row": 2
                 },
                 "press": {
-                  "action": "request",
+                  "action": "toggle",
                   "args": {
-                    "method": "POST",
-                    "url": ""
+                    "entity": "light.porch"
                   },
-                  "inputs": {
-                    "url": "warmer_webhook"
-                  },
-                  "provider": "http"
+                  "provider": "example.home-assistant"
                 },
                 "span": {
                   "h": 2,
                   "w": 2
                 },
                 "visual": {
-                  "color": "#ff7814"
+                  "color": "#aa50ff"
                 }
               },
               {
-                "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
-                "icon": "▼",
+                "description": "Example entity: set your own in the inspector.",
+                "icon": "✣",
                 "id": "g.2.2",
-                "label": "Cooler",
+                "label": "Fan",
                 "looks": {
                   "error": {
                     "animation": "flash",
@@ -3276,15 +3237,11 @@
                   "row": 2
                 },
                 "press": {
-                  "action": "request",
+                  "action": "toggle",
                   "args": {
-                    "method": "POST",
-                    "url": ""
+                    "entity": "switch.bedroom_fan"
                   },
-                  "inputs": {
-                    "url": "cooler_webhook"
-                  },
-                  "provider": "http"
+                  "provider": "example.home-assistant"
                 },
                 "span": {
                   "h": 2,
@@ -3295,10 +3252,10 @@
                 }
               },
               {
-                "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
-                "icon": "🔒",
+                "description": "Example entity: set your own in the inspector.",
+                "icon": "☕",
                 "id": "g.4.2",
-                "label": "Lock",
+                "label": "Coffee",
                 "looks": {
                   "error": {
                     "animation": "flash",
@@ -3318,15 +3275,11 @@
                   "row": 2
                 },
                 "press": {
-                  "action": "request",
+                  "action": "toggle",
                   "args": {
-                    "method": "POST",
-                    "url": ""
+                    "entity": "switch.coffee_machine"
                   },
-                  "inputs": {
-                    "url": "lock_webhook"
-                  },
-                  "provider": "http"
+                  "provider": "example.home-assistant"
                 },
                 "span": {
                   "h": 2,
