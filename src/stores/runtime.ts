@@ -7,8 +7,9 @@ import { api, errorMessage, isPreview, subscribe } from "../lib/ipc";
 import { emptyAgents, newer, type AgentNotification, type AgentsSnapshot } from "../lib/agents";
 import { emptyIndex, indexCatalog, type CatalogIndex } from "../lib/actions";
 import type { Slot } from "../lib/assign";
+import { primaryDevice } from "../lib/devices";
 import { applyDelta } from "../lib/observables";
-import type { Catalog, ContextStatus, Control, ControlPos, Frame, ObservableCatalog, ObservablesDelta, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Surface, Workspace, Page } from "../lib/schema";
+import type { Catalog, ContextStatus, Control, ControlPos, DeviceInfo, Frame, ObservableCatalog, ObservablesDelta, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Surface, Workspace, Page } from "../lib/schema";
 import { emptyObservableCatalog, posKey } from "../lib/schema";
 
 export type View = "home" | "agents" | "surface" | "plugins" | "settings";
@@ -331,6 +332,9 @@ export const activePage = (s: Core): Page | null => {
   const surface = activeSurface(s);
   return surface?.pages.find((p) => p.id === s.state?.activePageId) ?? surface?.pages[0] ?? null;
 };
+
+/** The device the app shows and lays pads out for (see `primaryDevice`). */
+export const primaryDeviceOf = (s: Pick<Store, "state">): DeviceInfo | null => primaryDevice(s.state?.devices ?? []);
 
 /** The control covering a position, honouring spans on the main grid. */
 export function controlAt(page: Page | null, pos: ControlPos | null): Control | null {

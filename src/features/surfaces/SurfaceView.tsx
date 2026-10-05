@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../../lib/ipc";
 import { plural } from "../../lib/format";
 import type { Mode, Page, Surface } from "../../lib/schema";
-import { activePage, activeSurface, useStore } from "../../stores/runtime";
+import { activePage, activeSurface, primaryDeviceOf, useStore } from "../../stores/runtime";
 import { Inspector } from "../editor/Inspector";
 import { ActionLibrary } from "../library/ActionLibrary";
 import { LivePanel } from "./LivePanel";
@@ -11,6 +11,7 @@ import { PadGrid } from "../../components/PadGrid";
 export function SurfaceView() {
   const workspace = useStore((s) => s.workspace);
   const state = useStore((s) => s.state);
+  const device = useStore(primaryDeviceOf);
   const libraryOpen = useStore((s) => s.libraryOpen);
   const frame = useStore((s) => s.frame);
   const attempt = useStore((s) => s.attempt);
@@ -24,7 +25,6 @@ export function SurfaceView() {
   if (!workspace || !state || !surface || !page) return <div className="empty-state">No surface selected.</div>;
 
   const mode = state.mode;
-  const device = state.devices.find((d) => d.connected) ?? state.devices[0] ?? null;
   const setMode = (m: Mode) => {
     if (m === mode) return;
     select(null);

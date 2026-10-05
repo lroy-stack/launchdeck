@@ -55,6 +55,9 @@ nav { display: flex; flex-direction: column; gap: 2px; }
 .device-text small, .device-list small { color: var(--text-3); font-size: 11.5px; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); flex: none; }
 .status-dot.ok { background: var(--good); box-shadow: 0 0 8px var(--good); }
+.status-dot.warn { background: var(--warn); }
+.status-dot.bad { background: var(--bad); }
+.device-text .device-problem { color: var(--text-2); }
 .side-section { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 .side-title { display: flex; align-items: center; justify-content: space-between; padding: 0 8px; color: var(--text-3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
 .surface-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -139,6 +142,8 @@ textarea { resize: vertical; }
 .device-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .device-list li { display: flex; align-items: center; gap: 10px; }
 .device-list div { display: flex; flex-direction: column; }
+.tech-details { margin-top: 12px; }
+.tech-details summary { cursor: pointer; color: var(--text-3); font-size: 12px; }
 .device-list.big li { padding: 10px 12px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; }
 .snippet { margin: 0; padding: 12px; background: #07070a; border: 1px solid var(--line-2); border-radius: 8px; font: 12px/1.6 var(--mono); color: #c7d2fe; overflow: auto; }
 .feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }

@@ -1,7 +1,8 @@
 import { api } from "../../lib/ipc";
 import { plural } from "../../lib/format";
-import { useStore } from "../../stores/runtime";
+import { primaryDeviceOf, useStore } from "../../stores/runtime";
 import { ActivityFeed } from "../../components/ActivityFeed";
+import { DeviceStatusLine } from "../../components/DeviceStatusLine";
 
 const BLURBS: Record<string, string> = {
   "agent-control": "Watch every agent session at a glance. Approve, reject, pause, retry and start tasks from the pads.",
@@ -14,6 +15,7 @@ const BLURBS: Record<string, string> = {
 export function HomeView() {
   const workspace = useStore((s) => s.workspace);
   const state = useStore((s) => s.state);
+  const device = useStore(primaryDeviceOf);
   const events = useStore((s) => s.events);
   const preview = useStore((s) => s.preview);
   const setView = useStore((s) => s.setView);
@@ -23,7 +25,6 @@ export function HomeView() {
   const summary = useStore((s) => s.agents.summary);
   if (!workspace || !state) return null;
 
-  const device = state.devices.find((d) => d.connected);
   const first = !workspace.preferences.onboardingDone;
 
   const open = async (id: string, edit = false) => {
@@ -51,9 +52,9 @@ export function HomeView() {
     <div className="page-scroll home">
       <section className="hero">
         <span className="eyebrow">Programmable physical interface runtime</span>
-        <h1>Turn any MIDI grid into a programmable surface for your digital life.</h1>
+        <h1>Turn a pad controller into a programmable surface for your digital life.</h1>
         <p>
-          LaunchDeck turns MIDI grid controllers into programmable physical interfaces for your computer. Control apps. Automate workflows. Build accessible interfaces.
+          LaunchDeck turns a Launchpad into a programmable physical interface for your computer. Control apps. Automate workflows. Build accessible interfaces.
           Monitor and orchestrate AI agents. No hardware needed to try it: the virtual Launchpad X behaves like the real thing.
         </p>
         <div className="row wrap">
@@ -142,13 +143,7 @@ export function HomeView() {
           <ul className="device-list">
             {state.devices.map((d) => (
               <li key={d.identity.id}>
-                <span className={`status-dot ${d.connected ? "ok" : ""}`} />
-                <div>
-                  <b>{d.identity.name}</b>
-                  <small>
-                    {d.identity.kind === "virtual" ? "Simulator" : "Hardware"} · {d.connected ? "connected" : "available"}
-                  </small>
-                </div>
+                <DeviceStatusLine device={d} />
               </li>
             ))}
           </ul>

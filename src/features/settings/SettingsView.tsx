@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../../lib/ipc";
 import { useStore } from "../../stores/runtime";
 import { ContextPanel } from "../context/ContextPanel";
+import { DevicesPanel } from "./DevicesPanel";
 
 export function SettingsView() {
   const state = useStore((s) => s.state);
@@ -11,7 +12,6 @@ export function SettingsView() {
   const [source, setSource] = useState("codex");
   const [event, setEvent] = useState("task.started");
   const [confirmReset, setConfirmReset] = useState(false);
-  const [scanning, setScanning] = useState(false);
   if (!state || !workspace) return null;
   const ext = state.external;
   const prefs = workspace.preferences;
@@ -22,50 +22,7 @@ export function SettingsView() {
         <h1>Settings</h1>
       </header>
 
-      <section className="panel">
-        <div className="panel-head">
-          <div>
-            <h2>Devices</h2>
-            <p className="hint">Plug in a Launchpad X, then rescan. LaunchDeck switches it to Programmer mode when it connects.</p>
-          </div>
-          <button
-            type="button"
-            className="btn"
-            disabled={scanning}
-            onClick={() => {
-              setScanning(true);
-              void attempt(() => api.rescanDevices()).finally(() => setScanning(false));
-            }}
-          >
-            {scanning ? "Scanning…" : "Rescan"}
-          </button>
-        </div>
-        <ul className="device-list big">
-          {state.devices.map((d) => (
-            <li key={d.identity.id}>
-              <span className={`status-dot ${d.connected ? "ok" : ""}`} />
-              <div className="grow">
-                <b>{d.identity.name}</b>
-                <small>
-                  {d.identity.kind === "virtual" ? "Simulator" : "Hardware"} · {d.capabilities.grid ? `${d.capabilities.grid.width}×${d.capabilities.grid.height} grid` : "no grid"}
-                  {d.capabilities.rgb ? " · RGB" : ""}
-                  {d.capabilities.animations.pulse ? " · native pulse" : " · software pulse"}
-                </small>
-              </div>
-              {d.connected ? (
-                <button type="button" className="btn small" onClick={() => void attempt(() => api.disconnectDevice(d.identity.id))}>
-                  Disconnect
-                </button>
-              ) : (
-                <button type="button" className="btn small primary" onClick={() => void attempt(() => api.connectDevice(d.identity.id))}>
-                  Connect
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-        {!state.devices.some((d) => d.identity.kind === "hardware") && <p className="hint">No Launchpad X found. The virtual device works the same way.</p>}
-      </section>
+      <DevicesPanel />
 
       <ContextPanel />
 
