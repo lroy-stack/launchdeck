@@ -11,6 +11,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use super::layout::{self, led_index};
+use super::profile::{ModelProfile, Role};
 use super::protocol::{self, to_7bit, Colourspec, Product};
 #[cfg(test)]
 use super::{
@@ -121,8 +122,21 @@ fn is_other_launchpad(name: &str) -> bool {
     n.contains("launchpad") && !names_launchpad_x(&n) && !n.contains("daw")
 }
 
-pub fn capabilities() -> DeviceCapabilities {
-    DeviceCapabilities {
+/// The Launchpad X as profile data (X-PRM, 2019-11-08).
+pub(crate) static PROFILE: ModelProfile = ModelProfile {
+    model: "launchpad-x",
+    name: "Launchpad X",
+    product: PRODUCT,
+    // X-PRM p6 prints 13 01, a copy of the Mini's family; Ableton's scripts
+    // and a captured reply give 03 01. The readback product byte decides.
+    families: &[[0x03, 0x01], [0x13, 0x01]],
+    stem_tokens: &["lpx"],
+    name_tokens: &["launchpad", "x"],
+    // X-PRM p6: the DAW interface first, the MIDI interface second.
+    interfaces: &[Role::Daw, Role::Midi],
+    // X-PRM p7: Live mode outside a DAW is Note mode.
+    live_layout: 0x01,
+    capabilities: DeviceCapabilities {
         grid: Some(GridCaps {
             width: 8,
             height: 8,
@@ -140,7 +154,11 @@ pub fn capabilities() -> DeviceCapabilities {
             pulse: false,
             flash: false,
         },
-    }
+    },
+};
+
+pub fn capabilities() -> DeviceCapabilities {
+    PROFILE.capabilities
 }
 
 // ---------------------------------------------------------------------------
