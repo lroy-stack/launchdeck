@@ -40,7 +40,8 @@ pub use sandbox::Limits;
 
 /// Protocol (ABI) version between host and module.
 pub const ABI_VERSION: u32 = 1;
-/// SDK version this host understands.
+/// SDK version this host understands. The same number as the version in
+/// `sdk/assemblyscript/package.json`; `tests/plugins_contract.rs` checks it.
 pub const SDK_VERSION: &str = "0.2.1";
 
 /// Environment variable with extra plugin folders (path list), for development.

@@ -1,6 +1,7 @@
 //! Guards the IPC contract between the Rust plugins overview and the TypeScript
 //! schemas. The TypeScript tests parse `examples/plugins-overview.json`; this
-//! test makes sure that file still has every field the runtime emits.
+//! test makes sure that file still has every field the runtime emits. It also
+//! keeps the SDK's version one number in two places.
 
 #[path = "support/plugins_scenario.rs"]
 mod plugins_scenario;
@@ -50,5 +51,23 @@ fn the_plugins_fixture_has_every_field_the_runtime_emits() {
         missing.is_empty(),
         "examples/plugins-overview.json is out of date, missing {missing:?}.\n\
          Refresh it: cargo run --example dump_plugins > ../examples/plugins-overview.json"
+    );
+}
+
+/// The SDK's version is written twice: in its package and in the host, which
+/// tells modules which SDK it understands. They must be the same number.
+#[test]
+fn the_sdk_package_has_the_version_the_host_understands() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../sdk/assemblyscript/package.json"
+    );
+    let text = std::fs::read_to_string(path).expect("sdk/assemblyscript/package.json exists");
+    let package: Value = serde_json::from_str(&text).expect("package.json is JSON");
+    assert_eq!(
+        package["version"].as_str(),
+        Some(launchdeck_lib::plugins::external::SDK_VERSION),
+        "sdk/assemblyscript/package.json and plugins::external::SDK_VERSION disagree; \
+         change both together (docs/plugin-sdk/versioning.md)"
     );
 }
