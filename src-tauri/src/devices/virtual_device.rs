@@ -1,12 +1,15 @@
-//! `VirtualLaunchpadX`: a software Launchpad X with the same device interface
-//! as the hardware. Used for development without hardware, CI, demos and tests.
+//! `VirtualDevice`: a software control surface with the same device
+//! interface as the hardware, built from a `VirtualModel`. Used for
+//! development without hardware, CI, demos and tests. `VirtualLaunchpadX`
+//! is the app's simulator.
 
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use super::{
-    AnimationCaps, AuxCaps, DeviceCapabilities, DeviceError, DeviceIdentity, DeviceInput,
-    DeviceKind, GridCaps, InputKind, InputSender, SurfaceDevice, SurfaceFrame,
+    AnimationCaps, AuxCaps, DeviceCapabilities, DeviceError, DeviceFeatures, DeviceIdentity,
+    DeviceInput, DeviceKind, GridCaps, InputKind, InputSender, Led, LedCell, SurfaceDevice,
+    SurfaceFrame,
 };
 use crate::core::model::ControlPos;
 
@@ -14,36 +17,64 @@ pub const VIRTUAL_ID: &str = "virtual-launchpad-x";
 
 type ChangeCallback = Box<dyn Fn(&SurfaceFrame) + Send + Sync>;
 
-#[derive(Default)]
+/// What a virtual device is: its identity, what it can do, and how one of
+/// its LEDs shows what a frame asks for.
+pub(crate) struct VirtualModel {
+    pub id: String,
+    pub name: String,
+    pub model: String,
+    pub capabilities: DeviceCapabilities,
+    pub features: DeviceFeatures,
+    /// What an LED shows for the `Led` a frame gives it.
+    pub display: fn(Led) -> Led,
+}
+
 struct State {
+    id: String,
+    capabilities: DeviceCapabilities,
     connected: bool,
     input: Option<InputSender>,
+    /// What the LEDs show: the last frame, as `display` shows it.
     frame: SurfaceFrame,
     held: HashSet<ControlPos>,
     on_change: Option<ChangeCallback>,
 }
 
+impl State {
+    fn sender(&self) -> Result<InputSender, DeviceError> {
+        self.input
+            .clone()
+            .filter(|_| self.connected)
+            .ok_or(DeviceError::NotConnected)
+    }
+
+    /// Full for a device whose pads send no velocity.
+    fn velocity(&self, velocity: u8) -> u8 {
+        if self.capabilities.velocity {
+            velocity.clamp(1, 127)
+        } else {
+            127
+        }
+    }
+}
+
 /// Cheap clonable handle for UI/tests to press pads and read the frame.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct VirtualHandle(Arc<Mutex<State>>);
 
 impl VirtualHandle {
     pub fn press(&self, pos: ControlPos, velocity: u8) -> Result<(), DeviceError> {
         let mut s = self.0.lock().unwrap();
-        let tx = s
-            .input
-            .clone()
-            .filter(|_| s.connected)
-            .ok_or(DeviceError::NotConnected)?;
-        if !caps().has_position(pos) {
+        let tx = s.sender()?;
+        if !s.capabilities.has_position(pos) {
             return Ok(());
         }
         s.held.insert(pos);
         let _ = tx.send(DeviceInput {
-            device_id: VIRTUAL_ID.into(),
+            device_id: s.id.clone(),
             pos,
             kind: InputKind::Pressed {
-                velocity: velocity.clamp(1, 127),
+                velocity: s.velocity(velocity),
             },
         });
         Ok(())
@@ -51,14 +82,10 @@ impl VirtualHandle {
 
     pub fn release(&self, pos: ControlPos) -> Result<(), DeviceError> {
         let mut s = self.0.lock().unwrap();
-        let tx = s
-            .input
-            .clone()
-            .filter(|_| s.connected)
-            .ok_or(DeviceError::NotConnected)?;
+        let tx = s.sender()?;
         if s.held.remove(&pos) {
             let _ = tx.send(DeviceInput {
-                device_id: VIRTUAL_ID.into(),
+                device_id: s.id.clone(),
                 pos,
                 kind: InputKind::Released,
             });
@@ -79,7 +106,77 @@ impl VirtualHandle {
     }
 }
 
-fn caps() -> DeviceCapabilities {
+/// A software device of one `VirtualModel`.
+pub struct VirtualDevice {
+    identity: DeviceIdentity,
+    capabilities: DeviceCapabilities,
+    features: DeviceFeatures,
+    display: fn(Led) -> Led,
+    handle: VirtualHandle,
+}
+
+impl VirtualDevice {
+    pub(crate) fn new(model: VirtualModel) -> (Self, VirtualHandle) {
+        let handle = VirtualHandle(Arc::new(Mutex::new(State {
+            id: model.id.clone(),
+            capabilities: model.capabilities,
+            connected: false,
+            input: None,
+            frame: SurfaceFrame::default(),
+            held: HashSet::new(),
+            on_change: None,
+        })));
+        let device = Self {
+            identity: DeviceIdentity {
+                id: model.id,
+                name: model.name,
+                model: model.model,
+                kind: DeviceKind::Virtual,
+            },
+            capabilities: model.capabilities,
+            features: model.features,
+            display: model.display,
+            handle: handle.clone(),
+        };
+        (device, handle)
+    }
+
+    /// The frame as this device's LEDs show it.
+    fn shown(&self, frame: &SurfaceFrame) -> SurfaceFrame {
+        SurfaceFrame {
+            leds: frame
+                .leds
+                .iter()
+                .map(|cell| LedCell {
+                    pos: cell.pos,
+                    led: (self.display)(cell.led),
+                })
+                .collect(),
+        }
+    }
+}
+
+/// The app's simulator: a `VirtualDevice` of the Launchpad X.
+pub struct VirtualLaunchpadX;
+
+impl VirtualLaunchpadX {
+    #[expect(
+        clippy::new_ret_no_self,
+        reason = "the simulator's constructor, as every caller knows it"
+    )]
+    pub fn new() -> (VirtualDevice, VirtualHandle) {
+        VirtualDevice::new(VirtualModel {
+            id: VIRTUAL_ID.into(),
+            name: "Virtual Launchpad X".into(),
+            model: "launchpad-x".into(),
+            capabilities: launchpad_x_caps(),
+            features: DeviceFeatures::default(),
+            display: |led| led,
+        })
+    }
+}
+
+fn launchpad_x_caps() -> DeviceCapabilities {
     DeviceCapabilities {
         grid: Some(GridCaps {
             width: 8,
@@ -101,34 +198,17 @@ fn caps() -> DeviceCapabilities {
     }
 }
 
-pub struct VirtualLaunchpadX {
-    handle: VirtualHandle,
-}
-
-impl VirtualLaunchpadX {
-    pub fn new() -> (Self, VirtualHandle) {
-        let handle = VirtualHandle::default();
-        (
-            Self {
-                handle: handle.clone(),
-            },
-            handle,
-        )
-    }
-}
-
-impl SurfaceDevice for VirtualLaunchpadX {
+impl SurfaceDevice for VirtualDevice {
     fn identity(&self) -> DeviceIdentity {
-        DeviceIdentity {
-            id: VIRTUAL_ID.into(),
-            name: "Virtual Launchpad X".into(),
-            model: "launchpad-x".into(),
-            kind: DeviceKind::Virtual,
-        }
+        self.identity.clone()
     }
 
     fn capabilities(&self) -> DeviceCapabilities {
-        caps()
+        self.capabilities
+    }
+
+    fn features(&self) -> DeviceFeatures {
+        self.features
     }
 
     fn connect(&mut self, input: InputSender) -> Result<(), DeviceError> {
@@ -152,14 +232,15 @@ impl SurfaceDevice for VirtualLaunchpadX {
     }
 
     fn render(&mut self, frame: &SurfaceFrame) -> Result<(), DeviceError> {
+        let shown = self.shown(frame);
         let mut s = self.handle.0.lock().unwrap();
         if !s.connected {
             return Err(DeviceError::NotConnected);
         }
-        if s.frame != *frame {
-            s.frame = frame.clone();
+        if s.frame != shown {
+            s.frame = shown;
             if let Some(cb) = &s.on_change {
-                cb(frame);
+                cb(&s.frame);
             }
         }
         Ok(())
