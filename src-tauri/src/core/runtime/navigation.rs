@@ -47,8 +47,11 @@ impl Runtime {
             inner.workspace.last_active_surface = Some(surface_id.to_string());
             if by == By::Person {
                 Self::with_context(&mut inner, |engine, world| engine.manual(changed, world));
+                // Only a person's choice is saved. What Auto shows follows the
+                // application in front, which the next start observes again,
+                // and the whole workspace is not rewritten at every switch.
+                self.persist(&inner);
             }
-            self.persist(&inner);
             drop(inner);
             if surface_changed {
                 self.publish(

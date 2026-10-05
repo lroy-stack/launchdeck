@@ -38,8 +38,8 @@ impl Runtime {
     }
 
     /// Activate what the engine decided, through the same path as a person's
-    /// choice: persistence, events, the hub, the renderer and the devices all
-    /// follow from there.
+    /// choice: events, the hub, the renderer and the devices all follow from
+    /// there. Unlike a person's choice, it is not saved.
     pub(super) fn show_for_context(&self, target: Option<Target>) {
         let Some(target) = target else { return };
         if let Err(e) = self.activate(&target.surface_id, target.page_id.as_deref(), By::Context) {

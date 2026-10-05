@@ -308,7 +308,8 @@ async fn app_a_shows_surface_a_app_b_shows_surface_b_on_the_launchpad() {
     .await;
     d.until_heard("productivity").await;
 
-    // It went through the ordinary activation: the same events, the hub, the saved choice.
+    // It went through the ordinary activation: the same events, the hub, the
+    // last active surface (held by the runtime; Auto's choice is not saved).
     let changes = d.rec.runtime_events("surface.changed");
     assert_eq!(changes.len() - changes_before, 2);
     assert_eq!(changes.last().unwrap()["surfaceId"], "productivity");
@@ -826,10 +827,13 @@ async fn rules_and_the_auto_choice_persist_and_nothing_about_the_foreground_does
         (None, None, 0)
     );
     assert_eq!(status.foreground, Foreground::Unknown);
+    // What Auto showed was not saved: the start is on the surface last saved
+    // (here the workspace's own; no person chose another), not a guess about
+    // the application. The rule applies once the application is seen.
     assert_eq!(
         rt.state().active_surface_id,
-        "productivity",
-        "the surface it closed on, not a guess about the application"
+        "agent-control",
+        "the surface last saved, not a guess about the application"
     );
     script.report(Report::Seen(Seen::Application {
         identity: app(CODE),
@@ -841,6 +845,51 @@ async fn rules_and_the_auto_choice_persist_and_nothing_about_the_foreground_does
     })
     .await;
     assert_eq!(rt.state().active_surface_id, "development");
+}
+
+/// Saving the whole workspace at every switch of application is not worth its
+/// cost (VERIFICATION.md): what Auto shows follows the application in front,
+/// which the next start observes again. What a person chooses is saved.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_application_switch_is_not_saved_and_a_persons_choice_is() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join("data");
+    let (rt, script, _rec) = start_in(Some(&dir), ObserverStatus::available("test")).await;
+    rt.update_context(ContextSettings {
+        auto: true,
+        rules: vec![rule(CODE, "development", None)],
+        fallback: Fallback::Keep,
+    })
+    .unwrap();
+    let file = dir.join("workspace.json");
+    let before = std::fs::read(&file).unwrap();
+    let last_saved = || {
+        let saved: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        saved["lastActiveSurface"].as_str().unwrap().to_string()
+    };
+    assert_ne!(last_saved(), "development");
+
+    script.report(Report::Seen(Seen::Application {
+        identity: app(CODE),
+        own: false,
+    }));
+    let shown = rt.clone();
+    wait_until("Auto to show Development", || {
+        shown.state().active_surface_id == "development"
+    })
+    .await;
+    assert_eq!(
+        rt.snapshot().workspace.last_active_surface.as_deref(),
+        Some("development"),
+        "the runtime knows what it shows"
+    );
+    assert!(
+        std::fs::read(&file).unwrap() == before,
+        "the file is not written"
+    );
+
+    rt.activate_surface("productivity", None).unwrap();
+    assert_eq!(last_saved(), "productivity");
 }
 
 #[tokio::test(flavor = "multi_thread")]

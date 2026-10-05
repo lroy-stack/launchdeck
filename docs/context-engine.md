@@ -16,7 +16,7 @@ The runtime's own activation          the same one the sidebar uses
 Renderer and devices
 ```
 
-The engine never talks to a device. Its only output is the activation every manual switch already goes through, so the saved "last surface", the events, the State Hub, the virtual Launchpad and a physical one all follow exactly as they do when you click.
+The engine never talks to a device. Its only output is the activation every manual switch already goes through, so the events, the State Hub, the virtual Launchpad and a physical one all follow exactly as they do when you click. One difference: what Auto shows is not saved as the "last surface" (a person's choice is), so the workspace file is not rewritten at every switch of application; after a restart, the application in front decides again.
 
 ## Using it
 
