@@ -218,10 +218,12 @@ pub(crate) fn hidden_char(c: char) -> bool {
         || default_ignorable(c)
 }
 
-/// Unicode's `Default_Ignorable_Code_Point` (DerivedCoreProperties.txt):
-/// what a renderer shows as nothing, such as zero-width spaces and joiners,
-/// direction marks, embeddings, overrides and isolates, variation
-/// selectors, fillers, tags and the soft hyphen.
+/// Unicode's `Default_Ignorable_Code_Point` as listed in
+/// DerivedCoreProperties.txt of Unicode 16.0 (the list last grew in 14.0,
+/// with U+180F): what a renderer shows as nothing, such as zero-width spaces
+/// and joiners, direction marks, embeddings, overrides and isolates,
+/// variation selectors, fillers, tags and the soft hyphen. Reserved code
+/// points of the list are included, as Unicode lists them.
 fn default_ignorable(c: char) -> bool {
     matches!(
         u32::from(c),
