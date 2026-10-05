@@ -13,6 +13,45 @@ Reasons that recur, referred to by letter:
 * (e) No Windows machine.
 * (f) The macOS manual checks of NEXT_PHASE.md section 4 have not been done by a person.
 
+## 0. Rule zero and the work packages at a glance
+
+**Rule zero: no new product subsystem during productization.** If a missing subsystem is discovered, it is documented as post-alpha (section 4) unless it blocks the alpha acceptance scenario. Portable Surface/Pack artifacts are the one new subsystem this milestone asks for; everything else is consolidation, hardening, UX and documentation. This plan is the single architectural arbiter: implementers do not re-decide what it settles.
+
+Open owner decisions, not blocking any package: the license (R-03) and refusing plaintext `config[].secret` in schema 1-3 manifests (R-04).
+
+| WP | Title | Depends on | Owner | Files / domains | Risk | Acceptance |
+| --- | --- | --- | --- | --- | --- | --- |
+| A1 | Architecture docs and agent entrypoints | — | impl agent | docs/architecture.md -> docs/architecture/overview.md (git mv); docs/architecture/CODEB… | low | maps and rules exist, AGENTS.md ≤ 120 lines, CLAUDE.md imports it, 3 skills |
+| A2 | Quality commands, architecture check, hook and toolchain pin | A1 | impl agent | scripts/check-architecture.mjs; scripts/architecture/rust.mjs; scripts/architecture/web… | low | `npm run check` green; `check:arch` fails on a planted violation; hook exits 2 on one |
+| A3 | Rust boundary fixes: audit trail, identifier rule, crate::platform | A2 | impl agent | src-tauri/src/agents/audit.rs -> src-tauri/src/audit.rs; src-tauri/src/lib.rs (mod line… | medium | no forbidden import left for audit/identifiers/platform; full tests green |
+| A4 | Frontend structure and boundaries | A2 | impl agent | src/** (moves and import updates); src/lib/schema.ts -> src/lib/schema/*.ts; src/lib/fe… | medium | no editor↔feedback cycle; ESLint boundary rule; vitest 309+ green |
+| A5 | Decompose surfaces/mod.rs | A3 | impl agent + adversarial review | src-tauri/src/surfaces/** (mod.rs, palette.rs, build.rs, navigation.rs, development.rs,… | medium | pure move; default-workspace fixture byte-identical; surfaces/persistence/golden tests green |
+| B0 | Documentation truth pass (macOS facts from VERIFICATION.md) | A2 | impl agent | README.md; docs/context-engine.md; docs/security/secrets.md; docs/product.md; docs/plug… | low | no 'never built / not compiled' claim for macOS left; every claim traceable to VERIFICATION.md |
+| A6 | Split lib.rs into commands/ and tray.rs | A3 | impl agent | src-tauri/src/lib.rs; src-tauri/src/commands/{mod,workspace,context,actions,feedback,de… | medium | pure move; same 45 command names and signatures; full tests green |
+| R1 | CI workflows within the minutes budget | A2 | impl agent | .github/workflows/ci.yml; .github/workflows/bundle.yml (new); .github/workflows/desktop… | low | workflows pass actionlint; macOS jobs off the per-push path; NOT VERIFIED until Actions runs |
+| A7 | Split core/runtime.rs into core/runtime/ | A3 | impl agent + adversarial review | src-tauri/src/core/runtime.rs -> src-tauri/src/core/runtime/{mod,startup,navigation,con… | high | pure move; public paths unchanged; all 715+ Rust tests green |
+| B1 | Context Engine hardening and the portable resolver | A5, A7 | impl agent | src-tauri/src/context/observer/macos.rs and windows.rs (header comments only); src-taur… | medium | portable resolver tested; ContextHint no longer emitted; observer evidence recorded or NOT VERIFIED |
+| D1 | Plugin host hardening and plugins:validate | A4, A6 | impl agent | src-tauri/src/plugins/external/{host.rs, legacy_secrets.rs (new), mod.rs, discovery.rs,… | medium | typed plugin errors; `plugins:validate` uses the real validator; reserved id prefix |
+| D2 | Install the bundled example plugins from the Plugins screen | D1 | impl agent + adversarial review | src-tauri/tauri.conf.json (bundle.resources); src-tauri/src/plugins/external/install.rs… | medium | Hello, Counter, Home Assistant installable from the Plugins screen; tests through the install API |
+| D3 | Reproducible example plugins, frozen SDK 0.1 fixtures, author docs | D1 | impl agent | scripts/build-example-plugins.sh; examples/plugins/{hello,counter,channels,home-assista… | medium | example plugins rebuild to SHA256SUMS or NOT VERIFIED; author flow documented |
+| C1 | Artifact format core: limits, JSON pre-pass, digest, canonical writer, v1 types | A6 | impl agent | src-tauri/Cargo.toml; src-tauri/Cargo.lock; src-tauri/src/lib.rs (pub mod artifacts); s… | medium | v1 types, limits, JSON pre-pass, digest and canonical writer with tests |
+| C2 | Artifact export | C1 | impl agent | src-tauri/src/artifacts/{env.rs, export.rs, review.rs, mod.rs}; src-tauri/src/plugins/s… | medium | export deterministic (same input, same bytes); no secret, grant or runtime state in output |
+| C3 | Artifact inspect and the hostile fixture suite | C2 | impl agent + adversarial review | src-tauri/src/artifacts/{inspect.rs, mod.rs}; src-tauri/tests/artifacts_security.rs (ne… | high | every hostile fixture rejected, workspace unchanged; suite green 5 times |
+| C4 | Provenance, the commit primitive and the ImportPlan | C3, B1, A7 | impl agent + adversarial review | src-tauri/src/core/model.rs (ImportOrigin, Surface.imported_from); src-tauri/src/core/r… | high | ImportPlan pure; commit primitive saves then swaps; provenance round-trips |
+| C5 | Apply, artifact service, commands, contract fixtures and round trip | C4 | impl agent + adversarial review | src-tauri/src/artifacts/{apply.rs, service.rs, mod.rs}; src-tauri/src/commands/{artifac… | high | apply transactional incl. save failure; commands + contract fixtures; export→import round trip |
+| C6 | Import and export UI | C5, A4 | impl agent | src/lib/schema/{artifacts.ts (new), index.ts, workspace.ts}; src/lib/ipc.ts; src/lib/pr… | medium | import preview renders the Rust ImportPlan only; export/import flows tested in vitest |
+| C7 | Artifact documentation | C5 | impl agent | docs/artifacts/{README.md, FORMAT.md, security.md} (new); docs/user/sharing.md (new); d… | low | docs/artifacts/FORMAT.md matches the code; links check green |
+| E1 | Error UX: CommandError, structured issues, no raw text | A4, A6, A7 | impl agent + adversarial review | src-tauri/src/commands/** (CommandError, CmdResult, per-command detail); src-tauri/src/… | high | CommandError {message, detail}; no raw-text sinks left in the UI (grep list empty) |
+| E2 | Device status a person can understand | A4, A7 | impl agent | src-tauri/src/devices/{mod.rs, manager.rs, launchpad_x.rs}; src-tauri/src/core/runtime/… | medium | device status in sentences; no MIDI words in normal UX; tests |
+| E3 | Surface management, onboarding flag and workspace load notice | A7 | impl agent + adversarial review | src-tauri/src/core/runtime/{editing.rs, mod.rs, startup.rs, tests.rs}; src-tauri/src/pe… | medium | rename/delete surfaces and pages; load-failure notice; onboarding flag command |
+| E4 | First run and starter content | E2, E3, A5 | impl agent | src/features/onboarding/{FirstRun.tsx, firstRun.test.tsx} (new); src/app/{App.tsx, Side… | medium | short first run; starter choice through the normal activation path; no surprising auto-config |
+| E5 | Settings, About and a single app version source | E3, D2 | impl agent | src/features/settings/** (SettingsView.tsx and section components, settings.test.tsx); … | medium | sectioned Settings; About with versions from one source |
+| E6 | Empty states and readable activity | A4 | impl agent | src/features/surfaces/{SurfaceView.tsx, empty.test.tsx (new)}; src/features/editor/Assi… | low | no blank or technical empty state; activity shows names, not ids |
+| R2 | Release acceptance automation | C5, D2 | impl agent | src-tauri/tests/release_acceptance.rs (new); src-tauri/tests/support/acceptance_scenari… | medium | `tests/release_acceptance.rs` drives the acceptance scenario headless, green |
+| R3 | Documentation restructure and user docs | A2 | impl agent | docs/** (moves and new pages); *_PLAN.md and IMPLEMENTATION_PLAN.md (git mv to docs/his… | low | docs tree (getting-started, user, plugin-sdk, artifacts, architecture); links green |
+| R4 | README, CHANGELOG, versions and the 0.3.0 bump | A2 | impl agent | README.md; CHANGELOG.md (new); docs/architecture/versions.md; src-tauri/Cargo.toml; src… | low | README product-first, CHANGELOG, 0.3.0 versions consistent (check) |
+| R5 | Release validation and the release record | A2 | impl agent | src-tauri/tauri.conf.json (bundle metadata); docs/verification/release-0.3.0.md (new); … | medium | `check:full` green; macOS bundle if disk allows; release record with NOT VERIFIED list; clean tree |
+
 ## 1. Verified current product state
 
 Checked against the code at `95cab94` (five audits, read-only), not against roadmap notes.
