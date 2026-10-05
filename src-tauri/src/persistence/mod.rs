@@ -348,9 +348,10 @@ mod tests {
         }
     }
 
-    /// A surface that was not imported has no `importedFrom` member: a
-    /// workspace without one is written byte for byte as before (the default
-    /// workspace's fixture test holds the bytes), and no schema step is needed.
+    /// A surface that was not imported has no `importedFrom` member, so a
+    /// workspace without one is written as before (the default workspace's
+    /// fixture test compares its JSON with `examples/default-workspace.json`,
+    /// member for member), and no schema step is needed.
     #[test]
     fn a_workspace_without_imports_is_written_as_before() {
         let ws = default_workspace();
