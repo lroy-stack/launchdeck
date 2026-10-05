@@ -430,13 +430,12 @@ pub fn prepare_rules(
     }
 }
 
-fn prepare_rule(
-    i: usize,
-    rule: &FeedbackRule,
-    state_def: &dyn Fn(&str, &str) -> Option<ObservableDefinition>,
-) -> Result<FeedbackRule, Vec<RuleIssue>> {
+/// The checks of one rule that need no provider: which look and its name,
+/// the kind of rule against what it shows, the hold, the event, its payload
+/// conditions and field names, and the state address's own grammar. The gate
+/// runs them first; a portable file runs them where no provider is installed.
+pub fn check_rule_shape(i: usize, rule: &FeedbackRule) -> Vec<RuleIssue> {
     let mut issues = Vec::new();
-    let mut rule = rule.clone();
 
     // Which look.
     let ways = usize::from(rule.show.is_some())
@@ -460,7 +459,7 @@ fn prepare_rule(
             format!("a look name has 1-{MAX_LOOK_NAME} characters"),
         ));
     }
-    match &mut rule.when {
+    match &rule.when {
         When::State(c) => {
             if rule.show_from_field.is_some() {
                 issues.push(issue(
@@ -481,37 +480,6 @@ fn prepare_rule(
             }
             if let Err(e) = c.state.validate() {
                 issues.push(issue(i, IssueField::State, e.to_string()));
-            } else {
-                match state_def(&c.state.provider, &c.state.id) {
-                    None => issues.push(issue(
-                        i,
-                        IssueField::State,
-                        format!("`{}` is not a state anything offers right now", c.state),
-                    )),
-                    Some(def) => {
-                        match normalize(&def.params, &c.state.args_json()) {
-                            Ok(args) => match StateAddress::from_args_json(
-                                &c.state.provider,
-                                &c.state.id,
-                                &args,
-                            ) {
-                                Ok(a) => c.state = a,
-                                Err(e) => issues.push(issue(i, IssueField::Args, e)),
-                            },
-                            Err(found) => {
-                                for f in found {
-                                    issues.push(RuleIssue {
-                                        param: f.param,
-                                        ..issue(i, IssueField::Args, f.message)
-                                    });
-                                }
-                            }
-                        }
-                        if let Some(spec) = &def.value {
-                            check_test(i, &c.is, spec.kind, &def, &mut issues);
-                        }
-                    }
-                }
             }
         }
         When::Event(c) => {
@@ -565,10 +533,60 @@ fn prepare_rule(
             }
         }
     }
+    issues
+}
+
+fn prepare_rule(
+    i: usize,
+    rule: &FeedbackRule,
+    state_def: &dyn Fn(&str, &str) -> Option<ObservableDefinition>,
+) -> Result<FeedbackRule, Vec<RuleIssue>> {
+    let mut issues = check_rule_shape(i, rule);
+    let mut rule = rule.clone();
+    if let When::State(c) = &mut rule.when {
+        if c.state.validate().is_ok() {
+            check_state(i, c, state_def, &mut issues);
+        }
+    }
     if issues.is_empty() {
         Ok(rule)
     } else {
         Err(issues)
+    }
+}
+
+/// The checks of a state rule that need the state's definition: the state
+/// exists, its arguments (completed with their defaults), and the test.
+fn check_state(
+    i: usize,
+    c: &mut StateCondition,
+    state_def: &dyn Fn(&str, &str) -> Option<ObservableDefinition>,
+    issues: &mut Vec<RuleIssue>,
+) {
+    let Some(def) = state_def(&c.state.provider, &c.state.id) else {
+        issues.push(issue(
+            i,
+            IssueField::State,
+            format!("`{}` is not a state anything offers right now", c.state),
+        ));
+        return;
+    };
+    match normalize(&def.params, &c.state.args_json()) {
+        Ok(args) => match StateAddress::from_args_json(&c.state.provider, &c.state.id, &args) {
+            Ok(a) => c.state = a,
+            Err(e) => issues.push(issue(i, IssueField::Args, e)),
+        },
+        Err(found) => {
+            for f in found {
+                issues.push(RuleIssue {
+                    param: f.param,
+                    ..issue(i, IssueField::Args, f.message)
+                });
+            }
+        }
+    }
+    if let Some(spec) = &def.value {
+        check_test(i, &c.is, spec.kind, &def, issues);
     }
 }
 
@@ -1180,6 +1198,70 @@ mod tests {
                 "maxHoldMs": MAX_HOLD_MS,
             })
         );
+    }
+
+    #[test]
+    fn the_shape_check_does_not_ask_for_the_provider() {
+        let unregistered =
+            FeedbackRule::state(StateAddress::new("gone.plugin", "x"), Test::HasValue).show("a");
+        assert_eq!(check_rule_shape(0, &unregistered), vec![]);
+        assert!(prepare_rules(&[unregistered], &[], &defs).is_err());
+        let event = FeedbackRule::event("acme.notes", "saved")
+            .where_field("result", "ok")
+            .show_from_field("status")
+            .hold(Hold::Latch);
+        assert_eq!(check_rule_shape(0, &event), vec![]);
+    }
+
+    #[test]
+    fn the_shape_check_refuses_a_short_hold_and_too_many_conditions() {
+        let short = FeedbackRule::event("ci", "done")
+            .show("ok")
+            .hold(Hold::For(10));
+        let found = check_rule_shape(4, &short);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!((found[0].rule, found[0].field), (4, Some(IssueField::Hold)));
+        let mut nine = FeedbackRule::event("ci", "done").show("ok");
+        for n in 0..9 {
+            nine = nine.where_field(&format!("f{n}"), "x");
+        }
+        let found = check_rule_shape(0, &nine);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].field, Some(IssueField::Where));
+        let bad_address =
+            FeedbackRule::state(StateAddress::new("Example", "x"), Test::HasValue).show("a");
+        assert_eq!(
+            check_rule_shape(0, &bad_address)[0].field,
+            Some(IssueField::State)
+        );
+    }
+
+    /// The shape check is the first part of the gate: for a rule whose state
+    /// exists, the gate finds exactly what the shape check finds.
+    #[test]
+    fn the_gate_starts_with_the_shape_check() {
+        let addr = || StateAddress::new("example.counter", "level");
+        let rules = [
+            FeedbackRule::state(addr(), Test::HasValue),
+            FeedbackRule::state(addr(), Test::NoValue).show_from_value(),
+            FeedbackRule::state(addr(), Test::HasValue)
+                .show("a")
+                .hold(Hold::Latch),
+            FeedbackRule::event("", "done").show_from_value(),
+            FeedbackRule::event("ci", "done")
+                .show_from_field("")
+                .hold(Hold::For(70_000)),
+        ];
+        for (i, rule) in rules.iter().enumerate() {
+            let shape = check_rule_shape(i, rule);
+            assert!(!shape.is_empty(), "{rule:?}");
+            let gate = prepare_rules(std::slice::from_ref(rule), &[], &defs).unwrap_err();
+            let gate: Vec<RuleIssue> = gate
+                .into_iter()
+                .map(|g| RuleIssue { rule: i, ..g })
+                .collect();
+            assert_eq!(gate, shape, "{rule:?}");
+        }
     }
 
     #[test]
