@@ -4,8 +4,9 @@
 //! `SurfaceFrame` and `DeviceInput`. Raw MIDI bytes live exclusively in
 //! `novation`; the MIDI transport in `midi` (`midir` only in
 //! `midi/system.rs`). The device manager finds hardware through a
-//! `source::HardwareSource` and knows no model. What LaunchDeck observed on
-//! a device beyond its frames is in `features`.
+//! `source::HardwareSource` and knows no model. What a device can do beyond
+//! drawing frames, the settings and text it can be given, and what
+//! LaunchDeck observed on it are in `features`.
 
 mod features;
 pub mod manager;
@@ -14,7 +15,9 @@ mod novation;
 mod source;
 pub mod virtual_device;
 
-pub use features::{DeviceDetails, ModeState};
+pub use features::{
+    DeviceDetails, DeviceFeatures, DeviceSetting, ModeState, ScrollDirection, TextScroll,
+};
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
@@ -217,5 +220,18 @@ pub trait SurfaceDevice: Send {
     /// that reports nothing.
     fn details(&self) -> DeviceDetails {
         DeviceDetails::default()
+    }
+    /// What the device can do beyond drawing frames; nothing by default.
+    fn features(&self) -> DeviceFeatures {
+        DeviceFeatures::default()
+    }
+    /// Gives the device a setting. A device without the feature refuses.
+    fn apply(&mut self, setting: DeviceSetting) -> Result<(), DeviceError> {
+        Err(DeviceError::Unavailable(format!("{setting:?}")))
+    }
+    /// Scrolls text across the device, or stops the scroll (`None`). A
+    /// device without the feature refuses.
+    fn scroll_text(&mut self, _text: Option<&TextScroll>) -> Result<(), DeviceError> {
+        Err(DeviceError::Unavailable("scrolling text".into()))
     }
 }

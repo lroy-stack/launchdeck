@@ -23,8 +23,8 @@ use super::protocol::{parse_reply, Reply};
 use super::session::{Action, Session};
 use crate::devices::midi::{MessageFramer, MidiBackend, MidiLink, OnBytes};
 use crate::devices::{
-    DeviceCapabilities, DeviceDetails, DeviceError, DeviceIdentity, DeviceInput, DeviceKind,
-    InputSender, SurfaceDevice, SurfaceFrame,
+    DeviceCapabilities, DeviceDetails, DeviceError, DeviceFeatures, DeviceIdentity, DeviceInput,
+    DeviceKind, InputSender, SurfaceDevice, SurfaceFrame,
 };
 
 /// Replies kept until the next render reads them; a unit that sends more
@@ -185,6 +185,10 @@ impl SurfaceDevice for Mk3Device {
 
     fn details(&self) -> DeviceDetails {
         self.session.details()
+    }
+
+    fn features(&self) -> DeviceFeatures {
+        self.profile.features
     }
 }
 

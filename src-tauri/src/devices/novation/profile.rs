@@ -4,7 +4,7 @@
 //! `if model == …` anywhere.
 
 use super::protocol::Product;
-use crate::devices::DeviceCapabilities;
+use crate::devices::{DeviceCapabilities, DeviceFeatures};
 
 /// What one USB-MIDI interface of a model is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,6 +34,8 @@ pub(crate) struct ModelProfile {
     /// The layout the unit shows when Programmer mode is left (Live mode).
     pub live_layout: u8,
     pub capabilities: DeviceCapabilities,
+    /// What it can do beyond drawing frames.
+    pub features: DeviceFeatures,
 }
 
 impl ModelProfile {
@@ -73,6 +75,21 @@ mod tests {
         assert_eq!((caps.aux.top, caps.aux.side, caps.aux.logo), (8, 8, true));
         assert!(caps.rgb && caps.velocity && !caps.pressure);
         assert!(!caps.animations.pulse && !caps.animations.flash);
+        assert_eq!(
+            x.features,
+            DeviceFeatures {
+                host_mode: true,
+                palette: false,
+                batched_lighting: true,
+                flash_period_ms: None,
+                pulse_period_ms: None,
+                brightness: true,
+                sleep: true,
+                scrolling_text: true,
+                firmware_version: true,
+            },
+            "pulse and flash are synthesised, the palette unused"
+        );
     }
 
     #[test]
@@ -93,5 +110,19 @@ mod tests {
         assert_eq!((caps.aux.top, caps.aux.side, caps.aux.logo), (8, 8, true));
         assert!(caps.rgb && !caps.velocity && !caps.pressure);
         assert!(caps.animations.pulse && caps.animations.flash);
+        assert_eq!(
+            mini.features,
+            DeviceFeatures {
+                host_mode: true,
+                palette: true,
+                batched_lighting: true,
+                flash_period_ms: Some(500),
+                pulse_period_ms: Some(1000),
+                brightness: true,
+                sleep: true,
+                scrolling_text: true,
+                firmware_version: true,
+            }
+        );
     }
 }

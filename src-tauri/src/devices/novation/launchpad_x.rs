@@ -7,7 +7,7 @@
 
 use super::profile::{ModelProfile, Role};
 use super::protocol::Product;
-use crate::devices::{AnimationCaps, AuxCaps, DeviceCapabilities, GridCaps};
+use crate::devices::{AnimationCaps, AuxCaps, DeviceCapabilities, DeviceFeatures, GridCaps};
 
 pub(crate) static PROFILE: ModelProfile = ModelProfile {
     model: "launchpad-x",
@@ -40,6 +40,19 @@ pub(crate) static PROFILE: ModelProfile = ModelProfile {
             pulse: false,
             flash: false,
         },
+    },
+    // The same commands as the Mini MK3 (X-PRM). Its palette is not used:
+    // static colours are RGB and animation is synthesised.
+    features: DeviceFeatures {
+        host_mode: true,
+        palette: false,
+        batched_lighting: true,
+        flash_period_ms: None,
+        pulse_period_ms: None,
+        brightness: true,
+        sleep: true,
+        scrolling_text: true,
+        firmware_version: true,
     },
 };
 

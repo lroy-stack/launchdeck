@@ -10,8 +10,8 @@ use super::midi::SystemMidi;
 use super::novation::NovationHardware;
 use super::source::HardwareSource;
 use super::{
-    AnimationCaps, AuxCaps, DeviceCapabilities, DeviceDetails, DeviceError, DeviceIdentity,
-    DeviceKind, InputSender, SurfaceDevice, SurfaceFrame,
+    AnimationCaps, AuxCaps, DeviceCapabilities, DeviceDetails, DeviceError, DeviceFeatures,
+    DeviceIdentity, DeviceKind, InputSender, SurfaceDevice, SurfaceFrame,
 };
 use crate::platform::Platform;
 
@@ -63,6 +63,7 @@ impl Entry {
                 .then(|| details.notice.clone())
                 .flatten(),
             details,
+            features: self.device.features(),
         }
     }
 
@@ -119,6 +120,8 @@ pub struct DeviceInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notice: Option<String>,
     pub details: DeviceDetails,
+    /// What the device can do beyond drawing frames.
+    pub features: DeviceFeatures,
 }
 
 /// Device lifecycle changes the runtime turns into `device.*` events, and
@@ -189,6 +192,7 @@ impl DeviceManager {
             problem: None,
             notice: None,
             details: DeviceDetails::default(),
+            features: DeviceFeatures::default(),
         });
         self.entries
             .iter()
@@ -362,6 +366,11 @@ mod tests {
         m.register(Box::new(dup));
         assert_eq!(m.list().len(), 1, "same id is registered once");
         assert!(!m.list()[0].connected);
+        assert_eq!(
+            m.list()[0].features,
+            DeviceFeatures::default(),
+            "the simulator has nothing beyond drawing"
+        );
         assert_eq!(
             m.connect(VIRTUAL_ID).unwrap(),
             DeviceChange::Connected(VIRTUAL_ID.into())

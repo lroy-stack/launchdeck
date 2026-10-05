@@ -7,7 +7,7 @@
 
 use super::profile::{ModelProfile, Role};
 use super::protocol::Product;
-use crate::devices::{AnimationCaps, AuxCaps, DeviceCapabilities, GridCaps};
+use crate::devices::{AnimationCaps, AuxCaps, DeviceCapabilities, DeviceFeatures, GridCaps};
 
 pub(crate) static PROFILE: ModelProfile = ModelProfile {
     model: "launchpad-mini-mk3",
@@ -39,5 +39,18 @@ pub(crate) static PROFILE: ModelProfile = ModelProfile {
             pulse: true,
             flash: true,
         },
+    },
+    features: DeviceFeatures {
+        host_mode: true,
+        palette: true,
+        batched_lighting: true,
+        // MINI-PRM p12: a flash lasts one beat and a pulse two, at 120 bpm
+        // unless another program sent the unit MIDI clock.
+        flash_period_ms: Some(500),
+        pulse_period_ms: Some(1000),
+        brightness: true,
+        sleep: true,
+        scrolling_text: true,
+        firmware_version: true,
     },
 };

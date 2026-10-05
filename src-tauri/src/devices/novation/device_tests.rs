@@ -1066,6 +1066,41 @@ fn a_mini_mk3_is_found_and_taken_on_macos_windows_and_linux() {
 }
 
 #[test]
+fn each_launchpad_lists_what_it_can_do_beyond_drawing() {
+    let sim = SimLaunchpad::mini();
+    let (_midi, mut m, _rx) = mini_manager(&m1(), &sim);
+    look(&mut m);
+    let mini = m.list().remove(0);
+    assert_eq!(mini.features, launchpad_mini_mk3::PROFILE.features);
+    let value = serde_json::to_value(&mini).unwrap();
+    assert_eq!(
+        value["features"],
+        serde_json::json!({
+            "hostMode": true,
+            "palette": true,
+            "batchedLighting": true,
+            "flashPeriodMs": 500,
+            "pulsePeriodMs": 1000,
+            "brightness": true,
+            "sleep": true,
+            "scrollingText": true,
+            "firmwareVersion": true,
+        })
+    );
+
+    let midi = fake();
+    let (tx, _rx) = unbounded_channel();
+    let hardware = NovationHardware::new(Arc::new(midi.clone()), Platform::MacOs);
+    let mut m = DeviceManager::with_hardware(tx, Box::new(hardware));
+    look(&mut m);
+    let x = m.list().remove(0).features;
+    assert_eq!(x, launchpad_x::PROFILE.features);
+    assert!(x.host_mode && x.batched_lighting && !x.palette);
+    assert_eq!((x.flash_period_ms, x.pulse_period_ms), (None, None));
+    assert!(x.brightness && x.sleep && x.scrolling_text && x.firmware_version);
+}
+
+#[test]
 fn every_control_of_a_mini_mk3_is_read_at_full_velocity_in_order() {
     let sim = SimLaunchpad::mini();
     let (midi, _m, mut rx) = mini_taken(&m1(), &sim, &SurfaceFrame::default());
