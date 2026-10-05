@@ -1195,6 +1195,7 @@ fn an_action_that_runs_things_hides_no_character() {
         ("hidden-launch-nul.ldsurface", "app"),
         ("hidden-agent-escape.ldsurface", "text"),
         ("hidden-http-carriage-return.ldsurface", "url"),
+        ("hidden-shell-zero-width.ldsurface", "command"),
     ] {
         assert_eq!(
             refused(&hostile(name), name),

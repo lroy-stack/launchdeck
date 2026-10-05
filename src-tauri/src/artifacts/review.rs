@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::env::Environment;
-use super::format::{assignments, echo, is_bidi, ContentV1, Rejection, RejectionCode};
+use super::format::{assignments, echo, ContentV1, Rejection, RejectionCode};
 use super::json::segment;
 use crate::actions::builtin::{
     http_request_of, shell_command, HttpRequest, HTTP, HTTP_REQUEST, SHELL, SHELL_EXECUTE,
@@ -176,12 +176,41 @@ fn word(w: &str) -> String {
 }
 
 /// A character a person cannot see, or that reorders the text around it: a
-/// control character other than a line break or a tab, a direction control,
-/// a line or paragraph separator.
+/// control character other than a line break or a tab, a line or paragraph
+/// separator, and every default-ignorable code point. The one predicate of
+/// the review's escaping and of [`check_visible`] (SF-3, SF-3b).
 fn hidden(c: char) -> bool {
     (c.is_control() && !matches!(c, '\n' | '\t'))
-        || is_bidi(c)
         || matches!(c, '\u{2028}' | '\u{2029}')
+        || default_ignorable(c)
+}
+
+/// Unicode's `Default_Ignorable_Code_Point` (DerivedCoreProperties.txt):
+/// what a renderer shows as nothing, such as zero-width spaces and joiners,
+/// direction marks, embeddings, overrides and isolates (the format's
+/// `is_bidi` is part of it), variation selectors, fillers, tags and the
+/// soft hyphen.
+fn default_ignorable(c: char) -> bool {
+    matches!(
+        u32::from(c),
+        0x00AD
+            | 0x034F
+            | 0x061C
+            | 0x115F..=0x1160
+            | 0x17B4..=0x17B5
+            | 0x180B..=0x180F
+            | 0x200B..=0x200F
+            | 0x202A..=0x202E
+            | 0x2060..=0x206F
+            | 0x3164
+            | 0xFE00..=0xFE0F
+            | 0xFEFF
+            | 0xFFA0
+            | 0xFFF0..=0xFFF8
+            | 0x1BCA0..=0x1BCA3
+            | 0x1D173..=0x1D17A
+            | 0xE0000..=0xE0FFF
+    )
 }
 
 /// The one escaping of every review text (SF-3): each [`hidden`] character
@@ -225,7 +254,7 @@ fn review_text(kind: ReviewKind, assignment: &Assignment) -> String {
                 == (HTTP, HTTP_REQUEST) =>
         {
             let HttpRequest { method, url, body } = http_request_of(args);
-            let request = format!("{} {}", visible(&method, false), visible(&url, false));
+            let request = format!("{} {}", visible(&method, false), shown_address(&url));
             match body {
                 Some(body) => format!("{request}\n\n{}", visible(&body, true)),
                 None => request,
@@ -246,6 +275,24 @@ fn review_text(kind: ReviewKind, assignment: &Assignment) -> String {
             }
         }
         ReviewKind::InstructsAgent => visible(instruction_of(args), true),
+    }
+}
+
+/// An address as a person reviews it: escaped, and when its host is written
+/// in other scripts, followed by the host the request goes to in punycode
+/// (SF-3b), so a look-alike of a known name shows.
+fn shown_address(address: &str) -> String {
+    let shown = visible(address, false);
+    if address.is_ascii() {
+        return shown;
+    }
+    let host = url::Url::parse(address)
+        .ok()
+        .and_then(|u| u.host_str().map(str::to_string))
+        .filter(|host| !address.contains(host.as_str()));
+    match host {
+        Some(host) => format!("{shown} (host {})", visible(&host, false)),
+        None => shown,
     }
 }
 
@@ -741,8 +788,28 @@ mod tests {
     }
 
     /// Characters a person cannot see, or that reorder what they read.
-    const HIDDEN: [char; 7] = [
-        '\u{202E}', '\u{2066}', '\u{7}', '\r', '\u{1b}', '\u{85}', '\u{2028}',
+    const HIDDEN: [char; 17] = [
+        // Direction controls, controls, separators.
+        '\u{202E}',
+        '\u{2066}',
+        '\u{7}',
+        '\r',
+        '\u{1b}',
+        '\u{85}',
+        '\u{2028}',
+        // Other default-ignorable characters: zero-width space and joiner,
+        // byte order mark, soft hyphen, Arabic letter mark, word joiner,
+        // variation selector, Hangul filler, a tag, a high variation selector.
+        '\u{200B}',
+        '\u{200D}',
+        '\u{FEFF}',
+        '\u{AD}',
+        '\u{61C}',
+        '\u{2060}',
+        '\u{FE0F}',
+        '\u{3164}',
+        '\u{E0041}',
+        '\u{E0100}',
     ];
 
     /// Every kind of review text, for a value holding `c`: the assignment
@@ -834,6 +901,72 @@ mod tests {
                 json!({ "app": "code", "args": ["a\tb", "q\"\\"] })
             )),
             "code \"a\\tb\" \"q\\\"\\\\\""
+        );
+    }
+
+    /// Every default-ignorable code point of Unicode is hidden, and nothing
+    /// a person reads as text is: one predicate for the review and inspect.
+    #[test]
+    fn hidden_is_every_default_ignorable_code_point() {
+        for c in [
+            'a',
+            'é',
+            ' ',
+            '\n',
+            '\t',
+            '/',
+            '\u{2215}',
+            '\u{1F600}',
+            '\u{3000}',
+        ] {
+            assert!(!hidden(c), "{c:?}");
+        }
+        let ignorable = [
+            0xAD, 0x34F, 0x61C, 0x115F, 0x1160, 0x17B4, 0x17B5, 0x180B, 0x180E, 0x180F, 0x200B,
+            0x200F, 0x202A, 0x2060, 0x2064, 0x2065, 0x206F, 0x3164, 0xFE00, 0xFE0F, 0xFEFF, 0xFFA0,
+            0xFFF0, 0xFFF8, 0x1BCA0, 0x1BCA3, 0x1D173, 0x1D17A, 0xE0000, 0xE0001, 0xE007F, 0xE0100,
+            0xE01EF, 0xE0FFF,
+        ];
+        for code in ignorable {
+            let c = char::from_u32(code).unwrap();
+            assert!(hidden(c), "U+{code:04X}");
+        }
+        for code in [0xAC, 0x34E, 0x1161, 0x17B6, 0x2070, 0xFE10, 0xFFF9, 0xE1000] {
+            assert!(!hidden(char::from_u32(code).unwrap()), "U+{code:04X}");
+        }
+        // The format's direction controls are among them.
+        let all = (0..=0x10FFFF).filter_map(char::from_u32);
+        assert!(all
+            .filter(|&c| crate::artifacts::format::is_bidi(c))
+            .all(hidden));
+    }
+
+    /// A host written in other scripts is also shown as the name the
+    /// request goes to, so a look-alike of a known name shows.
+    #[test]
+    fn an_address_in_other_scripts_shows_its_host_in_punycode() {
+        let text = |url: &str| {
+            let assignment = a("http", "request", json!({ "url": url }));
+            let kind = kind(&assignment).unwrap();
+            let at = Location {
+                surface_source_id: "dev".into(),
+                page_id: "home".into(),
+                control_id: "g.0.0".into(),
+                slot: Slot::Press,
+            };
+            ReviewItem::new(at, "Pad", kind, &assignment).text
+        };
+        assert_eq!(
+            text("https://\u{430}pple.com/login"),
+            "GET https://\u{430}pple.com/login (host xn--pple-43d.com)"
+        );
+        assert_eq!(
+            text("https://xn--pple-43d.com/"),
+            "GET https://xn--pple-43d.com/"
+        );
+        assert_eq!(
+            text("https://example.com/caf\u{e9}"),
+            "GET https://example.com/caf\u{e9}"
         );
     }
 
