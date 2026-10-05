@@ -1,0 +1,16 @@
+{
+  "abiVersion": 1,
+  "appVersion": "0.2.0",
+  "arch": "aarch64",
+  "artifactFormat": 1,
+  "bridgeProtocol": 1,
+  "channel": "alpha",
+  "dataFolder": "<the app data folder>",
+  "manifestSchemas": {
+    "newest": 4,
+    "oldest": 1
+  },
+  "os": "macos",
+  "sdkVersion": "0.2.1",
+  "workspaceSchema": 4
+}

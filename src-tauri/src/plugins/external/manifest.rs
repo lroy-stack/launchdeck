@@ -30,7 +30,8 @@ pub const MANIFEST_FILE: &str = "plugin.json";
 /// states, and schema 3 plugins ask for no capability. The module and the
 /// protocol (ABI 1) are the same for all four.
 pub const MANIFEST_SCHEMA: u32 = 4;
-const OLDEST_SCHEMA: u32 = 1;
+/// The oldest manifest schema this host still reads.
+pub(crate) const OLDEST_SCHEMA: u32 = 1;
 const MAX_KEYWORDS: usize = 12;
 pub const MAX_MANIFEST_BYTES: usize = 64 * 1024;
 

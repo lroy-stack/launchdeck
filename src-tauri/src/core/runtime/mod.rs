@@ -37,7 +37,7 @@ use crate::context::{ContextStatus, Engine};
 use crate::devices::manager::{DeviceInfo, DeviceManager};
 use crate::devices::virtual_device::VirtualHandle;
 use crate::events::{Event, EventBus};
-use crate::persistence::Store;
+use crate::persistence::{StartupNotice, Store};
 use crate::plugins::external::PluginHost;
 use crate::plugins::keyboard::Keyboard;
 use crate::plugins::PluginManifest;
@@ -135,6 +135,9 @@ pub struct Snapshot {
     pub agents: AgentsSnapshot,
     /// Auto Context, as it is now.
     pub context: ContextStatus,
+    /// What the person must be told about this start: the saved workspace
+    /// could not be used, and where it was kept.
+    pub notices: Vec<StartupNotice>,
 }
 
 pub struct RuntimeConfig {
@@ -166,6 +169,8 @@ enum By {
     Person,
     /// The context engine, for the application in front.
     Context,
+    /// The runtime itself: the surface or page on screen was removed.
+    Runtime,
 }
 
 /// A temporary look: an unbound pad running an action, or an event rule's look
@@ -270,6 +275,8 @@ pub struct Runtime {
     handle: tokio::runtime::Handle,
     /// The context status the UI was last sent, so it is only told of changes.
     context_sent: Mutex<Option<ContextStatus>>,
+    /// Said at start and never changed (`Snapshot::notices`).
+    notices: Vec<StartupNotice>,
 }
 
 impl Runtime {
@@ -357,6 +364,7 @@ impl Runtime {
             recent_events: inner.recent.iter().rev().take(50).rev().cloned().collect(),
             agents: self.agents.snapshot(),
             context: context_status(&inner.context, &inner.workspace.context, &inner.workspace),
+            notices: self.notices.clone(),
         }
     }
 

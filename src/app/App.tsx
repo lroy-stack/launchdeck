@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import { Sidebar } from "./Sidebar";
+import { StartupNotices } from "./StartupNotices";
 import { AgentsView } from "../features/agents/AgentsView";
 import { ExportView } from "../features/artifacts/ExportView";
 import { ImportView } from "../features/artifacts/ImportView";
+import { FirstRun } from "../features/onboarding/FirstRun";
 import { HomeView } from "../features/home/HomeView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { PluginsView } from "../features/plugins/PluginsView";
@@ -15,6 +17,7 @@ export function App() {
   const view = useStore((s) => s.view);
   const exportSeq = useStore((s) => s.exportStart.seq);
   const preview = useStore((s) => s.preview);
+  const firstRun = useStore((s) => s.workspace?.preferences.onboardingDone === false);
   const toasts = useStore((s) => s.toasts);
   const dismiss = useStore((s) => s.dismissToast);
 
@@ -44,18 +47,27 @@ export function App() {
   }
   if (!ready) return <div className="splash">Starting runtime…</div>;
 
+  // The first run takes the place of the sidebar and the views; the notices stay where they are, so a
+  // banner dismissed there does not come back with the shell.
   return (
-    <div className="shell">
-      <Sidebar />
+    <div className={firstRun ? "shell first-run-shell" : "shell"}>
+      {!firstRun && <Sidebar />}
       <div className="content">
         {preview && <div className="preview-bar">Browser preview · simulated runtime. Run the desktop app for the real thing.</div>}
-        {view === "home" && <HomeView />}
-        {view === "agents" && <AgentsView />}
-        {view === "surface" && <SurfaceView />}
-        {view === "plugins" && <PluginsView />}
-        {view === "settings" && <SettingsView />}
-        {view === "import" && <ImportView />}
-        {view === "export" && <ExportView key={exportSeq} />}
+        <StartupNotices />
+        {firstRun ? (
+          <FirstRun />
+        ) : (
+          <>
+            {view === "overview" && <HomeView />}
+            {view === "agents" && <AgentsView />}
+            {view === "surface" && <SurfaceView />}
+            {view === "plugins" && <PluginsView />}
+            {view === "settings" && <SettingsView />}
+            {view === "import" && <ImportView />}
+            {view === "export" && <ExportView key={exportSeq} />}
+          </>
+        )}
       </div>
       <div className="toasts" role="status" aria-live="polite">
         {toasts.map((t) => (

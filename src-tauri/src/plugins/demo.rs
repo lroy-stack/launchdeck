@@ -176,7 +176,7 @@ impl Plugin for DemoPlugin {
         PluginManifest {
             id: ID.into(),
             name: "Demo".into(),
-            version: "0.2.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             description:
                 "Simulated agent tasks for demos and development. No network, no side effects."
                     .into(),

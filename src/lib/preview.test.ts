@@ -31,6 +31,16 @@ describe("preview transport", () => {
     expect(seen.at(-1)).toMatchObject({ activeSurfaceId: "development", activePageId: "git" });
   });
 
+  it("creates a surface the way Rust does: an id from the name, the blank surface's text and icon", async () => {
+    const t = await createPreviewTransport();
+    expect(await t.invoke("create_surface", { name: "My surface" })).toBe("my-surface");
+    expect(await t.invoke("create_surface", { name: "My surface" })).toBe("my-surface-2");
+    expect(await t.invoke("create_surface", { name: "Ünï" })).toBe("n");
+    const created = snapshotSchema.parse(await t.invoke("get_snapshot")).workspace.surfaces.find((s) => s.id === "my-surface");
+    expect(created).toMatchObject({ name: "My surface", description: "A blank surface. Select a pad and give it an action.", icon: "＋", category: "custom" });
+    await expect(t.invoke("create_surface", { name: "  " })).rejects.toBe("name must be 1-40 characters");
+  });
+
   it("rejects unknown surfaces", async () => {
     const t = await createPreviewTransport();
     await expect(t.invoke("activate_surface", { surfaceId: "nope", pageId: null })).rejects.toBeTruthy();

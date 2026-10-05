@@ -4,6 +4,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::core::model::{Workspace, SCHEMA_VERSION};
@@ -74,6 +75,32 @@ pub struct Store {
     path: PathBuf,
 }
 
+/// What loading the workspace gave, and what the person must be told about it.
+#[derive(Debug)]
+pub struct LoadOutcome {
+    pub workspace: Workspace,
+    /// The saved file could not be used, so the defaults were.
+    pub notice: Option<StartupNotice>,
+}
+
+/// The saved workspace was set aside at start: why, and where it was kept.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupNotice {
+    pub kind: NoticeKind,
+    /// The copy of the file, as a path to show.
+    pub backup: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NoticeKind {
+    /// It could not be read or understood.
+    WorkspaceDamaged,
+    /// A newer LaunchDeck wrote it, in a schema this one does not know.
+    WorkspaceTooNew,
+}
+
 impl Store {
     pub fn new(dir: impl AsRef<Path>) -> Self {
         Self {
@@ -86,11 +113,18 @@ impl Store {
     }
 
     /// Load the workspace, or build the default one. A file that cannot be
-    /// read is copied to `workspace.json.bak` (never silently destroyed) and
-    /// the defaults are used.
-    pub fn load_or_default(&self, default: impl FnOnce() -> Workspace) -> Workspace {
-        let Ok(text) = fs::read_to_string(&self.path) else {
-            return default();
+    /// used is copied to `workspace.json.bak` (never silently destroyed),
+    /// the defaults are used, and the outcome carries a notice saying so.
+    pub fn load(&self, default: impl FnOnce() -> Workspace) -> LoadOutcome {
+        let text = match fs::read_to_string(&self.path) {
+            Ok(text) => text,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                return LoadOutcome {
+                    workspace: default(),
+                    notice: None,
+                }
+            }
+            Err(e) => return self.start_fresh(NoticeKind::WorkspaceDamaged, &e, default),
         };
         let parsed = serde_json::from_str::<Value>(&text)
             .map_err(|e| PersistError::Invalid(e.to_string()))
@@ -102,7 +136,7 @@ impl Store {
                 migrate(doc).map(|ws| (found, ws))
             });
         match parsed {
-            Ok((found, ws)) => {
+            Ok((found, workspace)) => {
                 if found < SCHEMA_VERSION {
                     // Keep the file as it was the first time it is upgraded.
                     let backup = self.path.with_extension(format!("json.v{found}.bak"));
@@ -110,16 +144,52 @@ impl Store {
                         let _ = fs::copy(&self.path, backup);
                     }
                 }
-                ws
+                LoadOutcome {
+                    workspace,
+                    notice: None,
+                }
             }
-            Err(e) => {
-                log::warn!(
-                    "could not load {}: {e}; keeping a backup and using defaults",
-                    self.path.display()
+            Err(e @ PersistError::TooNew { .. }) => {
+                self.start_fresh(NoticeKind::WorkspaceTooNew, &e, default)
+            }
+            Err(e) => self.start_fresh(NoticeKind::WorkspaceDamaged, &e, default),
+        }
+    }
+
+    /// [`Store::load`] for callers that do not tell anyone about a notice.
+    pub fn load_or_default(&self, default: impl FnOnce() -> Workspace) -> Workspace {
+        self.load(default).workspace
+    }
+
+    /// The file is set aside: copied to `workspace.json.bak`, or moved there
+    /// if it cannot be copied, so the first save cannot destroy it.
+    fn start_fresh(
+        &self,
+        kind: NoticeKind,
+        reason: &dyn std::fmt::Display,
+        default: impl FnOnce() -> Workspace,
+    ) -> LoadOutcome {
+        let backup = self.path.with_extension("json.bak");
+        log::warn!(
+            "could not load {}: {reason}; keeping it as {} and using defaults",
+            self.path.display(),
+            backup.display()
+        );
+        if let Err(e) = fs::copy(&self.path, &backup) {
+            if let Err(moved) = fs::rename(&self.path, &backup) {
+                log::error!(
+                    "could not keep {} as {} (copy: {e}; move: {moved})",
+                    self.path.display(),
+                    backup.display()
                 );
-                let _ = fs::copy(&self.path, self.path.with_extension("json.bak"));
-                default()
             }
+        }
+        LoadOutcome {
+            workspace: default(),
+            notice: Some(StartupNotice {
+                kind,
+                backup: backup.display().to_string(),
+            }),
         }
     }
 
@@ -207,6 +277,84 @@ mod tests {
         assert_eq!(
             fs::read_to_string(dir.path().join("workspace.json.bak")).unwrap(),
             "{ this is not json"
+        );
+    }
+
+    #[test]
+    fn a_damaged_file_starts_fresh_with_a_notice_naming_the_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path());
+        fs::write(store.path(), "{ this is not json").unwrap();
+        let outcome = store.load(default_workspace);
+        assert_eq!(outcome.workspace, default_workspace());
+        let backup = dir.path().join("workspace.json.bak");
+        assert_eq!(
+            outcome.notice,
+            Some(StartupNotice {
+                kind: NoticeKind::WorkspaceDamaged,
+                backup: backup.display().to_string(),
+            })
+        );
+        assert_eq!(fs::read_to_string(backup).unwrap(), "{ this is not json");
+    }
+
+    #[test]
+    fn a_file_that_is_not_text_is_damaged_too() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path());
+        let bytes = [0xff, 0xfe, 0x00, 0x7b];
+        fs::write(store.path(), bytes).unwrap();
+        let outcome = store.load(default_workspace);
+        assert_eq!(
+            outcome.notice.map(|n| n.kind),
+            Some(NoticeKind::WorkspaceDamaged)
+        );
+        assert_eq!(
+            fs::read(dir.path().join("workspace.json.bak")).unwrap(),
+            bytes
+        );
+    }
+
+    #[test]
+    fn a_file_from_a_newer_version_starts_fresh_with_a_too_new_notice() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path());
+        let newer = r#"{ "schemaVersion": 99, "surfaces": [] }"#;
+        fs::write(store.path(), newer).unwrap();
+        let outcome = store.load(default_workspace);
+        assert_eq!(outcome.workspace, default_workspace());
+        let backup = dir.path().join("workspace.json.bak");
+        assert_eq!(
+            outcome.notice,
+            Some(StartupNotice {
+                kind: NoticeKind::WorkspaceTooNew,
+                backup: backup.display().to_string(),
+            })
+        );
+        assert_eq!(fs::read_to_string(backup).unwrap(), newer);
+    }
+
+    #[test]
+    fn a_missing_or_good_file_has_no_notice() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path());
+        assert_eq!(store.load(default_workspace).notice, None);
+        store.save(&default_workspace()).unwrap();
+        assert_eq!(store.load(|| panic!("should load")).notice, None);
+        fs::write(store.path(), V3_FIXTURE).unwrap();
+        assert_eq!(store.load(|| panic!("should migrate")).notice, None);
+        assert!(!dir.path().join("workspace.json.bak").exists());
+    }
+
+    #[test]
+    fn a_notice_reaches_the_ui_in_camel_case() {
+        let notice = StartupNotice {
+            kind: NoticeKind::WorkspaceTooNew,
+            backup: "/data/workspace.json.bak".into(),
+        };
+        assert_eq!(
+            serde_json::to_value(notice).unwrap(),
+            serde_json::json!({ "kind": "workspaceTooNew", "backup": "/data/workspace.json.bak" })
         );
     }
 
@@ -465,8 +613,9 @@ mod tests {
 
     /// The strongest check of the conversion: the schema 3 workspace the last
     /// release shipped, migrated by the rules in [`bindings`], is the same
-    /// workspace the code builds by hand today, control by control. The file
-    /// was saved on Linux, so it is compared with the Linux starter pads.
+    /// workspace the code builds by hand today, control by control, for every
+    /// starter that has not changed since. The file was saved on Linux, so it
+    /// is compared with the Linux starter pads.
     #[test]
     fn a_real_v3_workspace_migrates_to_exactly_what_ships_now() {
         let old: Value = serde_json::from_str(V3_FIXTURE).unwrap();
@@ -476,6 +625,23 @@ mod tests {
         let shipped = default_workspace_for(Platform::Linux);
         assert_eq!(ws.surfaces.len(), shipped.surfaces.len());
         for (a, b) in ws.surfaces.iter().zip(&shipped.surfaces) {
+            assert_eq!(a.id, b.id);
+            // The Home starter changed after that release (its webhook pads
+            // became Home Assistant plugin actions), and a saved surface is
+            // never rewritten into a newer starter: it migrates to what it
+            // was, which is checked here instead of comparing it with today's.
+            if b.id == "smart-home" {
+                assert_eq!(a.name, "Smart Home", "a saved surface keeps its name");
+                let webhooks = a
+                    .pages
+                    .iter()
+                    .flat_map(|p| &p.controls)
+                    .filter_map(|c| c.press.as_ref())
+                    .filter(|p| p.provider == "http" && p.action == "request")
+                    .count();
+                assert_eq!(webhooks, 6, "its webhook pads are kept");
+                continue;
+            }
             // The file keeps the old context hint it was saved with; the
             // starters no longer write one. It is compared on its own below.
             let a = Surface {

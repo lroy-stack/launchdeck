@@ -70,6 +70,7 @@ export async function createPreviewTransport() {
           animations: { pulse: true, flash: true },
         },
         connected: true,
+        status: "connected",
       },
     ],
     external: { enabled: true, port: 47821, listening: false, error: "Browser preview: no runtime" },
@@ -155,6 +156,23 @@ export async function createPreviewTransport() {
     push();
   };
 
+  // The same refusals as the runtime, in the same words.
+  const surfaceOf = (id: unknown) => {
+    const s = workspace.surfaces.find((x) => x.id === id);
+    if (!s) throw "That surface no longer exists.";
+    return s;
+  };
+  const pageOf = (s: Workspace["surfaces"][number], id: unknown) => {
+    const p = s.pages.find((x) => x.id === id);
+    if (!p) throw "That page no longer exists.";
+    return p;
+  };
+  const checkedName = (raw: unknown, what: string): string => {
+    const name = String(raw).trim();
+    if (name.length === 0 || [...name].length > 40) throw `A ${what} name needs 1 to 40 characters.`;
+    return name;
+  };
+
   /** The Plugins screen lists built-in providers from their catalog entries. */
   const bundledManifests = (): PluginManifest[] =>
     catalog.providers
@@ -202,6 +220,7 @@ export async function createPreviewTransport() {
       recentEvents: events,
       agents,
       context: context(),
+      notices: [],
     });
 
   const invoke = async (cmd: string, body: Record<string, unknown> | Uint8Array = {}): Promise<unknown> => {
@@ -250,8 +269,20 @@ export async function createPreviewTransport() {
         return pushWorkspace();
       }
       case "create_surface": {
-        const id = `surface-${workspace.surfaces.length + 1}`;
-        workspace.surfaces.push({ id, name: String(args.name), description: "", category: "custom", pages: [{ id: "home", name: "Home", controls: [] }] });
+        // As `Runtime::create_surface` and `surfaces::blank_surface`, without the surface switchers.
+        const name = String(args.name).trim();
+        if (name.length === 0 || [...name].length > 40) throw "name must be 1-40 characters";
+        const base = [...name].map((c) => (/^[A-Za-z0-9]$/.test(c) ? c.toLowerCase() : "-")).join("").replace(/^-+|-+$/g, "") || "surface";
+        let id = base;
+        for (let n = 2; workspace.surfaces.some((s) => s.id === id); n++) id = `${base}-${n}`;
+        workspace.surfaces.push({
+          id,
+          name,
+          description: "A blank surface. Select a pad and give it an action.",
+          icon: "＋",
+          category: "custom",
+          pages: [{ id: "home", name: "Home", controls: [] }],
+        });
         pushWorkspace();
         return id;
       }
@@ -262,8 +293,46 @@ export async function createPreviewTransport() {
         pushWorkspace();
         return id;
       }
+      case "remove_surface": {
+        const s = surfaceOf(args.surfaceId);
+        if (workspace.surfaces.length === 1) throw `${s.name} is the only surface, so it cannot be deleted. Create another one first.`;
+        workspace.surfaces = workspace.surfaces.filter((x) => x !== s);
+        const fallback = contextSettings.fallback;
+        contextSettings = {
+          ...contextSettings,
+          rules: contextSettings.rules.filter((r) => r.surfaceId !== s.id),
+          fallback: fallback.kind === "surface" && fallback.surfaceId === s.id ? { kind: "keep" } : fallback,
+        };
+        if (state.activeSurfaceId === s.id) activate(workspace.surfaces[0]!.id);
+        emit("context-changed", context());
+        return pushWorkspace();
+      }
+      case "update_surface": {
+        const name = checkedName(args.name, "surface");
+        const description = String(args.description).trim();
+        if ([...description].length > 400) throw "A description can have at most 400 characters.";
+        const icon = String(args.icon ?? "").trim() || null;
+        if (icon && [...icon].length > 8) throw "An icon can have at most 8 characters.";
+        Object.assign(surfaceOf(args.surfaceId), { name, description, icon });
+        return pushWorkspace();
+      }
+      case "rename_page": {
+        pageOf(surfaceOf(args.surfaceId), args.pageId).name = checkedName(args.name, "page");
+        return pushWorkspace();
+      }
+      case "remove_page": {
+        const s = surfaceOf(args.surfaceId);
+        const p = pageOf(s, args.pageId);
+        if (s.pages.length === 1) throw `${p.name} is the only page of ${s.name}, so it cannot be deleted.`;
+        s.pages = s.pages.filter((x) => x !== p);
+        if (state.activeSurfaceId === s.id && state.activePageId === p.id) state.activePageId = s.pages[0]!.id;
+        return pushWorkspace();
+      }
       case "update_preferences":
         workspace.preferences = args.preferences as Workspace["preferences"];
+        return pushWorkspace();
+      case "set_onboarding_done":
+        workspace.preferences = { ...workspace.preferences, onboardingDone: args.done === true };
         return pushWorkspace();
       case "actions_catalog":
         return catalog;
@@ -347,6 +416,11 @@ export async function createPreviewTransport() {
       case "artifacts_apply":
       case "artifacts_discard":
         throw ARTIFACTS_IN_PREVIEW;
+      case "app_reveal_data_folder":
+        throw "Browser preview: there is no data folder; the desktop app keeps one.";
+      case "app_info":
+        // Captured from Rust (examples/app-info.json): this build's numbers, with a placeholder folder.
+        return (await import("../../examples/app-info.json")).default;
       case "agents_command":
       case "agents_set_access":
       case "agents_update_settings":

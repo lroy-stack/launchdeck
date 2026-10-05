@@ -30,6 +30,7 @@ use crate::devices::manager::DeviceManager;
 use crate::devices::virtual_device::{VirtualLaunchpadX, VIRTUAL_ID};
 use crate::devices::DeviceInput;
 use crate::events::EventBus;
+use crate::persistence::StartupNotice;
 use crate::plugins::demo::DemoPlugin;
 use crate::plugins::external::{Limits as PluginLimits, PluginHost};
 use crate::plugins::system::SystemPlugin;
@@ -71,6 +72,15 @@ impl Runtime {
     ///
     /// Step 2 before step 3 is why the very first frame is already right.
     pub async fn start(config: RuntimeConfig) -> Arc<Runtime> {
+        Self::start_with_notices(config, Vec::new()).await
+    }
+
+    /// [`Runtime::start`], with what loading the workspace has to tell the
+    /// person (`persistence::Store::load`); the snapshot carries it.
+    pub async fn start_with_notices(
+        config: RuntimeConfig,
+        notices: Vec<StartupNotice>,
+    ) -> Arc<Runtime> {
         let bus = EventBus::new();
         let hub = StateHub::new();
         let storage = config
@@ -227,6 +237,7 @@ impl Runtime {
             counter: AtomicU64::new(1),
             handle: tokio::runtime::Handle::current(),
             context_sent: Mutex::new(None),
+            notices,
         });
 
         // Every control is evaluated once, from the states the providers

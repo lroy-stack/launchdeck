@@ -1,19 +1,13 @@
 import { api } from "../../lib/ipc";
 import { plural } from "../../lib/format";
-import { useStore } from "../../stores/runtime";
+import { primaryDeviceOf, useStore } from "../../stores/runtime";
 import { ActivityFeed } from "../../components/ActivityFeed";
-
-const BLURBS: Record<string, string> = {
-  "agent-control": "Watch every agent session at a glance. Approve, reject, pause, retry and start tasks from the pads.",
-  development: "Git, builds and editor shortcuts on safe demo commands.",
-  productivity: "Meetings, notes, focus and volume.",
-  accessibility: "Fewer, larger, high-contrast targets for easier pressing.",
-  "smart-home": "Template for Home Assistant style webhooks. Edit the URLs to make it yours.",
-};
+import { DeviceStatusLine } from "../../components/DeviceStatusLine";
 
 export function HomeView() {
   const workspace = useStore((s) => s.workspace);
   const state = useStore((s) => s.state);
+  const device = useStore(primaryDeviceOf);
   const events = useStore((s) => s.events);
   const preview = useStore((s) => s.preview);
   const setView = useStore((s) => s.setView);
@@ -23,15 +17,11 @@ export function HomeView() {
   const summary = useStore((s) => s.agents.summary);
   if (!workspace || !state) return null;
 
-  const device = state.devices.find((d) => d.connected);
-  const first = !workspace.preferences.onboardingDone;
-
   const open = async (id: string, edit = false) => {
     select(null);
     const ok = await attempt(async () => {
       await api.activateSurface(id);
       await api.setMode(edit ? "edit" : "live");
-      if (first) await api.updatePreferences({ ...workspace.preferences, onboardingDone: true });
     });
     if (ok) setView("surface");
   };
@@ -42,7 +32,6 @@ export function HomeView() {
       await api.agents.runDemo();
       await api.activateSurface("agent-control");
       await api.setMode("live");
-      if (first) await api.updatePreferences({ ...workspace.preferences, onboardingDone: true });
     });
     if (ok) showAgents("overview");
   };
@@ -51,9 +40,9 @@ export function HomeView() {
     <div className="page-scroll home">
       <section className="hero">
         <span className="eyebrow">Programmable physical interface runtime</span>
-        <h1>Turn any MIDI grid into a programmable surface for your digital life.</h1>
+        <h1>Turn a pad controller into a programmable surface for your digital life.</h1>
         <p>
-          LaunchDeck turns MIDI grid controllers into programmable physical interfaces for your computer. Control apps. Automate workflows. Build accessible interfaces.
+          LaunchDeck turns a Launchpad into a programmable physical interface for your computer. Control apps. Automate workflows. Build accessible interfaces.
           Monitor and orchestrate AI agents. No hardware needed to try it: the virtual Launchpad X behaves like the real thing.
         </p>
         <div className="row wrap">
@@ -91,23 +80,6 @@ export function HomeView() {
         </div>
       </section>
 
-      {first && (
-        <section className="steps" aria-label="Getting started">
-          <div>
-            <b>1</b>
-            <span>Pick a surface below.</span>
-          </div>
-          <div>
-            <b>2</b>
-            <span>Press pads on the virtual Launchpad in Live mode.</span>
-          </div>
-          <div>
-            <b>3</b>
-            <span>Switch to Edit to change a pad. Connect a real Launchpad X any time.</span>
-          </div>
-        </section>
-      )}
-
       <section>
         <h2>Starter surfaces</h2>
         <div className="cards">
@@ -117,7 +89,7 @@ export function HomeView() {
                 <span className="card-icon">{s.icon ?? "▦"}</span>
                 <h3>{s.name}</h3>
               </header>
-              <p>{BLURBS[s.id] ?? (s.description || "Custom surface.")}</p>
+              <p>{s.description || "No description yet."}</p>
               <footer>
                 <small>
                   {plural(s.pages.length, "page")} · {plural(s.pages.reduce((n, p) => n + p.controls.length, 0), "control")}
@@ -142,13 +114,7 @@ export function HomeView() {
           <ul className="device-list">
             {state.devices.map((d) => (
               <li key={d.identity.id}>
-                <span className={`status-dot ${d.connected ? "ok" : ""}`} />
-                <div>
-                  <b>{d.identity.name}</b>
-                  <small>
-                    {d.identity.kind === "virtual" ? "Simulator" : "Hardware"} · {d.connected ? "connected" : "available"}
-                  </small>
-                </div>
+                <DeviceStatusLine device={d} />
               </li>
             ))}
           </ul>

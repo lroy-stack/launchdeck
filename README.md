@@ -133,7 +133,7 @@ The same socket also takes generic events that change how pads look:
 {"type":"event","source":"build","event":"run.failed","payload":{"code":2}}
 ```
 
-Make a control react to an event with an event rule: **Feedback, Add feedback, An event** in the inspector (see [docs/feedback-editor.md](docs/feedback-editor.md)), or by writing it in the `feedback` list of the surface file, as described in [docs/surfaces.md](docs/surfaces.md) and [docs/state-and-feedback.md](docs/state-and-feedback.md). Try it with **Settings, External events, Send test event**, or with any WebSocket client:
+Make a control react to an event with an event rule: **Feedback, Add feedback, An event** in the inspector (see [docs/feedback-editor.md](docs/feedback-editor.md)), or by writing it in the `feedback` list of the surface file, as described in [docs/surfaces.md](docs/surfaces.md) and [docs/state-and-feedback.md](docs/state-and-feedback.md). Try it with **Settings, Developer, Send test event**, or with any WebSocket client:
 
 ```bash
 npx wscat -c ws://127.0.0.1:47821 -x '{"type":"event","source":"build","event":"run.started"}'

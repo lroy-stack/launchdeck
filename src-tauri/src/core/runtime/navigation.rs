@@ -3,12 +3,20 @@
 
 use serde_json::{json, Value};
 
-use super::{By, Mode, Runtime};
+use super::{By, Inner, Mode, Runtime};
 use crate::actions::builtin::{OPEN_PAGE, OPEN_SURFACE};
 use crate::core::model::Assignment;
 use crate::core::observables as native;
 use crate::events::types;
 use crate::state::Scalar;
+
+/// What came on screen: the surface, its page, and whether the surface is
+/// another one than before.
+pub(super) struct Shown {
+    surface: String,
+    page: String,
+    surface_changed: bool,
+}
 
 impl Runtime {
     /// Show a surface (and a page of it) because a person asked: the sidebar,
@@ -25,52 +33,64 @@ impl Runtime {
         page_id: Option<&str>,
         by: By,
     ) -> Result<(), String> {
-        {
-            let mut inner = self.lock();
-            let surface = inner
-                .workspace
-                .surface(surface_id)
-                .ok_or_else(|| format!("unknown surface `{surface_id}`"))?;
-            let page = match page_id {
-                Some(p) => surface
-                    .page(p)
-                    .ok_or_else(|| format!("unknown page `{p}`"))?,
-                None => surface.home_page().ok_or("surface has no pages")?,
-            }
-            .id
-            .clone();
-            let surface_changed = inner.active_surface != surface_id;
-            let changed = surface_changed || inner.active_page != page;
-            inner.active_surface = surface_id.to_string();
-            inner.active_page = page.clone();
-            inner.held.clear();
-            inner.workspace.last_active_surface = Some(surface_id.to_string());
-            if by == By::Person {
-                Self::with_context(&mut inner, |engine, world| engine.manual(changed, world));
-                // Only a person's choice is saved. What Auto shows follows the
-                // application in front, which the next start observes again,
-                // and the whole workspace is not rewritten at every switch.
-                self.persist(&inner);
-            }
-            drop(inner);
-            if surface_changed {
-                self.publish(
-                    "runtime",
-                    types::SURFACE_CHANGED,
-                    json!({ "surfaceId": surface_id, "pageId": page }),
-                );
-            }
-            self.publish(
-                "runtime",
-                types::PAGE_CHANGED,
-                json!({ "surfaceId": surface_id, "pageId": page }),
-            );
-        }
+        let shown = self.put_on_screen(&mut self.lock(), surface_id, page_id, by)?;
+        self.announce_shown(&shown);
         // Nothing is replayed to repaint the surface: every control's look is
         // already derived from the states the hub holds, shown or not.
         self.emit_state();
         self.emit_context();
         Ok(())
+    }
+
+    /// Under the lock, the part of [`Runtime::activate`] that changes what is
+    /// on screen; [`Runtime::announce_shown`] tells the bus once the lock is
+    /// released.
+    pub(super) fn put_on_screen(
+        &self,
+        inner: &mut Inner,
+        surface_id: &str,
+        page_id: Option<&str>,
+        by: By,
+    ) -> Result<Shown, String> {
+        let surface = inner
+            .workspace
+            .surface(surface_id)
+            .ok_or_else(|| format!("unknown surface `{surface_id}`"))?;
+        let page = match page_id {
+            Some(p) => surface
+                .page(p)
+                .ok_or_else(|| format!("unknown page `{p}`"))?,
+            None => surface.home_page().ok_or("surface has no pages")?,
+        }
+        .id
+        .clone();
+        let surface_changed = inner.active_surface != surface_id;
+        let changed = surface_changed || inner.active_page != page;
+        inner.active_surface = surface_id.to_string();
+        inner.active_page = page.clone();
+        inner.held.clear();
+        inner.workspace.last_active_surface = Some(surface_id.to_string());
+        if by == By::Person {
+            Self::with_context(inner, |engine, world| engine.manual(changed, world));
+            // Only a person's choice is saved. What Auto shows follows the
+            // application in front, which the next start observes again,
+            // and the whole workspace is not rewritten at every switch.
+            self.persist(inner);
+        }
+        Ok(Shown {
+            surface: surface_id.to_string(),
+            page,
+            surface_changed,
+        })
+    }
+
+    /// Publish what [`Runtime::put_on_screen`] brought on screen.
+    pub(super) fn announce_shown(&self, shown: &Shown) {
+        let payload = json!({ "surfaceId": shown.surface, "pageId": shown.page });
+        if shown.surface_changed {
+            self.publish("runtime", types::SURFACE_CHANGED, payload.clone());
+        }
+        self.publish("runtime", types::PAGE_CHANGED, payload);
     }
 
     /// Show another page of the surface on screen, because a person asked.

@@ -117,8 +117,8 @@ fn bound_workspace() -> Workspace {
     }
 }
 
-async fn start(ws: Workspace, store: Option<Store>) -> Arc<Runtime> {
-    Runtime::start(RuntimeConfig {
+fn config(ws: Workspace, store: Option<Store>) -> RuntimeConfig {
+    RuntimeConfig {
         workspace: ws,
         store,
         emitter: Arc::new(NullEmitter),
@@ -129,8 +129,11 @@ async fn start(ws: Workspace, store: Option<Store>) -> Arc<Runtime> {
         plugin_dirs: vec![],
         secrets: None,
         observer: None,
-    })
-    .await
+    }
+}
+
+async fn start(ws: Workspace, store: Option<Store>) -> Arc<Runtime> {
+    Runtime::start(config(ws, store)).await
 }
 
 async fn wait_until(what: &str, mut cond: impl FnMut() -> bool) {
@@ -849,4 +852,232 @@ async fn the_save_on_context_activation_is_measured() {
     report("Runtime::persist", saves);
     report("of which serialising", serialising);
     report("activate(By::Context)", activations);
+}
+
+// ---------------------------------------------------------------------------
+// Managing surfaces and pages, and the onboarding flag
+// ---------------------------------------------------------------------------
+
+/// What the store holds on disk now, if anything.
+fn on_disk(dir: &std::path::Path) -> Option<Workspace> {
+    let path = dir.join("workspace.json");
+    path.exists()
+        .then(|| Store::new(dir).load_or_default(|| panic!("the saved file must load")))
+}
+
+/// Every assignment of a workspace that opens `surface`.
+fn openers_of(ws: &Workspace, surface: &str) -> Vec<Assignment> {
+    ws.surfaces
+        .iter()
+        .flat_map(|s| &s.pages)
+        .flat_map(|p| &p.controls)
+        .filter_map(|c| c.press.clone())
+        .filter(|a| {
+            a.action == crate::actions::builtin::OPEN_SURFACE && a.args["surfaceId"] == surface
+        })
+        .collect()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn deleting_the_active_surface_activates_another_and_persists() {
+    let dir = tempfile::tempdir().unwrap();
+    let rt = start(default_workspace(), Some(Store::new(dir.path()))).await;
+    rt.activate_surface("development", None).unwrap();
+    let mut others = rt.snapshot().workspace;
+    others.surfaces.retain(|s| s.id != "development");
+    let openers = openers_of(&others, "development");
+    assert!(
+        !openers.is_empty(),
+        "the starters have pads that open Development"
+    );
+
+    rt.remove_surface("development").unwrap();
+
+    let snapshot = rt.snapshot();
+    assert!(snapshot.workspace.surface("development").is_none());
+    let first = snapshot.workspace.surfaces[0].id.clone();
+    assert_eq!(rt.state().active_surface_id, first);
+    assert_eq!(rt.state().active_page_id, "home");
+    let saved = on_disk(dir.path()).expect("the removal was saved");
+    assert!(saved.surface("development").is_none());
+    assert_ne!(saved.last_active_surface.as_deref(), Some("development"));
+    // Pads elsewhere that opened it keep their arguments, and pressing one
+    // says the surface is missing instead of doing something else.
+    assert_eq!(openers_of(&snapshot.workspace, "development"), openers);
+    assert!(rt.navigate(&openers[0]).is_err());
+    assert_eq!(rt.state().active_surface_id, first);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_last_surface_cannot_be_deleted() {
+    let rt = start(bound_workspace(), None).await;
+    let before = rt.snapshot().workspace;
+    let error = rt.remove_surface("bound").unwrap_err();
+    assert!(error.contains("only surface"), "{error}");
+    assert!(error.ends_with('.'), "a sentence: {error}");
+    assert_eq!(rt.snapshot().workspace, before);
+    assert!(rt.remove_surface("nope").is_err());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn rules_targeting_a_deleted_surface_are_removed_and_a_fallback_reset() {
+    use crate::context::rules::tests::rule;
+    use crate::context::rules::{ContextSettings, Fallback};
+    let mut ws = default_workspace();
+    ws.context = ContextSettings {
+        auto: true,
+        rules: vec![
+            rule("code", "development", None),
+            rule("notes", "productivity", None),
+            rule("git", "development", Some("git")),
+        ],
+        fallback: Fallback::Surface {
+            surface_id: "development".into(),
+            page_id: None,
+        },
+    };
+    let rt = start(ws, None).await;
+
+    rt.remove_surface("productivity").unwrap();
+    let context = rt.snapshot().workspace.context;
+    assert_eq!(context.rules.len(), 2);
+    assert!(
+        matches!(context.fallback, Fallback::Surface { .. }),
+        "untouched"
+    );
+
+    rt.remove_surface("development").unwrap();
+    let context = rt.snapshot().workspace.context;
+    assert!(context.rules.is_empty(), "{:?}", context.rules);
+    assert_eq!(context.fallback, Fallback::Keep);
+    assert!(context.auto, "Auto stays as it was");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_failing_save_leaves_everything_unchanged() {
+    let dir = tempfile::tempdir().unwrap();
+    let rt = start(default_workspace(), Some(Store::new(dir.path()))).await;
+    rt.activate_surface("development", Some("git")).unwrap();
+    let saved = on_disk(dir.path());
+    let before = rt.snapshot().workspace;
+    let state = rt.state();
+    // The next save cannot write its temporary file.
+    std::fs::create_dir(dir.path().join("workspace.json.tmp")).unwrap();
+
+    for error in [
+        rt.remove_surface("development").unwrap_err(),
+        rt.update_surface("development", "Code", "", None)
+            .unwrap_err(),
+        rt.rename_page("development", "git", "Source").unwrap_err(),
+        rt.remove_page("development", "git").unwrap_err(),
+        rt.set_onboarding_done(true).unwrap_err(),
+    ] {
+        assert!(error.contains("could not be saved"), "{error}");
+    }
+    assert_eq!(rt.snapshot().workspace, before);
+    assert_eq!(rt.state().active_surface_id, state.active_surface_id);
+    assert_eq!(rt.state().active_page_id, state.active_page_id);
+    assert_eq!(on_disk(dir.path()), saved);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_surface_and_rename_page_check_lengths_with_sentences() {
+    let rt = start(default_workspace(), None).await;
+    let before = rt.snapshot().workspace;
+    let long = |n: usize| "x".repeat(n);
+    let refused = [
+        rt.update_surface("development", "  ", "", None),
+        rt.update_surface("development", &long(41), "", None),
+        rt.update_surface("development", "Code", &long(401), None),
+        rt.update_surface("development", "Code", "", Some(long(9))),
+        rt.update_surface("nope", "Code", "", None),
+        rt.rename_page("development", "git", ""),
+        rt.rename_page("development", "git", &long(41)),
+        rt.rename_page("development", "nope", "Source"),
+        rt.rename_page("nope", "git", "Source"),
+    ];
+    for result in refused {
+        let error = result.unwrap_err();
+        assert!(
+            error.ends_with('.') && error.chars().next().is_some_and(char::is_uppercase),
+            "a sentence: {error}"
+        );
+    }
+    assert_eq!(rt.snapshot().workspace, before);
+
+    rt.update_surface("development", " Code ", &long(400), Some("⌨️".into()))
+        .unwrap();
+    rt.rename_page("development", "git", &long(40)).unwrap();
+    let ws = rt.snapshot().workspace;
+    let surface = ws.surface("development").unwrap();
+    assert_eq!(surface.name, "Code");
+    assert_eq!(surface.description, long(400));
+    assert_eq!(surface.icon.as_deref(), Some("⌨️"));
+    assert_eq!(surface.page("git").unwrap().name, long(40));
+    // An empty icon is no icon.
+    rt.update_surface("development", "Code", "", Some(String::new()))
+        .unwrap();
+    assert_eq!(
+        rt.snapshot().workspace.surface("development").unwrap().icon,
+        None
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_last_page_cannot_be_deleted_and_the_page_on_screen_moves_home() {
+    let rt = start(default_workspace(), None).await;
+    let error = rt.remove_page("productivity", "home").unwrap_err();
+    assert!(error.contains("only page"), "{error}");
+    assert!(rt.remove_page("development", "nope").is_err());
+
+    rt.activate_surface("development", Some("git")).unwrap();
+    rt.remove_page("development", "git").unwrap();
+    let ws = rt.snapshot().workspace;
+    assert!(ws.surface("development").unwrap().page("git").is_none());
+    assert_eq!(rt.state().active_surface_id, "development");
+    assert_eq!(rt.state().active_page_id, "home");
+}
+#[tokio::test(flavor = "multi_thread")]
+async fn the_onboarding_flag_changes_alone_and_persists() {
+    let dir = tempfile::tempdir().unwrap();
+    let rt = start(default_workspace(), Some(Store::new(dir.path()))).await;
+    let before = rt.snapshot().workspace;
+    assert!(!before.preferences.onboarding_done);
+
+    rt.set_onboarding_done(true).unwrap();
+
+    let mut expected = before.clone();
+    expected.preferences.onboarding_done = true;
+    assert_eq!(rt.snapshot().workspace, expected);
+    assert_eq!(on_disk(dir.path()), Some(expected));
+    rt.set_onboarding_done(false).unwrap();
+    assert!(!on_disk(dir.path()).unwrap().preferences.onboarding_done);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_reset_keeps_the_onboarding_flag() {
+    let rt = start(default_workspace(), None).await;
+    rt.set_onboarding_done(true).unwrap();
+    rt.create_surface("Mine").unwrap();
+    rt.reset_workspace();
+    let ws = rt.snapshot().workspace;
+    assert!(ws.surface("mine").is_none());
+    assert!(ws.preferences.onboarding_done);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_snapshot_carries_the_notices_of_the_start() {
+    use crate::persistence::{NoticeKind, StartupNotice};
+    let rt = start(default_workspace(), None).await;
+    assert!(rt.snapshot().notices.is_empty());
+
+    let notice = StartupNotice {
+        kind: NoticeKind::WorkspaceDamaged,
+        backup: "/data/workspace.json.bak".into(),
+    };
+    let rt =
+        Runtime::start_with_notices(config(default_workspace(), None), vec![notice.clone()]).await;
+    assert_eq!(rt.snapshot().notices, vec![notice]);
+    let json = serde_json::to_value(rt.snapshot()).unwrap();
+    assert_eq!(json["notices"][0]["kind"], "workspaceDamaged");
 }

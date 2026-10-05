@@ -18,7 +18,7 @@ pub(crate) fn disconnect_device(state: State<'_, AppState>, id: String) -> CmdRe
 #[tauri::command]
 pub(crate) async fn rescan_devices(state: State<'_, AppState>) -> CmdResult<()> {
     let rt = state.runtime.clone();
-    tauri::async_runtime::spawn_blocking(move || rt.rescan())
+    tauri::async_runtime::spawn_blocking(move || rt.look_again())
         .await
         .map_err(|e| e.to_string())
 }

@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { api } from "../../lib/ipc";
-import { plural } from "../../lib/format";
+import { categoryLabel, plural } from "../../lib/format";
 import type { Mode, Page, Surface } from "../../lib/schema";
-import { activePage, activeSurface, useStore } from "../../stores/runtime";
+import { activePage, activeSurface, primaryDeviceOf, useStore } from "../../stores/runtime";
 import { Inspector } from "../editor/Inspector";
 import { ActionLibrary } from "../library/ActionLibrary";
 import { LivePanel } from "./LivePanel";
+import { DeleteSurface, PageItem, SurfaceDetails } from "./SurfaceManage";
 import { PadGrid } from "../../components/PadGrid";
 
 export function SurfaceView() {
   const workspace = useStore((s) => s.workspace);
   const state = useStore((s) => s.state);
+  const device = useStore(primaryDeviceOf);
   const libraryOpen = useStore((s) => s.libraryOpen);
   const frame = useStore((s) => s.frame);
   const attempt = useStore((s) => s.attempt);
@@ -25,25 +27,30 @@ export function SurfaceView() {
   if (!workspace || !state || !surface || !page) return <NoSurface first={workspace?.surfaces[0] ?? null} />;
 
   const mode = state.mode;
-  const device = state.devices.find((d) => d.connected) ?? state.devices[0] ?? null;
   const setMode = (m: Mode) => {
     if (m === mode) return;
     select(null);
     void attempt(() => api.setMode(m));
   };
 
+  // Edit state (a draft name, an open confirmation) is keyed by surface, so it never follows to another one.
   return (
     <div className={`surface-view mode-${mode}`}>
       <header className="surface-head">
-        <div className="titles">
-          <span className="eyebrow">{surface.category}</span>
-          <h1>{surface.name}</h1>
-          <p>{surface.description}</p>
-        </div>
+        {mode === "edit" ? (
+          <SurfaceDetails key={surface.id} surface={surface} />
+        ) : (
+          <div className="titles">
+            <span className="eyebrow">{categoryLabel(surface.category)}</span>
+            <h1>{surface.name}</h1>
+            <p>{surface.description}</p>
+          </div>
+        )}
         <div className="head-actions">
           <button type="button" className="btn small" onClick={() => startExport(surface.id)}>
             Export…
           </button>
+          {mode === "edit" && <DeleteSurface key={surface.id} surface={surface} />}
           <label className="check">
             <input type="checkbox" checked={showLabels} onChange={toggleLabels} /> Labels
           </label>
@@ -118,21 +125,19 @@ function PagesNav({ surface, page, layout }: { surface: Surface; page: Page; lay
   return (
     <nav className={layout === "strip" ? "pages strip" : "pages"} aria-label="Pages">
       {layout === "column" && <h4>Pages</h4>}
-      {surface.pages.map((p) => (
-        <button
-          key={p.id}
-          type="button"
-          className={`page-item${p.id === page.id ? " on" : ""}`}
-          aria-current={p.id === page.id ? "page" : undefined}
-          onClick={() => {
-            select(null);
-            void attempt(() => api.activatePage(p.id));
-          }}
-        >
-          <span>{p.name}</span>
-          <small>{plural(p.controls.length, "control")}</small>
-        </button>
-      ))}
+      {surface.pages.map((p) => {
+        const open = () => {
+          select(null);
+          void attempt(() => api.activatePage(p.id));
+        };
+        if (mode === "edit") return <PageItem key={`${surface.id}/${p.id}`} surface={surface} page={p} current={p.id === page.id} onOpen={open} />;
+        return (
+          <button key={p.id} type="button" className={`page-item${p.id === page.id ? " on" : ""}`} aria-current={p.id === page.id ? "page" : undefined} onClick={open}>
+            <span>{p.name}</span>
+            <small>{plural(p.controls.length, "control")}</small>
+          </button>
+        );
+      })}
       {mode === "edit" &&
         (newPage === null ? (
           <button type="button" className="page-item add" onClick={() => setNewPage("")}>

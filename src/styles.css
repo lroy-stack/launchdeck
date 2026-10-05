@@ -35,6 +35,9 @@ code { background: var(--panel-2); border: 1px solid var(--line); border-radius:
 .splash { height: 100%; display: grid; place-content: center; gap: 12px; color: var(--text-2); text-align: center; }
 .splash.error pre { color: var(--bad); white-space: pre-wrap; max-width: 640px; }
 .preview-bar { background: #2a2210; color: #f3d38a; border-bottom: 1px solid #4a3a14; padding: 6px 16px; font-size: 12px; }
+.startup-notice { display: flex; flex-direction: column; gap: 8px; padding: 10px 16px; background: #2a1515; color: #fca5a5; border-bottom: 1px solid #5a2a2a; }
+.startup-notice p { color: inherit; }
+.startup-notice .row { align-items: center; }
 
 /* Sidebar ---------------------------------------------------------------- */
 .sidebar { background: var(--bg-2); border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow: auto; }
@@ -47,14 +50,15 @@ nav { display: flex; flex-direction: column; gap: 2px; }
 .nav-item:hover:not(.disabled) { background: var(--panel); color: var(--text); }
 .nav-item.on { background: var(--panel-2); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
 .nav-item .glyph { width: 16px; text-align: center; opacity: 0.8; }
-.nav-item.disabled { opacity: 0.45; cursor: default; }
-.nav-item em { margin-left: auto; font-style: normal; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); border: 1px solid var(--line-2); border-radius: 999px; padding: 0 6px; }
 .device-card { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); text-align: left; }
 .device-card:hover { border-color: var(--line-2); }
 .device-text { display: flex; flex-direction: column; line-height: 1.25; }
 .device-text small, .device-list small { color: var(--text-3); font-size: 11.5px; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); flex: none; }
 .status-dot.ok { background: var(--good); box-shadow: 0 0 8px var(--good); }
+.status-dot.warn { background: var(--warn); }
+.status-dot.bad { background: var(--bad); }
+.device-text .device-problem { color: var(--text-2); }
 .side-section { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 .side-title { display: flex; align-items: center; justify-content: space-between; padding: 0 8px; color: var(--text-3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
 .surface-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -113,9 +117,19 @@ textarea { resize: vertical; }
 .hero { display: flex; flex-direction: column; gap: 12px; padding: 28px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(135deg, #171726, #101018 60%); }
 .hero h1 { font-size: 28px; line-height: 1.15; letter-spacing: -0.03em; max-width: 22ch; }
 .hero p { color: var(--text-2); max-width: 64ch; font-size: 14px; }
-.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.steps div { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px dashed var(--line-2); border-radius: var(--radius); color: var(--text-2); }
-.steps b { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent-2); color: white; flex: none; font-size: 12px; }
+.first-run-shell { grid-template-columns: 1fr; }
+.first-run { max-width: 1040px; width: 100%; margin: 0 auto; }
+.first-run h1 { font-size: 26px; letter-spacing: -0.02em; margin: 6px 0; }
+.first-run > header p { color: var(--text-2); max-width: 64ch; }
+.first-run h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 12px; font-weight: 600; }
+.first-run-device { align-items: center; margin-bottom: 8px; }
+.first-run-device .device-card { min-width: 260px; }
+.purpose { cursor: pointer; }
+.purpose p { color: var(--text-2); }
+.purpose.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.purpose.missing { opacity: 0.5; cursor: default; }
+.purpose input { accent-color: var(--accent); }
+.first-run-error { color: var(--bad); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
 .cards.wide { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
@@ -139,6 +153,8 @@ textarea { resize: vertical; }
 .device-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .device-list li { display: flex; align-items: center; gap: 10px; }
 .device-list div { display: flex; flex-direction: column; }
+.tech-details { margin-top: 12px; }
+.tech-details summary { cursor: pointer; color: var(--text-3); font-size: 12px; }
 .device-list.big li { padding: 10px 12px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; }
 .snippet { margin: 0; padding: 12px; background: #07070a; border: 1px solid var(--line-2); border-radius: 8px; font: 12px/1.6 var(--mono); color: #c7d2fe; overflow: auto; }
 .feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -449,6 +465,19 @@ textarea { resize: vertical; }
 .pages.strip .page-item { flex-direction: row; align-items: center; gap: 8px; min-height: 32px; padding: 4px 12px; border: 1px solid var(--line-2); }
 .pages.strip .page-item.on { box-shadow: none; border-color: var(--accent-2); background: #1d2140; }
 .pages.strip .page-item.add { border-style: dashed; }
+/* Managing a surface while editing: its details in the header, the page menu, confirmations. */
+.surface-details { display: flex; flex-direction: column; gap: 6px; flex: 1; max-width: 560px; }
+.surface-details .row { align-items: center; gap: 8px; }
+.surface-details .surface-icon { width: 52px; flex: none; text-align: center; }
+.surface-details .surface-name { font-size: 18px; font-weight: 600; }
+.surface-details .surface-description { font-size: 12.5px; color: var(--text-2); }
+.page-slot { position: relative; display: inline-flex; align-items: center; gap: 2px; }
+.page-menu { position: absolute; top: 100%; right: 0; z-index: 5; display: flex; flex-direction: column; min-width: 120px; margin-top: 4px; padding: 4px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 8px; }
+.page-menu button { background: transparent; border: 0; border-radius: 6px; padding: 5px 9px; text-align: left; color: var(--text); }
+.page-menu button:hover:not(:disabled) { background: var(--panel); }
+.page-menu button:disabled { opacity: 0.4; cursor: default; }
+.confirm { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid #5a2a2a; border-radius: 8px; background: #1d1214; color: var(--text); }
+.page-slot .confirm { position: absolute; top: 100%; left: 0; z-index: 5; margin-top: 4px; min-width: 260px; }
 .pad.drop-ready { outline: 1px dashed var(--accent-2); outline-offset: -3px; }
 .pad.drop-over { outline: 2px solid var(--accent); outline-offset: -2px; background-color: #7c8cff22; }
 .pad-flag { position: absolute; top: 2px; right: 3px; min-width: 14px; height: 14px; border-radius: 7px; background: var(--warn); color: #1a1405; font-size: 10px; font-weight: 700; line-height: 14px; text-align: center; }
@@ -616,6 +645,14 @@ textarea { resize: vertical; }
 .context-add .field { flex: 1 1 150px; min-width: 0; }
 .context-add small { flex-basis: 100%; }
 @media (max-width: 900px) { .context-rule { grid-template-columns: 22px 1fr auto; } .context-rule select, .rule-actions { grid-column: 2 / -1; } }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
+.facts dt { color: var(--text-3); }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.settings-nav { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.settings-section { scroll-margin-top: 16px; }
+.developer summary { cursor: pointer; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.developer summary h2 { display: inline; margin: 0; }
+.developer-tools { display: flex; flex-direction: column; gap: 18px; margin-top: 14px; }
 
 /* Surface files and Packs ------------------------------------------------- */
 .side-actions { display: inline-flex; align-items: center; gap: 2px; }

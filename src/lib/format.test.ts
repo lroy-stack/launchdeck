@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import workspaceJson from "../../examples/default-workspace.json";
 import catalogJson from "../../examples/action-catalog.json";
-import { describeEvent, eventNames } from "./format";
+import { categoryLabel, describeEvent, eventNames } from "./format";
 import { catalogSchema, workspaceSchema, type RuntimeEvent } from "./schema";
 
 const workspace = workspaceSchema.parse(workspaceJson);
@@ -34,5 +34,22 @@ describe("describeEvent", () => {
 
   it("says the type and the source of an event it does not know", () => {
     expect(describeEvent(event("build.finished", {}, "ci"), names)).toBe("Event build.finished from ci");
+  });
+});
+
+describe("category labels", () => {
+  it("names every starter's category in words, never by its slug", () => {
+    const labels = workspace.surfaces.map((s) => categoryLabel(s.category));
+    expect(labels).toEqual(["Agents", "Development", "Productivity", "Home", "Accessibility"]);
+  });
+
+  it("names the other known categories", () => {
+    expect(categoryLabel("ai")).toBe("Agents");
+    expect(categoryLabel("custom")).toBe("Custom");
+  });
+
+  it("turns a category it does not know into words", () => {
+    expect(categoryLabel("music-studio")).toBe("Music studio");
+    expect(categoryLabel("")).toBe("");
   });
 });

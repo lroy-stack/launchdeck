@@ -24,6 +24,7 @@ import { catalogSchema, workspaceSchema, type Assignment } from "./schema";
 const catalog = catalogSchema.parse(catalogJson);
 const index = indexCatalog(catalog);
 const workspace = workspaceSchema.parse(workspaceJson);
+const HOME_ASSISTANT = "example.home-assistant";
 const ids = (query: string, category?: string) => searchActions(index, query, { category }).map((a) => a.id);
 
 describe("the catalog contract with Rust", () => {
@@ -44,12 +45,21 @@ describe("the catalog contract with Rust", () => {
 
   it("agrees with Rust about every assignment of the default workspace", () => {
     // 100+ real assignments: the TypeScript mirror of the parameter rules must accept what Rust stores, unchanged.
+    // The Home starter's pads need the Home Assistant example plugin, which this catalog does not have
+    // installed: they are meant to read as missing until it is (Rust validates them against the
+    // installed plugin in tests/action_library.rs).
     let seen = 0;
+    let needPlugin = 0;
     for (const s of workspace.surfaces)
       for (const p of s.pages)
         for (const c of p.controls)
           for (const a of [c.press, c.longPress]) {
             if (!a) continue;
+            if (a.provider === HOME_ASSISTANT) {
+              expect(resolveAssignment(index, a)).toMatchObject({ kind: "missing" });
+              needPlugin++;
+              continue;
+            }
             const def = index.byId.get(`${a.provider}.${a.action}`);
             expect(def, `${s.id}/${p.id}/${c.label}: ${a.provider}.${a.action}`).toBeDefined();
             const { args, issues } = normalizeArgs(def!.params, a.args);
@@ -58,6 +68,7 @@ describe("the catalog contract with Rust", () => {
             seen++;
           }
     expect(seen).toBeGreaterThan(100);
+    expect(needPlugin).toBe(6);
   });
 });
 

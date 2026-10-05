@@ -56,7 +56,7 @@ A surface file that names a provider which is not installed still loads. The pad
 | **Development** | Build, test, ship. | Terminal, editor, git page. Commands are harmless `echo` placeholders you replace. A "Failing" pad shows the error flash. |
 | **Productivity** | Everyday shortcuts. | Browser, mail, calendar and files; copy, paste, undo, redo and search; screenshot, play/pause. Which file manager and screenshot shortcut a pad uses depends on the system. |
 | **Accessibility** | Fewer, larger, high-contrast targets. | Twelve 2x2 pads in colour-coded groups (navigate, edit, scroll and zoom, volume), Help page. A usability aid, not a medical device. |
-| **Smart Home** | Webhook template. | Pads POST to `http://homeassistant.local:8123/api/webhook/launchdeck-<name>` placeholders. They do nothing useful (the request fails and the pad flashes red) until you create matching webhooks or edit the URLs. |
+| **Home** (id `smart-home`) | Lights and switches through Home Assistant. | Six pads toggle example entities (`light.living_room`, `light.kitchen`, `light.desk`, `light.porch`, `switch.bedroom_fan`, `switch.coffee_machine`) through the Home Assistant example plugin. Until that plugin is installed (Plugins, Install), given its address and token, and each pad your own entity, the pads read as needing the plugin and nothing is sent anywhere. |
 
 The top row on every surface switches surfaces, so a Launchpad works without the screen.
 

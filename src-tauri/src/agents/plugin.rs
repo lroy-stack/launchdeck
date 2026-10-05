@@ -118,7 +118,7 @@ impl Plugin for AgentControlPlugin {
         PluginManifest {
             id: PLUGIN_ID.into(),
             name: "Agent Control".into(),
-            version: "0.3.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             description: "Observe, intervene in and orchestrate agents from any surface. \
                           Commands act on the focused track and respect each agent's capabilities."
                 .into(),

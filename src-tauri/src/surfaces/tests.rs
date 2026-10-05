@@ -24,6 +24,39 @@ fn starter_workspace_has_the_documented_surfaces() {
 
 const SYSTEMS: [Platform; 3] = [Platform::Linux, Platform::MacOs, Platform::Windows];
 
+/// The names people see, in the order the first run and the sidebar list
+/// them. The smart-home starter is called Home; its id stays.
+#[test]
+fn the_starters_are_named_for_people() {
+    for platform in SYSTEMS {
+        let names: Vec<String> = starter_surfaces(platform)
+            .into_iter()
+            .map(|s| s.name)
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "Agent Control",
+                "Development",
+                "Productivity",
+                "Home",
+                "Accessibility"
+            ],
+            "{platform:?}"
+        );
+    }
+}
+
+/// Every starter says what it is for: the first run and the Overview show
+/// this text and have none of their own.
+#[test]
+fn every_starter_describes_itself() {
+    for s in starter_surfaces(Platform::current()) {
+        assert!(!s.description.trim().is_empty(), "{}", s.id);
+        assert!(s.icon.is_some(), "{}", s.id);
+    }
+}
+
 #[test]
 fn every_page_is_well_formed() {
     for s in SYSTEMS.into_iter().flat_map(starter_surfaces) {
@@ -123,12 +156,18 @@ fn accessibility_surface_uses_large_targets_and_few_controls() {
 }
 
 /// Auto Context is ordered rules in the workspace; the early per-surface hint
-/// is only read from old files, never written for a starter.
+/// is only read from old files, never written for a starter. A new
+/// workspace has no rule and Auto Context off: nothing switches surfaces
+/// until the person asks for it.
 #[test]
-fn no_starter_surface_carries_the_old_context_hint() {
+fn no_starter_carries_context_rules_or_the_old_context_hint() {
     for platform in SYSTEMS {
         let ws = default_workspace_for(platform);
+        assert!(ws.context.rules.is_empty(), "{platform:?}");
+        assert!(!ws.context.auto, "{platform:?}");
+        assert!(ws.context.is_default(), "{platform:?}");
         let json = serde_json::to_value(&ws).unwrap();
+        assert!(json.get("context").is_none(), "{platform:?}");
         for (surface, written) in ws.surfaces.iter().zip(json["surfaces"].as_array().unwrap()) {
             assert_eq!(surface.context, None, "{platform:?}: {}", surface.id);
             assert!(
@@ -137,6 +176,74 @@ fn no_starter_surface_carries_the_old_context_hint() {
                 surface.id
             );
         }
+    }
+}
+
+/// The Home starter switches lights and switches through the Home Assistant
+/// example plugin. Until that plugin is installed and configured its pads
+/// read as needing it, and nothing is sent anywhere: no starter pad holds a
+/// network address.
+#[test]
+fn the_home_starter_uses_the_home_assistant_example_plugin() {
+    let ws = default_workspace();
+    let home = ws.surface("smart-home").unwrap();
+    assert_eq!(home.name, "Home");
+    assert_eq!(home.category, "smart-home");
+    assert!(home.description.contains("Home Assistant example plugin"));
+    let pads: Vec<_> = home
+        .pages
+        .iter()
+        .flat_map(|p| &p.controls)
+        .filter(|c| matches!(c.pos, ControlPos::Grid { .. }))
+        .collect();
+    let entities: Vec<&str> = pads
+        .iter()
+        .map(|c| {
+            let a = c.press.as_ref().unwrap();
+            assert_eq!(
+                (a.provider.as_str(), a.action.as_str()),
+                ("example.home-assistant", "toggle"),
+                "{}",
+                c.label
+            );
+            assert_eq!(
+                c.description, "Example entity: set your own in the inspector.",
+                "{}",
+                c.label
+            );
+            a.args["entity"].as_str().unwrap()
+        })
+        .collect();
+    assert_eq!(
+        entities,
+        [
+            "light.living_room",
+            "light.kitchen",
+            "light.desk",
+            "light.porch",
+            "switch.bedroom_fan",
+            "switch.coffee_machine",
+        ]
+    );
+    // The plugin switches these domains only (examples/plugins/home-assistant).
+    assert!(entities
+        .iter()
+        .all(|e| e.starts_with("light.") || e.starts_with("switch.")));
+}
+
+#[test]
+fn no_starter_pad_on_the_home_surface_talks_to_the_network() {
+    for platform in SYSTEMS {
+        let ws = default_workspace_for(platform);
+        let home = ws.surface("smart-home").unwrap();
+        let text = serde_json::to_string(home).unwrap();
+        assert!(!text.contains("http"), "{platform:?}");
+        assert!(home
+            .pages
+            .iter()
+            .flat_map(|p| &p.controls)
+            .filter_map(|c| c.press.as_ref())
+            .all(|a| a.provider != "http"));
     }
 }
 

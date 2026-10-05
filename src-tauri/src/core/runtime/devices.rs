@@ -5,6 +5,7 @@ use serde_json::json;
 
 use super::{control_key, Inner, Runtime};
 use crate::devices::manager::{DeviceChange, DeviceInfo};
+use crate::devices::DeviceError;
 use crate::events::types;
 use crate::renderer;
 
@@ -70,37 +71,52 @@ impl Runtime {
     }
 
     pub fn connect_device(&self, id: &str) -> Result<(), String> {
-        let change = self.lock().devices.connect(id).map_err(|e| e.to_string())?;
+        let change = self.lock().devices.connect(id).map_err(sentence)?;
         self.announce(vec![change]);
         Ok(())
     }
 
     pub fn disconnect_device(&self, id: &str) -> Result<(), String> {
-        let change = self
-            .lock()
-            .devices
-            .disconnect(id)
-            .map_err(|e| e.to_string())?;
+        let change = self.lock().devices.disconnect(id).map_err(sentence)?;
         self.announce(vec![change]);
         Ok(())
     }
 
-    /// Look for Launchpad X hardware; connect newly found units.
+    /// Look for Launchpad X hardware; connect units that are new or came back.
+    /// A connect that fails is recorded by the device manager as the unit's
+    /// problem.
     pub fn rescan(&self) {
+        self.scan_hardware(false);
+    }
+
+    /// The person pressed Look again: also retry units whose connect failed.
+    pub fn look_again(&self) {
+        self.scan_hardware(true);
+    }
+
+    fn scan_hardware(&self, retry_failed: bool) {
         let mut changes = Vec::new();
         {
             let mut inner = self.lock();
-            let (added, removed) = inner.devices.rescan_hardware();
-            changes.extend(removed);
-            for id in added {
-                match inner.devices.connect(&id) {
-                    Ok(change) => changes.push(change),
-                    Err(e) => log::warn!("found `{id}` but could not connect: {e}"),
+            let rescan = inner.devices.rescan_hardware(retry_failed);
+            changes.extend(rescan.changes);
+            for id in rescan.to_connect {
+                if let Ok(change) = inner.devices.connect(&id) {
+                    changes.push(change);
                 }
             }
         }
-        // A newly registered but unconnected device also changes the list.
+        // A newly listed, unplugged or failed device also changes the list.
         self.announce(changes);
         self.emit_state();
+    }
+}
+
+/// The sentence for the person, then what the system said, until command
+/// errors carry their detail separately.
+fn sentence(e: DeviceError) -> String {
+    match e.detail() {
+        Some(detail) => format!("{e} Details: {detail}"),
+        None => e.to_string(),
     }
 }

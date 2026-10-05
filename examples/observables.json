@@ -13,7 +13,7 @@
         "instances": [
           {
             "status": "known",
-            "updatedAt": 1791151071233,
+            "updatedAt": 1791227308331,
             "value": "scenario"
           }
         ],
@@ -43,7 +43,7 @@
         "instances": [
           {
             "status": "known",
-            "updatedAt": 1791151071233,
+            "updatedAt": 1791227308331,
             "value": "home"
           }
         ],
@@ -72,7 +72,7 @@
         "instances": [
           {
             "status": "known",
-            "updatedAt": 1791151070975,
+            "updatedAt": 1791227308077,
             "value": "off"
           }
         ],
@@ -602,7 +602,7 @@
               "slot": 0
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306816,
             "value": "idle"
           },
           {
@@ -610,7 +610,7 @@
               "slot": 1
             },
             "status": "known",
-            "updatedAt": 1791151069088,
+            "updatedAt": 1791227306816,
             "value": "idle"
           },
           {
@@ -618,7 +618,7 @@
               "slot": 2
             },
             "status": "known",
-            "updatedAt": 1791151069088,
+            "updatedAt": 1791227306817,
             "value": "idle"
           },
           {
@@ -626,7 +626,7 @@
               "slot": 3
             },
             "status": "known",
-            "updatedAt": 1791151069088,
+            "updatedAt": 1791227306817,
             "value": "idle"
           },
           {
@@ -634,7 +634,7 @@
               "slot": 4
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": "empty"
           },
           {
@@ -642,7 +642,7 @@
               "slot": 5
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": "empty"
           },
           {
@@ -650,7 +650,7 @@
               "slot": 6
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": "empty"
           },
           {
@@ -658,7 +658,7 @@
               "slot": 7
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": "empty"
           }
         ],
@@ -767,7 +767,7 @@
               "slot": 0
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": false
           },
           {
@@ -775,7 +775,7 @@
               "slot": 1
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": false
           },
           {
@@ -783,7 +783,7 @@
               "slot": 2
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": false
           },
           {
@@ -791,7 +791,7 @@
               "slot": 3
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": false
           },
           {
@@ -799,7 +799,7 @@
               "slot": 4
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": false
           },
           {
@@ -807,7 +807,7 @@
               "slot": 5
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": false
           },
           {
@@ -815,7 +815,7 @@
               "slot": 6
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": false
           },
           {
@@ -823,7 +823,7 @@
               "slot": 7
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": false
           }
         ],
@@ -882,7 +882,7 @@
               "command": "approve"
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": "unavailable"
           },
           {
@@ -890,7 +890,7 @@
               "command": "cancel"
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": "unavailable"
           },
           {
@@ -898,7 +898,7 @@
               "command": "pause"
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": "unavailable"
           },
           {
@@ -906,7 +906,7 @@
               "command": "reject"
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": "unavailable"
           },
           {
@@ -914,7 +914,7 @@
               "command": "resume"
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": "unavailable"
           },
           {
@@ -922,7 +922,7 @@
               "command": "retry"
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306813,
             "value": "unavailable"
           },
           {
@@ -930,7 +930,7 @@
               "command": "send_instruction"
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306814,
             "value": "unavailable"
           },
           {
@@ -938,7 +938,7 @@
               "command": "spawn"
             },
             "status": "known",
-            "updatedAt": 1791151069087,
+            "updatedAt": 1791227306816,
             "value": "available"
           }
         ],
@@ -3037,7 +3037,7 @@
               "channel": "alpha"
             },
             "status": "known",
-            "updatedAt": 1791151071231,
+            "updatedAt": 1791227308330,
             "value": "up"
           },
           {
@@ -3045,7 +3045,7 @@
               "channel": "beta"
             },
             "status": "known",
-            "updatedAt": 1791151071233,
+            "updatedAt": 1791227308331,
             "value": "down"
           }
         ],
@@ -3135,7 +3135,7 @@
         "instances": [
           {
             "status": "known",
-            "updatedAt": 1791151071230,
+            "updatedAt": 1791227308330,
             "value": "low"
           }
         ],
@@ -3298,7 +3298,7 @@
         "kind": "module",
         "name": "Agent Control",
         "status": "ready",
-        "version": "0.3.0"
+        "version": "0.2.0"
       },
       {
         "description": "Tracks any number of named channels. One state, `status`, has an instance for each channel: the state is scoped by the channel it is about.",
@@ -3376,7 +3376,7 @@
           },
           "observed": {
             "status": "known",
-            "updatedAt": 1791151071230,
+            "updatedAt": 1791227308330,
             "value": "low"
           },
           "valueLabel": "Low"
@@ -3400,7 +3400,7 @@
       "overlay": {
         "latched": false,
         "look": "blink",
-        "remainingMs": 29740,
+        "remainingMs": 29744,
         "rule": 1,
         "source": "event"
       },
@@ -3423,7 +3423,7 @@
           },
           "observed": {
             "status": "known",
-            "updatedAt": 1791151071230,
+            "updatedAt": 1791227308330,
             "value": "low"
           },
           "valueLabel": "Low"
@@ -3572,7 +3572,7 @@
                 "channel": "alpha"
               },
               "status": "known",
-              "updatedAt": 1791151071231,
+              "updatedAt": 1791227308330,
               "value": "up"
             },
             {
@@ -3580,7 +3580,7 @@
                 "channel": "beta"
               },
               "status": "known",
-              "updatedAt": 1791151071233,
+              "updatedAt": 1791227308331,
               "value": "down"
             }
           ]
@@ -3594,7 +3594,7 @@
           "instances": [
             {
               "status": "known",
-              "updatedAt": 1791151071230,
+              "updatedAt": 1791227308330,
               "value": "low"
             }
           ]
@@ -3700,7 +3700,7 @@
             },
             "observed": {
               "status": "known",
-              "updatedAt": 1791151071230,
+              "updatedAt": 1791227308330,
               "value": "low"
             },
             "valueLabel": "Low"
@@ -3722,7 +3722,7 @@
             },
             "observed": {
               "status": "known",
-              "updatedAt": 1791151071230,
+              "updatedAt": 1791227308330,
               "value": "low"
             },
             "valueLabel": "Low"
@@ -3796,7 +3796,7 @@
             },
             "observed": {
               "status": "known",
-              "updatedAt": 1791151071231,
+              "updatedAt": 1791227308330,
               "value": "up"
             },
             "valueLabel": "Up"
@@ -3816,7 +3816,7 @@
             },
             "observed": {
               "status": "known",
-              "updatedAt": 1791151071230,
+              "updatedAt": 1791227308330,
               "value": "low"
             },
             "valueLabel": "Low"

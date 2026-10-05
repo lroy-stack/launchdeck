@@ -12,6 +12,7 @@ import {
   type HookSetup,
 } from "./agents";
 import {
+  appInfoSchema,
   applyOutcomeSchema,
   artifactLimitsSchema,
   exportPreviewSchema,
@@ -37,6 +38,7 @@ import {
   snapshotSchema,
   validationSchema,
   workspaceSchema,
+  type AppInfo,
   type ApplyOutcome,
   type ArtifactLimits,
   type Assignment,
@@ -156,8 +158,21 @@ export const api = {
     call("remove_control", null, { surfaceId, pageId, controlId }),
   createSurface: (name: string): Promise<string> => call("create_surface", z.string(), { name }),
   addPage: (surfaceId: string, name: string): Promise<string> => call("add_page", z.string(), { surfaceId, name }),
+  /**
+   * Rust refuses the last surface. Auto Context rules that show it are removed and a fallback that shows it goes back
+   * to keeping what is on screen. The new workspace arrives as an event, like every edit below.
+   */
+  removeSurface: (surfaceId: string): Promise<void> => call("remove_surface", null, { surfaceId }),
+  /** Name 1-40 characters, description up to 400, icon up to 8 (empty or `null`: no icon); Rust says what is wrong. */
+  updateSurface: (surfaceId: string, name: string, description: string, icon: string | null): Promise<void> =>
+    call("update_surface", null, { surfaceId, name, description, icon }),
+  renamePage: (surfaceId: string, pageId: string, name: string): Promise<void> => call("rename_page", null, { surfaceId, pageId, name }),
+  /** Rust refuses a surface's last page. */
+  removePage: (surfaceId: string, pageId: string): Promise<void> => call("remove_page", null, { surfaceId, pageId }),
   resetWorkspace: (): Promise<void> => call("reset_workspace", null),
   updatePreferences: (preferences: Preferences): Promise<void> => call("update_preferences", null, { preferences }),
+  /** Only the onboarding preference changes, saved before it is made; a reset keeps it. */
+  setOnboardingDone: (done: boolean): Promise<void> => call("set_onboarding_done", null, { done }),
   /** Runs an assignment now, as if a pad had triggered it, and resolves with what it returned or rejects with why it failed. */
   runAction: (action: Assignment): Promise<unknown> => call("run_action", null, { action }),
   /** The Action Library: everything on offer, with availability evaluated now. */
@@ -245,6 +260,10 @@ export const api = {
       call("artifacts_apply", applyOutcomeSchema, { planId, decisions, planDigest }),
     discard: (planId: string): Promise<void> => call("artifacts_discard", null, { planId }),
   },
+  /** Show the app data folder (the workspace, its backups, plugins, settings) in the system's file manager. */
+  revealDataFolder: (): Promise<void> => call("app_reveal_data_folder", null),
+  /** Every version a tester needs to say which LaunchDeck they run, and where the data folder is. */
+  appInfo: (): Promise<AppInfo> => call("app_info", appInfoSchema),
   /** Auto Context: the surface follows the application in front. */
   context: {
     status: (): Promise<ContextStatus> => call("context_status", contextStatusSchema),

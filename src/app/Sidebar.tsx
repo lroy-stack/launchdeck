@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { api } from "../lib/ipc";
-import { useStore, type View } from "../stores/runtime";
+import { primaryDeviceOf, useStore, type View } from "../stores/runtime";
+import { DeviceStatusLine } from "../components/DeviceStatusLine";
 import { ContextControl } from "../features/context/ContextControl";
 
 const NAV: Array<{ view: View; label: string; glyph: string }> = [
-  { view: "home", label: "Home", glyph: "⌂" },
+  { view: "overview", label: "Overview", glyph: "◫" },
   { view: "agents", label: "Agents", glyph: "◉" },
   { view: "surface", label: "Surfaces", glyph: "▦" },
   { view: "plugins", label: "Plugins", glyph: "⧉" },
@@ -16,6 +17,7 @@ export function Sidebar() {
   const setView = useStore((s) => s.setView);
   const workspace = useStore((s) => s.workspace);
   const state = useStore((s) => s.state);
+  const device = useStore(primaryDeviceOf);
   const attempt = useStore((s) => s.attempt);
   const select = useStore((s) => s.select);
   const startExport = useStore((s) => s.startExport);
@@ -23,9 +25,6 @@ export function Sidebar() {
   const failed = useStore((s) => s.agents.summary.failedSessions);
   const requests = useStore((s) => s.permissionRequests);
   const [creating, setCreating] = useState<string | null>(null);
-
-  const hardware = state?.devices.find((d) => d.identity.kind === "hardware" && d.connected);
-  const device = hardware ?? state?.devices.find((d) => d.connected) ?? null;
 
   const open = (surfaceId: string) => {
     select(null);
@@ -64,19 +63,10 @@ export function Sidebar() {
             )}
           </button>
         ))}
-        <div className="nav-item disabled" aria-disabled title="Preview: not available yet">
-          <span className="glyph">◈</span>
-          Marketplace
-          <em>Preview</em>
-        </div>
       </nav>
 
       <button type="button" className="device-card" onClick={() => setView("settings")} title="Manage devices">
-        <span className={`status-dot ${device ? "ok" : ""}`} />
-        <span className="device-text">
-          <b>{device ? (device.identity.kind === "hardware" ? "Launchpad X" : "Virtual Launchpad X") : "No device"}</b>
-          <small>{device ? (device.identity.kind === "hardware" ? "Connected" : "Simulator · connected") : "Disconnected"}</small>
-        </span>
+        <DeviceStatusLine device={device} />
       </button>
 
       <ContextControl />

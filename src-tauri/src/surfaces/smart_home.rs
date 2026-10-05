@@ -1,26 +1,29 @@
-//! The Smart Home starter (template: needs the user's own webhooks).
+//! The Home starter (id `smart-home`): lights and switches through the Home
+//! Assistant example plugin. Until that plugin is installed, given its
+//! address and token, and each pad its own entity, the pads read as needing
+//! the plugin and nothing is sent anywhere.
 
-use super::build::{ctl, g, http, with_state_visuals};
+use serde_json::json;
+
+use super::build::{ctl, g, plugin, with_state_visuals};
 use super::navigation::surface_switchers;
 use super::palette::{BLUE, CYAN, ORANGE, PURPLE, RED, YELLOW};
 use crate::core::model::{Page, Span, Surface};
 
+/// The example plugin in `examples/plugins/home-assistant`.
+const PROVIDER: &str = "example.home-assistant";
+
 pub(super) fn smart_home() -> Surface {
-    let hook = |name: &str| {
-        http(
-            "POST",
-            &format!("http://homeassistant.local:8123/api/webhook/launchdeck-{name}"),
-        )
-    };
-    let note = "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.";
+    let note = "Example entity: set your own in the inspector.";
     let mut controls = Vec::new();
-    for (i, (label, icon, color, name)) in [
-        ("Lights", "☀", YELLOW, "lights"),
-        ("Movie", "▶", PURPLE, "movie"),
-        ("Work", "⌨", BLUE, "work"),
-        ("Warmer", "▲", ORANGE, "warmer"),
-        ("Cooler", "▼", CYAN, "cooler"),
-        ("Lock", "🔒", RED, "lock"),
+    // The plugin switches lights, switches and input booleans, so a fan is a switch here.
+    for (i, (label, icon, color, entity)) in [
+        ("Living room", "☀", YELLOW, "light.living_room"),
+        ("Kitchen", "☀", ORANGE, "light.kitchen"),
+        ("Desk lamp", "✦", BLUE, "light.desk"),
+        ("Porch", "⌂", PURPLE, "light.porch"),
+        ("Fan", "✣", CYAN, "switch.bedroom_fan"),
+        ("Coffee", "☕", RED, "switch.coffee_machine"),
     ]
     .iter()
     .enumerate()
@@ -30,7 +33,7 @@ pub(super) fn smart_home() -> Surface {
             label,
             icon,
             *color,
-            hook(name),
+            plugin(PROVIDER, "toggle", json!({ "entity": entity })),
         ));
         c.span = Span { w: 2, h: 2 };
         c.description = note.into();
@@ -39,8 +42,8 @@ pub(super) fn smart_home() -> Surface {
     controls.extend(surface_switchers("smart-home"));
     Surface {
         id: "smart-home".into(),
-        name: "Smart Home".into(),
-        description: "Template for Home Assistant style webhooks. Edit the URLs to make it yours."
+        name: "Home".into(),
+        description: "Lights and switches through Home Assistant. Needs the Home Assistant example plugin (Plugins, Install), its address and token, and your own entity on each pad."
             .into(),
         icon: Some("⌂".into()),
         category: "smart-home".into(),

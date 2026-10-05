@@ -45,9 +45,11 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::artifacts::ArtifactService;
 use crate::core::runtime::{Runtime, RuntimeConfig, UiEmitter};
-use crate::persistence::Store;
+use crate::persistence::{LoadOutcome, Store};
 use crate::plugins::keyboard::EnigoKeyboard;
 use crate::surfaces::default_workspace;
+
+pub use commands::app::{AppInfo, SchemaRange};
 
 pub(crate) struct AppState {
     runtime: Arc<Runtime>,
@@ -68,7 +70,9 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             let store = Store::new(&dir);
-            let workspace = store.load_or_default(default_workspace);
+            // A saved workspace that could not be used is kept as a backup,
+            // and the snapshot tells the person so.
+            let LoadOutcome { workspace, notice } = store.load(default_workspace);
             let config = RuntimeConfig {
                 workspace,
                 store: Some(store),
@@ -87,7 +91,10 @@ pub fn run() {
                 // Which application is in front, by this system's own means.
                 observer: Some(context::observer::native()),
             };
-            let runtime = tauri::async_runtime::block_on(Runtime::start(config));
+            let runtime = tauri::async_runtime::block_on(Runtime::start_with_notices(
+                config,
+                notice.into_iter().collect(),
+            ));
             if let Err(e) = tray::build_tray(app, &runtime) {
                 // The tray is a convenience; never block startup on it.
                 log::warn!("system tray unavailable: {e}");
@@ -113,8 +120,13 @@ pub fn run() {
             commands::workspace::remove_control,
             commands::workspace::create_surface,
             commands::workspace::add_page,
+            commands::workspace::remove_surface,
+            commands::workspace::update_surface,
+            commands::workspace::rename_page,
+            commands::workspace::remove_page,
             commands::workspace::reset_workspace,
             commands::workspace::update_preferences,
+            commands::workspace::set_onboarding_done,
             commands::context::context_status,
             commands::context::context_update,
             commands::context::context_resume,
@@ -161,6 +173,8 @@ pub fn run() {
             commands::artifacts::artifacts_preview,
             commands::artifacts::artifacts_apply,
             commands::artifacts::artifacts_discard,
+            commands::app::app_reveal_data_folder,
+            commands::app::app_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running LaunchDeck");

@@ -48,7 +48,7 @@ fn manifest(
     PluginManifest {
         id: id.into(),
         name: name.into(),
-        version: "0.1.0".into(),
+        version: env!("CARGO_PKG_VERSION").into(),
         description: description.into(),
         kind: ProviderKind::Builtin,
         actions,

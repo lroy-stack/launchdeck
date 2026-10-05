@@ -4,6 +4,7 @@
 
 pub(crate) mod actions;
 pub(crate) mod agents;
+pub(crate) mod app;
 pub(crate) mod artifacts;
 pub(crate) mod context;
 pub(crate) mod devices;

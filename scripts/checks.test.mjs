@@ -12,8 +12,7 @@ describe("versions", () => {
     expect(cargoPackageVersion('[dependencies]\nversion = "9.9.9"\n[package]\nname = "x"\n')).toBeNull();
   });
 
-  it("passes equal versions and an absent tauri.conf.json version", () => {
-    expect(versionProblems({ packageVersion: "0.2.0", cargoVersion: "0.2.0", tauriVersion: "0.2.0" })).toEqual([]);
+  it("passes equal versions when tauri.conf.json has none", () => {
     expect(versionProblems({ packageVersion: "0.3.0", cargoVersion: "0.3.0", tauriVersion: undefined })).toEqual([]);
   });
 
@@ -23,11 +22,16 @@ describe("versions", () => {
     expect(cargoOff[0]).toContain("src-tauri/Cargo.toml");
     expect(cargoOff[0]).toContain("0.2.0");
 
-    const tauriOff = versionProblems({ packageVersion: "0.3.0", cargoVersion: "0.3.0", tauriVersion: "0.2.0" });
-    expect(tauriOff).toHaveLength(1);
-    expect(tauriOff[0]).toContain("tauri.conf.json");
-
     expect(versionProblems({ packageVersion: undefined, cargoVersion: "0.3.0" })).toHaveLength(1);
+  });
+
+  it("refuses any version in tauri.conf.json, even an equal one: Cargo.toml is the only source", () => {
+    for (const tauriVersion of ["0.3.0", "0.2.0", "../package.json"]) {
+      const problems = versionProblems({ packageVersion: "0.3.0", cargoVersion: "0.3.0", tauriVersion });
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain("tauri.conf.json");
+      expect(problems[0]).toContain("src-tauri/Cargo.toml");
+    }
   });
 });
 

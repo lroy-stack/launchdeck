@@ -7,11 +7,12 @@ import { api, errorMessage, isPreview, subscribe } from "../lib/ipc";
 import { emptyAgents, newer, type AgentNotification, type AgentsSnapshot } from "../lib/agents";
 import { emptyIndex, indexCatalog, type CatalogIndex } from "../lib/actions";
 import type { Slot } from "../lib/assign";
+import { primaryDevice } from "../lib/devices";
 import { applyDelta } from "../lib/observables";
-import type { Catalog, ContextStatus, Control, ControlPos, Frame, ObservableCatalog, ObservablesDelta, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Surface, Workspace, Page } from "../lib/schema";
+import type { Catalog, ContextStatus, Control, ControlPos, DeviceInfo, Frame, ObservableCatalog, ObservablesDelta, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, StartupNotice, Surface, Workspace, Page } from "../lib/schema";
 import { emptyObservableCatalog, posKey } from "../lib/schema";
 
-export type View = "home" | "agents" | "surface" | "plugins" | "settings" | "import" | "export";
+export type View = "overview" | "agents" | "surface" | "plugins" | "settings" | "import" | "export";
 export type AgentsTab = "overview" | "sessions" | "adapters" | "surface";
 
 const MAX_EVENTS = 120;
@@ -52,6 +53,8 @@ interface Store {
   agents: AgentsSnapshot;
   /** Auto Context as Rust reports it: settings, the application in front, what was decided. */
   context: ContextStatus | null;
+  /** What Rust had to tell about this start (a saved workspace set aside). Fixed until the next start. */
+  notices: StartupNotice[];
 
   view: View;
   agentsTab: AgentsTab;
@@ -150,8 +153,9 @@ export const useStore = create<Store>((set, get) => ({
   frame: { leds: [] },
   agents: emptyAgents,
   context: null,
+  notices: [],
 
-  view: "home",
+  view: "overview",
   agentsTab: "overview",
   selected: null,
   showLabels: true,
@@ -217,7 +221,8 @@ export const useStore = create<Store>((set, get) => ({
         frame,
         agents: snap.agents,
         context: snap.context,
-        view: snap.workspace.preferences.onboardingDone ? "surface" : "home",
+        notices: snap.notices,
+        view: snap.workspace.preferences.onboardingDone ? "surface" : "overview",
       });
       if (observablesHeardEarly) {
         observablesHeardEarly = false;
@@ -338,6 +343,9 @@ export const activePage = (s: Core): Page | null => {
   const surface = activeSurface(s);
   return surface?.pages.find((p) => p.id === s.state?.activePageId) ?? surface?.pages[0] ?? null;
 };
+
+/** The device the app shows and lays pads out for (see `primaryDevice`). */
+export const primaryDeviceOf = (s: Pick<Store, "state">): DeviceInfo | null => primaryDevice(s.state?.devices ?? []);
 
 /** The control covering a position, honouring spans on the main grid. */
 export function controlAt(page: Page | null, pos: ControlPos | null): Control | null {

@@ -1,4 +1,5 @@
-// The running app: devices, the runtime state, events, the snapshot and LED frames.
+// The running app: devices, the runtime state, events, the snapshot, LED frames, and
+// what the app is (its versions, for Settings > About).
 
 import { z } from "zod";
 import { agentsSnapshotSchema } from "../agents";
@@ -17,6 +18,9 @@ const deviceCapabilitiesSchema = z.object({
   animations: z.object({ pulse: z.boolean(), flash: z.boolean() }),
 });
 
+export const deviceStatusSchema = z.enum(["connected", "available", "unplugged", "unsupported", "failed"]);
+export type DeviceStatus = z.infer<typeof deviceStatusSchema>;
+
 export const deviceInfoSchema = z.object({
   identity: z.object({
     id: z.string(),
@@ -25,7 +29,12 @@ export const deviceInfoSchema = z.object({
     kind: z.enum(["virtual", "hardware"]),
   }),
   capabilities: deviceCapabilitiesSchema,
+  /** `status === "connected"`, kept for older readers. */
   connected: z.boolean(),
+  /** Mirrors `DeviceStatus` in `devices/manager.rs`. */
+  status: deviceStatusSchema,
+  /** A sentence from Rust when something went wrong (a failed connect). */
+  problem: z.string().nullish(),
 });
 export type DeviceInfo = z.infer<typeof deviceInfoSchema>;
 
@@ -62,6 +71,14 @@ export type RuntimeEvent = z.infer<typeof runtimeEventSchema>;
 export const controlStateKey = (surfaceId: string, pageId: string, controlId: string): string =>
   `${surfaceId}/${pageId}/${controlId}`;
 
+/** The saved workspace was set aside at start (`persistence::StartupNotice`): why, and where its copy is. */
+export const startupNoticeSchema = z.object({
+  kind: z.enum(["workspaceDamaged", "workspaceTooNew"]),
+  /** The backup's path, to show under Details. */
+  backup: z.string(),
+});
+export type StartupNotice = z.infer<typeof startupNoticeSchema>;
+
 export const snapshotSchema = z.object({
   workspace: workspaceSchema,
   state: runtimeStateSchema,
@@ -72,6 +89,8 @@ export const snapshotSchema = z.object({
   recentEvents: z.array(runtimeEventSchema),
   agents: agentsSnapshotSchema,
   context: contextStatusSchema,
+  /** What the person must be told about this start; empty almost always. */
+  notices: z.array(startupNoticeSchema).default([]),
 });
 export type Snapshot = z.infer<typeof snapshotSchema>;
 
@@ -79,3 +98,24 @@ export const frameSchema = z.object({
   leds: z.array(z.object({ pos: controlPosSchema, led: visualSchema })),
 });
 export type Frame = z.infer<typeof frameSchema>;
+
+/** `commands::app::AppInfo`: which LaunchDeck this is and every compatibility number (docs/architecture/versions.md). */
+export const appInfoSchema = z.object({
+  /** Cargo.toml's version, the only source of the app version. */
+  appVersion: z.string(),
+  /** What this build is offered as, such as "alpha". */
+  channel: z.string(),
+  sdkVersion: z.string(),
+  abiVersion: z.number(),
+  /** The plugin manifest schemas this build reads, both ends included. */
+  manifestSchemas: z.object({ oldest: z.number(), newest: z.number() }),
+  workspaceSchema: z.number(),
+  bridgeProtocol: z.number(),
+  artifactFormat: z.number(),
+  /** As Rust names them (`std::env::consts`): "macos", "windows", "linux"; "aarch64", "x86_64". */
+  os: z.string(),
+  arch: z.string(),
+  /** The app data folder, for people to read. */
+  dataFolder: z.string(),
+});
+export type AppInfo = z.infer<typeof appInfoSchema>;
