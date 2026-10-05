@@ -1475,3 +1475,133 @@ fn the_manager_applies_the_preferred_brightness_now_and_after_every_reconnect() 
     assert_eq!(sim.brightness(), 0x40);
     assert_shows(&sim, &frame);
 }
+
+// ---- sleep and wake ------------------------------------------------------------
+
+const MINI_SLEEP: &str = "F0 00 20 29 02 0D 09 00 F7";
+const MINI_WAKE: &str = "F0 00 20 29 02 0D 09 01 F7";
+
+#[test]
+fn a_unit_put_to_sleep_is_drawn_whole_when_woken() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, mut frame) = mini_drawn(&sim, &FakeClock::new());
+    dev.apply(DeviceSetting::Sleep(true)).unwrap();
+    assert_eq!(sent(&midi), [hex(MINI_SLEEP)]);
+    assert!(!sim.awake());
+    assert!(dev.details().asleep);
+    frame.leds[0].led.color = Rgb::new(255, 255, 255);
+    dev.render(&frame).unwrap();
+    assert_eq!(sent(&midi), Vec::<Vec<u8>>::new(), "nothing drawn asleep");
+
+    dev.apply(DeviceSetting::Sleep(false)).unwrap();
+    assert_eq!(sent(&midi), [hex(MINI_WAKE)]);
+    assert!(sim.awake());
+    assert!(!dev.details().asleep);
+    assert_redrawn(&midi, &mut dev, &frame);
+    assert_shows(&sim, &frame);
+}
+
+#[test]
+fn the_press_that_wakes_a_sleeping_unit_is_not_input_nor_its_release() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, mut rx) = mini_acquired(&sim, &FakeClock::new());
+    let frame = rainbow(&dev);
+    dev.render(&frame).unwrap();
+    dev.apply(DeviceSetting::Sleep(true)).unwrap();
+    sent(&midi);
+    let pad = ControlPos::grid(0, 7);
+    midi.inject(MINI_IN_ID, &sim.press(pad));
+    midi.inject(MINI_IN_ID, &sim.release(pad));
+    assert!(rx.try_recv().is_err(), "it only woke the unit");
+    assert!(sim.awake());
+    assert_redrawn(&midi, &mut dev, &frame);
+    assert!(!dev.details().asleep);
+
+    midi.inject(MINI_IN_ID, &sim.press(pad));
+    midi.inject(MINI_IN_ID, &sim.release(pad));
+    let kinds: Vec<InputKind> = std::iter::from_fn(|| rx.try_recv().ok())
+        .map(|i| i.kind)
+        .collect();
+    assert_eq!(
+        kinds,
+        [InputKind::Pressed { velocity: 127 }, InputKind::Released],
+        "awake, presses count again"
+    );
+}
+
+#[test]
+fn a_unit_found_awake_by_the_heartbeat_is_drawn_whole() {
+    let sim = SimLaunchpad::mini();
+    let clock = FakeClock::new();
+    let (midi, mut dev, frame) = mini_drawn(&sim, &clock);
+    dev.apply(DeviceSetting::Sleep(true)).unwrap();
+    sent(&midi);
+    // Woken by a press whose message never arrived.
+    sim.press(ControlPos::grid(3, 3));
+    clock.advance(HEARTBEAT);
+    dev.render(&frame).unwrap();
+    assert_eq!(
+        sent(&midi),
+        [hex(READ_MINI_MODE), hex("F0 00 20 29 02 0D 09 F7")],
+        "asleep, the unit is also asked whether its LEDs are on"
+    );
+    assert_redrawn(&midi, &mut dev, &frame);
+    assert!(!dev.details().asleep);
+    clock.advance(HEARTBEAT);
+    dev.render(&frame).unwrap();
+    assert_eq!(sent(&midi), [hex(READ_MINI_MODE)], "awake, only the mode");
+}
+
+#[test]
+fn a_sleeping_unit_is_woken_before_it_is_given_back() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, _frame) = mini_drawn(&sim, &FakeClock::new());
+    dev.apply(DeviceSetting::Sleep(true)).unwrap();
+    sent(&midi);
+    dev.disconnect().unwrap();
+    assert_eq!(sent(&midi), [hex(MINI_WAKE), mini_clear(), hex(MINI_LIVE)]);
+    assert!(sim.awake());
+}
+
+#[test]
+fn the_launchpad_x_sleeps_with_its_own_product_byte() {
+    let (midi, sim, mut dev, _rx) = on_sim();
+    dev.apply(DeviceSetting::Sleep(true)).unwrap();
+    assert_eq!(
+        midi.take_sent(),
+        to_output(&[hex("F0 00 20 29 02 0C 09 00 F7")])
+    );
+    assert!(!sim.awake());
+}
+
+#[test]
+fn a_firmware_that_does_not_answer_sleep_is_said_not_to_support_it() {
+    let sim = SimLaunchpad::mini().without_command(0x09);
+    let clock = FakeClock::new();
+    let (midi, mut dev, _rx) = mini_with(&sim, &clock);
+    dev.render(&lower_left_pink()).unwrap();
+    assert_eq!(sent(&midi), mini_probe(), "waiting for the sleep answer");
+    clock.advance(REPLY_TIMEOUT);
+    for _ in 0..2 {
+        dev.render(&lower_left_pink()).unwrap();
+    }
+    assert_eq!(dev.details().mode, ModeState::Confirmed);
+    assert!(!dev.features().sleep);
+    assert!(dev.features().brightness);
+    assert_eq!(
+        dev.details().notice.as_deref(),
+        Some("Firmware version 0531 does not support sleep. Novation Components can update it.")
+    );
+    let error = dev.apply(DeviceSetting::Sleep(true)).unwrap_err();
+    assert!(matches!(error, DeviceError::Unavailable(_)), "{error:?}");
+}
+
+#[test]
+fn a_unit_not_taken_yet_cannot_be_put_to_sleep() {
+    let sim = SimLaunchpad::mini();
+    let (midi, mut dev, _rx) = mini_with(&sim, &FakeClock::new());
+    sent(&midi);
+    let error = dev.apply(DeviceSetting::Sleep(true)).unwrap_err();
+    assert!(matches!(error, DeviceError::NotConnected), "{error:?}");
+    assert_eq!(sent(&midi), Vec::<Vec<u8>>::new());
+}

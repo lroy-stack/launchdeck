@@ -8,7 +8,9 @@
 //! What the unit sends is framed into whole messages: a SysEx reply goes to
 //! a queue the session reads on the next render; anything else, while the
 //! input gate is open, is decoded by the shared layout and sent on as a
-//! `DeviceInput`, with velocity only for a model that has it.
+//! `DeviceInput`, with velocity only for a model that has it. The press
+//! that wakes a unit LaunchDeck put to sleep, and its release, are not
+//! sent on: the next render tells the session the unit woke.
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -21,10 +23,11 @@ use super::ports::FoundUnit;
 use super::profile::ModelProfile;
 use super::protocol::{parse_reply, Reply};
 use super::session::{Action, Session};
+use crate::core::model::ControlPos;
 use crate::devices::midi::{MessageFramer, MidiBackend, MidiLink, OnBytes};
 use crate::devices::{
     DeviceCapabilities, DeviceDetails, DeviceError, DeviceFeatures, DeviceIdentity, DeviceInput,
-    DeviceKind, DeviceSetting, InputSender, SurfaceDevice, SurfaceFrame,
+    DeviceKind, DeviceSetting, InputKind, InputSender, SurfaceDevice, SurfaceFrame,
 };
 
 /// Replies kept until the next render reads them; a unit that sends more
@@ -47,7 +50,18 @@ pub(crate) struct Mk3Device {
     /// Open while the unit's input counts: what it sends outside Programmer
     /// mode is not a press.
     gate: Arc<AtomicBool>,
+    /// The LEDs sleep: the input callback reads the next press as waking.
+    sleep: Arc<Sleep>,
     clock: Clock,
+}
+
+/// Shared by the device and its input callback while the LEDs sleep.
+#[derive(Debug, Default)]
+struct Sleep {
+    /// LaunchDeck put the LEDs to sleep: the next press only wakes them.
+    asleep: AtomicBool,
+    /// A press woke them; the next render tells the session.
+    woken: AtomicBool,
 }
 
 impl Mk3Device {
@@ -61,6 +75,7 @@ impl Mk3Device {
             leds: LedCache::default(),
             replies: Replies::default(),
             gate: Arc::default(),
+            sleep: Arc::default(),
             clock: Arc::new(Instant::now),
         }
     }
@@ -88,6 +103,10 @@ impl Mk3Device {
                 self.leds.invalidate();
                 Ok(())
             }
+            Action::Asleep(asleep) => {
+                self.sleep.asleep.store(asleep, Ordering::Release);
+                Ok(())
+            }
         }
     }
 
@@ -101,6 +120,8 @@ impl Mk3Device {
             framer: MessageFramer::default(),
             replies: self.replies.clone(),
             gate: self.gate.clone(),
+            sleep: self.sleep.clone(),
+            waking: None,
             input,
             device_id: self.unit.id.clone(),
             velocity: self.profile.capabilities.velocity,
@@ -128,6 +149,8 @@ impl SurfaceDevice for Mk3Device {
             return Ok(());
         }
         self.gate.store(false, Ordering::Release);
+        self.sleep.asleep.store(false, Ordering::Release);
+        self.sleep.woken.store(false, Ordering::Release);
         lock(&self.replies).clear();
         // Input and output together, or neither: the unit's own pair, by
         // name and id, so that identical units are not mixed up.
@@ -167,9 +190,12 @@ impl SurfaceDevice for Mk3Device {
             return Err(DeviceError::NotConnected);
         }
         let replies: Vec<Reply> = lock(&self.replies).drain(..).collect();
-        for action in self.session.tick((self.clock)(), replies) {
-            self.act(action)?;
+        if self.sleep.woken.swap(false, Ordering::AcqRel) {
+            let woke = self.session.woke();
+            self.act_all(woke)?;
         }
+        let actions = self.session.tick((self.clock)(), replies);
+        self.act_all(actions)?;
         if let Some(refusal) = self.session.refusal() {
             return Err(refusal);
         }
@@ -208,9 +234,7 @@ impl SurfaceDevice for Mk3Device {
         let now = (self.clock)();
         let actions = match setting {
             DeviceSetting::Brightness(percent) => self.session.set_brightness(now, percent)?,
-            DeviceSetting::Sleep(_) => {
-                return Err(DeviceError::Unavailable("sleep".into()));
-            }
+            DeviceSetting::Sleep(asleep) => self.session.set_sleep(asleep)?,
         };
         self.act_all(actions)
     }
@@ -221,6 +245,9 @@ struct Inbound {
     framer: MessageFramer,
     replies: Replies,
     gate: Arc<AtomicBool>,
+    sleep: Arc<Sleep>,
+    /// The control whose press woke the unit, until its release.
+    waking: Option<ControlPos>,
     input: InputSender,
     device_id: String,
     /// Whether the model reports how hard a pad was hit.
@@ -245,16 +272,37 @@ impl Inbound {
         replies.push_back(reply);
     }
 
-    fn forward(&self, message: &[u8]) {
+    fn forward(&mut self, message: &[u8]) {
         if !self.gate.load(Ordering::Acquire) {
             return;
         }
-        if let Some((pos, kind)) = layout::decode(message, self.velocity) {
-            let _ = self.input.send(DeviceInput {
-                device_id: self.device_id.clone(),
-                pos,
-                kind,
-            });
+        let Some((pos, kind)) = layout::decode(message, self.velocity) else {
+            return;
+        };
+        if self.wakes(pos, kind) {
+            return;
+        }
+        let _ = self.input.send(DeviceInput {
+            device_id: self.device_id.clone(),
+            pos,
+            kind,
+        });
+    }
+
+    /// Whether this is the press that woke a unit LaunchDeck put to sleep,
+    /// or its release: neither is input.
+    fn wakes(&mut self, pos: ControlPos, kind: InputKind) -> bool {
+        match kind {
+            InputKind::Pressed { .. } if self.sleep.asleep.swap(false, Ordering::AcqRel) => {
+                self.sleep.woken.store(true, Ordering::Release);
+                self.waking = Some(pos);
+                true
+            }
+            InputKind::Released if self.waking == Some(pos) => {
+                self.waking = None;
+                true
+            }
+            _ => false,
         }
     }
 }
@@ -278,6 +326,8 @@ mod tests {
             framer: MessageFramer::default(),
             replies: Replies::default(),
             gate: Arc::default(),
+            sleep: Arc::default(),
+            waking: None,
             input,
             device_id: "launchpad-x:1".into(),
             velocity,

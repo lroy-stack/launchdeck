@@ -1,12 +1,12 @@
 //! Devices: drawing the active page on every connected device, the device
 //! list (connect, disconnect, rescan for hardware), and what a device can
-//! be given beyond frames (brightness).
+//! be given beyond frames (brightness, sleep).
 
 use serde_json::json;
 
 use super::{control_key, Inner, Runtime};
 use crate::devices::manager::{DeviceChange, DeviceInfo};
-use crate::devices::DeviceError;
+use crate::devices::{DeviceError, DeviceSetting};
 
 /// The highest brightness, in percent.
 const BRIGHTNESS_MAX: u8 = 100;
@@ -104,6 +104,17 @@ impl Runtime {
             inner.devices.set_preferred_brightness(percent);
         }
         self.emit_workspace();
+        Ok(())
+    }
+
+    /// Turns a connected device's LEDs off (`asleep`) or on again. Nothing
+    /// puts a device to sleep by itself.
+    pub fn set_device_sleep(&self, id: &str, asleep: bool) -> Result<(), String> {
+        self.lock()
+            .devices
+            .apply(id, DeviceSetting::Sleep(asleep))
+            .map_err(sentence)?;
+        self.emit_state();
         Ok(())
     }
 
@@ -425,5 +436,32 @@ mod tests {
             *given.lock().unwrap(),
             [DeviceSetting::Brightness(Some(30))]
         );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_connected_device_is_put_to_sleep_and_woken_on_request_only() {
+        let rt = Runtime::start(config(
+            default_workspace(),
+            None,
+            Arc::new(States::default()),
+        ))
+        .await;
+        let given = featured(&rt);
+        rt.set_device_sleep(FEATURED, true).unwrap();
+        rt.set_device_sleep(FEATURED, false).unwrap();
+        assert_eq!(
+            *given.lock().unwrap(),
+            [DeviceSetting::Sleep(true), DeviceSetting::Sleep(false)]
+        );
+        assert_eq!(
+            rt.set_device_sleep("nope", true).unwrap_err(),
+            "LaunchDeck does not know this device. Press Look again. Details: nope"
+        );
+        rt.disconnect_device(FEATURED).unwrap();
+        assert_eq!(
+            rt.set_device_sleep(FEATURED, true).unwrap_err(),
+            "The device is not connected."
+        );
+        assert_eq!(given.lock().unwrap().len(), 2);
     }
 }

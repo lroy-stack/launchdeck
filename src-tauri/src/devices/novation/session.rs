@@ -31,13 +31,23 @@
 //! question unanswered while it answers the others is said not to support
 //! brightness, in a notice.
 //!
-//! On release the clear frame, the LED feedback the unit had if LaunchDeck
-//! changed it, the brightness it had if LaunchDeck changed it, Live mode,
-//! then the layout the unit showed before, unless Live mode lands there
-//! anyway. What release gives back is what the unit first reported: taking
-//! it again after a takeover reads the unit again, but what LaunchDeck or
-//! the other program set there is not the person's. Replies that carry
-//! another model's product byte are ignored.
+//! Sleep (section 12.2) turns the LEDs off until LaunchDeck turns them on
+//! again or the person presses something: nothing is drawn meanwhile, and
+//! the heartbeat also asks whether the LEDs are on. On waking, by the
+//! command, a press or the heartbeat's answer, the next frame is sent
+//! whole. The press that wakes the unit only wakes it (`Action::Asleep`
+//! tells the device's input side). A firmware that does not answer the
+//! probe's sleep question while it answers the others is said not to
+//! support sleep.
+//!
+//! On release a unit LaunchDeck put to sleep is woken, then the clear
+//! frame, the LED feedback the unit had if LaunchDeck changed it, the
+//! brightness it had if LaunchDeck changed it, Live mode, then the layout
+//! the unit showed before, unless Live mode lands there anyway. What
+//! release gives back is what the unit first reported: taking it again
+//! after a takeover reads the unit again, but what LaunchDeck or the other
+//! program set there is not the person's. Replies that carry another
+//! model's product byte are ignored.
 
 use std::time::{Duration, Instant};
 
@@ -107,6 +117,9 @@ pub(crate) enum Action {
     Gate(bool),
     /// Forget what the LEDs show: the next frame is sent whole.
     Invalidate,
+    /// LaunchDeck put the LEDs to sleep (`true`): the next press only
+    /// wakes the unit. `false`: they are awake.
+    Asleep(bool),
 }
 
 #[derive(Debug)]
@@ -131,6 +144,8 @@ pub(crate) struct Session {
     /// When the unit was found back in Live mode, within the window.
     takeovers: Vec<Instant>,
     brightness: Brightness,
+    /// LaunchDeck put the LEDs to sleep and has not seen them wake.
+    asleep: bool,
     /// What the unit's firmware turned out not to do.
     unsupported: Unsupported,
 }
@@ -153,6 +168,7 @@ struct Brightness {
 #[derive(Debug, Default, Clone, Copy)]
 struct Unsupported {
     brightness: bool,
+    sleep: bool,
 }
 
 /// What the unit reported before it was taken; `None` for what it did not
@@ -190,6 +206,7 @@ impl Session {
             heartbeat: None,
             takeovers: Vec::new(),
             brightness: Brightness::default(),
+            asleep: false,
             unsupported: Unsupported::default(),
         }
     }
@@ -199,9 +216,9 @@ impl Session {
         self.phase
     }
 
-    /// Whether frames are drawn.
+    /// Whether frames are drawn: not while the LEDs sleep.
     pub(crate) fn draws(&self) -> bool {
-        self.phase == Phase::Owned
+        self.phase == Phase::Owned && !self.asleep
     }
 
     /// The ports are open: ask who the unit is and what it shows. A
@@ -218,7 +235,35 @@ impl Session {
     pub(crate) fn features(&self) -> DeviceFeatures {
         let mut features = self.profile.features;
         features.brightness &= !self.unsupported.brightness;
+        features.sleep &= !self.unsupported.sleep;
         features
+    }
+
+    /// LEDs off (`true`) or on again, on a unit LaunchDeck holds.
+    pub(crate) fn set_sleep(&mut self, asleep: bool) -> Result<Vec<Action>, DeviceError> {
+        if !self.features().sleep {
+            return Err(self.unavailable("sleep"));
+        }
+        if self.phase != Phase::Owned {
+            return Err(DeviceError::NotConnected);
+        }
+        let product = self.profile.product;
+        if asleep {
+            self.asleep = true;
+            return Ok(vec![
+                Action::Send(sleep(product, false)),
+                Action::Asleep(true),
+            ]);
+        }
+        let mut actions = vec![Action::Send(sleep(product, true))];
+        actions.extend(self.woke());
+        Ok(actions)
+    }
+
+    /// The LEDs are on again: the next frame is sent whole.
+    pub(crate) fn woke(&mut self) -> Vec<Action> {
+        self.asleep = false;
+        vec![Action::Asleep(false), Action::Invalidate]
     }
 
     /// LED brightness in percent, or the unit's own (`None`): set now if
@@ -295,7 +340,12 @@ impl Session {
         let product = self.profile.product;
         match std::mem::replace(&mut self.phase, Phase::Closed) {
             Phase::Entering { .. } | Phase::Owned => {
-                let mut actions = vec![Action::Gate(false), Action::Clear];
+                let mut actions = vec![Action::Gate(false)];
+                if self.asleep {
+                    actions.push(Action::Send(sleep(product, true)));
+                    actions.extend(self.woke());
+                }
+                actions.push(Action::Clear);
                 if self.feedback_changed {
                     if let Some((internal, external)) = self.saved.feedback {
                         actions.push(Action::Send(feedback(
@@ -363,6 +413,7 @@ impl Session {
             firmware: self.firmware.clone(),
             mode,
             brightness,
+            asleep: self.asleep,
             notice,
             ..DeviceDetails::default()
         }
@@ -371,10 +422,14 @@ impl Session {
     /// What the unit's firmware does not answer for, with its version.
     fn firmware_notice(&self) -> Option<String> {
         let firmware = self.firmware.as_deref()?;
-        let missing: Vec<&str> = [("brightness", self.unsupported.brightness)]
-            .into_iter()
-            .filter_map(|(name, missing)| missing.then_some(name))
-            .collect();
+        let unsupported = self.unsupported;
+        let missing: Vec<&str> = [
+            ("brightness", unsupported.brightness),
+            ("sleep", unsupported.sleep),
+        ]
+        .into_iter()
+        .filter_map(|(name, missing)| missing.then_some(name))
+        .collect();
         (!missing.is_empty()).then(|| {
             format!(
                 "Firmware version {firmware} does not support {}. Novation Components can update it.",
@@ -442,6 +497,14 @@ impl Session {
                     ..
                 },
             ) if matches!(data[..], [0 | 1]) => return self.answered(now, data[0] == 1),
+            (
+                Phase::Owned,
+                Reply::Readback {
+                    command: SLEEP,
+                    data,
+                    ..
+                },
+            ) if self.asleep && data[..] == [1] => return self.woke(),
             (_, reply) => log::debug!("a Launchpad reply nobody asked for: {reply:?}"),
         }
         Vec::new()
@@ -489,13 +552,18 @@ impl Session {
         self.programmer = None;
         self.seen = Reported::default();
         self.heartbeat = None;
+        let mut actions = Vec::new();
+        if std::mem::take(&mut self.asleep) {
+            actions.push(Action::Asleep(false));
+        }
         let product = self.profile.product;
-        vec![
+        actions.extend([
             Action::Send(INQUIRY.to_vec()),
             Action::Send(query(product, LAYOUT)),
             Action::Send(query(product, FEEDBACK)),
             Action::Send(query(product, SLEEP)),
-        ]
+        ]);
+        actions
     }
 
     /// Whether everything the probe asked was answered.
@@ -506,6 +574,18 @@ impl Session {
 
     /// Programmer mode, and the question whether the unit is in it.
     fn enter(&mut self, now: Instant) -> Vec<Action> {
+        let seen = self.seen;
+        if self.identified
+            && seen.layout.is_some()
+            && seen.feedback.is_some()
+            && seen.asleep.is_none()
+        {
+            log::info!(
+                "the {} did not answer the sleep question: not supported",
+                self.profile.name
+            );
+            self.unsupported.sleep = true;
+        }
         self.phase = Phase::Entering { since: now };
         let product = self.profile.product;
         vec![
@@ -595,7 +675,12 @@ impl Session {
         }
         heartbeat.due = now + HEARTBEAT;
         heartbeat.asked = Some(now);
-        vec![Action::Send(query(self.profile.product, MODE))]
+        let product = self.profile.product;
+        let mut actions = vec![Action::Send(query(product, MODE))];
+        if self.asleep {
+            actions.push(Action::Send(query(product, SLEEP)));
+        }
+        actions
     }
 
     /// A heartbeat's answer. Programmer mode: all is well (and confirmed,
