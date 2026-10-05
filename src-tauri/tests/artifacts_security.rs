@@ -1,9 +1,13 @@
 //! The hostile fixtures of plan 7.20, a release blocker: every malformed,
-//! oversized, archive-like or lying file is refused by `inspect` with a
-//! stable code and, where the problem has a place, the JSON pointer to it.
-//! The apply stage (stale plans, missing decisions, save failures) and the
-//! run of every case through the artifact service on a real store are
-//! package C5's.
+//! oversized, archive-like or lying file is refused with a stable code and,
+//! where the problem has a place, the JSON pointer to it; every import the
+//! apply stage refuses (a stale plan, a decision or an answer missing, an
+//! edited surface, a full workspace, a failed save, an expired plan) is
+//! refused whole. Every case goes through the `ArtifactService` of a
+//! runtime on a real store in a temporary folder, and proves that
+//! `workspace.json`, `plugins.json` and `permissions.json` keep their bytes,
+//! the workspace in memory is unchanged, and nothing ran: no key, no
+//! command, no plugin action.
 //!
 //! Small cases are files in `tests/fixtures/artifacts/hostile/`, named by
 //! case (`.gitattributes` keeps their bytes). Large or deep cases are built
@@ -12,18 +16,27 @@
 //! read, changed, and sealed again (their digest recomputed) unless the
 //! case is about the digest. Files named `review-*` and `never-runs-*` are
 //! valid on purpose: what they launch must be reviewed, or can never run.
+//! The apply stage uses its own Pack, Studio, built here.
 
+#[path = "support/artifact_world.rs"]
+#[allow(dead_code)]
+mod artifact_world;
+
+use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
+use artifact_world::{Configuration, World};
 use launchdeck_lib::artifacts::{
-    classify, content_digest, inspect, Environment, InspectWarningCode, Location, ParsedArtifact,
-    RejectionCode as R, ReviewItem, ReviewKind, Slot,
+    classify, content_digest, inspect, ApplyOutcome, BlockerCode as B, Environment,
+    ImportDecisions, ImportPlan, InputValue, InspectOutcome, InspectWarningCode, Location,
+    ParsedArtifact, PreviewOutcome, RejectionCode as R, Resolution, ReviewItem, ReviewKind, Runs,
+    Slot,
 };
 use launchdeck_lib::core::runtime::{NullEmitter, Runtime, RuntimeConfig};
 use launchdeck_lib::plugins::keyboard::{Combo, Keyboard};
 use launchdeck_lib::plugins::ActionError;
-use launchdeck_lib::surfaces::default_workspace;
+use launchdeck_lib::surfaces::{blank_surface, default_workspace};
 use serde_json::{json, Value};
 
 const MIB: usize = 1024 * 1024;
@@ -58,13 +71,69 @@ fn sealed(mut v: Value) -> Vec<u8> {
     serde_json::to_vec_pretty(&v).unwrap()
 }
 
+/// One world for the cases that only inspect a file, which change nothing:
+/// each of them checks the configuration is still what it was when the
+/// world started. Built on a thread of its own, with a Tokio runtime that
+/// lives as long as the tests.
+struct Shared {
+    world: World,
+    baseline: Configuration,
+    _tokio: tokio::runtime::Runtime,
+}
+
+fn shared() -> &'static Shared {
+    static SHARED: OnceLock<Shared> = OnceLock::new();
+    SHARED.get_or_init(|| {
+        std::thread::spawn(|| {
+            let tokio = tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_all()
+                .build()
+                .unwrap();
+            let world = tokio.block_on(World::start(default_workspace()));
+            let baseline = world.configuration();
+            Shared {
+                world,
+                baseline,
+                _tokio: tokio,
+            }
+        })
+        .join()
+        .unwrap()
+    })
+}
+
+/// What the artifact service says about a file, and that nothing changed
+/// and nothing ran.
+fn through_the_service(bytes: &[u8], file_name: &str) -> InspectOutcome {
+    let Shared {
+        world, baseline, ..
+    } = shared();
+    let outcome = world.service.inspect(bytes, file_name);
+    assert!(
+        world.configuration() == *baseline,
+        "{file_name}: inspecting it changed the configuration"
+    );
+    world.assert_nothing_ran();
+    outcome
+}
+
 fn refused(bytes: &[u8], file_name: &str) -> (R, Option<String>) {
-    let r = inspect(bytes, file_name).expect_err("should be refused");
+    let r = match through_the_service(bytes, file_name) {
+        InspectOutcome::Rejected { rejection } => rejection,
+        InspectOutcome::Plan { .. } => panic!("{file_name}: should be refused"),
+    };
     assert!(!r.message.is_empty() && r.message.ends_with('.'), "{r:?}");
     (r.code, r.at)
 }
 
+/// The file as `inspect` reads it, once the service has planned it.
 fn accepted(bytes: &[u8], file_name: &str) -> ParsedArtifact {
+    let outcome = through_the_service(bytes, file_name);
+    assert!(
+        matches!(outcome, InspectOutcome::Plan { .. }),
+        "{file_name}: {outcome:?}"
+    );
     inspect(bytes, file_name).unwrap_or_else(|r| panic!("{file_name}: {r:?}"))
 }
 
@@ -1255,7 +1324,8 @@ fn a_request_the_runtime_would_not_send_is_refused() {
 }
 
 /// Every file of the hostile folder is refused, except the valid ones whose
-/// launches must be reviewed or can never run.
+/// launches must be reviewed or can never run; a refused file leaves no
+/// import to apply.
 #[test]
 fn every_hostile_fixture_is_refused() {
     let mut names: Vec<String> = std::fs::read_dir(fixtures().join("hostile"))
@@ -1264,9 +1334,436 @@ fn every_hostile_fixture_is_refused() {
         .collect();
     names.sort();
     assert!(names.len() >= 30, "{names:?}");
+    let service = &shared().world.service;
     for name in names {
         let bytes = hostile(&name);
         let valid = name.starts_with("review-") || name.starts_with("never-runs-");
-        assert_eq!(inspect(&bytes, &name).is_ok(), valid, "{name}");
+        let outcome = through_the_service(&bytes, &name);
+        assert_eq!(
+            matches!(outcome, InspectOutcome::Plan { .. }),
+            valid,
+            "{name}"
+        );
+        let nothing = ImportDecisions::default();
+        assert_eq!(
+            service.apply(&"0".repeat(32), &nothing, ""),
+            ApplyOutcome::Expired
+        );
     }
+    assert!(shared().world.configuration() == shared().baseline);
+}
+
+// The apply stage: an import refused whole, and the positive controls.
+
+fn studio_pad(col: u8, label: &str, press: Value) -> Value {
+    json!({
+        "id": format!("g.{col}.0"),
+        "pos": { "kind": "grid", "col": col, "row": 0 },
+        "label": label,
+        "visual": { "color": "#c82828" },
+        "looks": { "done": { "color": "#28c828" } },
+        "press": press,
+    })
+}
+
+/// Studio 1.0.0: one surface, `studio`, with a command, a shortcut, a pad
+/// of the `acme.recorder` plugin whose address is asked of the importer,
+/// and an agent's task whose folder is asked of the importer; and a rule
+/// for Visual Studio Code.
+fn studio() -> Vec<u8> {
+    sealed(json!({
+        "format": "launchdeck.pack",
+        "formatVersion": 1,
+        "manifest": {
+            "id": "acme.studio",
+            "name": "Studio",
+            "version": "1.0.0",
+            "createdWith": { "app": "launchdeck", "version": "9.9.9" },
+            "requirements": {
+                "grid": { "minWidth": 4, "minHeight": 1 },
+                "aux": { "top": 0, "side": 0 },
+                "rgb": true
+            },
+            "dependencies": [
+                { "pluginId": "acme.recorder", "version": "^1.0.0", "required": true }
+            ],
+            "inputs": [
+                { "id": "docs", "type": "url", "label": "Docs" },
+                { "id": "project", "type": "path", "label": "Project folder" }
+            ],
+            "integrity": { "content": "" }
+        },
+        "content": {
+            "surfaces": [{
+                "id": "studio",
+                "name": "Studio",
+                "category": "custom",
+                "pages": [{
+                    "id": "home",
+                    "name": "Home",
+                    "controls": [
+                        studio_pad(0, "Build", json!({
+                            "provider": "shell", "action": "execute",
+                            "args": { "command": "echo build" }
+                        })),
+                        studio_pad(1, "Copy", json!({
+                            "provider": "system", "action": "keyboardShortcut",
+                            "args": { "keys": "mod+c" }
+                        })),
+                        studio_pad(2, "Docs", json!({
+                            "provider": "acme.recorder", "action": "record",
+                            "args": { "url": "https://example.com" },
+                            "inputs": { "url": "docs" }
+                        })),
+                        studio_pad(3, "Agent", json!({
+                            "provider": "agent-control", "action": "newTask",
+                            "args": { "task": "Fix the tests", "cwd": "/" },
+                            "inputs": { "cwd": "project" }
+                        })),
+                    ]
+                }]
+            }],
+            "contextRules": [{
+                "application": {
+                    "name": "Visual Studio Code",
+                    "identities": [
+                        { "namespace": "x11", "id": "Code" },
+                        { "namespace": "macos", "id": "com.microsoft.VSCode" },
+                        { "namespace": "windows", "id": "code.exe" }
+                    ]
+                },
+                "surface": "studio"
+            }]
+        }
+    }))
+}
+
+fn text(value: &str) -> InputValue {
+    InputValue::Text {
+        value: value.into(),
+    }
+}
+
+const DOCS: &str = "https://docs.example/start";
+
+/// Everything Studio asks for: the pads that run things removed, both
+/// inputs answered (the project folder is a full path that exists).
+fn answered(world: &World) -> ImportDecisions {
+    let project = world.plugins.display().to_string();
+    ImportDecisions {
+        runs: Some(Runs::Remove),
+        inputs: [
+            ("docs".to_string(), text(DOCS)),
+            ("project".to_string(), text(&project)),
+        ]
+        .into(),
+        ..ImportDecisions::default()
+    }
+}
+
+/// Studio, opened and previewed with `decisions`, as the import view does.
+fn previewed(world: &World, decisions: &ImportDecisions) -> ImportPlan {
+    let InspectOutcome::Plan { plan } = world.service.inspect(&studio(), "studio.ldpack") else {
+        panic!("Studio is a valid file");
+    };
+    match world.service.preview(&plan.plan_id, decisions) {
+        PreviewOutcome::Plan { plan } => *plan,
+        PreviewOutcome::Expired => panic!("the import was just opened"),
+    }
+}
+
+/// Apply `plan` with `decisions` and its digest, and prove that it was
+/// refused whole: the configuration as it was, nothing run.
+fn refused_import(
+    world: &World,
+    plan_id: &str,
+    decisions: &ImportDecisions,
+    digest: &str,
+) -> ApplyOutcome {
+    let before = world.configuration();
+    let outcome = world.service.apply(plan_id, decisions, digest);
+    assert!(
+        !matches!(outcome, ApplyOutcome::Applied { .. }),
+        "{outcome:?}"
+    );
+    assert!(
+        world.configuration() == before,
+        "a refused import changed the configuration: {outcome:?}"
+    );
+    world.assert_nothing_ran();
+    outcome
+}
+
+fn blockers(plan: &ImportPlan) -> Vec<(B, Option<&str>)> {
+    plan.blockers
+        .iter()
+        .map(|b| (b.code, b.input.as_deref()))
+        .collect()
+}
+
+/// The blockers of a `blocked` outcome.
+fn blocked(outcome: &ApplyOutcome) -> Vec<(B, Option<&str>)> {
+    match outcome {
+        ApplyOutcome::Blocked { plan } => blockers(plan),
+        other => panic!("not blocked: {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_stale_digest_after_a_workspace_change() {
+    let world = World::start(default_workspace()).await;
+    let decisions = answered(&world);
+    let plan = previewed(&world, &decisions);
+    assert!(plan.ready, "{:?}", plan.blockers);
+    assert_eq!(plan.surfaces[0].local_id, "studio");
+
+    // A surface called Studio appears: the file's surface needs another id.
+    world.rt.create_surface("Studio").unwrap();
+    let outcome = refused_import(&world, &plan.plan_id, &decisions, &plan.plan_digest);
+    let ApplyOutcome::Stale { plan: now } = outcome else {
+        panic!("{outcome:?}");
+    };
+    assert_eq!(now.plan_id, plan.plan_id);
+    assert_ne!(now.plan_digest, plan.plan_digest);
+    assert_eq!(now.surfaces[0].local_id, "studio-2");
+
+    // Decisions other than the previewed ones are stale too.
+    let other = ImportDecisions {
+        context_rules: vec![0],
+        ..decisions.clone()
+    };
+    let outcome = refused_import(&world, &plan.plan_id, &other, &now.plan_digest);
+    assert!(matches!(outcome, ApplyOutcome::Stale { .. }), "{outcome:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_runs_decision_missing() {
+    let world = World::start(default_workspace()).await;
+    let decisions = ImportDecisions {
+        runs: None,
+        ..answered(&world)
+    };
+    let plan = previewed(&world, &decisions);
+    assert_eq!(blockers(&plan), [(B::RunsDecisionNeeded, None)]);
+    let outcome = refused_import(&world, &plan.plan_id, &decisions, &plan.plan_digest);
+    assert_eq!(blocked(&outcome), [(B::RunsDecisionNeeded, None)]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_required_input_missing() {
+    let world = World::start(default_workspace()).await;
+    let mut decisions = answered(&world);
+    decisions.inputs.remove("docs");
+    let plan = previewed(&world, &decisions);
+    let outcome = refused_import(&world, &plan.plan_id, &decisions, &plan.plan_digest);
+    assert_eq!(blocked(&outcome), [(B::InputRequired, Some("docs"))]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_invalid_input() {
+    let world = World::start(default_workspace()).await;
+    let mut decisions = answered(&world);
+    decisions
+        .inputs
+        .insert("docs".into(), text("ftp://docs.example/start"));
+    decisions
+        .inputs
+        .insert("project".into(), text("projects/studio"));
+    let plan = previewed(&world, &decisions);
+    let outcome = refused_import(&world, &plan.plan_id, &decisions, &plan.plan_digest);
+    let mut found = blocked(&outcome);
+    found.sort_by_key(|(_, input)| *input);
+    assert_eq!(
+        found,
+        [
+            (B::InputInvalid, Some("docs")),
+            (B::InputInvalid, Some("project"))
+        ]
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_replace_of_an_edited_instance_without_confirmation() {
+    let world = World::start(default_workspace()).await;
+    let decisions = answered(&world);
+    let first = previewed(&world, &decisions);
+    let outcome = world
+        .service
+        .apply(&first.plan_id, &decisions, &first.plan_digest);
+    assert!(
+        matches!(outcome, ApplyOutcome::Applied { .. }),
+        "{outcome:?}"
+    );
+
+    // The imported surface is edited here.
+    let ws = world.rt.snapshot().workspace;
+    let mut copy = ws.surface("studio").unwrap().pages[0].controls[1].clone();
+    copy.label = "Copy that".into();
+    world.rt.update_control("studio", "home", copy).unwrap();
+
+    let replace = ImportDecisions {
+        resolution: Some(Resolution::Replace { instance: 1 }),
+        ..decisions.clone()
+    };
+    let plan = previewed(&world, &replace);
+    let outcome = refused_import(&world, &plan.plan_id, &replace, &plan.plan_digest);
+    assert_eq!(blocked(&outcome), [(B::OverwriteEditsNotConfirmed, None)]);
+
+    // Confirmed, it replaces the surface in place.
+    let confirmed = ImportDecisions {
+        confirm_overwrite_edits: true,
+        ..replace
+    };
+    let PreviewOutcome::Plan { plan } = world.service.preview(&plan.plan_id, &confirmed) else {
+        panic!("still pending");
+    };
+    let outcome = world
+        .service
+        .apply(&plan.plan_id, &confirmed, &plan.plan_digest);
+    assert!(
+        matches!(outcome, ApplyOutcome::Applied { .. }),
+        "{outcome:?}"
+    );
+    let ws = world.rt.snapshot().workspace;
+    assert_eq!(
+        ws.surface("studio").unwrap().pages[0].controls[1].label,
+        "Copy"
+    );
+    world.assert_nothing_ran();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_workspace_full() {
+    let mut full = default_workspace();
+    let more = 64 - full.surfaces.len();
+    for i in 0..more {
+        full.surfaces
+            .push(blank_surface(&format!("extra-{i}"), &format!("Extra {i}")));
+    }
+    let world = World::start(full).await;
+    let decisions = answered(&world);
+    let plan = previewed(&world, &decisions);
+    let outcome = refused_import(&world, &plan.plan_id, &decisions, &plan.plan_digest);
+    assert_eq!(blocked(&outcome), [(B::WorkspaceFull, None)]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_save_failure() {
+    let world = World::start(default_workspace()).await;
+    let decisions = answered(&world);
+    let plan = previewed(&world, &decisions);
+    // Where the store writes before it renames: a folder that is not empty.
+    let in_the_way = world.data.join("workspace.json.tmp");
+    fs::create_dir(&in_the_way).unwrap();
+    fs::write(in_the_way.join("keep"), b"x").unwrap();
+
+    let outcome = refused_import(&world, &plan.plan_id, &decisions, &plan.plan_digest);
+    let ApplyOutcome::Failed { message, detail } = outcome else {
+        panic!("{outcome:?}");
+    };
+    assert!(message.ends_with('.'), "{message}");
+    assert!(detail.is_some_and(|d| !d.is_empty()));
+
+    // The import is still pending, and goes through once the save can.
+    fs::remove_dir_all(&in_the_way).unwrap();
+    let outcome = world
+        .service
+        .apply(&plan.plan_id, &decisions, &plan.plan_digest);
+    assert!(
+        matches!(outcome, ApplyOutcome::Applied { .. }),
+        "{outcome:?}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_expired_plan_id() {
+    let world = World::start(default_workspace()).await;
+    let decisions = answered(&world);
+    let never = refused_import(&world, &"f".repeat(32), &decisions, "");
+    assert_eq!(never, ApplyOutcome::Expired);
+
+    let discarded = previewed(&world, &decisions);
+    world.service.discard(&discarded.plan_id);
+    let id = &discarded.plan_id;
+    let outcome = refused_import(&world, id, &decisions, &discarded.plan_digest);
+    assert_eq!(outcome, ApplyOutcome::Expired);
+
+    let replaced = previewed(&world, &decisions);
+    let _ = previewed(&world, &decisions);
+    let id = &replaced.plan_id;
+    let outcome = refused_import(&world, id, &decisions, &replaced.plan_digest);
+    assert_eq!(outcome, ApplyOutcome::Expired);
+}
+
+/// The positive control: a Pack whose pads run things imports with those
+/// slots emptied, and nothing runs while it is imported.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_pack_that_runs_things_imports_with_the_slot_emptied_and_runs_nothing() {
+    let world = World::start(default_workspace()).await;
+    let auto_before = world.rt.context().settings;
+    let decisions = ImportDecisions {
+        context_rules: vec![0],
+        ..answered(&world)
+    };
+    let plan = previewed(&world, &decisions);
+    assert!(plan.ready, "{:?}", plan.blockers);
+    let outcome = world
+        .service
+        .apply(&plan.plan_id, &decisions, &plan.plan_digest);
+    let ApplyOutcome::Applied { report } = outcome else {
+        panic!("{outcome:?}");
+    };
+    assert_eq!(report.surfaces_added, ["studio"]);
+    assert_eq!((report.slots_removed, report.rules_added), (1, 1));
+    world.assert_nothing_ran();
+
+    let ws = world.rt.snapshot().workspace;
+    let controls = &ws.surface("studio").unwrap().pages[0].controls;
+    assert_eq!(controls[0].label, "Build");
+    assert_eq!(controls[0].press, None, "the command is removed");
+    assert!(controls[0].states.contains_key("done"));
+    let press = |i: usize| controls[i].press.clone().unwrap();
+    assert_eq!(press(1).args, json!({ "keys": "mod+c" }));
+    assert_eq!(press(2).args, json!({ "url": DOCS }));
+    assert_eq!(
+        press(3).args["cwd"],
+        json!(world.plugins.display().to_string())
+    );
+
+    // Saved before it was shown, and Auto Context as it was.
+    let saved = fs::read_to_string(world.data.join("workspace.json")).unwrap();
+    let saved: launchdeck_lib::core::model::Workspace = serde_json::from_str(&saved).unwrap();
+    assert_eq!(saved, ws);
+    let after = world.rt.context().settings;
+    assert_eq!(
+        (after.auto, &after.fallback),
+        (auto_before.auto, &auto_before.fallback)
+    );
+    assert_eq!(after.rules.len(), auto_before.rules.len() + 1);
+}
+
+/// The same with the pads kept: they are imported as the file has them,
+/// and still nothing runs.
+#[tokio::test(flavor = "multi_thread")]
+async fn kept_pads_are_imported_as_written_and_run_nothing() {
+    let world = World::start(default_workspace()).await;
+    let decisions = ImportDecisions {
+        runs: Some(Runs::Keep),
+        ..answered(&world)
+    };
+    let plan = previewed(&world, &decisions);
+    let outcome = world
+        .service
+        .apply(&plan.plan_id, &decisions, &plan.plan_digest);
+    assert!(
+        matches!(outcome, ApplyOutcome::Applied { .. }),
+        "{outcome:?}"
+    );
+    let ws = world.rt.snapshot().workspace;
+    let build = &ws.surface("studio").unwrap().pages[0].controls[0];
+    assert_eq!(
+        build.press.clone().unwrap().args,
+        json!({ "command": "echo build" })
+    );
+    world.assert_nothing_ran();
 }
