@@ -771,17 +771,41 @@ async fn many_pads_are_refreshed_in_turns() {
 // The plugin is a plugin
 // ---------------------------------------------------------------------------
 
+/// Whether `needle` appears in `text`; a needle that starts with a word
+/// character only at the start of a word, so that `entity_id` is found but
+/// `identity_id` is not, while `/api/states` is found anywhere.
+fn mentions(text: &str, needle: &str) -> bool {
+    let word = |c: char| c.is_alphanumeric() || c == '_';
+    let starts_word = needle.starts_with(word);
+    text.match_indices(needle)
+        .any(|(i, _)| !starts_word || !text[..i].chars().next_back().is_some_and(word))
+}
+
 #[test]
 fn launchdeck_knows_nothing_about_home_assistant() {
     // Nothing in the core may know this plugin: not its id, not the API it speaks.
     // (The product's name does appear in prose, as an example of a local server.)
-    fn walk(dir: &Path, hits: &mut Vec<String>) {
+    // The one exception is content: the Home starter names the plugin as the
+    // provider of its pads, as a saved workspace would, and nothing branches on it.
+    assert!(mentions("{\"entity_id\": 1}", "entity_id"));
+    assert!(!mentions("pub identity_id: usize", "entity_id"));
+    assert!(mentions("\"http://ha.local/api/states\"", "/api/states"));
+    const STARTER_CONTENT: [&str; 2] = ["surfaces/smart_home.rs", "surfaces/tests.rs"];
+    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let starter = fs::read_to_string(src.join(STARTER_CONTENT[0])).unwrap();
+    assert_eq!(
+        starter.matches(PLUGIN).count(),
+        1,
+        "the Home starter names the plugin once, as its pads' provider"
+    );
+    fn walk(dir: &Path, src: &Path, hits: &mut Vec<String>) {
         for entry in fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
             if path.is_dir() {
-                walk(&path, hits);
+                walk(&path, src, hits);
             } else if path.extension().is_some_and(|e| e == "rs") {
                 let text = fs::read_to_string(&path).unwrap();
+                let content = STARTER_CONTENT.iter().any(|f| path == src.join(f));
                 for needle in [
                     PLUGIN,
                     "home-assistant.wasm",
@@ -789,7 +813,10 @@ fn launchdeck_knows_nothing_about_home_assistant() {
                     "/api/services",
                     "entity_id",
                 ] {
-                    if text.contains(needle) {
+                    if content && needle == PLUGIN {
+                        continue;
+                    }
+                    if mentions(&text, needle) {
                         hits.push(format!("{} mentions {needle}", path.display()));
                     }
                 }
@@ -797,10 +824,7 @@ fn launchdeck_knows_nothing_about_home_assistant() {
         }
     }
     let mut hits = Vec::new();
-    walk(
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
-        &mut hits,
-    );
+    walk(&src, &src, &mut hits);
     assert!(
         hits.is_empty(),
         "the core special-cases the plugin: {hits:?}"
