@@ -544,7 +544,7 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 
 | # | Id | Package | Rust | Depends on | ‖ | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | A1 | Architecture docs and agent entrypoints | no | — | | todo |
+| 1 | A1 | Architecture docs and agent entrypoints | no | — | | done |
 | 2 | A2 | Quality commands, architecture check, hook, toolchain pin | no | A1 | | todo |
 | 3 | A3 | Rust boundary fixes: audit, identifiers, platform | yes | A2 | A4 | todo |
 | 4 | A4 | Frontend structure and boundaries | no | A2 | A3 | todo |
