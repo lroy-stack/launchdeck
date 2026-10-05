@@ -354,15 +354,13 @@ describe("secrets an earlier version kept in plain text", () => {
     expect(useStore.getState().toasts.at(-1)?.text).toBe("2 plain secrets were deleted.");
   });
 
-  it("flags a secret setting of an older plugin without changing how it works", async () => {
+  it("offers no field for a secret setting of an older plugin and never says it is handed over", async () => {
     await open(fixture);
     const hello = card("Hello Plugin");
-    const note = within(hello).getByRole("note");
-    expect(note.textContent).toContain("An older kind of secret");
-    expect(note.textContent).toContain("stored on this computer without encryption and is handed to the plugin");
-    expect(note.textContent).toContain("It keeps working as it did.");
-    // Still a field the person can type into.
-    expect(within(hello).getByPlaceholderText("Enter a new value to replace it")).toBeTruthy();
+    expect(hello.textContent).toContain("A credential in an obsolete format. LaunchDeck does not keep or use a value for it");
+    expect(within(hello).queryByPlaceholderText(/Enter a/)).toBeNull();
+    expect(hello.querySelector('input[type="password"]')).toBeNull();
+    expect(document.body.textContent).not.toContain("handed to the plugin. It keeps working");
   });
 });
 

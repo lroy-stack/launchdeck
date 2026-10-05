@@ -3,6 +3,7 @@ import { api } from "../../lib/ipc";
 import type { PluginConfig, PluginInfo, PluginLog, PluginManifest, PluginsOverview, ProblemKind, SecretStoreStatus } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
 import { LegacySecretsNotice, NetworkAccess, Secrets } from "./Access";
+import { LegacySecret } from "./LegacySecret";
 import { folderName, problemText } from "./text";
 
 const PERMISSION_NOTES: Record<string, string> = {
@@ -237,6 +238,7 @@ function InstalledCard({ info, store, change }: { info: PluginInfo; store: Secre
           {logs ? "Hide log" : "Show log"}
         </button>
       </div>
+      <LegacySecret info={info} store={store} change={change} />
       <NetworkAccess info={info} change={change} />
       <ActionList plugin={p} />
       {ext && ext.events.length > 0 && (
@@ -287,8 +289,24 @@ function ProblemNote({ kind, error, dir }: { kind?: ProblemKind; error?: string;
 }
 
 function ConfigField({ pluginId, item, change }: { pluginId: string; item: PluginConfig; change: (fn: () => Promise<unknown>) => Promise<boolean> }) {
-  const initial = item.secret ? "" : String(item.value ?? item.default ?? "");
+  const initial = String(item.value ?? item.default ?? "");
   const [text, setText] = useState(initial);
+  const name = item.label !== item.key ? <b>{item.label}</b> : <code>{item.key}</code>;
+  // A credential in the format of manifests before schema 4. LaunchDeck keeps
+  // no value for it and hands none to the plugin, so there is nothing to type.
+  if (item.secret) {
+    return (
+      <div className="field">
+        <span>
+          {name} {item.description}
+        </span>
+        <small className="hint warn">
+          A credential in an obsolete format. LaunchDeck does not keep or use a value for it; the plugin needs a version that declares it as a secret, kept in
+          secure storage.
+        </small>
+      </div>
+    );
+  }
   const save = (value: string | number | boolean | null) => void change(() => api.plugins.setConfig(pluginId, item.key, value));
 
   const commit = () => {
@@ -299,36 +317,28 @@ function ConfigField({ pluginId, item, change }: { pluginId: string; item: Plugi
       if (Number.isFinite(n)) save(n);
       return;
     }
-    if (!item.secret && trimmed === initial) return;
+    if (trimmed === initial) return;
     save(trimmed);
   };
 
   return (
     <label className="field">
       <span>
-        {item.label !== item.key ? <b>{item.label}</b> : <code>{item.key}</code>} {item.description}
-        {item.secret && <> ({item.isSet ? "set" : "not set"}, never shown)</>}
+        {name} {item.description}
       </span>
-      {item.secret && (
-        <small className="hint warn" role="note">
-          An older kind of secret: this plugin was written before LaunchDeck kept secrets in the system's credential store. The value is stored on this computer
-          without encryption and is handed to the plugin. It keeps working as it did.
-        </small>
-      )}
       {item.type === "boolean" ? (
         <input type="checkbox" checked={item.value === true} onChange={(e) => save(e.target.checked)} />
       ) : (
         <div className="row">
           <input
-            type={item.secret ? "password" : item.type === "number" ? "number" : "text"}
+            type={item.type === "number" ? "number" : "text"}
             value={text}
-            placeholder={item.secret ? (item.isSet ? "Enter a new value to replace it" : "Enter a value") : ""}
             autoComplete="off"
             onChange={(e) => setText(e.target.value)}
             onBlur={commit}
             onKeyDown={(e) => e.key === "Enter" && commit()}
           />
-          {(item.secret ? item.isSet : item.value !== undefined && item.value !== null) && (
+          {item.value !== undefined && item.value !== null && (
             <button className="btn small" type="button" onClick={() => save(null)}>
               Clear
             </button>

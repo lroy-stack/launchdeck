@@ -291,7 +291,7 @@ export function LegacySecretsNotice({ overview, change }: { overview: PluginsOve
               <b>{e.pluginName ?? e.plugin}</b>
               <span>{legacyName(overview, e.plugin, e.key)}</span>
               <span className="hint">
-                {e.source === "file" ? "in the plain file" : "left in the plugin's settings by an older version of it"}
+                {e.source === "file" ? "in the plain file" : "in the plugin's settings"}
                 {!e.pluginName && ", plugin not installed"}
               </span>
             </li>
