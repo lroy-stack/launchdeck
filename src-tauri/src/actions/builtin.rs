@@ -16,6 +16,7 @@ use tokio::process::Command;
 use super::definition::{Issue, ProviderKind};
 use super::params::{hidden_char, ParamDef, RefTarget, MAX_TEXT_VALUE};
 use crate::core::model::Rgb;
+use crate::plugins::external::capabilities::{Origin, Reach};
 use crate::plugins::{ActionDef, ActionError, Plugin, PluginContext, PluginManifest};
 
 pub const NAVIGATION: &str = "navigation";
@@ -34,6 +35,8 @@ const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_COMMAND_LEN: usize = 4096;
 const OUTPUT_LIMIT: usize = 4096;
 const HTTP_METHODS: [&str; 5] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+/// Characters of a redirect's target an error repeats.
+const MAX_LOCATION_SHOWN: usize = 200;
 
 fn manifest(
     id: &str,
@@ -354,6 +357,19 @@ pub(crate) struct Destination {
     /// Lowercase; an IPv6 address in brackets.
     pub host: String,
     pub port: u16,
+    /// As the plugin network broker classifies the host.
+    reach: Reach,
+}
+
+impl Destination {
+    /// Where a destination that is not on the internet is, in words.
+    pub(crate) fn nearby(&self) -> Option<&'static str> {
+        match self.reach {
+            Reach::Loopback => Some("on this computer"),
+            Reach::Local => Some("on your local network"),
+            Reach::Internet => None,
+        }
+    }
 }
 
 /// The one reading of an `http.request` address (security finding SF-4),
@@ -398,7 +414,17 @@ pub(crate) fn request_destination(url: &str) -> Result<Destination, ActionError>
     if !same || host.is_empty() {
         return refused(differ);
     }
-    Ok(Destination { scheme, host, port })
+    // The broker's classification of the host (SF-5), which also refuses
+    // what nothing may connect to (unspecified, broadcast, multicast).
+    let Ok(origin) = Origin::of_url(&browser) else {
+        return refused("The address names a host LaunchDeck sends no request to.");
+    };
+    Ok(Destination {
+        scheme,
+        host,
+        port,
+        reach: origin.reach(),
+    })
 }
 
 fn http_request(request: HttpRequest) -> Result<Value, ActionError> {
@@ -413,6 +439,8 @@ fn http_request(request: HttpRequest) -> Result<Value, ActionError> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(HTTP_TIMEOUT))
         .http_status_as_error(false)
+        // A redirect would send the request where no one reviewed (SF-5).
+        .max_redirects(0)
         .build()
         .into();
     let req = ureq::http::Request::builder()
@@ -430,6 +458,20 @@ fn http_request(request: HttpRequest) -> Result<Value, ActionError> {
     }
     .map_err(|e| ActionError::Failed(format!("request failed: {e}")))?;
     let status = resp.status().as_u16();
+    if (300..400).contains(&status) {
+        let location: String = resp
+            .headers()
+            .get("location")
+            .and_then(|l| l.to_str().ok())
+            .unwrap_or("nowhere")
+            .chars()
+            .filter(|c| !hidden_char(*c))
+            .take(MAX_LOCATION_SHOWN)
+            .collect();
+        return Err(ActionError::Failed(format!(
+            "HTTP {status}: redirected to {location}, which is not followed"
+        )));
+    }
     if status >= 400 {
         Err(ActionError::Failed(format!("HTTP {status}")))
     } else {
@@ -538,6 +580,74 @@ mod tests {
             .check(HTTP_REQUEST, &json!({ "url": "https://a\\@b/" }))
             .unwrap_err();
         assert_eq!(issue.param.as_deref(), Some("url"));
+    }
+
+    /// SF-5: the built-in request follows no redirect. A 3xx is a failure
+    /// that names where it pointed, and nothing is sent there.
+    #[test]
+    fn a_redirect_is_a_failure_that_names_where_it_pointed() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        let elsewhere = TcpListener::bind("127.0.0.1:0").unwrap();
+        let target = format!(
+            "http://127.0.0.1:{}/admin",
+            elsewhere.local_addr().unwrap().port()
+        );
+        let server = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = server.local_addr().unwrap().port();
+        let answer = format!(
+            "HTTP/1.1 302 Found\r\nLocation: {target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        );
+        let served = std::thread::spawn(move || {
+            let (mut stream, _) = server.accept().unwrap();
+            let mut request = [0u8; 2048];
+            let _ = stream.read(&mut request).unwrap();
+            stream.write_all(answer.as_bytes()).unwrap();
+        });
+        let refused = http_request(http_request_of(
+            &json!({ "method": "POST", "url": format!("http://127.0.0.1:{port}/hook") }),
+        ))
+        .unwrap_err()
+        .message();
+        served.join().unwrap();
+        assert!(
+            refused.contains("HTTP 302") && refused.contains(&target),
+            "{refused}"
+        );
+        assert!(refused.contains("not followed"), "{refused}");
+        elsewhere.set_nonblocking(true).unwrap();
+        assert!(elsewhere.accept().is_err(), "the redirect was followed");
+    }
+
+    /// Where a destination is, as the plugin network broker classifies a
+    /// host; a host it lets nothing connect to is refused.
+    #[test]
+    fn a_destination_off_the_internet_says_where_it_is() {
+        let nearby = |url: &str| request_destination(url).unwrap().nearby();
+        assert_eq!(
+            nearby("http://localhost:8123/api"),
+            Some("on this computer")
+        );
+        assert_eq!(nearby("http://127.0.0.1/"), Some("on this computer"));
+        assert_eq!(nearby("http://[::1]/"), Some("on this computer"));
+        assert_eq!(
+            nearby("http://192.168.1.20/"),
+            Some("on your local network")
+        );
+        assert_eq!(
+            nearby("http://homeassistant.local:8123/"),
+            Some("on your local network")
+        );
+        assert_eq!(nearby("http://printer/"), Some("on your local network"));
+        assert_eq!(nearby("https://example.com/"), None);
+        for unroutable in [
+            "http://0.0.0.0:8080/",
+            "http://255.255.255.255/",
+            "http://224.0.0.1/",
+        ] {
+            let refused = request_destination(unroutable).unwrap_err().message();
+            assert!(refused.contains("no request"), "{unroutable}: {refused}");
+        }
     }
 
     #[tokio::test]

@@ -219,7 +219,12 @@ fn review_text(kind: ReviewKind, assignment: &Assignment) -> String {
         {
             let HttpRequest { method, url, body } = http_request_of(args);
             let destination = match request_destination(&url) {
-                Ok(to) => format!("to {}, port {}", visible(&to.host, false), to.port),
+                Ok(to) => match to.nearby() {
+                    Some(place) => {
+                        format!("to {}, port {}, {place}", visible(&to.host, false), to.port)
+                    }
+                    None => format!("to {}, port {}", visible(&to.host, false), to.port),
+                },
                 Err(refused) => format!(
                     "LaunchDeck will not send it: {}",
                     visible(&refused.message(), false)

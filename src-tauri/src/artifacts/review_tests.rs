@@ -628,6 +628,19 @@ fn a_request_states_its_destination() {
         "GET https://trusted.example@evil.example/ (LaunchDeck will not send it: The address \
          carries a user name or password, which LaunchDeck does not send.)"
     );
+    // A destination on this computer or the local network says so (SF-5).
+    assert_eq!(
+        text(
+            request("http://homeassistant.local:8123/api/webhook/x"),
+            &env
+        ),
+        "GET http://homeassistant.local:8123/api/webhook/x (to homeassistant.local, port 8123, \
+         on your local network)"
+    );
+    assert_eq!(
+        text(request("http://127.0.0.1:9000/"), &env),
+        "GET http://127.0.0.1:9000/ (to 127.0.0.1, port 9000, on this computer)"
+    );
     let privileged = KnownProvider {
         kind: crate::actions::definition::ProviderKind::Builtin,
         name: "Future".into(),
