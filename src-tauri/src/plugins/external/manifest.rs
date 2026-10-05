@@ -351,9 +351,14 @@ pub struct ExternalManifest {
     pub refresh: Option<RefreshDecl>,
 }
 
-/// Lowercase dotted id with at least two segments, for example `acme.notes`.
+/// Ids under this prefix belong to LaunchDeck itself, so an installed plugin
+/// can never pass for a first-party one.
+const RESERVED_ID_PREFIX: &str = "launchdeck.";
+
+/// Lowercase dotted id with at least two segments, for example `acme.notes`,
+/// outside the reserved `launchdeck.` prefix.
 pub fn valid_plugin_id(id: &str) -> bool {
-    if id.len() < 3 || id.len() > 64 {
+    if id.len() < 3 || id.len() > 64 || id.starts_with(RESERVED_ID_PREFIX) {
         return false;
     }
     let mut segments = 0;
@@ -431,6 +436,9 @@ impl ExternalManifest {
     }
 
     fn validate(&self) -> Result<(), ManifestError> {
+        if self.id.starts_with(RESERVED_ID_PREFIX) {
+            return invalid("ids starting with launchdeck. are reserved for LaunchDeck itself");
+        }
         if !valid_plugin_id(&self.id) {
             return invalid(format!(
                 "`id` \"{}\" must be lowercase dotted with at least two parts, for example \"acme.notes\"",
@@ -1074,6 +1082,23 @@ mod tests {
         }
         assert!(parse(&with("id", json!("a".repeat(70) + ".b"))).is_err());
         assert!(parse(&with("id", json!("dev.acme.my-notes2"))).is_ok());
+    }
+
+    #[test]
+    fn ids_starting_with_launchdeck_are_reserved() {
+        for reserved in ["launchdeck.notes", "launchdeck.system", "launchdeck.a.b"] {
+            assert!(!valid_plugin_id(reserved), "{reserved}");
+            let e = parse(&with("id", json!(reserved))).unwrap_err();
+            assert_eq!(e.kind(), ProblemKind::InvalidManifest);
+            assert!(
+                e.to_string()
+                    .contains("ids starting with launchdeck. are reserved for LaunchDeck itself"),
+                "{e}"
+            );
+        }
+        for free in ["launchdecks.notes", "acme.launchdeck", "launch-deck.notes"] {
+            assert!(parse(&with("id", json!(free))).is_ok(), "{free}");
+        }
     }
 
     #[test]

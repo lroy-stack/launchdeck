@@ -44,7 +44,7 @@
 | Field | Required | Rule |
 | --- | --- | --- |
 | `schemaVersion` | yes | `1` to `4`. Checked first, so a future shape fails with a clear message. Schema 4 is the current one: it adds `capabilities.network`, `secrets`, `refresh` and a `label` on settings. Schema 3 added `states`, the `name` and `fields` of an event, and `suggests` on an action. Schema 2 added the library fields below. Older manifests are still read, see [schema 1](#schema-1) and [what each schema adds](#what-each-schema-adds). |
-| `id` | yes | Lowercase dotted, at least two parts, 3 to 64 characters: `[a-z][a-z0-9-]*` per part. Built-in provider ids (`system`, `navigation`, `shell`, `http`, `demo`, `agent-control`) cannot be used because they have no dot, so an installed plugin can never claim, shadow or impersonate one. |
+| `id` | yes | Lowercase dotted, at least two parts, 3 to 64 characters: `[a-z][a-z0-9-]*` per part. Built-in provider ids (`system`, `navigation`, `shell`, `http`, `demo`, `agent-control`) cannot be used because they have no dot, so an installed plugin can never claim, shadow or impersonate one. Ids starting with `launchdeck.` are reserved for LaunchDeck itself and refused ("ids starting with launchdeck. are reserved for LaunchDeck itself"). |
 | `name` | yes | 1 to 64 characters, no control characters. |
 | `version` | yes | `x.y.z`, numbers only. Your plugin's own version. |
 | `description` | no | Up to 280 characters. |
