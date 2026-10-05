@@ -130,6 +130,7 @@ type PageStep = "closed" | "menu" | "rename" | "delete";
 /** One page in the Edit strip, with its menu: Rename in place, Delete after a confirmation. */
 export function PageItem({ surface, page, current, onOpen }: { surface: Surface; page: Page; current: boolean; onOpen: () => void }) {
   const attempt = useStore((s) => s.attempt);
+  const select = useStore((s) => s.select);
   const [step, setStep] = useState<PageStep>("closed");
   const [name, setName] = useState(page.name);
   const only = surface.pages.length <= 1;
@@ -186,6 +187,8 @@ export function PageItem({ surface, page, current, onOpen }: { surface: Surface;
             className="btn small danger"
             onClick={() => {
               setStep("closed");
+              // Rust shows the surface's first page in its place, as opening a page would: nothing stays selected.
+              if (current) select(null);
               void attempt(() => api.removePage(surface.id, page.id));
             }}
           >

@@ -131,3 +131,47 @@ describe("deleting asks first", () => {
     expect(context.settings.fallback).toEqual({ kind: "keep" });
   });
 });
+
+describe("a question asked about one surface", () => {
+  const showing = async (surfaceId: string) => {
+    await api.activateSurface(surfaceId);
+    await waitFor(() => expect(useStore.getState().state?.activeSurfaceId).toBe(surfaceId));
+  };
+
+  it("is not carried over to the next surface shown", async () => {
+    const user = userEvent.setup();
+    await open("smart-home");
+    await user.click(screen.getByRole("button", { name: "Delete surface" }));
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+
+    await showing("productivity");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("about a page is not carried over to a page of the same id elsewhere", async () => {
+    const user = userEvent.setup();
+    await api.addPage("smart-home", "Extra");
+    await open("smart-home");
+    await user.click(within(pages()).getByRole("button", { name: "Page options for Home" }));
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+    expect(screen.getByRole("alertdialog", { name: "Delete page Home" })).toBeTruthy();
+
+    await showing("productivity");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("deleting the page on screen leaves no pad of it selected", async () => {
+    const user = userEvent.setup();
+    const spare = await api.addPage("agent-control", "Spare");
+    await open("agent-control");
+    await api.activatePage(spare);
+    await waitFor(() => expect(useStore.getState().state?.activePageId).toBe(spare));
+    useStore.getState().select({ kind: "grid", col: 0, row: 0 });
+
+    await user.click(within(pages()).getByRole("button", { name: "Page options for Spare" }));
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+    await user.click(within(screen.getByRole("alertdialog", { name: "Delete page Spare" })).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(useStore.getState().state?.activePageId).not.toBe(spare));
+    expect(useStore.getState().selected).toBeNull();
+  });
+});

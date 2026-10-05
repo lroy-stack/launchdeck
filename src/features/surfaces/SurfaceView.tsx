@@ -32,11 +32,12 @@ export function SurfaceView() {
     void attempt(() => api.setMode(m));
   };
 
+  // Edit state (a draft name, an open confirmation) is keyed by surface, so it never follows to another one.
   return (
     <div className={`surface-view mode-${mode}`}>
       <header className="surface-head">
         {mode === "edit" ? (
-          <SurfaceDetails surface={surface} />
+          <SurfaceDetails key={surface.id} surface={surface} />
         ) : (
           <div className="titles">
             <span className="eyebrow">{surface.category}</span>
@@ -45,7 +46,7 @@ export function SurfaceView() {
           </div>
         )}
         <div className="head-actions">
-          {mode === "edit" && <DeleteSurface surface={surface} />}
+          {mode === "edit" && <DeleteSurface key={surface.id} surface={surface} />}
           <label className="check">
             <input type="checkbox" checked={showLabels} onChange={toggleLabels} /> Labels
           </label>
@@ -102,7 +103,7 @@ function PagesNav({ surface, page, layout }: { surface: Surface; page: Page; lay
           select(null);
           void attempt(() => api.activatePage(p.id));
         };
-        if (mode === "edit") return <PageItem key={p.id} surface={surface} page={p} current={p.id === page.id} onOpen={open} />;
+        if (mode === "edit") return <PageItem key={`${surface.id}/${p.id}`} surface={surface} page={p} current={p.id === page.id} onOpen={open} />;
         return (
           <button key={p.id} type="button" className={`page-item${p.id === page.id ? " on" : ""}`} aria-current={p.id === page.id ? "page" : undefined} onClick={open}>
             <span>{p.name}</span>
