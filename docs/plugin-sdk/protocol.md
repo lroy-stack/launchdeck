@@ -61,7 +61,7 @@ JSON objects. `op` is written first, so a minimal module can tell requests apart
 {"op":"invoke","action":"hello.say","args":{"name":"Leroy"}}
 ```
 
-`init` is sent once, when the plugin starts or restarts, with its settings: the person's stored values where they still fit the declared type, the declared defaults otherwise. Settings marked `secret` in a schema 1 to 3 manifest are included; values declared under `secrets` in schema 4 never are. Events published and states written during `init` are dropped, with a warning in the log. If `init` replies `failed`, traps or returns no usable reply, the plugin does not start and shows status *error* with the reason.
+`init` is sent once, when the plugin starts or restarts, with its settings: the person's stored values where they still fit the declared type, the declared defaults otherwise. A setting marked `secret` in a schema 1 to 3 manifest is never included (the module reads it as not set), and neither is a value declared under `secrets` in schema 4: LaunchDeck never hands a credential to a module. Events published and states written during `init` are dropped, with a warning in the log. If `init` replies `failed`, traps or returns no usable reply, the plugin does not start and shows status *error* with the reason.
 
 `invoke` carries an action id declared in the manifest and arguments that already passed validation against it.
 

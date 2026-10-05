@@ -279,9 +279,12 @@ pub struct ConfigField {
     pub kind: ConfigType,
     #[serde(default)]
     pub default: Option<Value>,
-    /// Schemas 1 to 3 only: hidden in the interface, but still handed to the
-    /// module. Schema 4 refuses it; a credential goes under `secrets`, which
-    /// the module never receives. May not have a default.
+    /// Schemas 1 to 3 only: a credential in the old format. It cannot be
+    /// given a value and is never handed to the module, which reads it as not
+    /// set; a plain value an earlier version kept is moved or removed on the
+    /// person's choice (`legacy_secrets`). Schema 4 refuses it; a credential
+    /// goes under `secrets`, which the module never receives either. May not
+    /// have a default.
     #[serde(default)]
     pub secret: bool,
     #[serde(default)]
