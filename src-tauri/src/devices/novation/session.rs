@@ -6,15 +6,19 @@
 //!
 //! Section 9 of the Mini MK3 plan, for every profile: on connect the unit is
 //! asked who it is (the Universal Device Inquiry); the next tick that has the
-//! answer, or the first one 500 ms later, takes it: Programmer mode, the
-//! clear frame, then its input counts. A unit that answers as its bootloader
-//! or as another model is turned down and sent nothing more. On release the
-//! clear frame, then Live mode.
+//! answer, or the first one 500 ms later, enters Programmer mode and reads
+//! it back; the next tick that has that answer, or the first one 500 ms
+//! later, takes the unit: the clear frame, then its input counts. Programmer
+//! mode is confirmed only if the unit said so; otherwise LaunchDeck still
+//! draws and says so in a notice. A unit that answers as its bootloader or
+//! as another model is turned down and sent nothing more. On release the
+//! clear frame, then Live mode. Replies that carry another model's product
+//! byte are ignored.
 
 use std::time::{Duration, Instant};
 
 use super::profile::ModelProfile;
-use super::protocol::{programmer_mode, Reply, INQUIRY};
+use super::protocol::{programmer_mode, query, Reply, INQUIRY, MODE};
 use crate::devices::{DeviceDetails, DeviceError, ModeState};
 
 /// How long a question to the unit waits for its answer. Some drivers may
@@ -32,6 +36,8 @@ pub(crate) enum Phase {
     Closed,
     /// Asked who the unit is; waiting for the answer since then.
     Probing { since: Instant },
+    /// Asked for Programmer mode and to read it back; waiting since then.
+    Entering { since: Instant },
     /// Holding it in Programmer mode: frames are drawn.
     Owned,
     /// Turned down: nothing more is sent, every render fails.
@@ -66,6 +72,8 @@ pub(crate) struct Session {
     identified: bool,
     /// The four inquiry digits, as the bootloader shows them.
     firmware: Option<String>,
+    /// What the unit read back about Programmer mode, if it answered.
+    programmer: Option<bool>,
 }
 
 impl Session {
@@ -75,6 +83,7 @@ impl Session {
             phase: Phase::Closed,
             identified: false,
             firmware: None,
+            programmer: None,
         }
     }
 
@@ -101,7 +110,10 @@ impl Session {
             self.receive(reply);
         }
         match self.phase {
-            Phase::Probing { since } if self.identified || timed_out(since, now) => self.take(),
+            Phase::Probing { since } if self.identified || timed_out(since, now) => self.enter(now),
+            Phase::Entering { since } if self.programmer.is_some() || timed_out(since, now) => {
+                self.take()
+            }
             _ => Vec::new(),
         }
     }
@@ -111,7 +123,7 @@ impl Session {
     /// taken is sent nothing.
     pub(crate) fn release(&mut self) -> Vec<Action> {
         match std::mem::replace(&mut self.phase, Phase::Closed) {
-            Phase::Owned => vec![
+            Phase::Entering { .. } | Phase::Owned => vec![
                 Action::Gate(false),
                 Action::Clear,
                 Action::Send(programmer_mode(self.profile.product, false)),
@@ -137,15 +149,27 @@ impl Session {
     }
 
     pub(crate) fn details(&self) -> DeviceDetails {
-        let mode = match self.phase {
-            Phase::Closed | Phase::Refused(_) => ModeState::None,
-            Phase::Probing { .. } => ModeState::Acquiring,
-            Phase::Owned => ModeState::Unconfirmed,
-        };
+        let mode = self.mode();
+        let notice = (mode == ModeState::Unconfirmed).then(|| {
+            format!(
+                "{} connected, but Programmer Mode could not be confirmed.",
+                self.profile.name
+            )
+        });
         DeviceDetails {
             firmware: self.firmware.clone(),
             mode,
+            notice,
             ..DeviceDetails::default()
+        }
+    }
+
+    fn mode(&self) -> ModeState {
+        match self.phase {
+            Phase::Closed | Phase::Refused(_) => ModeState::None,
+            Phase::Probing { .. } | Phase::Entering { .. } => ModeState::Acquiring,
+            Phase::Owned if self.programmer == Some(true) => ModeState::Confirmed,
+            Phase::Owned => ModeState::Unconfirmed,
         }
     }
 
@@ -157,6 +181,17 @@ impl Session {
                     family, version, ..
                 },
             ) => self.identify(family, version),
+            (_, Reply::Readback { product, .. }) if product != self.profile.product.0 => {
+                log::warn!(
+                    "a reply for product {product:02X} on the ports of a {}: ignored",
+                    self.profile.name
+                );
+            }
+            (Phase::Entering { .. }, Reply::Readback { command, data, .. })
+                if command == MODE && matches!(data[..], [0 | 1]) =>
+            {
+                self.programmer = Some(data[0] == 1);
+            }
             (_, reply) => log::debug!("a Launchpad reply nobody asked for: {reply:?}"),
         }
     }
@@ -175,14 +210,20 @@ impl Session {
         }
     }
 
-    /// Programmer mode, the clear frame, then the unit's input counts.
+    /// Programmer mode, and the question whether the unit is in it.
+    fn enter(&mut self, now: Instant) -> Vec<Action> {
+        self.phase = Phase::Entering { since: now };
+        let product = self.profile.product;
+        vec![
+            Action::Send(programmer_mode(product, true)),
+            Action::Send(query(product, MODE)),
+        ]
+    }
+
+    /// The clear frame, then the unit's input counts.
     fn take(&mut self) -> Vec<Action> {
         self.phase = Phase::Owned;
-        vec![
-            Action::Send(programmer_mode(self.profile.product, true)),
-            Action::Clear,
-            Action::Gate(true),
-        ]
+        vec![Action::Clear, Action::Gate(true)]
     }
 }
 
@@ -209,7 +250,16 @@ mod tests {
         }
     }
 
+    fn readback(product: u8, command: u8, data: &[u8]) -> Reply {
+        Reply::Readback {
+            product,
+            command,
+            data: data.to_vec(),
+        }
+    }
+
     const MINI: [u8; 2] = [0x13, 0x01];
+    const X: [u8; 2] = [0x03, 0x01];
 
     fn probing(profile: &'static ModelProfile) -> (Session, Instant) {
         let mut session = Session::new(profile);
@@ -219,35 +269,81 @@ mod tests {
         (session, t0)
     }
 
+    /// Identified as this family and confirmed in Programmer mode.
+    fn owned(profile: &'static ModelProfile, family: [u8; 2]) -> (Session, Instant) {
+        let (mut session, t0) = probing(profile);
+        session.tick(t0, vec![identity(family, [0, 5, 3, 1])]);
+        session.tick(t0, vec![readback(profile.product.0, MODE, &[1])]);
+        assert!(session.draws());
+        (session, t0)
+    }
+
     #[test]
-    fn an_identified_unit_is_taken_on_the_next_tick() {
+    fn an_identified_unit_enters_programmer_mode_and_is_taken_once_it_says_so() {
         let (mut session, t0) = probing(&launchpad_mini_mk3::PROFILE);
         assert_eq!(session.details().mode, ModeState::Acquiring);
         assert_eq!(
             session.tick(t0, vec![identity(MINI, [0, 5, 3, 1])]),
             [
                 Action::Send(hex("F0 00 20 29 02 0D 0E 01 F7")),
-                Action::Clear,
-                Action::Gate(true),
+                Action::Send(hex("F0 00 20 29 02 0D 0E F7")),
             ]
         );
-        assert!(session.draws());
+        assert_eq!(session.phase(), Phase::Entering { since: t0 });
+        assert_eq!(session.details().mode, ModeState::Acquiring);
         assert_eq!(session.details().firmware.as_deref(), Some("0531"));
+        assert_eq!(
+            session.tick(t0, vec![readback(0x0D, MODE, &[1])]),
+            [Action::Clear, Action::Gate(true)]
+        );
+        assert!(session.draws());
+        let details = session.details();
+        assert_eq!((details.mode, details.notice), (ModeState::Confirmed, None));
         assert!(session.tick(t0, Vec::new()).is_empty(), "taken once");
     }
 
     #[test]
-    fn a_unit_that_does_not_answer_is_taken_after_the_timeout() {
+    fn a_unit_that_does_not_answer_is_taken_unconfirmed_after_two_timeouts() {
         let (mut session, t0) = probing(&launchpad_x::PROFILE);
         let almost = t0 + REPLY_TIMEOUT - Duration::from_millis(1);
         assert!(session.tick(almost, Vec::new()).is_empty());
-        assert!(!session.draws());
+        let t1 = t0 + REPLY_TIMEOUT;
         assert_eq!(
-            session.tick(t0 + REPLY_TIMEOUT, Vec::new())[0],
+            session.tick(t1, Vec::new())[0],
             Action::Send(hex("F0 00 20 29 02 0C 0E 01 F7"))
         );
+        assert!(session.tick(t1 + REPLY_TIMEOUT / 2, Vec::new()).is_empty());
+        assert!(!session.draws());
+        assert_eq!(
+            session.tick(t1 + REPLY_TIMEOUT, Vec::new()),
+            [Action::Clear, Action::Gate(true)]
+        );
+        let details = session.details();
+        assert_eq!(details.mode, ModeState::Unconfirmed);
+        assert_eq!(details.firmware, None);
+        assert_eq!(
+            details.notice.as_deref(),
+            Some("Launchpad X connected, but Programmer Mode could not be confirmed.")
+        );
+    }
+
+    #[test]
+    fn a_unit_that_reads_back_live_mode_is_taken_unconfirmed() {
+        let (mut session, t0) = probing(&launchpad_mini_mk3::PROFILE);
+        session.tick(t0, vec![identity(MINI, [0, 5, 3, 1])]);
+        session.tick(t0, vec![readback(0x0D, MODE, &[0])]);
         assert!(session.draws());
-        assert_eq!(session.details().firmware, None);
+        assert_eq!(session.details().mode, ModeState::Unconfirmed);
+    }
+
+    #[test]
+    fn replies_for_another_product_are_ignored() {
+        let (mut session, t0) = probing(&launchpad_mini_mk3::PROFILE);
+        session.tick(t0, vec![identity(MINI, [0, 5, 3, 1])]);
+        assert!(session
+            .tick(t0, vec![readback(0x0C, MODE, &[1])])
+            .is_empty());
+        assert_eq!(session.phase(), Phase::Entering { since: t0 });
     }
 
     #[test]
@@ -268,9 +364,7 @@ mod tests {
         assert_eq!(session.release(), [Action::Gate(false)]);
 
         let (mut session, t0) = probing(&launchpad_mini_mk3::PROFILE);
-        assert!(session
-            .tick(t0, vec![identity([0x03, 0x01], [0, 2, 3, 8])])
-            .is_empty());
+        assert!(session.tick(t0, vec![identity(X, [0, 2, 3, 8])]).is_empty());
         assert_eq!(
             session.refusal().unwrap().detail(),
             Some("inquiry family 03 01 on the ports of a Launchpad Mini MK3")
@@ -279,11 +373,8 @@ mod tests {
 
     #[test]
     fn the_launchpad_x_accepts_its_family_and_the_manuals_misprint() {
-        for family in [[0x03, 0x01], [0x13, 0x01]] {
-            let (mut session, t0) = probing(&launchpad_x::PROFILE);
-            session.tick(t0, vec![identity(family, [0, 2, 3, 8])]);
-            assert!(session.draws(), "{family:02X?}");
-        }
+        owned(&launchpad_x::PROFILE, X);
+        owned(&launchpad_x::PROFILE, MINI);
         let (mut session, t0) = probing(&launchpad_x::PROFILE);
         session.tick(t0, vec![identity([0x03, 0x11], [0, 0, 0, 1])]);
         assert!(matches!(
@@ -294,18 +385,23 @@ mod tests {
 
     #[test]
     fn release_stops_listening_clears_then_returns_to_live_mode_once() {
+        let given_back = [
+            Action::Gate(false),
+            Action::Clear,
+            Action::Send(hex("F0 00 20 29 02 0D 0E 00 F7")),
+        ];
         let (mut session, t0) = probing(&launchpad_mini_mk3::PROFILE);
         assert_eq!(session.release(), [Action::Gate(false)], "not taken yet");
         session.opened(t0);
         session.tick(t0, vec![identity(MINI, [0, 5, 3, 1])]);
         assert_eq!(
             session.release(),
-            [
-                Action::Gate(false),
-                Action::Clear,
-                Action::Send(hex("F0 00 20 29 02 0D 0E 00 F7")),
-            ]
+            given_back,
+            "Programmer mode was asked for"
         );
+
+        let (mut session, _) = owned(&launchpad_mini_mk3::PROFILE, MINI);
+        assert_eq!(session.release(), given_back);
         assert_eq!(session.phase(), Phase::Closed);
         assert_eq!(
             session.release(),
@@ -322,6 +418,7 @@ mod tests {
         session.opened(t0);
         assert!(session.refusal().is_none());
         session.tick(t0, vec![identity(MINI, [0, 5, 3, 1])]);
+        session.tick(t0, vec![readback(0x0D, MODE, &[1])]);
         assert!(session.draws());
     }
 }

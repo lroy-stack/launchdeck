@@ -38,6 +38,7 @@ const DEVICE_ID: &str = "launchpad-x:1";
 
 const INQUIRY: [u8; 6] = [0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7];
 const ENTER: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x01, 0xF7];
+const READ_MODE: [u8; 8] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0xF7];
 const EXIT: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x00, 0xF7];
 
 /// The X's ports with this unit behind them.
@@ -107,11 +108,13 @@ fn connected(midi: &FakeMidi) -> (Box<dyn SurfaceDevice>, UnboundedReceiver<Devi
     (dev, rx)
 }
 
-/// Connected and taken: the unit answered and a render took it. What was
-/// sent until then is dropped.
+/// Connected and taken: the unit answered, one render entered Programmer
+/// mode and the next took the unit. What was sent until then is dropped.
 fn acquired(midi: &FakeMidi) -> (Box<dyn SurfaceDevice>, UnboundedReceiver<DeviceInput>) {
     let (mut dev, rx) = connected(midi);
-    dev.render(&SurfaceFrame::default()).unwrap();
+    for _ in 0..2 {
+        dev.render(&SurfaceFrame::default()).unwrap();
+    }
     midi.take_sent();
     (dev, rx)
 }
@@ -134,11 +137,16 @@ fn connect_asks_who_the_unit_is_and_the_next_render_takes_it() {
     assert_eq!(midi.take_sent(), to_output(&[INQUIRY.to_vec()]));
     assert_eq!(midi.open_links(), 1);
     dev.render(&SurfaceFrame::default()).unwrap();
+    // D-X6: Programmer mode used to be assumed, never read back.
     assert_eq!(
         midi.take_sent(),
-        to_output(&[ENTER.to_vec(), clear_message()])
+        to_output(&[ENTER.to_vec(), READ_MODE.to_vec()])
     );
-    assert_eq!(dev.details().firmware.as_deref(), Some("0238"));
+    dev.render(&SurfaceFrame::default()).unwrap();
+    assert_eq!(midi.take_sent(), to_output(&[clear_message()]));
+    let details = dev.details();
+    assert_eq!(details.firmware.as_deref(), Some("0238"));
+    assert_eq!((details.mode, details.notice), (ModeState::Confirmed, None));
 }
 
 #[test]
@@ -439,12 +447,16 @@ fn the_mini_mk3_is_identified_before_it_is_taken() {
         sent(&midi),
         [
             hex("F0 00 20 29 02 0D 0E 01 F7"),
-            mini_clear(),
-            hex(MINI_FRAME)
+            hex("F0 00 20 29 02 0D 0E F7")
         ]
     );
     assert!(sim.in_programmer_mode());
-    assert_eq!(dev.details().firmware.as_deref(), Some("0531"));
+    assert_eq!(dev.details().mode, ModeState::Acquiring);
+    dev.render(&lower_left_pink()).unwrap();
+    assert_eq!(sent(&midi), [mini_clear(), hex(MINI_FRAME)]);
+    let details = dev.details();
+    assert_eq!(details.firmware.as_deref(), Some("0531"));
+    assert_eq!((details.mode, details.notice), (ModeState::Confirmed, None));
 }
 
 #[test]
@@ -485,13 +497,13 @@ fn another_model_on_the_mini_mk3_ports_is_turned_down() {
 fn a_launchpad_x_answering_with_the_manuals_misprinted_family_is_taken() {
     let sim = SimLaunchpad::x().with_family([0x13, 0x01]);
     let midi = fake_with(sim.clone());
-    let (mut dev, _rx) = connected(&midi);
-    dev.render(&SurfaceFrame::default()).unwrap();
+    let (dev, _rx) = acquired(&midi);
     assert!(sim.in_programmer_mode());
+    assert_eq!(dev.details().mode, ModeState::Confirmed);
 }
 
 #[test]
-fn a_unit_that_does_not_answer_is_taken_after_the_timeout() {
+fn a_unit_that_does_not_answer_is_still_drawn_with_a_notice() {
     let sim = SimLaunchpad::mini().silent();
     let clock = FakeClock::new();
     let (midi, mut dev, mut rx) = mini_with(&sim, &clock);
@@ -507,11 +519,25 @@ fn a_unit_that_does_not_answer_is_taken_after_the_timeout() {
         sent(&midi),
         [
             hex("F0 00 20 29 02 0D 0E 01 F7"),
-            mini_clear(),
-            hex(MINI_FRAME)
+            hex("F0 00 20 29 02 0D 0E F7")
         ]
     );
-    assert_eq!(dev.details().firmware, None);
+    // An answer for another model's product byte confirms nothing.
+    midi.inject(MINI_IN_ID, &hex("F0 00 20 29 02 0C 0E 01 F7"));
+    clock.advance(REPLY_TIMEOUT - Duration::from_millis(1));
+    dev.render(&lower_left_pink()).unwrap();
+    assert_eq!(sent(&midi), Vec::<Vec<u8>>::new(), "still waiting");
+
+    clock.advance(Duration::from_millis(1));
+    dev.render(&lower_left_pink()).unwrap();
+    assert_eq!(sent(&midi), [mini_clear(), hex(MINI_FRAME)]);
+    let details = dev.details();
+    assert_eq!(details.firmware, None);
+    assert_eq!(details.mode, ModeState::Unconfirmed);
+    assert_eq!(
+        details.notice.as_deref(),
+        Some("Launchpad Mini MK3 connected, but Programmer Mode could not be confirmed.")
+    );
     midi.inject(MINI_IN_ID, &sim.press(ControlPos::grid(0, 7)));
     assert_eq!(rx.try_recv().unwrap().pos, ControlPos::grid(0, 7));
 }
@@ -525,6 +551,9 @@ fn input_before_the_unit_is_taken_is_not_a_press() {
     assert!(rx.try_recv().is_err());
     dev.render(&SurfaceFrame::default()).unwrap();
     midi.inject(MINI_IN_ID, &hex("90 30 7F"));
+    assert!(rx.try_recv().is_err(), "Programmer mode not confirmed yet");
+    dev.render(&SurfaceFrame::default()).unwrap();
+    midi.inject(MINI_IN_ID, &hex("90 30 7F"));
     assert_eq!(rx.try_recv().unwrap().pos, ControlPos::grid(7, 4));
 }
 
@@ -532,7 +561,9 @@ fn input_before_the_unit_is_taken_is_not_a_press() {
 fn the_mini_mk3_profile_runs_on_the_same_device() {
     let sim = SimLaunchpad::mini();
     let (midi, mut dev, mut rx) = mini_with(&sim, &FakeClock::new());
-    dev.render(&SurfaceFrame::default()).unwrap();
+    for _ in 0..2 {
+        dev.render(&SurfaceFrame::default()).unwrap();
+    }
     sent(&midi);
 
     dev.render(&lower_left_pink()).unwrap();
