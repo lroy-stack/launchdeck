@@ -4,12 +4,15 @@ use serde_json::json;
 
 use super::input::LONG_PRESS;
 use super::*;
-use crate::core::model::{Animation, ControlPos, Rgb, Visual};
+use crate::core::model::{
+    Animation, Assignment, Control, ControlPos, Page, Preferences, Rgb, Surface, Visual,
+};
 use crate::devices::virtual_device::VIRTUAL_ID;
 use crate::events::types;
 use crate::plugins::keyboard::{Combo, Keyboard};
 use crate::plugins::ActionError;
 use crate::state::feedback::{FeedbackRule, Hold};
+use crate::surfaces::default_workspace;
 
 struct NoKeyboard;
 impl Keyboard for NoKeyboard {
