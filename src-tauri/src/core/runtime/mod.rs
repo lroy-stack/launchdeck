@@ -5,6 +5,7 @@
 //! through `UiEmitter` events and Tauri commands.
 
 mod context;
+mod input;
 mod navigation;
 mod startup;
 
@@ -34,7 +35,6 @@ use crate::context::status::status as context_status;
 use crate::context::{ContextStatus, Engine};
 use crate::devices::manager::{DeviceChange, DeviceInfo, DeviceManager};
 use crate::devices::virtual_device::VirtualHandle;
-use crate::devices::{DeviceInput, InputKind};
 use crate::events::{types, Event, EventBus};
 use crate::persistence::Store;
 use crate::plugins::external::PluginHost;
@@ -48,7 +48,6 @@ use crate::state::index::{ControlRef, FeedbackIndex};
 use crate::state::{Changes, Scalar, StateHub};
 use crate::surfaces::{blank_surface, default_workspace};
 
-const LONG_PRESS: Duration = Duration::from_millis(500);
 const SUCCESS_RESET: Duration = Duration::from_millis(2500);
 const ERROR_RESET: Duration = Duration::from_millis(4000);
 /// How long the `failed` look stays on a control whose action failed.
@@ -525,97 +524,6 @@ impl Runtime {
         self.bus.publish(Event::new(source, kind, payload));
     }
 
-    // -----------------------------------------------------------------------
-    // Input and actions
-    // -----------------------------------------------------------------------
-
-    pub fn handle_input(self: &Arc<Self>, input: DeviceInput) {
-        let mut inner = self.lock();
-        let (surface_id, page_id) = (inner.active_surface.clone(), inner.active_page.clone());
-        let Some(control) = inner
-            .workspace
-            .surface(&surface_id)
-            .and_then(|s| s.page(&page_id))
-            .and_then(|p| p.control_at(input.pos))
-            .cloned()
-        else {
-            return;
-        };
-        let key = control_key(&surface_id, &page_id, &control.id);
-
-        match input.kind {
-            InputKind::Pressed { velocity } => {
-                self.publish(
-                    "device",
-                    types::CONTROL_PRESSED,
-                    json!({
-                        "deviceId": input.device_id,
-                        "surfaceId": surface_id,
-                        "pageId": page_id,
-                        "controlId": control.id,
-                        "label": control.label,
-                        "velocity": velocity,
-                    }),
-                );
-                if inner.mode == Mode::Edit {
-                    return;
-                }
-                if control.long_press.is_some() {
-                    // The tap action is deferred to release so a long press can win.
-                    let token = self.next_token();
-                    inner.held.insert(
-                        key.clone(),
-                        Held {
-                            token,
-                            long_fired: false,
-                        },
-                    );
-                    drop(inner);
-                    let rt = self.clone();
-                    self.handle.spawn(async move {
-                        tokio::time::sleep(LONG_PRESS).await;
-                        rt.fire_long_press(key, token, surface_id, page_id, control);
-                    });
-                } else if let Some(action) = control.press.clone() {
-                    drop(inner);
-                    self.trigger(surface_id, page_id, Some(control), action);
-                }
-            }
-            InputKind::Released => {
-                let Some(held) = inner.held.remove(&key) else {
-                    return;
-                };
-                if held.long_fired || inner.mode == Mode::Edit {
-                    return;
-                }
-                if let Some(action) = control.press.clone() {
-                    drop(inner);
-                    self.trigger(surface_id, page_id, Some(control), action);
-                }
-            }
-        }
-    }
-
-    fn fire_long_press(
-        self: &Arc<Self>,
-        key: String,
-        token: u64,
-        surface_id: String,
-        page_id: String,
-        control: Control,
-    ) {
-        {
-            let mut inner = self.lock();
-            match inner.held.get_mut(&key) {
-                Some(h) if h.token == token && !h.long_fired => h.long_fired = true,
-                _ => return,
-            }
-        }
-        if let Some(action) = control.long_press.clone() {
-            self.trigger(surface_id, page_id, Some(control), action);
-        }
-    }
-
     /// Run an assignment as if a pad had triggered it (the inspector's Test
     /// button) and report how it went. The same events, the same checks.
     pub async fn run_action(self: &Arc<Self>, assignment: Assignment) -> Result<Value, String> {
@@ -624,21 +532,6 @@ impl Runtime {
             (i.active_surface.clone(), i.active_page.clone())
         };
         self.clone().run_action_async(s, p, None, assignment).await
-    }
-
-    fn trigger(
-        self: &Arc<Self>,
-        surface_id: String,
-        page_id: String,
-        control: Option<Control>,
-        assignment: Assignment,
-    ) {
-        let rt = self.clone();
-        self.handle.spawn(async move {
-            let _ = rt
-                .run_action_async(surface_id, page_id, control, assignment)
-                .await;
-        });
     }
 
     /// Check an assignment the way saving and running do, without doing either.

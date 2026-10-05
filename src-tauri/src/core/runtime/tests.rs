@@ -1,3 +1,4 @@
+use super::input::LONG_PRESS;
 use super::*;
 use crate::core::model::{Animation, ControlPos, Rgb, Visual};
 use crate::devices::virtual_device::VIRTUAL_ID;
