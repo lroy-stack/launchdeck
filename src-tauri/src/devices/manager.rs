@@ -671,7 +671,7 @@ mod tests {
         let hw = FakeHardware::default();
         let mut m = manager(&hw);
         hw.plug(&[LPX_ID]);
-        hw.others(&["Launchpad Mini MK3 LPMiniMK3 MIDI", "Launchpad Pro MK3"]);
+        hw.others(&["Launchpad Pro MK3", "Launchpad XL"]);
         assert_eq!(look(&mut m, true).to_connect, [LPX_ID]);
         assert_eq!(hw.made_for(), [LPX_ID], "only the Launchpad X got a device");
         let list = m.list();
@@ -683,11 +683,8 @@ mod tests {
             names,
             [
                 ("Launchpad X", DeviceStatus::Connected),
-                (
-                    "Launchpad Mini MK3 LPMiniMK3 MIDI",
-                    DeviceStatus::Unsupported
-                ),
                 ("Launchpad Pro MK3", DeviceStatus::Unsupported),
+                ("Launchpad XL", DeviceStatus::Unsupported),
             ]
         );
         assert!(list[1..].iter().all(|d| !d.connected
@@ -698,7 +695,7 @@ mod tests {
         let err = m.connect(pro).unwrap_err();
         assert_eq!(
             err.to_string(),
-            "Not supported yet: LaunchDeck works with the Launchpad X."
+            "Not supported yet: LaunchDeck works with the Launchpad X and the Launchpad Mini MK3."
         );
         assert!(m.disconnect(pro).is_err());
         assert_eq!(hw.made_for(), [LPX_ID], "a connect request opens nothing");

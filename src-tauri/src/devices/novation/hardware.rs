@@ -18,9 +18,9 @@ use crate::platform::Platform;
 /// Every model recognised on the ports.
 static KNOWN: [&ModelProfile; 2] = [&launchpad_x::PROFILE, &launchpad_mini_mk3::PROFILE];
 
-/// The models LaunchDeck drives; the others are listed as not supported
-/// yet. The Mini MK3 joins with package M6 of the Mini MK3 plan.
-static DRIVEN: [&ModelProfile; 1] = [&launchpad_x::PROFILE];
+/// The models LaunchDeck drives; a recognised model missing here would be
+/// listed as not supported yet.
+static DRIVEN: [&ModelProfile; 2] = [&launchpad_x::PROFILE, &launchpad_mini_mk3::PROFILE];
 
 pub(crate) struct NovationHardware {
     backend: Arc<dyn MidiBackend>,
@@ -195,13 +195,8 @@ mod tests {
     }
 
     #[test]
-    fn a_mini_mk3_is_listed_once_and_never_opened() {
+    fn a_mini_mk3_is_one_unit_driven_on_its_midi_interface() {
         // D-X4: on Linux it was listed per port, on Windows not at all.
-        let mini = (
-            "unsupported:launchpad-mini-mk3".to_string(),
-            "Launchpad Mini MK3".to_string(),
-            DeviceStatus::Unsupported,
-        );
         let linux = [
             port(
                 "Launchpad Mini MK3:Launchpad Mini MK3 LPMiniMK3 DA 20:0",
@@ -212,18 +207,32 @@ mod tests {
                 "20:1",
             ),
         ];
-        let windows = [
+        let windows_in = [
             port("LPMiniMK3 MIDI", DAW_IF),
             port("MIDIIN2 (LPMiniMK3 MIDI)", MIDI_IF),
         ];
-        for (platform, list) in [(Platform::Linux, linux), (Platform::Windows, windows)] {
+        let windows_out = [
+            port("LPMiniMK3 MIDI", DAW_IF),
+            port("MIDIOUT2 (LPMiniMK3 MIDI)", MIDI_IF),
+        ];
+        for (platform, inputs, outputs, used) in [
+            (Platform::Linux, &linux, &linux, "20:1"),
+            (Platform::Windows, &windows_in, &windows_out, MIDI_IF),
+        ] {
             let midi = FakeMidi::default();
-            midi.set_ports(&list, &list);
+            midi.set_ports(inputs, outputs);
             let mut m = manager_on(&midi, platform);
-            assert!(look(&mut m).is_empty(), "{platform:?}");
-            assert_eq!(listed(&m), std::slice::from_ref(&mini), "{platform:?}");
-            assert_eq!(midi.open_links(), 0);
-            assert!(midi.take_sent().is_empty());
+            assert_eq!(look(&mut m), ["launchpad-mini-mk3:1"], "{platform:?}");
+            assert_eq!(
+                listed(&m),
+                [(
+                    "launchpad-mini-mk3:1".to_string(),
+                    "Launchpad Mini MK3".to_string(),
+                    DeviceStatus::Connected
+                )],
+                "{platform:?}"
+            );
+            assert_eq!(outputs_used(&midi), [used], "{platform:?}");
         }
     }
 

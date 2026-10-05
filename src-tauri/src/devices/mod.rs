@@ -33,7 +33,9 @@ pub enum DeviceError {
     Midi(String),
     #[error("LaunchDeck does not know this device. Press Look again.")]
     Unknown(String),
-    #[error("Not supported yet: LaunchDeck works with the Launchpad X.")]
+    #[error(
+        "Not supported yet: LaunchDeck works with the Launchpad X and the Launchpad Mini MK3."
+    )]
     Unsupported(String),
     #[error("The Launchpad is in its bootloader. Unplug it and plug it in again.")]
     Bootloader(String),

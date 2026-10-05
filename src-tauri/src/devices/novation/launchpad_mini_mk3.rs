@@ -1,6 +1,9 @@
-//! The Launchpad Mini MK3, as profile data (MINI-PRM, 2019-11-08). Its ports
-//! are recognised and the unit is listed as not supported yet; LaunchDeck
-//! drives it from package M6 of the Mini MK3 plan. NOT HARDWARE VERIFIED.
+//! The Launchpad Mini MK3, as profile data (MINI-PRM, 2019-11-08).
+//! `Mk3Device` drives it with the shared MK3 codec and the Mini's product
+//! byte. Static colours use RGB colourspecs; pulse and flash are the unit's
+//! own, with the nearest entry of the approximate palette (`palette.rs`).
+//! Its pads send no velocity, so a press reads as full. Tested against the
+//! simulator in `device_tests.rs` only: NOT HARDWARE VERIFIED.
 
 use super::profile::{ModelProfile, Role};
 use super::protocol::Product;
