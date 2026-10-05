@@ -1,4 +1,4 @@
-// Plugins: manifests, settings, network access, secrets, logs and scans.
+// Plugins: manifests, settings, network access, secrets, logs, scans and the example plugins the app ships.
 
 import { z } from "zod";
 import { appearanceSchema, paramDefSchema, providerKindSchema } from "./actions";
@@ -193,6 +193,19 @@ export const pluginsOverviewSchema = z.object({
   legacySecrets: legacySecretsSchema,
 });
 export type PluginsOverview = z.infer<typeof pluginsOverviewSchema>;
+
+/** An example plugin the app ships, as the Plugins screen offers it. */
+export const exampleInfoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  version: z.string(),
+  description: z.string(),
+  /** A plugin with this id is installed already, from any plugins folder. */
+  installed: z.boolean(),
+  /** It asks for network access, which stays off until the person allows an address. */
+  network: z.boolean(),
+});
+export type ExampleInfo = z.infer<typeof exampleInfoSchema>;
 
 export const scanReportSchema = z.object({
   loaded: z.number(),

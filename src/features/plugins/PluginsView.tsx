@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/ipc";
-import type { PluginConfig, PluginInfo, PluginLog, PluginManifest, PluginsOverview, ProblemKind, SecretStoreStatus } from "../../lib/schema";
+import type { ExampleInfo, PluginConfig, PluginInfo, PluginLog, PluginManifest, PluginsOverview, ProblemKind, SecretStoreStatus } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
 import { LegacySecretsNotice, NetworkAccess, Secrets } from "./Access";
 import { LegacySecret } from "./LegacySecret";
-import { folderName, problemText } from "./text";
+import { EXAMPLES_NOTE, NO_PLUGINS, folderName, problemText } from "./text";
 
 const PERMISSION_NOTES: Record<string, string> = {
   automation: "Sends keystrokes and opens apps on your behalf.",
@@ -21,9 +21,11 @@ export function PluginsView() {
   const toast = useStore((s) => s.toast);
   const refreshPlugins = useStore((s) => s.refreshPlugins);
   const [overview, setOverview] = useState<PluginsOverview | null>(null);
+  const [examples, setExamples] = useState<ExampleInfo[]>([]);
+  const [installing, setInstalling] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    await attempt(async () => setOverview(await api.plugins.list()));
+    await Promise.all([attempt(async () => setOverview(await api.plugins.list())), attempt(async () => setExamples(await api.plugins.examples()))]);
   }, [attempt]);
 
   useEffect(() => {
@@ -51,6 +53,13 @@ export function PluginsView() {
     if (ok) toast(summary);
   };
 
+  const install = async (example: ExampleInfo) => {
+    setInstalling(example.id);
+    const ok = await change(() => api.plugins.installExample(example.id));
+    setInstalling(null);
+    if (ok) toast(`${example.name} is installed and on.`);
+  };
+
   const installed = overview?.plugins ?? [];
   const installedIds = new Set(installed.map((i) => i.plugin.id));
   const bundled = builtIn.filter((p) => !p.external && !installedIds.has(p.id));
@@ -69,9 +78,16 @@ export function PluginsView() {
       <section className="panel plugin-folders">
         <div className="field-head">
           <h4>Installed plugins</h4>
-          <button className="btn small" onClick={() => void rescan()}>
-            Rescan
-          </button>
+          <div className="row">
+            {overview && overview.folders.length > 0 && (
+              <button className="btn small" onClick={() => void attempt(() => api.plugins.revealFolder())}>
+                Show plugins folder
+              </button>
+            )}
+            <button className="btn small" onClick={() => void rescan()}>
+              Rescan
+            </button>
+          </div>
         </div>
         {overview && overview.folders.length > 0 ? (
           <p className="hint">
@@ -98,10 +114,21 @@ export function PluginsView() {
             ))}
           </ul>
         )}
-        {overview && installed.length === 0 && overview.issues.length === 0 && <p className="hint">Nothing installed yet. See docs/plugin-sdk/getting-started.md.</p>}
+        {overview && installed.length === 0 && overview.issues.length === 0 && (
+          <>
+            <p>{NO_PLUGINS}</p>
+            <p className="hint">
+              {examples.some((e) => !e.installed)
+                ? "Install an example below, or put a plugin's folder in the plugins folder and press Rescan."
+                : "Put a plugin's folder in the plugins folder, then press Rescan."}
+            </p>
+          </>
+        )}
       </section>
 
       {overview && <LegacySecretsNotice overview={overview} change={change} />}
+
+      {examples.length > 0 && <ExamplePlugins examples={examples} installing={installing} install={(e) => void install(e)} />}
 
       <div className="cards wide">
         {installed.map((info) => (
@@ -135,9 +162,43 @@ export function PluginsView() {
       </div>
       <p className="hint foot">
         Built-in plugins are part of LaunchDeck and declare what they use. Installed plugins can only use the small contract the host offers. Network access is the
-        one thing an installed plugin can ask for, by exact address, and it is off until you allow it. See docs/plugins/permissions.md.
+        one thing an installed plugin can ask for, by exact address, and it is off until you allow it.
       </p>
     </div>
+  );
+}
+
+interface ExamplePluginsProps {
+  examples: ExampleInfo[];
+  /** The id being installed now; every Install waits until it is done. */
+  installing: string | null;
+  install: (example: ExampleInfo) => void;
+}
+
+/** The example plugins the app ships, each with Install or Installed. */
+function ExamplePlugins({ examples, installing, install }: ExamplePluginsProps) {
+  return (
+    <section className="panel plugin-examples">
+      <h4>Example plugins</h4>
+      <p className="hint">{EXAMPLES_NOTE}</p>
+      <ul className="plain">
+        {examples.map((e) => (
+          <li key={e.id}>
+            <b>{e.name}</b>
+            <span className="pill">v{e.version}</span>
+            {e.network && <span className="pill ghost">asks for network access</span>}
+            <span>{e.description}</span>
+            {e.installed ? (
+              <span className="pill live">Installed</span>
+            ) : (
+              <button className="btn small primary" aria-label={`Install ${e.name}`} disabled={installing !== null} onClick={() => install(e)}>
+                {installing === e.id ? "Installing…" : "Install"}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

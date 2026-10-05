@@ -319,6 +319,7 @@ export async function createPreviewTransport() {
           legacySecrets: { entries: [], unreadable: false },
         };
       case "plugins_logs":
+      case "plugins_examples":
         return [];
       case "plugins_set_enabled":
       case "plugins_set_config":
@@ -331,6 +332,8 @@ export async function createPreviewTransport() {
       case "plugins_discard_legacy_secrets":
       case "plugins_migrate_plugin_legacy_secrets":
       case "plugins_remove_plugin_legacy_secrets":
+      case "plugins_install_example":
+      case "plugins_reveal_folder":
         throw PLUGINS_IN_PREVIEW;
       case "agents_command":
       case "agents_set_access":

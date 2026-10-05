@@ -14,6 +14,7 @@ import {
 import {
   catalogSchema,
   controlExplanationSchema,
+  exampleInfoSchema,
   feedbackReviewSchema,
   frameSchema,
   observableCatalogSchema,
@@ -36,6 +37,7 @@ import {
   type ControlExplanation,
   type FeedbackReview,
   type ControlPos,
+  type ExampleInfo,
   type Frame,
   type Mode,
   type ObservableCatalog,
@@ -191,6 +193,12 @@ export const api = {
     migratePluginLegacySecrets: (id: string): Promise<PluginInfo> => call("plugins_migrate_plugin_legacy_secrets", pluginInfoSchema, { id }),
     /** Delete one plugin's plain-text secrets without moving them. */
     removePluginLegacySecrets: (id: string): Promise<PluginInfo> => call("plugins_remove_plugin_legacy_secrets", pluginInfoSchema, { id }),
+    /** The example plugins the app ships (Hello, Counter, Home Assistant), and which are installed. */
+    examples: (): Promise<ExampleInfo[]> => call("plugins_examples", z.array(exampleInfoSchema)),
+    /** Install one into the plugins folder and turn it on; nothing is granted. Resolves with the new overview. */
+    installExample: (id: string): Promise<PluginsOverview> => call("plugins_install_example", pluginsOverviewSchema, { id }),
+    /** Show the plugins folder in the system's file manager, creating it first. */
+    revealFolder: (): Promise<void> => call("plugins_reveal_folder", null),
   },
   /** Auto Context: the surface follows the application in front. */
   context: {

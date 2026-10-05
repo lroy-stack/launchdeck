@@ -1,5 +1,7 @@
-// The words a plugin's problem is said with. Rust decides the kind; this only
-// says it, the same way on a plugin's card and for a folder that was skipped.
+// The words of the Plugins screen that more than one place or a test uses: a
+// plugin's problem (Rust decides the kind; this only says it, the same way on a
+// plugin's card and for a folder that was skipped), the empty state and the
+// example plugins the app ships.
 
 import type { ProblemKind } from "../../lib/schema";
 
@@ -17,3 +19,9 @@ export const problemText = (kind?: ProblemKind): string => (kind ? PROBLEM[kind]
 
 /** The last part of a folder path, which is how a person knows the folder. */
 export const folderName = (dir: string): string => dir.split(/[\\/]/).filter(Boolean).pop() ?? dir;
+
+/** The empty state of the installed plugins. */
+export const NO_PLUGINS = "No plugins yet.";
+
+/** What installing an example does, said once above the list. */
+export const EXAMPLES_NOTE = "Installing adds the plugin and turns it on. It cannot reach the network until you allow an address.";
