@@ -17,7 +17,7 @@ When a change moves ownership (a new top-level module, a concept changing owner,
 | Starter content | `surfaces/<starter>.rs` | same |
 | A workspace schema change | the types in `core::model`, plus one new persistence step file (as `persistence/legacy.rs` and `persistence/bindings.rs` are) | same |
 | Platform behaviour | `platform.rs`, or the adapter file of the outside system it talks to | same |
-| A portable format (Surface or Pack files) | `artifacts/` | planned (C1) |
+| A portable format (Surface or Pack files) | `artifacts/` | same; inspect, export, import planning and apply are planned (C2-C5) |
 | UI | `src/features/<area>` (see [FRONTEND_MAP.md](FRONTEND_MAP.md)) | same |
 
 If nothing in the table fits, find the owner of the nearest concept in section 4 before creating anything. A new top-level module needs a row in section 3 in the same commit.
@@ -82,7 +82,7 @@ Dependencies point inward: domain ← services ← adapters ← UI boundary. The
 | `platform` | `Platform { Linux, MacOs, Windows }` and `Platform::current()`, the only product-logic reader of `cfg!(target_os)` | nothing | — | yes (allowed) | inline | `surfaces` (re-export), `context::identity`, `plugins::system`, `plugins::external::secrets`; every module may import it |
 | `commands` | the 50 Tauri commands, thin wrappers over the runtime, one file per feature: `commands::workspace` (snapshot, the virtual Launchpad X's frame and pads, mode, activation, editing, reset, preferences), `context`, `actions` (run, catalog, validate, observables, the test event), `feedback` (explain, review), `devices`, `agents`, `plugins`; `CmdResult` in `mod.rs`. Their names, argument names and return types are the IPC contract with `src/lib/ipc.ts`. Later packages add `artifacts.rs` (C5) and `app.rs` | anything (today `core::{model, runtime, explain, review}`, `state`, `actions::definition`, `context`, `devices`, `events::external`, `agents`, `plugins::external`) | — | no | none of their own; the payloads are pinned by the contract fixtures (section 6) | `lib.rs` (`generate_handler!`) |
 | `tray` | the system tray menu (`build_tray`): open the window, one item per surface (activated through the runtime), quit | anything (today `core::runtime`) | — | no | none of its own | `lib.rs` (startup) |
-| `artifacts` | **planned (C1-C5)**: portable Surface and Pack files: `limits`, `json` (pre-pass, digest, canonical writer), `format`, `inspect`, `export`, `env`, `plan`, `apply`, `service` | see section 5 | see section 5 | no | planned: unit tests beside each file, `tests/artifacts_security.rs`, `tests/artifacts_contract.rs` | `lib.rs`, `commands` only |
+| `artifacts` | portable Surface and Pack files, one UTF-8 JSON document each, independent of the workspace schema: the format constants (`FORMAT_SURFACE`, `FORMAT_PACK`, `FORMAT_VERSION`, extensions, media types) in `mod.rs`, `limits` (every limit of plan 7.18, `ArtifactLimits` for the UI), `json` (the pre-pass over the raw text, `content_digest`, the canonical writer). Planned: `format` (C1), `inspect`, `export`, `env`, `plan`, `apply`, `service` (C2-C5) | `core::validate`, `state::feedback`, `actions::params`, `context::{rules, portable}` (limits they own); see section 5 | see section 5 | no | inline in each file; planned: `tests/artifacts_security.rs`, `tests/artifacts_contract.rs` | `lib.rs`, `commands` only (none yet) |
 
 ## 4. Owners of cross-cutting concepts
 
@@ -107,7 +107,7 @@ One owner per concept. Before adding a type, a constant or a helper for one of t
 | Context rules | `context::rules::{ContextRule, ContextSettings}` | stored in `Workspace.context`; checked by `context::rules::checked` |
 | Agent model | `agents::model` | the live state is `agents::service::AgentControl` |
 | Plugin manifest and SDK version | `plugins::external::manifest` (`MANIFEST_SCHEMA`), `plugins::external::{ABI_VERSION, SDK_VERSION}` | built-in providers describe themselves with `plugins::PluginManifest` |
-| Portable artifacts and their versions | `artifacts` (planned, C1) | `formatVersion` 1, independent of every other version number |
+| Portable artifacts and their versions | `artifacts` | `artifacts::FORMAT_VERSION` (1), independent of every other version number |
 | Version requirements | the `semver` crate | a plugin manifest's `version` keeps its own grammar (`plugins::external::manifest::Version`, leading zeros accepted) and converts with `Version::to_semver` to be matched against a requirement |
 | IPC payload shapes | the Rust types (serde) | Zod schemas in `src/lib/schema/`, one file per domain; contract fixtures in section 6 |
 | Tauri commands | `commands`, one file per feature | registered in `generate_handler!` in `lib.rs`; only `src/lib/ipc.ts` calls them |

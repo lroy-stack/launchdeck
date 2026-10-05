@@ -14,12 +14,14 @@
 //! * `surfaces`    starter surfaces
 //! * `persistence` versioned JSON store and its migrations
 //! * `audit`       the append-only audit trail
+//! * `artifacts`   portable Surface and Pack files: their format, limits and checks
 //! * `platform`    the operating system, as a value logic takes as a parameter
 //! * `commands`    the Tauri commands, one file per feature
 //! * `tray`        the system tray menu
 
 pub mod actions;
 pub mod agents;
+pub mod artifacts;
 pub mod audit;
 pub mod context;
 pub mod core;
