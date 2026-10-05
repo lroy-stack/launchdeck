@@ -131,7 +131,7 @@ export const moduleMap = { crateRoot: "lib.rs", map: "docs/architecture/CODEBASE
 // `baseline` is the production line count (tests excluded) when the entry was made;
 // growth above 10 % is reported. Remove an entry when its file is split.
 export const largeFiles = [
-  { file: "core/runtime.rs", baseline: 2114, reason: "the composition root, about ten responsibilities; split into core/runtime/ planned (A7)" },
+  { file: "core/runtime/mod.rs", baseline: 2114, reason: "the composition root, about ten responsibilities; being split into core/runtime/ (A7)" },
   { file: "plugins/external/manifest.rs", baseline: 934, reason: "one concept, strict manifest parsing for schemas 1-4; kept whole (plan section 2)" },
   { file: "plugins/external/network.rs", baseline: 827, reason: "the security-critical network broker, one flow; kept whole (plan section 2)" },
   { file: "plugins/external/sandbox.rs", baseline: 771, reason: "the only Wasmtime file, on purpose; kept whole (plan section 2)" },
