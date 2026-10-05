@@ -27,9 +27,10 @@ use crate::platform::Platform;
 /// What importing `parsed` into `workspace` would do with `decisions`, on
 /// the installation `env` describes. Changes nothing, runs nothing, reads
 /// nothing but its arguments (and, through `env.host`, the runtime's
-/// checks). The same file, workspace, decisions and installed providers
-/// give the same effects and digest; `plan_id` is new each time (the
-/// service keeps the id of the pending import).
+/// checks) and the system it runs on, whose rules decide what a full path
+/// and a launch are. The same file, workspace, decisions and installed
+/// providers give the same effects and digest; `plan_id` is new each time
+/// (the service keeps the id of the pending import).
 pub fn plan(
     parsed: &ParsedArtifact,
     workspace: &Workspace,

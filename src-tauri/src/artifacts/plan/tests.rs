@@ -994,6 +994,15 @@ fn text(value: &str) -> InputValue {
     }
 }
 
+/// A full path on the system the tests run on: `plan` reads a path answer
+/// by that system's rules.
+fn full_path(tail: &str) -> String {
+    match Platform::current() {
+        Platform::Windows => format!("C:\\{}", tail.replace('/', "\\")),
+        Platform::Linux | Platform::MacOs => format!("/{tail}"),
+    }
+}
+
 fn application(namespace: &str, id: &str) -> InputValue {
     InputValue::Application {
         namespace: namespace.into(),
@@ -1144,7 +1153,7 @@ fn inputs_need_valid_answers_where_they_are_used() {
     assert!(p.effects.input_values.is_empty());
 
     let good = answers(&[
-        ("folder", text("/home/me/notes")),
+        ("folder", text(&full_path("home/me/notes"))),
         ("hook", text("https://hooks.example.com/x")),
     ]);
     let p = plan_of(&file, &ws, &good);
@@ -1202,12 +1211,12 @@ fn what_the_installed_provider_says_of_an_answer_belongs_to_the_input() {
         refused_values: vec![(
             "acme.notes.mark".into(),
             "folder".into(),
-            json!("/forbidden"),
+            json!(full_path("forbidden")),
         )],
         ..Host::default()
     };
     let decisions = answers(&[
-        ("folder", text("/forbidden")),
+        ("folder", text(&full_path("forbidden"))),
         ("hook", text("https://example.com/x")),
     ]);
     let p = plan(&file, &ws, &with_host(host), &decisions);
@@ -1223,7 +1232,7 @@ fn what_the_installed_provider_says_of_an_answer_belongs_to_the_input() {
 
     // A request address given as an answer is read as the runtime reads it.
     let decisions = answers(&[
-        ("folder", text("/srv")),
+        ("folder", text(&full_path("srv"))),
         ("hook", text("http://0x7f000001/")),
     ]);
     let p = plan(&file, &ws, &env(), &decisions);
