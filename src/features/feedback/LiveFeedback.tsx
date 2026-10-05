@@ -40,7 +40,7 @@ export function LiveFeedback({ state, control, catalog, saved, dirty }: Props) {
 
       {!view && unavailable && (
         <p className="hint" role="status">
-          Explanations come from the desktop app. {unavailable}
+          LaunchDeck could not explain this pad right now. {unavailable}
         </p>
       )}
       {!view && !unavailable && (

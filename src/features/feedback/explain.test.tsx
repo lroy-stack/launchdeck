@@ -94,11 +94,11 @@ describe("the live panel", () => {
     expect(within(details).getByText("Technical details")).toBeTruthy();
   });
 
-  it("says the explanation comes from the desktop app when the runtime is not there, and does not break", async () => {
+  it("says it could not explain the pad, and why, when the runtime is not there, and does not break", async () => {
     await saveWith([level("low", "nope")], {});
     openPad(); // the preview transport has no runtime: explain_control refuses
     const live = await panel();
-    expect(await within(live).findByText(/Explanations come from the desktop app/)).toBeTruthy();
+    expect(await within(live).findByText(/could not explain this pad right now\. Browser preview:/)).toBeTruthy();
     // The rules themselves are still there to edit.
     expect(screen.getByRole("listitem", { name: "Rule 1" })).toBeTruthy();
   });
