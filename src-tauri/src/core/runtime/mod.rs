@@ -6,6 +6,7 @@
 
 mod actions;
 mod context;
+mod devices;
 mod feedback;
 mod input;
 mod navigation;
@@ -18,7 +19,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use super::explain::OverlaySource;
 use super::model::{Assignment, Control, Page, Preferences, Surface, Workspace};
@@ -33,14 +34,13 @@ use crate::agents::view::AgentsSnapshot;
 use crate::context::observer::ForegroundObserver;
 use crate::context::status::status as context_status;
 use crate::context::{ContextStatus, Engine};
-use crate::devices::manager::{DeviceChange, DeviceInfo, DeviceManager};
+use crate::devices::manager::{DeviceInfo, DeviceManager};
 use crate::devices::virtual_device::VirtualHandle;
-use crate::events::{types, Event, EventBus};
+use crate::events::{Event, EventBus};
 use crate::persistence::Store;
 use crate::plugins::external::PluginHost;
 use crate::plugins::keyboard::Keyboard;
 use crate::plugins::PluginManifest;
-use crate::renderer;
 use crate::state::catalog::ObservableCatalog;
 use crate::state::feedback::prepare_rules;
 use crate::state::index::{ControlRef, FeedbackIndex};
@@ -398,105 +398,6 @@ impl Runtime {
 
     fn publish(&self, source: &str, kind: &str, payload: Value) {
         self.bus.publish(Event::new(source, kind, payload));
-    }
-
-    // -----------------------------------------------------------------------
-    // Rendering and devices
-    // -----------------------------------------------------------------------
-
-    pub fn render_tick(&self) {
-        let t_ms = self.epoch.elapsed().as_millis() as u64;
-        let mut changes = Vec::new();
-        {
-            let mut inner = self.lock();
-            let Inner {
-                workspace,
-                active_surface,
-                active_page,
-                overlay,
-                derived,
-                devices,
-                ..
-            } = &mut *inner;
-            let page = workspace
-                .surface(active_surface)
-                .and_then(|s| s.page(active_page));
-            for (id, caps) in devices.connected_capabilities() {
-                // A temporary look over the one the state rules give.
-                let state_of = |cid: &str| {
-                    let key = control_key(active_surface, active_page, cid);
-                    overlay
-                        .get(&key)
-                        .map(|e| e.name.clone())
-                        .or_else(|| derived.get(&key).cloned())
-                };
-                let frame = renderer::compose(page, &state_of, &caps, t_ms);
-                if let Some(change) = devices.render(&id, &frame) {
-                    changes.push(change);
-                }
-            }
-        }
-        self.announce(changes);
-    }
-
-    fn announce(&self, changes: Vec<DeviceChange>) {
-        if changes.is_empty() {
-            return;
-        }
-        for change in changes {
-            match change {
-                DeviceChange::Connected(id) => self.publish(
-                    "runtime",
-                    types::DEVICE_CONNECTED,
-                    json!({ "deviceId": id }),
-                ),
-                DeviceChange::Disconnected(id) => self.publish(
-                    "runtime",
-                    types::DEVICE_DISCONNECTED,
-                    json!({ "deviceId": id }),
-                ),
-            }
-        }
-        self.emit_state();
-    }
-
-    pub fn list_devices(&self) -> Vec<DeviceInfo> {
-        self.lock().devices.list()
-    }
-
-    pub fn connect_device(&self, id: &str) -> Result<(), String> {
-        let change = self.lock().devices.connect(id).map_err(|e| e.to_string())?;
-        self.announce(vec![change]);
-        Ok(())
-    }
-
-    pub fn disconnect_device(&self, id: &str) -> Result<(), String> {
-        let change = self
-            .lock()
-            .devices
-            .disconnect(id)
-            .map_err(|e| e.to_string())?;
-        self.announce(vec![change]);
-        Ok(())
-    }
-
-    /// Look for Launchpad X hardware; connect newly found units.
-    pub fn rescan(&self) {
-        let mut changes = Vec::new();
-        {
-            let mut inner = self.lock();
-            let (added, removed) = inner.devices.rescan_hardware();
-            changes.extend(removed);
-            for id in added {
-                match inner.devices.connect(&id) {
-                    Ok(change) => changes.push(change),
-                    Err(e) => log::warn!("found `{id}` but could not connect: {e}"),
-                }
-            }
-        }
-        // A newly registered but unconnected device also changes the list.
-        self.announce(changes);
-        self.emit_state();
     }
 
     // -----------------------------------------------------------------------
