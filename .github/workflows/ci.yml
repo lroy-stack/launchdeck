@@ -94,3 +94,27 @@ jobs:
         run: npm run build
       - name: Rust tests
         run: npm run rust:test
+
+      # Linux only, after the tests. The credential store tests against a real
+      # Secret Service: a private D-Bus session and a throwaway GNOME Keyring,
+      # set up and removed by the script.
+      - name: Secret Service
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y dbus gnome-keyring
+          sh scripts/test-secret-service.sh
+
+      # The SDK contract: the example plugins and the net-probe test plugin,
+      # rebuilt from source with the current SDK, still pass the plugin tests.
+      - name: SDK contract (rebuild plugins)
+        if: runner.os == 'Linux'
+        run: npm run plugins:build -- hello counter channels home-assistant net-probe
+      - name: SDK contract (plugin tests)
+        if: runner.os == 'Linux'
+        run: npm run rust:test -- --test plugin_sdk --test plugin_states --test home_assistant --test plugin_network
+      # Information only: some committed modules differ from a rebuild by design
+      # (hello, counter and channels stay built with SDK 0.1.x, see
+      # examples/plugins/README.md), so a difference never fails the job.
+      - name: SDK contract (rebuilt against committed)
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        run: git diff --stat
