@@ -92,11 +92,9 @@ export const importRules = [
 export const restrictedModules = [{ module: "artifacts", importers: ["lib.rs", "commands/**", "artifacts/**"] }];
 
 // Known violations, each removed by the package named. Nothing else may be added
-// here without a planned fix in PRODUCTIZATION_PLAN.md.
-export const importExceptions = [
-  // A3 moves the audit trail to crate::audit.
-  { files: ["plugins/external/capabilities.rs", "plugins/external/host.rs"], imports: "agents::audit", removedBy: "A3" },
-];
+// here without a planned fix in PRODUCTIZATION_PLAN.md. Entries have the shape
+// { files: [...], imports: "a::b", removedBy: "<package>" }.
+export const importExceptions = [];
 
 // Each outside system in exactly one adapter file (R4). Crate names as written in
 // Rust paths; `objc2_*` covers objc2_app_kit and objc2_foundation.

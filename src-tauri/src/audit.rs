@@ -1,10 +1,12 @@
-//! Lightweight audit trail: `audit.jsonl`, one JSON object per line.
+//! Lightweight audit trail: `audit.jsonl`, one JSON object per line, written
+//! by Agent Control and by the plugin host.
 //!
-//! What is recorded: lifecycle (session started / completed / failed /
-//! cancelled), approvals (requested, approved, rejected, withdrawn) and
-//! interventions (commands issued and refused). What is deliberately NOT
-//! recorded: prompts, instructions, task text, command lines and tool inputs.
-//! Only ids, tool *names* and short codes reach this file.
+//! What is recorded: agent lifecycle (session started / completed / failed /
+//! cancelled), approvals (requested, approved, rejected, withdrawn),
+//! interventions (commands issued and refused), and plugin permission and
+//! secret changes. What is deliberately NOT recorded: prompts, instructions,
+//! task text, command lines, tool inputs and secret values. Only ids, tool
+//! *names* and short codes reach this file.
 
 use std::collections::VecDeque;
 use std::fs::{self, OpenOptions};
@@ -13,7 +15,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use super::model::summarize;
+use crate::agents::model::summarize;
 use crate::events::now_ms;
 
 /// Rotate to `audit.1.jsonl` beyond this size. One generation is kept.

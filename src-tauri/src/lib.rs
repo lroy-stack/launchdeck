@@ -12,6 +12,7 @@
 
 pub mod actions;
 pub mod agents;
+pub mod audit;
 pub mod context;
 pub mod core;
 pub mod devices;

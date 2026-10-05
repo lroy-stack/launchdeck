@@ -30,7 +30,7 @@ use super::secrets::{
 };
 use super::wasm_plugin::{effective_config, WasmPlugin, MAX_WATCHING};
 use super::PluginStatus;
-use crate::agents::audit::{Actor, AuditEntry};
+use crate::audit::{Actor, AuditEntry};
 use crate::persistence::write_private;
 use crate::plugins::{ActionError, Plugin, PluginContext, PluginManifest, PluginRegistry};
 use crate::state::{StateAddress, StateHub};

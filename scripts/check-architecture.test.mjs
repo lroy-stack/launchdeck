@@ -75,11 +75,9 @@ describe("Rust import matrix", () => {
     expect(checkRustFile(rs("devices/manager.rs"), "use crate::platform::Platform;\n")).toEqual([]);
   });
 
-  it("keeps the seeded exceptions to their files and modules", () => {
-    const audit = "use crate::agents::audit::{Actor, AuditEntry};\n";
-    expect(checkRustFile(rs("plugins/external/host.rs"), audit)).toEqual([]);
-    expect(rules(checkRustFile(rs("plugins/external/manifest.rs"), audit))).toEqual(["import-matrix"]);
-    expect(rules(checkRustFile(rs("plugins/external/host.rs"), "use crate::agents::model::Status;\n"))).toEqual([
+  it("lets plugins use the audit trail only through crate::audit", () => {
+    expect(checkRustFile(rs("plugins/external/host.rs"), "use crate::audit::{Actor, AuditEntry};\n")).toEqual([]);
+    expect(rules(checkRustFile(rs("plugins/external/host.rs"), "use crate::agents::audit::AuditEntry;\n"))).toEqual([
       "import-matrix",
     ]);
   });

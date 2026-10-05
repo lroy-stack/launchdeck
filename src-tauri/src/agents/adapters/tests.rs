@@ -600,7 +600,7 @@ fn only_the_adapter_modules_name_a_vendor() {
         ("view.rs", include_str!("../view.rs")),
         ("adapter.rs", include_str!("../adapter.rs")),
         ("bridge.rs", include_str!("../bridge.rs")),
-        ("audit.rs", include_str!("../audit.rs")),
+        ("audit.rs", include_str!("../../audit.rs")),
         ("notify.rs", include_str!("../notify.rs")),
         ("plugin.rs", include_str!("../plugin.rs")),
         ("demo.rs", include_str!("../demo.rs")),

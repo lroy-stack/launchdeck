@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use url::{Host, Url};
 
-use crate::agents::audit::{Actor, Audit, AuditEntry};
+use crate::audit::{Actor, Audit, AuditEntry};
 use crate::events::now_ms;
 use crate::persistence::write_private;
 
