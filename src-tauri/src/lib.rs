@@ -16,6 +16,7 @@
 //! * `audit`       the append-only audit trail
 //! * `platform`    the operating system, as a value logic takes as a parameter
 //! * `commands`    the Tauri commands, one file per feature
+//! * `tray`        the system tray menu
 
 pub mod actions;
 pub mod agents;
@@ -32,12 +33,11 @@ pub mod state;
 pub mod surfaces;
 
 mod commands;
+mod tray;
 
 use std::sync::Arc;
 
 use serde_json::Value;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::core::runtime::{Runtime, RuntimeConfig, UiEmitter};
@@ -56,63 +56,6 @@ impl UiEmitter for TauriEmitter {
         let _ = self.0.emit(event, payload);
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tray
-// ---------------------------------------------------------------------------
-
-fn build_tray(app: &tauri::App, runtime: &Arc<Runtime>) -> tauri::Result<()> {
-    let open = MenuItem::with_id(app, "open", "Open LaunchDeck", true, None::<&str>)?;
-    let surfaces = runtime.snapshot().workspace.surfaces;
-    let items: Vec<MenuItem<tauri::Wry>> = surfaces
-        .iter()
-        .map(|s| {
-            MenuItem::with_id(
-                app,
-                format!("surface:{}", s.id),
-                &s.name,
-                true,
-                None::<&str>,
-            )
-        })
-        .collect::<tauri::Result<_>>()?;
-    let item_refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = items
-        .iter()
-        .map(|i| i as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
-        .collect();
-    let submenu = Submenu::with_items(app, "Surface", true, &item_refs)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit LaunchDeck", true, None::<&str>)?;
-    let sep = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&open, &submenu, &sep, &quit])?;
-
-    let rt = runtime.clone();
-    let mut builder = TrayIconBuilder::new().menu(&menu).tooltip("LaunchDeck");
-    if let Some(icon) = app.default_window_icon() {
-        builder = builder.icon(icon.clone());
-    }
-    builder
-        .on_menu_event(move |app, event| match event.id().as_ref() {
-            "open" => {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.show();
-                    let _ = w.unminimize();
-                    let _ = w.set_focus();
-                }
-            }
-            "quit" => app.exit(0),
-            id => {
-                if let Some(surface) = id.strip_prefix("surface:") {
-                    if let Err(e) = rt.activate_surface(surface, None) {
-                        log::warn!("tray: {e}");
-                    }
-                }
-            }
-        })
-        .build(app)?;
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
 
 pub fn run() {
     tauri::Builder::default()
@@ -139,7 +82,7 @@ pub fn run() {
                 observer: Some(context::observer::native()),
             };
             let runtime = tauri::async_runtime::block_on(Runtime::start(config));
-            if let Err(e) = build_tray(app, &runtime) {
+            if let Err(e) = tray::build_tray(app, &runtime) {
                 // The tray is a convenience; never block startup on it.
                 log::warn!("system tray unavailable: {e}");
             }
