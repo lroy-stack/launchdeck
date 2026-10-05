@@ -459,17 +459,9 @@ fn http_request(request: HttpRequest) -> Result<Value, ActionError> {
     .map_err(|e| ActionError::Failed(format!("request failed: {e}")))?;
     let status = resp.status().as_u16();
     if (300..400).contains(&status) {
-        let location: String = resp
-            .headers()
-            .get("location")
-            .and_then(|l| l.to_str().ok())
-            .unwrap_or("nowhere")
-            .chars()
-            .filter(|c| !hidden_char(*c))
-            .take(MAX_LOCATION_SHOWN)
-            .collect();
-        return Err(ActionError::Failed(format!(
-            "HTTP {status}: redirected to {location}, which is not followed"
+        return Err(ActionError::Failed(redirect_refused(
+            status,
+            resp.headers().get("location"),
         )));
     }
     if status >= 400 {
@@ -477,6 +469,33 @@ fn http_request(request: HttpRequest) -> Result<Value, ActionError> {
     } else {
         Ok(json!({ "status": status }))
     }
+}
+
+/// Why a 3xx answer fails (SF-5): its status and where it pointed, as text,
+/// each hidden character escaped and at most [`MAX_LOCATION_SHOWN`]
+/// characters of it.
+fn redirect_refused(status: u16, location: Option<&ureq::http::HeaderValue>) -> String {
+    let to = match location {
+        Some(value) => {
+            let mut shown = String::from(" to ");
+            for c in String::from_utf8_lossy(value.as_bytes())
+                .chars()
+                .take(MAX_LOCATION_SHOWN)
+            {
+                if c == '\t' || hidden_char(c) {
+                    shown.extend(c.escape_unicode());
+                } else {
+                    shown.push(c);
+                }
+            }
+            shown
+        }
+        None => " without saying where to".to_string(),
+    };
+    format!(
+        "The server answered with a redirect (HTTP {status}){to}; LaunchDeck does not follow \
+         redirects for this action."
+    )
 }
 
 #[cfg(test)]
@@ -610,13 +629,44 @@ mod tests {
         .unwrap_err()
         .message();
         served.join().unwrap();
-        assert!(
-            refused.contains("HTTP 302") && refused.contains(&target),
-            "{refused}"
+        assert_eq!(
+            refused,
+            format!(
+                "The server answered with a redirect (HTTP 302) to {target}; LaunchDeck does \
+                 not follow redirects for this action."
+            )
         );
-        assert!(refused.contains("not followed"), "{refused}");
         elsewhere.set_nonblocking(true).unwrap();
         assert!(elsewhere.accept().is_err(), "the redirect was followed");
+    }
+
+    /// The location a redirect names is shown escaped and short, never
+    /// read as anything but text.
+    #[test]
+    fn a_redirect_location_is_shown_escaped() {
+        let refused = |location: Option<&[u8]>| {
+            let value = location.map(|l| ureq::http::HeaderValue::from_bytes(l).unwrap());
+            redirect_refused(301, value.as_ref())
+        };
+        assert_eq!(
+            refused(Some(b"http://a.example/\tx")),
+            "The server answered with a redirect (HTTP 301) to http://a.example/\\u{9}x; \
+             LaunchDeck does not follow redirects for this action."
+        );
+        assert_eq!(
+            refused(Some("http://\u{430}.example/".as_bytes())),
+            "The server answered with a redirect (HTTP 301) to http://\u{430}.example/; \
+             LaunchDeck does not follow redirects for this action."
+        );
+        assert_eq!(
+            refused(None),
+            "The server answered with a redirect (HTTP 301) without saying where to; \
+             LaunchDeck does not follow redirects for this action."
+        );
+        let long = format!("http://a.example/{}", "x".repeat(500));
+        let shown = refused(Some(long.as_bytes()));
+        assert!(shown.contains(&long[..MAX_LOCATION_SHOWN]), "{shown}");
+        assert!(!shown.contains(&long[..=MAX_LOCATION_SHOWN]), "{shown}");
     }
 
     /// Where a destination is, as the plugin network broker classifies a
