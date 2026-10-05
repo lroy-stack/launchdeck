@@ -226,6 +226,28 @@ impl Desk {
         })
         .await;
     }
+
+    /// Until the interface has been told everything about `surface` coming on
+    /// screen. The runtime's state changes first; then `surface.changed` and
+    /// `page.changed` go out on the bus, which delivers them on another task,
+    /// and the state and the context are sent, the context last. Count what
+    /// the interface heard only after this, or an activation still on its way
+    /// is counted as something that happened later.
+    async fn until_heard(&self, surface: &str) {
+        let (rt, rec) = (self.rt.clone(), self.rec.clone());
+        wait_until(
+            &format!("the interface to hear that {surface} is shown"),
+            || {
+                let paged = rec
+                    .runtime_events("page.changed")
+                    .last()
+                    .is_some_and(|p| p["surfaceId"] == surface);
+                let context = serde_json::to_value(rt.context()).unwrap();
+                paged && rec.last(ui::CONTEXT).as_ref() == Some(&context)
+            },
+        )
+        .await;
+    }
 }
 
 /// What the virtual Launchpad shows for a surface, taken by opening it by hand.
@@ -267,6 +289,7 @@ async fn app_a_shows_surface_a_app_b_shows_surface_b_on_the_launchpad() {
     })
     .unwrap();
     assert_eq!(d.mode(), ContextMode::Auto);
+    d.until_heard("agent-control").await;
     let changes_before = d.rec.runtime_events("surface.changed").len();
 
     d.front(CODE).await;
@@ -283,6 +306,7 @@ async fn app_a_shows_surface_a_app_b_shows_surface_b_on_the_launchpad() {
         rt.virtual_handle().frame() == productivity
     })
     .await;
+    d.until_heard("productivity").await;
 
     // It went through the ordinary activation: the same events, the hub, the saved choice.
     let changes = d.rec.runtime_events("surface.changed");
@@ -346,6 +370,7 @@ async fn the_same_application_again_is_a_no_op() {
     let d = desk().await;
     d.front(CODE).await;
     d.until_shown("development").await;
+    d.until_heard("development").await;
     let (events, states, contexts) = (
         d.rec.runtime_events("surface.changed").len() + d.rec.runtime_events("page.changed").len(),
         d.rec.count(ui::STATE),
@@ -852,6 +877,7 @@ async fn the_interface_is_told_when_the_context_changes_and_only_then() {
     let before = d.rec.count(ui::CONTEXT);
     d.front(CODE).await;
     d.until_shown("development").await;
+    d.until_heard("development").await;
     assert!(d.rec.count(ui::CONTEXT) > before);
     let last = d.rec.last(ui::CONTEXT).unwrap();
     assert_eq!(last["mode"], "auto");
