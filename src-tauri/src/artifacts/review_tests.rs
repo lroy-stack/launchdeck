@@ -340,7 +340,7 @@ fn the_text_is_what_runs() {
             "request",
             json!({ "method": "POST", "url": "https://example.com/hook", "body": "{\"a\":1}" })
         )),
-        "POST https://example.com/hook (to example.com, port 443)\n\n{\"a\":1}"
+        "POST https://example.com/hook (goes to example.com:443)\n\n{\"a\":1}"
     );
     assert_eq!(
         item(a(
@@ -348,7 +348,7 @@ fn the_text_is_what_runs() {
             "request",
             json!({ "url": "https://example.com" })
         )),
-        "GET https://example.com (to example.com, port 443)"
+        "GET https://example.com (goes to example.com:443)"
     );
     assert_eq!(
         item(a(
@@ -416,7 +416,7 @@ fn the_text_is_read_as_the_runtime_reads_it() {
             "request",
             json!({ "method": "post", "url": "https://example.com/h", "body": " " })
         ),
-        "POST https://example.com/h (to example.com, port 443)"
+        "POST https://example.com/h (goes to example.com:443)"
     );
     assert_eq!(
         item(
@@ -424,7 +424,7 @@ fn the_text_is_read_as_the_runtime_reads_it() {
             "request",
             json!({ "method": "", "url": "https://example.com/h" })
         ),
-        "GET https://example.com/h (to example.com, port 443)"
+        "GET https://example.com/h (goes to example.com:443)"
     );
     // A blank instruction continues; a blank folder is no folder.
     assert_eq!(
@@ -594,12 +594,12 @@ fn an_address_in_other_scripts_shows_its_host_in_punycode() {
     );
     assert_eq!(
         text("https://xn--pple-43d.com/"),
-        "GET https://xn--pple-43d.com/ (to xn--pple-43d.com, port 443)"
+        "GET https://xn--pple-43d.com/ (goes to xn--pple-43d.com:443)"
     );
     // Only the host decides: a path in other scripts goes where it says.
     assert_eq!(
         text("https://example.com/caf\u{e9}"),
-        "GET https://example.com/caf\u{e9} (to example.com, port 443)"
+        "GET https://example.com/caf\u{e9} (goes to example.com:443)"
     );
 }
 
@@ -621,7 +621,7 @@ fn a_request_states_its_destination() {
     let request = |url: &str| a("http", "request", json!({ "url": url }));
     assert_eq!(
         text(request("https://evil.example#@trusted.example"), &env),
-        "GET https://evil.example#@trusted.example (to evil.example, port 443)"
+        "GET https://evil.example#@trusted.example (goes to evil.example:443)"
     );
     assert_eq!(
         text(request("https://trusted.example@evil.example/"), &env),
@@ -634,13 +634,27 @@ fn a_request_states_its_destination() {
             request("http://homeassistant.local:8123/api/webhook/x"),
             &env
         ),
-        "GET http://homeassistant.local:8123/api/webhook/x (to homeassistant.local, port 8123, \
+        "GET http://homeassistant.local:8123/api/webhook/x (goes to homeassistant.local:8123, \
          on your local network)"
     );
     assert_eq!(
         text(request("http://127.0.0.1:9000/"), &env),
-        "GET http://127.0.0.1:9000/ (to 127.0.0.1, port 9000, on this computer)"
+        "GET http://127.0.0.1:9000/ (goes to 127.0.0.1:9000, on this computer)"
     );
+    for (url, shown) in [
+        ("http://[::1]/", "(goes to [::1]:80, on this computer)"),
+        (
+            "http://192.168.1.10/",
+            "(goes to 192.168.1.10:80, on your local network)",
+        ),
+        (
+            "https://printer.local/",
+            "(goes to printer.local:443, on your local network)",
+        ),
+        ("https://example.com:8443/", "(goes to example.com:8443)"),
+    ] {
+        assert_eq!(text(request(url), &env), format!("GET {url} {shown}"));
+    }
     let privileged = KnownProvider {
         kind: crate::actions::definition::ProviderKind::Builtin,
         name: "Future".into(),

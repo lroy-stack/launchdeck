@@ -1204,7 +1204,7 @@ fn a_bound_argument_leaves_its_local_value_home() {
     assert_eq!(
         review,
         [
-            "POST https://example.com/hook (to example.com, port 443)",
+            "POST https://example.com/hook (goes to example.com:443)",
             ""
         ]
     );
@@ -1381,7 +1381,7 @@ fn pads_that_run_things_are_listed_for_review() {
             (ReviewKind::LaunchesProgram, "code --wait"),
             (
                 ReviewKind::SendsRequest,
-                "POST https://example.com/h (to example.com, port 443)"
+                "POST https://example.com/h (goes to example.com:443)"
             ),
             (ReviewKind::InstructsAgent, "Report"),
         ]
