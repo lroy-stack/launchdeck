@@ -34,6 +34,14 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": {
+      "../examples/plugins/hello/plugin.json": "examples/plugins/hello/plugin.json",
+      "../examples/plugins/hello/hello.wasm": "examples/plugins/hello/hello.wasm",
+      "../examples/plugins/counter/plugin.json": "examples/plugins/counter/plugin.json",
+      "../examples/plugins/counter/counter.wasm": "examples/plugins/counter/counter.wasm",
+      "../examples/plugins/home-assistant/plugin.json": "examples/plugins/home-assistant/plugin.json",
+      "../examples/plugins/home-assistant/home-assistant.wasm": "examples/plugins/home-assistant/home-assistant.wasm"
+    }
   }
 }

@@ -1,13 +1,16 @@
 //! External plugins (WebAssembly). Thin: `PluginHost` owns the lifecycle. Loading
 //! compiles a module, so the mutating commands run off the UI thread.
 
+use std::path::{Path, PathBuf};
+
 use serde_json::Value;
-use tauri::State;
+use tauri::path::BaseDirectory;
+use tauri::{AppHandle, Manager, State};
 
 use super::CmdResult;
 use crate::plugins::external::capabilities::Decision;
 use crate::plugins::external::{
-    LegacyMigration, LogEntry, PluginInfo, PluginsOverview, ScanReport,
+    ExampleInfo, LegacyMigration, LogEntry, PluginInfo, PluginsOverview, ScanReport,
 };
 use crate::AppState;
 
@@ -165,4 +168,59 @@ pub(crate) async fn plugins_remove_plugin_legacy_secrets(
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())
+}
+
+/// Where the example plugins the app ships are: `examples/plugins` in its
+/// resources (`bundle.resources` in `tauri.conf.json`). A debug build whose
+/// resources lack them falls back to the repository's own folder.
+fn examples_root(app: &AppHandle) -> Option<PathBuf> {
+    let bundled = app
+        .path()
+        .resolve("examples/plugins", BaseDirectory::Resource)
+        .ok();
+    if bundled.as_deref().is_some_and(Path::is_dir) {
+        return bundled;
+    }
+    if cfg!(debug_assertions) {
+        return Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/plugins"));
+    }
+    bundled
+}
+
+/// The example plugins the app ships, and which of them are installed.
+#[tauri::command]
+pub(crate) fn plugins_examples(app: AppHandle, state: State<'_, AppState>) -> Vec<ExampleInfo> {
+    examples_root(&app)
+        .map(|root| state.runtime.plugin_host().examples(&root))
+        .unwrap_or_default()
+}
+
+/// Install one of the example plugins the app ships into the plugins folder,
+/// and turn it on. Nothing is granted: one that asks for the network reaches
+/// nothing until the person allows an address.
+#[tauri::command]
+pub(crate) async fn plugins_install_example(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> CmdResult<PluginsOverview> {
+    let root = examples_root(&app).ok_or("the example plugins are not available")?;
+    let host = state.runtime.plugin_host().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        host.install_example(&root, &id)
+            .map(|()| host.overview())
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Show the plugins folder in the system's file manager, creating it first.
+#[tauri::command]
+pub(crate) fn plugins_reveal_folder(state: State<'_, AppState>) -> CmdResult<()> {
+    let host = state.runtime.plugin_host();
+    let folder = host.install_folder().ok_or("there is no plugins folder")?;
+    std::fs::create_dir_all(folder)
+        .map_err(|e| format!("could not create {}: {e}", folder.display()))?;
+    open::that_detached(folder).map_err(|e| format!("could not open {}: {e}", folder.display()))
 }

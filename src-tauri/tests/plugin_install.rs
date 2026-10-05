@@ -377,3 +377,73 @@ fn an_example_is_described_by_its_manifest_on_the_wire() {
         })
     );
 }
+
+/// `bundle.resources` in `tauri.conf.json` ships the manifest and the module
+/// of Hello, Counter and Home Assistant, and nothing else, at the place the
+/// app looks for them: laid out as the map says, they are offered and they
+/// install. (The bundle itself is built by the release step, not here.)
+#[test]
+fn the_app_ships_the_three_examples_where_it_looks_for_them() {
+    let conf: Value = serde_json::from_str(
+        &fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("tauri.conf.json")).unwrap(),
+    )
+    .unwrap();
+    let resources = conf["bundle"]["resources"]
+        .as_object()
+        .expect("bundle.resources is a map from source to place in the app");
+
+    let mut shipped: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (source, place) in resources {
+        let place = place.as_str().unwrap();
+        let rest = place
+            .strip_prefix("examples/plugins/")
+            .unwrap_or_else(|| panic!("{place} is not an example plugin"));
+        let (name, file) = rest.split_once('/').unwrap();
+        assert_eq!(
+            source,
+            &format!("../{place}"),
+            "{place} comes from the repository's copy"
+        );
+        shipped.entry(name.into()).or_default().push(file.into());
+    }
+    let names: Vec<&str> = shipped.keys().map(String::as_str).collect();
+    assert_eq!(names, ["counter", "hello", "home-assistant"]);
+    for (name, files) in &mut shipped {
+        let example = discovery_main(&repo_examples().join(name));
+        files.sort();
+        let mut want = vec!["plugin.json".to_string(), example];
+        want.sort();
+        assert_eq!(files, &want, "{name}: its manifest and the module it names");
+    }
+
+    // The resource folder as the map lays it out.
+    let w = world_with(&[], None);
+    let resource_dir = w.examples.with_file_name("Resources");
+    for (source, place) in resources {
+        let to = resource_dir.join(place.as_str().unwrap());
+        fs::create_dir_all(to.parent().unwrap()).unwrap();
+        fs::copy(Path::new(env!("CARGO_MANIFEST_DIR")).join(source), to).unwrap();
+    }
+    let root = resource_dir.join("examples/plugins");
+    let mut offered: Vec<String> = w.host.examples(&root).into_iter().map(|e| e.id).collect();
+    offered.sort();
+    assert_eq!(offered, [COUNTER, HELLO, HA]);
+    for id in [HELLO, COUNTER, HA] {
+        w.host.install_example(&root, id).unwrap();
+        let info = w.host.get(id).unwrap();
+        assert_eq!(
+            info.plugin.external.as_ref().unwrap().status,
+            PluginStatus::Enabled,
+            "{id}"
+        );
+    }
+    assert!(w.host.issues().is_empty(), "{:?}", w.host.issues());
+}
+
+/// The module file an example's manifest names.
+fn discovery_main(dir: &Path) -> String {
+    launchdeck_lib::plugins::external::discovery::load_dir(dir)
+        .unwrap_or_else(|e| panic!("{}: {e}", dir.display()))
+        .manifest
+        .main
+}

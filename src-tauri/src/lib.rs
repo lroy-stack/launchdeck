@@ -137,6 +137,9 @@ pub fn run() {
             commands::plugins::plugins_discard_legacy_secrets,
             commands::plugins::plugins_migrate_plugin_legacy_secrets,
             commands::plugins::plugins_remove_plugin_legacy_secrets,
+            commands::plugins::plugins_examples,
+            commands::plugins::plugins_install_example,
+            commands::plugins::plugins_reveal_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running LaunchDeck");
