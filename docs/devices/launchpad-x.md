@@ -1,6 +1,6 @@
 # Novation Launchpad X
 
-Everything in this file concerns `src-tauri/src/devices/launchpad_x.rs`, the only code in LaunchDeck that knows MIDI bytes. It reaches the ports through the transport in `src-tauri/src/devices/midi/` (`midir` only in `midi/system.rs`), and its golden transcript is `src-tauri/src/devices/launchpad_x_tests.rs`.
+Everything in this file concerns `src-tauri/src/devices/novation/launchpad_x.rs`, the only code in LaunchDeck that knows MIDI bytes. It reaches the ports through the transport in `src-tauri/src/devices/midi/` (`midir` only in `midi/system.rs`), and its golden transcript is `src-tauri/src/devices/novation/launchpad_x_tests.rs`.
 
 **Hardware status: not tested on a physical unit.** The prototype was developed without a Launchpad X. Encoders and decoders are covered by byte-level unit tests. Sections below say what is verified from Novation's documentation and what is not.
 

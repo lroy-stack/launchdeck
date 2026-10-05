@@ -31,7 +31,7 @@ From the repository root:
 
 ## Hard invariants
 
-* No MIDI, notes or CCs outside `devices` (bytes in `src-tauri/src/devices/launchpad_x.rs`, `midir` only in `src-tauri/src/devices/midi/system.rs`); everything else addresses a pad by `ControlPos`.
+* No MIDI, notes or CCs outside `devices` (bytes in `src-tauri/src/devices/novation/`, `midir` only in `src-tauri/src/devices/midi/system.rs`); everything else addresses a pad by `ControlPos`.
 * Plugins never touch devices, the renderer or runtime internals; they act through the Plugin trait, host functions and the network broker.
 * Secrets live only in the system credential store, never in a file, log or audit entry, and never reach a plugin (the legacy schema 1-3 exception is removed by package D4).
 * The Context Engine never talks to devices; an application's identity is its stable id (bundle id, executable name, `WM_CLASS`), never its display name; no history of what was in front.

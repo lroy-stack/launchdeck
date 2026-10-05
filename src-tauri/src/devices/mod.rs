@@ -2,14 +2,12 @@
 //!
 //! The rest of the runtime only ever sees `SurfaceDevice`, `DeviceCapabilities`,
 //! `SurfaceFrame` and `DeviceInput`. Raw MIDI bytes live exclusively in
-//! `launchpad_x.rs`; the MIDI transport in `midi` (`midir` only in
+//! `novation`; the MIDI transport in `midi` (`midir` only in
 //! `midi/system.rs`).
 
-pub mod launchpad_x;
-#[cfg(test)]
-mod launchpad_x_tests;
 pub mod manager;
 mod midi;
+mod novation;
 pub mod virtual_device;
 
 use serde::{Deserialize, Serialize};
@@ -181,13 +179,14 @@ pub(crate) struct PortNames {
 }
 
 /// Where hardware comes from: the system's ports, and a device for a unit
-/// found on them. The real one is `launchpad_x::SystemPorts`; tests give the
-/// manager made-up port names and devices.
+/// found on them. The real one is `novation::launchpad_x::SystemPorts`; tests
+/// give the manager made-up port names and devices.
 pub(crate) trait PortSource: Send {
     fn list(&self) -> PortNames;
     /// A device for a Launchpad X found on these ports. Nothing is opened
     /// until `connect`.
-    fn launchpad_x(&self, found: launchpad_x::DiscoveredDevice) -> Box<dyn SurfaceDevice>;
+    fn launchpad_x(&self, found: novation::launchpad_x::DiscoveredDevice)
+        -> Box<dyn SurfaceDevice>;
 }
 
 /// A physical (or virtual) control surface.

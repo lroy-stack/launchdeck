@@ -8,13 +8,13 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use super::midi::{MidiBackend, MidiLink, PortInfo};
-use super::{
+use crate::core::model::{ControlPos, Rgb};
+use crate::devices::midi::{MidiBackend, MidiLink, PortInfo};
+use crate::devices::{
     AnimationCaps, AuxCaps, DeviceCapabilities, DeviceError, DeviceIdentity, DeviceInput,
     DeviceKind, GridCaps, InputKind, InputSender, PortNames, PortSource, SurfaceDevice,
     SurfaceFrame,
 };
-use crate::core::model::{ControlPos, Rgb};
 
 // ---------------------------------------------------------------------------
 // Protocol (pure functions, unit tested without hardware)
@@ -138,6 +138,7 @@ pub fn encode_rgb_updates(changes: &[(u8, Rgb)]) -> Vec<Vec<u8>> {
 /// Hardware flashing colourspec: `01 <index> <colour B> <colour A>`. Palette
 /// based. Implemented and byte-tested, but not used by the renderer until the
 /// palette is verified on hardware (animations are synthesised from RGB frames).
+#[cfg_attr(not(test), expect(dead_code, reason = "byte-tested, not yet rendered"))]
 pub fn encode_flash(index: u8, colour_b: u8, colour_a: u8) -> Vec<u8> {
     let mut m = SYSEX_HEADER.to_vec();
     m.extend([0x03, 0x01, index, colour_b, colour_a, SYSEX_END]);
@@ -145,6 +146,7 @@ pub fn encode_flash(index: u8, colour_b: u8, colour_a: u8) -> Vec<u8> {
 }
 
 /// Hardware pulsing colourspec: `02 <index> <palette>`.
+#[cfg_attr(not(test), expect(dead_code, reason = "byte-tested, not yet rendered"))]
 pub fn encode_pulse(index: u8, palette: u8) -> Vec<u8> {
     let mut m = SYSEX_HEADER.to_vec();
     m.extend([0x03, 0x02, index, palette, SYSEX_END]);

@@ -8,9 +8,11 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 use super::launchpad_x::{discover, SystemPorts};
-use super::midi::testkit::{port, FakeMidi};
-use super::{DeviceInput, InputKind, Led, LedCell, PortSource, SurfaceDevice, SurfaceFrame};
 use crate::core::model::{Animation, ControlPos, Rgb};
+use crate::devices::midi::testkit::{port, FakeMidi};
+use crate::devices::{
+    DeviceInput, InputKind, Led, LedCell, PortSource, SurfaceDevice, SurfaceFrame,
+};
 
 /// macOS names: the unit's input is "… Out" and its output "… In".
 const IN_NAME: &str = "Launchpad X LPX MIDI Out";

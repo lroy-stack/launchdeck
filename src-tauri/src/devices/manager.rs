@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 use serde::Serialize;
 
-use super::launchpad_x::{self, SystemPorts};
 use super::midi::SystemMidi;
+use super::novation::launchpad_x::{self, SystemPorts};
 use super::{
     AnimationCaps, AuxCaps, DeviceCapabilities, DeviceError, DeviceIdentity, DeviceKind,
     InputSender, PortSource, SurfaceDevice, SurfaceFrame,
@@ -364,7 +364,7 @@ mod tests {
 
     // ---- hardware, with made-up ports --------------------------------------
 
-    use crate::devices::launchpad_x::DiscoveredDevice;
+    use crate::devices::novation::launchpad_x::DiscoveredDevice;
     use crate::devices::{PortNames, PortSource};
     use std::sync::{Arc, Mutex};
 
