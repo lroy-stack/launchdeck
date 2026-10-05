@@ -307,6 +307,109 @@ fn starters_request() -> ExportRequest {
     }
 }
 
+// The golden files.
+
+fn golden_dir() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/artifacts/valid")
+}
+
+/// The two golden exports, with a fixed app version so a release does not
+/// change them.
+async fn goldens() -> Vec<(&'static str, ExportResult)> {
+    let env = testkit::environment("9.9.9").await;
+    let development = export(
+        &default_workspace_for(Platform::Linux),
+        &env,
+        &request(ArtifactKind::Surface, &["development"]),
+    );
+    let starters = export(&starters_with_rules(), &env, &starters_request());
+    vec![
+        ("development.ldsurface", development),
+        ("starters.ldpack", starters),
+    ]
+}
+
+#[tokio::test]
+async fn the_golden_files_are_what_export_writes() {
+    for (name, result) in goldens().await {
+        let (text, artifact) = written(&result);
+        let golden = std::fs::read(golden_dir().join(name))
+            .unwrap_or_else(|e| panic!("{name}: {e}; run regenerate_export_goldens"));
+        assert!(
+            golden == text.as_bytes(),
+            "{name} differs from what export writes; if the change is intended, run \
+             `cargo test --lib regenerate_export_goldens -- --ignored`"
+        );
+        assert_eq!(artifact.manifest.created_with.version, "9.9.9");
+        // No device id or device name, and nothing of the runtime.
+        for absent in [
+            "virtual-launchpad-x",
+            "Virtual Launchpad",
+            "lastActiveSurface",
+        ] {
+            assert!(!text.contains(absent), "{name}: {absent}");
+        }
+    }
+}
+
+/// Rewrites the golden files from what export writes now. Run only for an
+/// intended change of the format or of the starter content.
+#[tokio::test]
+#[ignore]
+async fn regenerate_export_goldens() {
+    std::fs::create_dir_all(golden_dir()).unwrap();
+    for (name, result) in goldens().await {
+        let (text, _) = written(&result);
+        std::fs::write(golden_dir().join(name), text).unwrap();
+    }
+}
+
+#[tokio::test]
+async fn the_golden_pack_holds_the_five_starters_and_two_rules() {
+    let results = goldens().await;
+    let (_, artifact) = written(&results[1].1);
+    let preview = &results[1].1.preview;
+    assert_eq!(artifact.kind, ArtifactKind::Pack);
+    assert_eq!(artifact.manifest.id, "launchdeck-examples.starters");
+    assert_eq!(artifact.content.surfaces.len(), 5);
+    assert_eq!(artifact.content.context_rules.len(), 2);
+    let AppRefV1::Application(code) = &artifact.content.context_rules[0].application else {
+        panic!("an application");
+    };
+    let namespaces: Vec<&str> = code
+        .identities
+        .iter()
+        .map(|i| i.namespace.as_str())
+        .collect();
+    assert_eq!(namespaces, [X11, MACOS, WINDOWS]);
+    assert_eq!(code.identities[2].id, "code.exe");
+    assert_eq!(
+        artifact.content.context_rules[1].page.as_deref(),
+        Some("git")
+    );
+    assert_eq!(preview.file_name, "starters-1.0.0.ldpack");
+    assert_eq!(
+        artifact.manifest.tested_with,
+        [TestedWith {
+            model: "launchpad-x".into(),
+            kind: TestedKind::Virtual
+        }]
+    );
+    // Every surface switcher names a surface of the Pack.
+    let refs = artifact
+        .content
+        .surfaces
+        .iter()
+        .flat_map(|s| &s.pages)
+        .flat_map(|p| &p.controls)
+        .filter_map(|c| c.press.as_ref())
+        .filter(|a| a.action == "openSurface")
+        .inspect(|a| assert_eq!(a.surface_refs, ["surfaceId"], "{a:?}"))
+        .count();
+    assert!(refs >= 20, "{refs}");
+    assert!(!codes(&preview.warnings).contains(&E::ExternalSurfaceReference));
+}
+
 // Determinism.
 
 #[test]

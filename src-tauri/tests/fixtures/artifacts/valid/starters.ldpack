@@ -1,0 +1,3960 @@
+{
+  "format": "launchdeck.pack",
+  "formatVersion": 1,
+  "manifest": {
+    "author": {
+      "name": "LaunchDeck examples"
+    },
+    "createdWith": {
+      "app": "launchdeck",
+      "version": "9.9.9"
+    },
+    "description": "The five starter surfaces of LaunchDeck.",
+    "id": "launchdeck-examples.starters",
+    "integrity": {
+      "content": "sha256:db7eca0e829d891a60ef9ca70b737d65c993fe3790557ff5730205b9f3d3be0c"
+    },
+    "license": "MIT",
+    "name": "Starters",
+    "requirements": {
+      "aux": {
+        "side": 0,
+        "top": 5
+      },
+      "grid": {
+        "minHeight": 8,
+        "minWidth": 8
+      },
+      "rgb": true
+    },
+    "testedWith": [
+      {
+        "kind": "virtual",
+        "model": "launchpad-x"
+      }
+    ],
+    "version": "1.0.0"
+  },
+  "content": {
+    "contextRules": [
+      {
+        "application": {
+          "identities": [
+            {
+              "id": "Code",
+              "namespace": "x11"
+            },
+            {
+              "id": "com.microsoft.VSCode",
+              "namespace": "macos"
+            },
+            {
+              "id": "code.exe",
+              "namespace": "windows"
+            }
+          ],
+          "name": "Visual Studio Code"
+        },
+        "surface": "development"
+      },
+      {
+        "application": {
+          "identities": [
+            {
+              "id": "firefox",
+              "namespace": "x11"
+            }
+          ],
+          "name": "Firefox"
+        },
+        "page": "git",
+        "surface": "development"
+      }
+    ],
+    "surfaces": [
+      {
+        "category": "agents",
+        "description": "A physical control surface for autonomous agents. Watch every session at a glance, approve or reject, pause and resume, start a task.",
+        "icon": "◉",
+        "id": "agent-control",
+        "name": "Agent Control",
+        "pages": [
+          {
+            "controls": [
+              {
+                "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 0
+                        },
+                        "id": "slot.status",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "1",
+                "id": "g.0.0",
+                "label": "Agent 1",
+                "longPress": {
+                  "action": "dismissSlot",
+                  "args": {
+                    "slot": 0
+                  },
+                  "provider": "agent-control"
+                },
+                "looks": {
+                  "approval_required": {
+                    "animation": "flash",
+                    "color": "#ffffff"
+                  },
+                  "cancelled": {
+                    "color": "#4d0c0f"
+                  },
+                  "completed": {
+                    "color": "#1edc5a"
+                  },
+                  "empty": {
+                    "color": "#0c0d12"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "idle": {
+                    "color": "#123273"
+                  },
+                  "offline": {
+                    "color": "#15161b"
+                  },
+                  "paused": {
+                    "color": "#ff7814"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#1edc5a"
+                  },
+                  "starting": {
+                    "color": "#ffc81e"
+                  },
+                  "tool_use": {
+                    "animation": "pulse",
+                    "color": "#1ed2e6"
+                  },
+                  "waiting": {
+                    "color": "#aa50ff"
+                  }
+                },
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 0
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#0c0d12"
+                }
+              },
+              {
+                "description": "Lit while this track is selected. Press to select it.",
+                "feedback": [
+                  {
+                    "show": "focused",
+                    "when": {
+                      "is": {
+                        "op": "equals",
+                        "value": true
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 0
+                        },
+                        "id": "slot.focused",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "▲",
+                "id": "g.0.1",
+                "label": "Select 1",
+                "looks": {
+                  "focused": {
+                    "color": "#ffffff"
+                  }
+                },
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 0
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#000000"
+                }
+              },
+              {
+                "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 1
+                        },
+                        "id": "slot.status",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "2",
+                "id": "g.1.0",
+                "label": "Agent 2",
+                "longPress": {
+                  "action": "dismissSlot",
+                  "args": {
+                    "slot": 1
+                  },
+                  "provider": "agent-control"
+                },
+                "looks": {
+                  "approval_required": {
+                    "animation": "flash",
+                    "color": "#ffffff"
+                  },
+                  "cancelled": {
+                    "color": "#4d0c0f"
+                  },
+                  "completed": {
+                    "color": "#1edc5a"
+                  },
+                  "empty": {
+                    "color": "#0c0d12"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "idle": {
+                    "color": "#123273"
+                  },
+                  "offline": {
+                    "color": "#15161b"
+                  },
+                  "paused": {
+                    "color": "#ff7814"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#1edc5a"
+                  },
+                  "starting": {
+                    "color": "#ffc81e"
+                  },
+                  "tool_use": {
+                    "animation": "pulse",
+                    "color": "#1ed2e6"
+                  },
+                  "waiting": {
+                    "color": "#aa50ff"
+                  }
+                },
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 1
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#0c0d12"
+                }
+              },
+              {
+                "description": "Lit while this track is selected. Press to select it.",
+                "feedback": [
+                  {
+                    "show": "focused",
+                    "when": {
+                      "is": {
+                        "op": "equals",
+                        "value": true
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 1
+                        },
+                        "id": "slot.focused",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "▲",
+                "id": "g.1.1",
+                "label": "Select 2",
+                "looks": {
+                  "focused": {
+                    "color": "#ffffff"
+                  }
+                },
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 1
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#000000"
+                }
+              },
+              {
+                "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 2
+                        },
+                        "id": "slot.status",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "3",
+                "id": "g.2.0",
+                "label": "Agent 3",
+                "longPress": {
+                  "action": "dismissSlot",
+                  "args": {
+                    "slot": 2
+                  },
+                  "provider": "agent-control"
+                },
+                "looks": {
+                  "approval_required": {
+                    "animation": "flash",
+                    "color": "#ffffff"
+                  },
+                  "cancelled": {
+                    "color": "#4d0c0f"
+                  },
+                  "completed": {
+                    "color": "#1edc5a"
+                  },
+                  "empty": {
+                    "color": "#0c0d12"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "idle": {
+                    "color": "#123273"
+                  },
+                  "offline": {
+                    "color": "#15161b"
+                  },
+                  "paused": {
+                    "color": "#ff7814"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#1edc5a"
+                  },
+                  "starting": {
+                    "color": "#ffc81e"
+                  },
+                  "tool_use": {
+                    "animation": "pulse",
+                    "color": "#1ed2e6"
+                  },
+                  "waiting": {
+                    "color": "#aa50ff"
+                  }
+                },
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 2
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#0c0d12"
+                }
+              },
+              {
+                "description": "Lit while this track is selected. Press to select it.",
+                "feedback": [
+                  {
+                    "show": "focused",
+                    "when": {
+                      "is": {
+                        "op": "equals",
+                        "value": true
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 2
+                        },
+                        "id": "slot.focused",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "▲",
+                "id": "g.2.1",
+                "label": "Select 3",
+                "looks": {
+                  "focused": {
+                    "color": "#ffffff"
+                  }
+                },
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 2
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#000000"
+                }
+              },
+              {
+                "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 3
+                        },
+                        "id": "slot.status",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "4",
+                "id": "g.3.0",
+                "label": "Agent 4",
+                "longPress": {
+                  "action": "dismissSlot",
+                  "args": {
+                    "slot": 3
+                  },
+                  "provider": "agent-control"
+                },
+                "looks": {
+                  "approval_required": {
+                    "animation": "flash",
+                    "color": "#ffffff"
+                  },
+                  "cancelled": {
+                    "color": "#4d0c0f"
+                  },
+                  "completed": {
+                    "color": "#1edc5a"
+                  },
+                  "empty": {
+                    "color": "#0c0d12"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "idle": {
+                    "color": "#123273"
+                  },
+                  "offline": {
+                    "color": "#15161b"
+                  },
+                  "paused": {
+                    "color": "#ff7814"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#1edc5a"
+                  },
+                  "starting": {
+                    "color": "#ffc81e"
+                  },
+                  "tool_use": {
+                    "animation": "pulse",
+                    "color": "#1ed2e6"
+                  },
+                  "waiting": {
+                    "color": "#aa50ff"
+                  }
+                },
+                "pos": {
+                  "col": 3,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 3
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#0c0d12"
+                }
+              },
+              {
+                "description": "Lit while this track is selected. Press to select it.",
+                "feedback": [
+                  {
+                    "show": "focused",
+                    "when": {
+                      "is": {
+                        "op": "equals",
+                        "value": true
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 3
+                        },
+                        "id": "slot.focused",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "▲",
+                "id": "g.3.1",
+                "label": "Select 4",
+                "looks": {
+                  "focused": {
+                    "color": "#ffffff"
+                  }
+                },
+                "pos": {
+                  "col": 3,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 3
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#000000"
+                }
+              },
+              {
+                "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 4
+                        },
+                        "id": "slot.status",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "5",
+                "id": "g.4.0",
+                "label": "Agent 5",
+                "longPress": {
+                  "action": "dismissSlot",
+                  "args": {
+                    "slot": 4
+                  },
+                  "provider": "agent-control"
+                },
+                "looks": {
+                  "approval_required": {
+                    "animation": "flash",
+                    "color": "#ffffff"
+                  },
+                  "cancelled": {
+                    "color": "#4d0c0f"
+                  },
+                  "completed": {
+                    "color": "#1edc5a"
+                  },
+                  "empty": {
+                    "color": "#0c0d12"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "idle": {
+                    "color": "#123273"
+                  },
+                  "offline": {
+                    "color": "#15161b"
+                  },
+                  "paused": {
+                    "color": "#ff7814"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#1edc5a"
+                  },
+                  "starting": {
+                    "color": "#ffc81e"
+                  },
+                  "tool_use": {
+                    "animation": "pulse",
+                    "color": "#1ed2e6"
+                  },
+                  "waiting": {
+                    "color": "#aa50ff"
+                  }
+                },
+                "pos": {
+                  "col": 4,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 4
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#0c0d12"
+                }
+              },
+              {
+                "description": "Lit while this track is selected. Press to select it.",
+                "feedback": [
+                  {
+                    "show": "focused",
+                    "when": {
+                      "is": {
+                        "op": "equals",
+                        "value": true
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 4
+                        },
+                        "id": "slot.focused",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "▲",
+                "id": "g.4.1",
+                "label": "Select 5",
+                "looks": {
+                  "focused": {
+                    "color": "#ffffff"
+                  }
+                },
+                "pos": {
+                  "col": 4,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 4
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#000000"
+                }
+              },
+              {
+                "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 5
+                        },
+                        "id": "slot.status",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "6",
+                "id": "g.5.0",
+                "label": "Agent 6",
+                "longPress": {
+                  "action": "dismissSlot",
+                  "args": {
+                    "slot": 5
+                  },
+                  "provider": "agent-control"
+                },
+                "looks": {
+                  "approval_required": {
+                    "animation": "flash",
+                    "color": "#ffffff"
+                  },
+                  "cancelled": {
+                    "color": "#4d0c0f"
+                  },
+                  "completed": {
+                    "color": "#1edc5a"
+                  },
+                  "empty": {
+                    "color": "#0c0d12"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "idle": {
+                    "color": "#123273"
+                  },
+                  "offline": {
+                    "color": "#15161b"
+                  },
+                  "paused": {
+                    "color": "#ff7814"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#1edc5a"
+                  },
+                  "starting": {
+                    "color": "#ffc81e"
+                  },
+                  "tool_use": {
+                    "animation": "pulse",
+                    "color": "#1ed2e6"
+                  },
+                  "waiting": {
+                    "color": "#aa50ff"
+                  }
+                },
+                "pos": {
+                  "col": 5,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 5
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#0c0d12"
+                }
+              },
+              {
+                "description": "Lit while this track is selected. Press to select it.",
+                "feedback": [
+                  {
+                    "show": "focused",
+                    "when": {
+                      "is": {
+                        "op": "equals",
+                        "value": true
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 5
+                        },
+                        "id": "slot.focused",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "▲",
+                "id": "g.5.1",
+                "label": "Select 6",
+                "looks": {
+                  "focused": {
+                    "color": "#ffffff"
+                  }
+                },
+                "pos": {
+                  "col": 5,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 5
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#000000"
+                }
+              },
+              {
+                "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 6
+                        },
+                        "id": "slot.status",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "7",
+                "id": "g.6.0",
+                "label": "Agent 7",
+                "longPress": {
+                  "action": "dismissSlot",
+                  "args": {
+                    "slot": 6
+                  },
+                  "provider": "agent-control"
+                },
+                "looks": {
+                  "approval_required": {
+                    "animation": "flash",
+                    "color": "#ffffff"
+                  },
+                  "cancelled": {
+                    "color": "#4d0c0f"
+                  },
+                  "completed": {
+                    "color": "#1edc5a"
+                  },
+                  "empty": {
+                    "color": "#0c0d12"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "idle": {
+                    "color": "#123273"
+                  },
+                  "offline": {
+                    "color": "#15161b"
+                  },
+                  "paused": {
+                    "color": "#ff7814"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#1edc5a"
+                  },
+                  "starting": {
+                    "color": "#ffc81e"
+                  },
+                  "tool_use": {
+                    "animation": "pulse",
+                    "color": "#1ed2e6"
+                  },
+                  "waiting": {
+                    "color": "#aa50ff"
+                  }
+                },
+                "pos": {
+                  "col": 6,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 6
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#0c0d12"
+                }
+              },
+              {
+                "description": "Lit while this track is selected. Press to select it.",
+                "feedback": [
+                  {
+                    "show": "focused",
+                    "when": {
+                      "is": {
+                        "op": "equals",
+                        "value": true
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 6
+                        },
+                        "id": "slot.focused",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "▲",
+                "id": "g.6.1",
+                "label": "Select 7",
+                "looks": {
+                  "focused": {
+                    "color": "#ffffff"
+                  }
+                },
+                "pos": {
+                  "col": 6,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 6
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#000000"
+                }
+              },
+              {
+                "description": "Shows the status of one agent session. Press to select it; the command pads then act on it. Long-press dismisses a finished session.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 7
+                        },
+                        "id": "slot.status",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "8",
+                "id": "g.7.0",
+                "label": "Agent 8",
+                "longPress": {
+                  "action": "dismissSlot",
+                  "args": {
+                    "slot": 7
+                  },
+                  "provider": "agent-control"
+                },
+                "looks": {
+                  "approval_required": {
+                    "animation": "flash",
+                    "color": "#ffffff"
+                  },
+                  "cancelled": {
+                    "color": "#4d0c0f"
+                  },
+                  "completed": {
+                    "color": "#1edc5a"
+                  },
+                  "empty": {
+                    "color": "#0c0d12"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "idle": {
+                    "color": "#123273"
+                  },
+                  "offline": {
+                    "color": "#15161b"
+                  },
+                  "paused": {
+                    "color": "#ff7814"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#1edc5a"
+                  },
+                  "starting": {
+                    "color": "#ffc81e"
+                  },
+                  "tool_use": {
+                    "animation": "pulse",
+                    "color": "#1ed2e6"
+                  },
+                  "waiting": {
+                    "color": "#aa50ff"
+                  }
+                },
+                "pos": {
+                  "col": 7,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 7
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#0c0d12"
+                }
+              },
+              {
+                "description": "Lit while this track is selected. Press to select it.",
+                "feedback": [
+                  {
+                    "show": "focused",
+                    "when": {
+                      "is": {
+                        "op": "equals",
+                        "value": true
+                      },
+                      "state": {
+                        "args": {
+                          "slot": 7
+                        },
+                        "id": "slot.focused",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "▲",
+                "id": "g.7.1",
+                "label": "Select 8",
+                "looks": {
+                  "focused": {
+                    "color": "#ffffff"
+                  }
+                },
+                "pos": {
+                  "col": 7,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "focusSlot",
+                  "args": {
+                    "slot": 7
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#000000"
+                }
+              },
+              {
+                "description": "Approve the selected session's pending request. Flashes while the selected session is waiting for you. Never pressed for you.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "command": "approve"
+                        },
+                        "id": "command.state",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "✔",
+                "id": "g.0.2",
+                "label": "Approve",
+                "looks": {
+                  "attention": {
+                    "animation": "flash",
+                    "color": "#1edc5a"
+                  },
+                  "available": {
+                    "color": "#1edc5a"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "pending": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "succeeded": {
+                    "color": "#1edc5a"
+                  },
+                  "unavailable": {
+                    "color": "#031609"
+                  }
+                },
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "approve",
+                  "args": {},
+                  "provider": "agent-control"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#031609"
+                }
+              },
+              {
+                "description": "Reject the selected session's pending request.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "command": "reject"
+                        },
+                        "id": "command.state",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "✕",
+                "id": "g.2.2",
+                "label": "Reject",
+                "looks": {
+                  "attention": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "available": {
+                    "color": "#ff2832"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "pending": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "succeeded": {
+                    "color": "#1edc5a"
+                  },
+                  "unavailable": {
+                    "color": "#1a0405"
+                  }
+                },
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "reject",
+                  "args": {},
+                  "provider": "agent-control"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#1a0405"
+                }
+              },
+              {
+                "description": "Pause the selected session, if its agent supports pausing.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "command": "pause"
+                        },
+                        "id": "command.state",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "⏸",
+                "id": "g.4.2",
+                "label": "Pause",
+                "looks": {
+                  "attention": {
+                    "animation": "flash",
+                    "color": "#ff7814"
+                  },
+                  "available": {
+                    "color": "#ff7814"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "pending": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "succeeded": {
+                    "color": "#1edc5a"
+                  },
+                  "unavailable": {
+                    "color": "#1a0c02"
+                  }
+                },
+                "pos": {
+                  "col": 4,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "pause",
+                  "args": {},
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#1a0c02"
+                }
+              },
+              {
+                "description": "Resume the selected paused session.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "command": "resume"
+                        },
+                        "id": "command.state",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "▶",
+                "id": "g.5.2",
+                "label": "Resume",
+                "looks": {
+                  "attention": {
+                    "animation": "flash",
+                    "color": "#1edc5a"
+                  },
+                  "available": {
+                    "color": "#1edc5a"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "pending": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "succeeded": {
+                    "color": "#1edc5a"
+                  },
+                  "unavailable": {
+                    "color": "#031609"
+                  }
+                },
+                "pos": {
+                  "col": 5,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "resume",
+                  "args": {},
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#031609"
+                }
+              },
+              {
+                "description": "Retry the selected failed or cancelled session.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "command": "retry"
+                        },
+                        "id": "command.state",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "↻",
+                "id": "g.6.2",
+                "label": "Retry",
+                "looks": {
+                  "attention": {
+                    "animation": "flash",
+                    "color": "#ffc81e"
+                  },
+                  "available": {
+                    "color": "#ffc81e"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "pending": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "succeeded": {
+                    "color": "#1edc5a"
+                  },
+                  "unavailable": {
+                    "color": "#1a1403"
+                  }
+                },
+                "pos": {
+                  "col": 6,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "retry",
+                  "args": {},
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#1a1403"
+                }
+              },
+              {
+                "description": "Cancel the selected session.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "command": "cancel"
+                        },
+                        "id": "command.state",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "■",
+                "id": "g.7.2",
+                "label": "Stop",
+                "looks": {
+                  "attention": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "available": {
+                    "color": "#ff2832"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "pending": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "succeeded": {
+                    "color": "#1edc5a"
+                  },
+                  "unavailable": {
+                    "color": "#1a0405"
+                  }
+                },
+                "pos": {
+                  "col": 7,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "cancel",
+                  "args": {},
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#1a0405"
+                }
+              },
+              {
+                "description": "Tell the selected session to continue. Edit the text in the inspector.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "command": "send_instruction"
+                        },
+                        "id": "command.state",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "⏵⏵",
+                "id": "g.4.3",
+                "label": "Continue",
+                "looks": {
+                  "attention": {
+                    "animation": "flash",
+                    "color": "#aa50ff"
+                  },
+                  "available": {
+                    "color": "#aa50ff"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "pending": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "succeeded": {
+                    "color": "#1edc5a"
+                  },
+                  "unavailable": {
+                    "color": "#11081a"
+                  }
+                },
+                "pos": {
+                  "col": 4,
+                  "kind": "grid",
+                  "row": 3
+                },
+                "press": {
+                  "action": "continue",
+                  "args": {
+                    "text": "continue"
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#11081a"
+                }
+              },
+              {
+                "description": "Start this task on the selected agent (or the first agent that can). Edit the task text in the inspector.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "command": "spawn"
+                        },
+                        "id": "command.state",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "✓",
+                "id": "g.0.4",
+                "label": "Run tests",
+                "looks": {
+                  "attention": {
+                    "animation": "flash",
+                    "color": "#1ed2e6"
+                  },
+                  "available": {
+                    "color": "#1ed2e6"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "pending": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "succeeded": {
+                    "color": "#1edc5a"
+                  },
+                  "unavailable": {
+                    "color": "#031517"
+                  }
+                },
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 4
+                },
+                "press": {
+                  "action": "newTask",
+                  "args": {
+                    "task": "Run the test suite and report failures"
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#031517"
+                }
+              },
+              {
+                "description": "Start this task on the selected agent (or the first agent that can). Edit the task text in the inspector.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "command": "spawn"
+                        },
+                        "id": "command.state",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "±",
+                "id": "g.1.4",
+                "label": "Review diff",
+                "looks": {
+                  "attention": {
+                    "animation": "flash",
+                    "color": "#1ed2e6"
+                  },
+                  "available": {
+                    "color": "#1ed2e6"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "pending": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "succeeded": {
+                    "color": "#1edc5a"
+                  },
+                  "unavailable": {
+                    "color": "#031517"
+                  }
+                },
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 4
+                },
+                "press": {
+                  "action": "newTask",
+                  "args": {
+                    "task": "Review the uncommitted changes"
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#031517"
+                }
+              },
+              {
+                "description": "Start this task on the selected agent (or the first agent that can). Edit the task text in the inspector.",
+                "feedback": [
+                  {
+                    "showFromValue": true,
+                    "when": {
+                      "is": {
+                        "op": "hasValue"
+                      },
+                      "state": {
+                        "args": {
+                          "command": "spawn"
+                        },
+                        "id": "command.state",
+                        "provider": "agent-control"
+                      }
+                    }
+                  }
+                ],
+                "icon": "≡",
+                "id": "g.2.4",
+                "label": "Summarize",
+                "looks": {
+                  "attention": {
+                    "animation": "flash",
+                    "color": "#1ed2e6"
+                  },
+                  "available": {
+                    "color": "#1ed2e6"
+                  },
+                  "failed": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "pending": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "succeeded": {
+                    "color": "#1edc5a"
+                  },
+                  "unavailable": {
+                    "color": "#031517"
+                  }
+                },
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 4
+                },
+                "press": {
+                  "action": "newTask",
+                  "args": {
+                    "task": "Summarize the recent changes"
+                  },
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#031517"
+                }
+              },
+              {
+                "description": "Start four simulated agents: tool use, an approval to answer, a pause to try, a failure to retry. Nothing real runs.",
+                "icon": "▶",
+                "id": "g.0.7",
+                "label": "Run Agent Demo",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 7
+                },
+                "press": {
+                  "action": "runDemo",
+                  "args": {},
+                  "provider": "agent-control"
+                },
+                "span": {
+                  "h": 1,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#159a3f"
+                }
+              },
+              {
+                "description": "Stop the simulated agents and clear their sessions.",
+                "icon": "↺",
+                "id": "g.2.7",
+                "label": "Reset demo",
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 7
+                },
+                "press": {
+                  "action": "resetDemo",
+                  "args": {},
+                  "provider": "agent-control"
+                },
+                "visual": {
+                  "color": "#731217"
+                }
+              },
+              {
+                "description": "Show the Agents section in the desktop app: sessions, logs, adapters.",
+                "icon": "☰",
+                "id": "g.6.7",
+                "label": "Open Agents",
+                "pos": {
+                  "col": 6,
+                  "kind": "grid",
+                  "row": 7
+                },
+                "press": {
+                  "action": "openApp",
+                  "args": {},
+                  "provider": "agent-control"
+                },
+                "span": {
+                  "h": 1,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#464a5a"
+                }
+              },
+              {
+                "description": "Switch to the Agents surface.",
+                "icon": "◉",
+                "id": "t.0",
+                "label": "Agents",
+                "pos": {
+                  "index": 0,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "agent-control"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#ffffff"
+                }
+              },
+              {
+                "description": "Switch to the Dev surface.",
+                "icon": "⌘",
+                "id": "t.1",
+                "label": "Dev",
+                "pos": {
+                  "index": 1,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "development"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#0b4a51"
+                }
+              },
+              {
+                "description": "Switch to the Work surface.",
+                "icon": "☑",
+                "id": "t.2",
+                "label": "Work",
+                "pos": {
+                  "index": 2,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "productivity"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#0b4d20"
+                }
+              },
+              {
+                "description": "Switch to the Home surface.",
+                "icon": "⌂",
+                "id": "t.3",
+                "label": "Home",
+                "pos": {
+                  "index": 3,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "smart-home"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#592a07"
+                }
+              },
+              {
+                "description": "Switch to the Access surface.",
+                "icon": "◎",
+                "id": "t.4",
+                "label": "Access",
+                "pos": {
+                  "index": 4,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "accessibility"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#59460b"
+                }
+              }
+            ],
+            "id": "home",
+            "name": "Home"
+          }
+        ]
+      },
+      {
+        "category": "development",
+        "description": "Build, test and ship. Pads pulse while a command runs, then turn green or flash red.",
+        "icon": "⌘",
+        "id": "development",
+        "name": "Development",
+        "pages": [
+          {
+            "controls": [
+              {
+                "description": "Launch a terminal (placeholder command).",
+                "icon": "›_",
+                "id": "g.0.0",
+                "label": "Terminal",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "launchApplication",
+                  "args": {
+                    "app": "x-terminal-emulator"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#1ed2e6"
+                }
+              },
+              {
+                "description": "Launch VS Code (`code` must be on your PATH, or the app name on macOS).",
+                "icon": "⌘",
+                "id": "g.1.0",
+                "label": "VS Code",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "launchApplication",
+                  "args": {
+                    "app": "code"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#286eff"
+                }
+              },
+              {
+                "description": "Open GitHub.",
+                "icon": "⎇",
+                "id": "g.2.0",
+                "label": "GitHub",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "openUrl",
+                  "args": {
+                    "url": "https://github.com"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#aa50ff"
+                }
+              },
+              {
+                "description": "Placeholder: harmless echo. Replace with `docker compose up`.",
+                "icon": "▣",
+                "id": "g.3.0",
+                "label": "Docker",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 3,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 1 && echo 'docker: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#1ed2e6"
+                }
+              },
+              {
+                "description": "Safe demo: sleeps 2s then succeeds. Pad pulses yellow, then turns green.",
+                "icon": "✓",
+                "id": "g.0.1",
+                "label": "Tests",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 2 && echo 'tests passed'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#ffc81e"
+                }
+              },
+              {
+                "description": "Safe demo: sleeps 3s then succeeds.",
+                "icon": "⚒",
+                "id": "g.1.1",
+                "label": "Build",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 3 && echo 'build ok'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#ff7814"
+                }
+              },
+              {
+                "description": "Safe demo: sleeps 1s then succeeds.",
+                "icon": "⚡",
+                "id": "g.2.1",
+                "label": "Dev Server",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 1 && echo 'dev server: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#1edc5a"
+                }
+              },
+              {
+                "description": "Safe demo: sleeps 2s then succeeds. Replace with your deploy script.",
+                "icon": "⇪",
+                "id": "g.3.1",
+                "label": "Deploy",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 3,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 2 && echo 'deploy: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#ff2832"
+                }
+              },
+              {
+                "description": "Open the Git page.",
+                "icon": "⑂",
+                "id": "g.0.2",
+                "label": "Git",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "openPage",
+                  "args": {
+                    "pageId": "git"
+                  },
+                  "provider": "navigation"
+                },
+                "visual": {
+                  "color": "#ff50aa"
+                }
+              },
+              {
+                "description": "Demonstrates the error state: exits with code 1, pad flashes red.",
+                "icon": "✕",
+                "id": "g.1.2",
+                "label": "Failing Task",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "echo 'simulated failure' >&2; exit 1"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#801419"
+                }
+              },
+              {
+                "description": "Switch to the Agents surface.",
+                "icon": "◉",
+                "id": "t.0",
+                "label": "Agents",
+                "pos": {
+                  "index": 0,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "agent-control"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#3c1c59"
+                }
+              },
+              {
+                "description": "Switch to the Dev surface.",
+                "icon": "⌘",
+                "id": "t.1",
+                "label": "Dev",
+                "pos": {
+                  "index": 1,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "development"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#ffffff"
+                }
+              },
+              {
+                "description": "Switch to the Work surface.",
+                "icon": "☑",
+                "id": "t.2",
+                "label": "Work",
+                "pos": {
+                  "index": 2,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "productivity"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#0b4d20"
+                }
+              },
+              {
+                "description": "Switch to the Home surface.",
+                "icon": "⌂",
+                "id": "t.3",
+                "label": "Home",
+                "pos": {
+                  "index": 3,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "smart-home"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#592a07"
+                }
+              },
+              {
+                "description": "Switch to the Access surface.",
+                "icon": "◎",
+                "id": "t.4",
+                "label": "Access",
+                "pos": {
+                  "index": 4,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "accessibility"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#59460b"
+                }
+              }
+            ],
+            "id": "home",
+            "name": "Home"
+          },
+          {
+            "controls": [
+              {
+                "description": "Safe demo: prints a message.",
+                "icon": "≡",
+                "id": "g.0.0",
+                "label": "Git Status",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 1 && echo 'git status: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#1ed2e6"
+                }
+              },
+              {
+                "description": "Safe demo. Replace with your commit script.",
+                "icon": "●",
+                "id": "g.1.0",
+                "label": "Commit",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 1 && echo 'git commit: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#1edc5a"
+                }
+              },
+              {
+                "description": "Safe demo. Replace with `git pull`.",
+                "icon": "↓",
+                "id": "g.2.0",
+                "label": "Pull",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 1 && echo 'git pull: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#286eff"
+                }
+              },
+              {
+                "description": "Safe demo. Replace with `git push`.",
+                "icon": "↑",
+                "id": "g.3.0",
+                "label": "Push",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 3,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 1 && echo 'git push: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#ff7814"
+                }
+              },
+              {
+                "description": "Return to the previous page.",
+                "icon": "←",
+                "id": "g.0.7",
+                "label": "Back",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 7
+                },
+                "press": {
+                  "action": "openPage",
+                  "args": {
+                    "pageId": "home"
+                  },
+                  "provider": "navigation"
+                },
+                "visual": {
+                  "color": "#464a5a"
+                }
+              },
+              {
+                "description": "Switch to the Agents surface.",
+                "icon": "◉",
+                "id": "t.0",
+                "label": "Agents",
+                "pos": {
+                  "index": 0,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "agent-control"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#3c1c59"
+                }
+              },
+              {
+                "description": "Switch to the Dev surface.",
+                "icon": "⌘",
+                "id": "t.1",
+                "label": "Dev",
+                "pos": {
+                  "index": 1,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "development"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#ffffff"
+                }
+              },
+              {
+                "description": "Switch to the Work surface.",
+                "icon": "☑",
+                "id": "t.2",
+                "label": "Work",
+                "pos": {
+                  "index": 2,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "productivity"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#0b4d20"
+                }
+              },
+              {
+                "description": "Switch to the Home surface.",
+                "icon": "⌂",
+                "id": "t.3",
+                "label": "Home",
+                "pos": {
+                  "index": 3,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "smart-home"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#592a07"
+                }
+              },
+              {
+                "description": "Switch to the Access surface.",
+                "icon": "◎",
+                "id": "t.4",
+                "label": "Access",
+                "pos": {
+                  "index": 4,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "accessibility"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#59460b"
+                }
+              }
+            ],
+            "id": "git",
+            "name": "Git"
+          }
+        ]
+      },
+      {
+        "category": "productivity",
+        "description": "Everyday shortcuts, apps and media on physical pads.",
+        "icon": "☑",
+        "id": "productivity",
+        "name": "Productivity",
+        "pages": [
+          {
+            "controls": [
+              {
+                "description": "Open a web page.",
+                "icon": "◉",
+                "id": "g.0.0",
+                "label": "Browser",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "openUrl",
+                  "args": {
+                    "url": "https://www.google.com"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#184299"
+                }
+              },
+              {
+                "description": "Open your mail app (mailto:).",
+                "icon": "✉",
+                "id": "g.1.0",
+                "label": "Mail",
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "openUrl",
+                  "args": {
+                    "url": "mailto:"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#127e8a"
+                }
+              },
+              {
+                "description": "Open a web calendar.",
+                "icon": "▦",
+                "id": "g.2.0",
+                "label": "Calendar",
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "openUrl",
+                  "args": {
+                    "url": "https://calendar.google.com"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#128436"
+                }
+              },
+              {
+                "description": "Open the file manager.",
+                "icon": "▤",
+                "id": "g.3.0",
+                "label": "Files",
+                "pos": {
+                  "col": 3,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "launchApplication",
+                  "args": {
+                    "app": "xdg-open",
+                    "args": "."
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#99480c"
+                }
+              },
+              {
+                "description": "Copy (Cmd/Ctrl+C).",
+                "icon": "⧉",
+                "id": "g.0.1",
+                "label": "Copy",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "keyboardShortcut",
+                  "args": {
+                    "keys": "mod+c"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#999999"
+                }
+              },
+              {
+                "description": "Paste (Cmd/Ctrl+V).",
+                "icon": "⎘",
+                "id": "g.1.1",
+                "label": "Paste",
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "keyboardShortcut",
+                  "args": {
+                    "keys": "mod+v"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#999999"
+                }
+              },
+              {
+                "description": "Undo (Cmd/Ctrl+Z).",
+                "icon": "↶",
+                "id": "g.2.1",
+                "label": "Undo",
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "keyboardShortcut",
+                  "args": {
+                    "keys": "mod+z"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#997812"
+                }
+              },
+              {
+                "description": "Redo (Cmd/Ctrl+Shift+Z).",
+                "icon": "↷",
+                "id": "g.3.1",
+                "label": "Redo",
+                "pos": {
+                  "col": 3,
+                  "kind": "grid",
+                  "row": 1
+                },
+                "press": {
+                  "action": "keyboardShortcut",
+                  "args": {
+                    "keys": "mod+shift+z"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#997812"
+                }
+              },
+              {
+                "description": "Take a screenshot with your OS shortcut.",
+                "icon": "▣",
+                "id": "g.0.2",
+                "label": "Screenshot",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "gnome-screenshot --interactive"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#993066"
+                }
+              },
+              {
+                "description": "Open system search (Cmd/Ctrl+Space).",
+                "icon": "⌕",
+                "id": "g.1.2",
+                "label": "Search",
+                "pos": {
+                  "col": 1,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "keyboardShortcut",
+                  "args": {
+                    "keys": "mod+space"
+                  },
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#993066"
+                }
+              },
+              {
+                "description": "Play / pause media.",
+                "icon": "♪",
+                "id": "g.2.2",
+                "label": "Music",
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "playPause",
+                  "args": {},
+                  "provider": "system"
+                },
+                "visual": {
+                  "color": "#663099"
+                }
+              },
+              {
+                "description": "Placeholder: wire this to your OS focus mode with a shell command.",
+                "icon": "☾",
+                "id": "g.3.2",
+                "label": "Do Not Disturb",
+                "pos": {
+                  "col": 3,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "execute",
+                  "args": {
+                    "command": "sleep 1 && echo 'dnd: demo only'"
+                  },
+                  "provider": "shell"
+                },
+                "visual": {
+                  "color": "#2a2c36"
+                }
+              },
+              {
+                "description": "Switch to the Agents surface.",
+                "icon": "◉",
+                "id": "t.0",
+                "label": "Agents",
+                "pos": {
+                  "index": 0,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "agent-control"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#3c1c59"
+                }
+              },
+              {
+                "description": "Switch to the Dev surface.",
+                "icon": "⌘",
+                "id": "t.1",
+                "label": "Dev",
+                "pos": {
+                  "index": 1,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "development"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#0b4a51"
+                }
+              },
+              {
+                "description": "Switch to the Work surface.",
+                "icon": "☑",
+                "id": "t.2",
+                "label": "Work",
+                "pos": {
+                  "index": 2,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "productivity"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#ffffff"
+                }
+              },
+              {
+                "description": "Switch to the Home surface.",
+                "icon": "⌂",
+                "id": "t.3",
+                "label": "Home",
+                "pos": {
+                  "index": 3,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "smart-home"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#592a07"
+                }
+              },
+              {
+                "description": "Switch to the Access surface.",
+                "icon": "◎",
+                "id": "t.4",
+                "label": "Access",
+                "pos": {
+                  "index": 4,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "accessibility"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#59460b"
+                }
+              }
+            ],
+            "id": "home",
+            "name": "Home"
+          }
+        ]
+      },
+      {
+        "category": "smart-home",
+        "description": "Template for Home Assistant style webhooks. Edit the URLs to make it yours.",
+        "icon": "⌂",
+        "id": "smart-home",
+        "name": "Smart Home",
+        "pages": [
+          {
+            "controls": [
+              {
+                "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+                "icon": "☀",
+                "id": "g.0.0",
+                "label": "Lights",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "request",
+                  "args": {
+                    "method": "POST",
+                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lights"
+                  },
+                  "provider": "http"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#ffc81e"
+                }
+              },
+              {
+                "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+                "icon": "▶",
+                "id": "g.2.0",
+                "label": "Movie",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "request",
+                  "args": {
+                    "method": "POST",
+                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-movie"
+                  },
+                  "provider": "http"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#aa50ff"
+                }
+              },
+              {
+                "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+                "icon": "⌨",
+                "id": "g.4.0",
+                "label": "Work",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 4,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "request",
+                  "args": {
+                    "method": "POST",
+                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-work"
+                  },
+                  "provider": "http"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#286eff"
+                }
+              },
+              {
+                "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+                "icon": "▲",
+                "id": "g.0.2",
+                "label": "Warmer",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "request",
+                  "args": {
+                    "method": "POST",
+                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-warmer"
+                  },
+                  "provider": "http"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#ff7814"
+                }
+              },
+              {
+                "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+                "icon": "▼",
+                "id": "g.2.2",
+                "label": "Cooler",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "request",
+                  "args": {
+                    "method": "POST",
+                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-cooler"
+                  },
+                  "provider": "http"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#1ed2e6"
+                }
+              },
+              {
+                "description": "Template: edit the webhook URL in the inspector. Until you do, pressing this shows an error state.",
+                "icon": "🔒",
+                "id": "g.4.2",
+                "label": "Lock",
+                "looks": {
+                  "error": {
+                    "animation": "flash",
+                    "color": "#ff2832"
+                  },
+                  "running": {
+                    "animation": "pulse",
+                    "color": "#ffc81e"
+                  },
+                  "success": {
+                    "color": "#1edc5a"
+                  }
+                },
+                "pos": {
+                  "col": 4,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "request",
+                  "args": {
+                    "method": "POST",
+                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lock"
+                  },
+                  "provider": "http"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#ff2832"
+                }
+              },
+              {
+                "description": "Switch to the Agents surface.",
+                "icon": "◉",
+                "id": "t.0",
+                "label": "Agents",
+                "pos": {
+                  "index": 0,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "agent-control"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#3c1c59"
+                }
+              },
+              {
+                "description": "Switch to the Dev surface.",
+                "icon": "⌘",
+                "id": "t.1",
+                "label": "Dev",
+                "pos": {
+                  "index": 1,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "development"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#0b4a51"
+                }
+              },
+              {
+                "description": "Switch to the Work surface.",
+                "icon": "☑",
+                "id": "t.2",
+                "label": "Work",
+                "pos": {
+                  "index": 2,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "productivity"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#0b4d20"
+                }
+              },
+              {
+                "description": "Switch to the Home surface.",
+                "icon": "⌂",
+                "id": "t.3",
+                "label": "Home",
+                "pos": {
+                  "index": 3,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "smart-home"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#ffffff"
+                }
+              },
+              {
+                "description": "Switch to the Access surface.",
+                "icon": "◎",
+                "id": "t.4",
+                "label": "Access",
+                "pos": {
+                  "index": 4,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "accessibility"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#59460b"
+                }
+              }
+            ],
+            "id": "home",
+            "name": "Home"
+          }
+        ]
+      },
+      {
+        "category": "accessibility",
+        "description": "Fewer, larger targets in colour-coded groups. A predictable, low-effort way to drive the computer.",
+        "icon": "◎",
+        "id": "accessibility",
+        "name": "Accessibility",
+        "pages": [
+          {
+            "controls": [
+              {
+                "description": "Go to the start of the page (Alt+Home).",
+                "icon": "⌂",
+                "id": "g.0.0",
+                "label": "HOME",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "keyboardShortcut",
+                  "args": {
+                    "keys": "alt+home"
+                  },
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#286eff"
+                }
+              },
+              {
+                "description": "Go back (Alt+Left).",
+                "icon": "←",
+                "id": "g.2.0",
+                "label": "BACK",
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "keyboardShortcut",
+                  "args": {
+                    "keys": "alt+left"
+                  },
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#286eff"
+                }
+              },
+              {
+                "description": "Copy (Cmd/Ctrl+C).",
+                "icon": "⧉",
+                "id": "g.4.0",
+                "label": "COPY",
+                "pos": {
+                  "col": 4,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "keyboardShortcut",
+                  "args": {
+                    "keys": "mod+c"
+                  },
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#1edc5a"
+                }
+              },
+              {
+                "description": "Paste (Cmd/Ctrl+V).",
+                "icon": "⎘",
+                "id": "g.6.0",
+                "label": "PASTE",
+                "pos": {
+                  "col": 6,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "keyboardShortcut",
+                  "args": {
+                    "keys": "mod+v"
+                  },
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#1edc5a"
+                }
+              },
+              {
+                "description": "Zoom in (Cmd/Ctrl+Plus).",
+                "icon": "＋",
+                "id": "g.0.2",
+                "label": "ZOOM +",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "keyboardShortcut",
+                  "args": {
+                    "keys": "mod+="
+                  },
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#ffc81e"
+                }
+              },
+              {
+                "description": "Zoom out (Cmd/Ctrl+Minus).",
+                "icon": "－",
+                "id": "g.2.2",
+                "label": "ZOOM −",
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "keyboardShortcut",
+                  "args": {
+                    "keys": "mod+-"
+                  },
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#ffc81e"
+                }
+              },
+              {
+                "description": "Scroll up (Page Up).",
+                "icon": "▲",
+                "id": "g.4.2",
+                "label": "SCROLL ↑",
+                "pos": {
+                  "col": 4,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "keyboardShortcut",
+                  "args": {
+                    "keys": "pageup"
+                  },
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#ffc81e"
+                }
+              },
+              {
+                "description": "Scroll down (Page Down).",
+                "icon": "▼",
+                "id": "g.6.2",
+                "label": "SCROLL ↓",
+                "pos": {
+                  "col": 6,
+                  "kind": "grid",
+                  "row": 2
+                },
+                "press": {
+                  "action": "keyboardShortcut",
+                  "args": {
+                    "keys": "pagedown"
+                  },
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#ffc81e"
+                }
+              },
+              {
+                "description": "Volume up.",
+                "icon": "🔊",
+                "id": "g.0.4",
+                "label": "VOLUME +",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 4
+                },
+                "press": {
+                  "action": "volumeUp",
+                  "args": {},
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#ff7814"
+                }
+              },
+              {
+                "description": "Volume down.",
+                "icon": "🔉",
+                "id": "g.2.4",
+                "label": "VOLUME −",
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 4
+                },
+                "press": {
+                  "action": "volumeDown",
+                  "args": {},
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#ff7814"
+                }
+              },
+              {
+                "description": "Mute / unmute.",
+                "icon": "🔇",
+                "id": "g.4.4",
+                "label": "MUTE",
+                "pos": {
+                  "col": 4,
+                  "kind": "grid",
+                  "row": 4
+                },
+                "press": {
+                  "action": "toggleMute",
+                  "args": {},
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#ff7814"
+                }
+              },
+              {
+                "description": "Open the help page: call, message, lights, music.",
+                "icon": "?",
+                "id": "g.6.4",
+                "label": "HELP",
+                "pos": {
+                  "col": 6,
+                  "kind": "grid",
+                  "row": 4
+                },
+                "press": {
+                  "action": "openPage",
+                  "args": {
+                    "pageId": "help"
+                  },
+                  "provider": "navigation"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#ff2832"
+                }
+              },
+              {
+                "description": "Switch to the Agents surface.",
+                "icon": "◉",
+                "id": "t.0",
+                "label": "Agents",
+                "pos": {
+                  "index": 0,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "agent-control"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#3c1c59"
+                }
+              },
+              {
+                "description": "Switch to the Dev surface.",
+                "icon": "⌘",
+                "id": "t.1",
+                "label": "Dev",
+                "pos": {
+                  "index": 1,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "development"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#0b4a51"
+                }
+              },
+              {
+                "description": "Switch to the Work surface.",
+                "icon": "☑",
+                "id": "t.2",
+                "label": "Work",
+                "pos": {
+                  "index": 2,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "productivity"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#0b4d20"
+                }
+              },
+              {
+                "description": "Switch to the Home surface.",
+                "icon": "⌂",
+                "id": "t.3",
+                "label": "Home",
+                "pos": {
+                  "index": 3,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "smart-home"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#592a07"
+                }
+              },
+              {
+                "description": "Switch to the Access surface.",
+                "icon": "◎",
+                "id": "t.4",
+                "label": "Access",
+                "pos": {
+                  "index": 4,
+                  "kind": "top"
+                },
+                "press": {
+                  "action": "openSurface",
+                  "args": {
+                    "surfaceId": "accessibility"
+                  },
+                  "provider": "navigation",
+                  "surfaceRefs": [
+                    "surfaceId"
+                  ]
+                },
+                "visual": {
+                  "color": "#ffffff"
+                }
+              }
+            ],
+            "id": "home",
+            "name": "Home"
+          },
+          {
+            "controls": [
+              {
+                "description": "Start a call with your phone app (tel:). Edit the number in the inspector.",
+                "icon": "☎",
+                "id": "g.0.0",
+                "label": "CALL",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "openUrl",
+                  "args": {
+                    "url": "tel:"
+                  },
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#1edc5a"
+                }
+              },
+              {
+                "description": "Start a text message (sms:). Edit the recipient in the inspector.",
+                "icon": "✉",
+                "id": "g.2.0",
+                "label": "MESSAGE",
+                "pos": {
+                  "col": 2,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "openUrl",
+                  "args": {
+                    "url": "sms:"
+                  },
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#286eff"
+                }
+              },
+              {
+                "description": "Template: edit the webhook URL in the inspector.",
+                "icon": "☀",
+                "id": "g.4.0",
+                "label": "LIGHTS",
+                "pos": {
+                  "col": 4,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "request",
+                  "args": {
+                    "method": "POST",
+                    "url": "http://homeassistant.local:8123/api/webhook/launchdeck-lights"
+                  },
+                  "provider": "http"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#ffc81e"
+                }
+              },
+              {
+                "description": "Play / pause media.",
+                "icon": "♪",
+                "id": "g.6.0",
+                "label": "MUSIC",
+                "pos": {
+                  "col": 6,
+                  "kind": "grid",
+                  "row": 0
+                },
+                "press": {
+                  "action": "playPause",
+                  "args": {},
+                  "provider": "system"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#aa50ff"
+                }
+              },
+              {
+                "description": "Return to the main accessibility page.",
+                "icon": "←",
+                "id": "g.0.6",
+                "label": "BACK",
+                "pos": {
+                  "col": 0,
+                  "kind": "grid",
+                  "row": 6
+                },
+                "press": {
+                  "action": "openPage",
+                  "args": {
+                    "pageId": "home"
+                  },
+                  "provider": "navigation"
+                },
+                "span": {
+                  "h": 2,
+                  "w": 2
+                },
+                "visual": {
+                  "color": "#464a5a"
+                }
+              }
+            ],
+            "id": "help",
+            "name": "Help"
+          }
+        ]
+      }
+    ]
+  }
+}
