@@ -8,7 +8,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import overviewJson from "../../../examples/plugins-overview.json";
-import { Sidebar } from "../../components/Sidebar";
+import { Sidebar } from "../../app/Sidebar";
 import { api } from "../../lib/ipc";
 import { pluginsOverviewSchema, type PluginInfo, type PluginsOverview } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";

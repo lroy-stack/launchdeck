@@ -27,15 +27,16 @@ Imports go up this picture only: `shared → features → app` means features bu
 
 | Directory | Owns | May import |
 | --- | --- | --- |
-| `src/app` | `App.tsx`: the window shell, the switch between views, the toasts and the fatal screen | everything |
-| `src/components` | `Sidebar.tsx` (navigation, surfaces, the Auto Context control); `PadGrid.tsx` (the pads of a page, drawn by the surface view and the Agents view's Agent Control surface tab); `ActivityFeed.tsx` (recent events, on Home and in the live panel); `forms/ParamForm.tsx` (a form drawn from a parameter schema, an action's or an observable's) and `forms/ColorField.tsx` (a colour as a picker, a hex field and swatches), which the Inspector and the feedback editor share | `src/lib`, `src/stores` (today also `src/features/context`: an exception, see section 3) |
+| `src/app` | `App.tsx`: the window shell, the switch between views, the toasts and the fatal screen; `Sidebar.tsx` (navigation, surfaces, the Auto Context control) | everything |
+| `src/components` | `PadGrid.tsx` (the pads of a page, drawn by the surface view and the Agents view's Agent Control surface tab); `ActivityFeed.tsx` (recent events, on Home and in the live panel); `forms/ParamForm.tsx` (a form drawn from a parameter schema, an action's or an observable's) and `forms/ColorField.tsx` (a colour as a picker, a hex field and swatches), which the Inspector and the feedback editor share | `src/lib`, `src/stores` |
 | `src/features/agents` | the Agents view: `AgentsView`, `Overview`, `Sessions`, `Adapters`, `SurfaceTab` and their `parts` | shared |
 | `src/features/context` | Auto Context: `ContextPanel` (rules, fallback, status), `ContextControl` (the sidebar switch), `text.ts` (the wording) | shared |
-| `src/features/devices` | `HomeView` (the overview: Agent Control, starter surfaces, devices, recent activity) and `SettingsView` (devices, Auto Context, the external events tester, security text, workspace reset). A4 moves them to `src/features/home` and `src/features/settings` | shared; `src/features/context` |
 | `src/features/editor` | the Inspector: `Inspector`, `AssignmentEditor` | shared; `src/features/feedback`, `src/features/library` |
 | `src/features/feedback` | the feedback editor: `FeedbackEditor`, `StateRules`, `EventRules`, `LooksEditor`, `LookSelect`, `ObservablePicker`, `LiveFeedback`, `useReview`, `parts`, and the test helper `testkit.tsx` | shared |
+| `src/features/home` | `HomeView`: the overview (Agent Control, starter surfaces, devices, recent activity) | shared |
 | `src/features/library` | the Action Library panel: `ActionLibrary`, `parts` | shared |
 | `src/features/plugins` | the Plugins view: `PluginsView`, `Access` (network grants and secrets) | shared |
+| `src/features/settings` | `SettingsView`: devices, Auto Context, the external events tester, security text, workspace reset | shared; `src/features/context` |
 | `src/features/surfaces` | the surface view: `SurfaceView`, `LivePanel` | shared; `src/features/editor`, `src/features/library` |
 | `src/lib` | `ipc.ts` (the only bridge to Rust; `api`, events, every reply parsed with Zod), `schema.ts` (the Zod schemas; A4 splits it into `src/lib/schema/`), `agents.ts` (Agent Control schemas and helpers), `preview.ts` (a browser-only stand-in for the runtime, fed by the contract fixtures), `actions.ts` (catalog index, the `normalizeArgs` mirror), `feedbackEdit.ts` (the editor's pure functions, the `operatorsFor` and `problemsOf` mirrors), `observables.ts`, `assign.ts`, `color.ts`, `format.ts`, and the unused `feedback.ts` (A4 deletes it) | nothing outside `src/lib` (and the fixtures in `examples/`) |
 | `src/stores` | `runtime.ts`: the Zustand store. It mirrors what Rust pushes (snapshot, catalog, agents, context) and keeps purely visual choices (view, selection, toasts) | `src/lib` |
@@ -55,14 +56,10 @@ Allowed composition points:
 | `src/features/surfaces` | `src/features/library` | `SurfaceView.tsx` → `ActionLibrary` | the surface view hosts the Action Library in Edit |
 | `src/features/editor` | `src/features/feedback` | `Inspector.tsx` → `FeedbackEditor`, `useReview` | the Inspector hosts the feedback editor |
 | `src/features/editor` | `src/features/library` | `AssignmentEditor.tsx` → `library/parts` | the assignment editor shows a library entry |
-| `src/features/devices` | `src/features/context` | `SettingsView.tsx` → `ContextPanel` | Settings hosts the Auto Context panel; becomes `settings` → `context` when A4 moves the view |
+| `src/features/settings` | `src/features/context` | `SettingsView.tsx` → `ContextPanel` | Settings hosts the Auto Context panel |
 | `src/features/feedback` | `src/features/surfaces` | `testkit.tsx` → `SurfaceView` (tests only) | the feedback tests render the whole surface view |
 | `src/features/library` | `src/features/surfaces` | `library.test.tsx` → `SurfaceView` (tests only) | the library tests render the whole surface view |
 
-Exceptions with a planned fix (A4):
+There are no exceptions: package A4 removed the last ones (the editor ↔ feedback cycle through `ColorField` and `ParamForm`, the features importing `PadGrid` and `ActivityFeed` from `surfaces`, and the sidebar importing `context` from `src/components`). Two of their entries are still in `scripts/architecture/web.mjs`, matching no import, only as examples for the check's own test; they go when that test seeds its own rules.
 
-| From | To | Where | Problem | Fix in A4 |
-| --- | --- | --- | --- | --- |
-| `src/components` | `src/features/context` | `Sidebar.tsx` → `ContextControl` | the shared layer imports a feature | move `Sidebar` to `src/app` |
-
-After A4 the expected composition points are: surfaces → editor, surfaces → library, editor → feedback, editor → library, settings → context, and app → any feature.
+Tests of a feature may also render `src/app/Sidebar.tsx`: `context/context.test.tsx` and `plugins/access.test.tsx` do, to test the Auto Context switch and the badge on Plugins where a person sees them.

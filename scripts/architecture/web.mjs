@@ -37,7 +37,7 @@ export const featureEdges = [
   { from: "surfaces", to: "library", where: "SurfaceView.tsx -> ActionLibrary" },
   { from: "editor", to: "feedback", where: "Inspector.tsx -> FeedbackEditor, useReview" },
   { from: "editor", to: "library", where: "AssignmentEditor.tsx -> library/parts" },
-  { from: "devices", to: "context", where: "SettingsView.tsx -> ContextPanel" },
+  { from: "settings", to: "context", where: "SettingsView.tsx -> ContextPanel" },
   { from: "feedback", to: "surfaces", where: "testkit.tsx -> SurfaceView", testsOnly: true },
   { from: "library", to: "surfaces", where: "library.test.tsx -> SurfaceView", testsOnly: true },
 ];
@@ -45,11 +45,11 @@ export const featureEdges = [
 // Known violations, each removed by the package named (FRONTEND_MAP section 3).
 // One entry per importing file and imported module, so a new import still fails.
 export const importExceptions = [
-  // No import matches this entry since A4 moved PadGrid to src/components. It stays
-  // only because the exception test in scripts/check-architecture.test.mjs uses it as
-  // its example; remove it when that test brings its own seeded rules.
+  // No import matches these two entries since A4 moved PadGrid to src/components and
+  // Sidebar to src/app. They stay only because the exception test in
+  // scripts/check-architecture.test.mjs uses them as its examples; remove them when
+  // that test brings its own seeded rules.
   { file: "src/features/agents/SurfaceTab.tsx", imports: "src/features/surfaces/PadGrid", removedBy: "A4" },
-  // A4 moves Sidebar to src/app.
   { file: "src/components/Sidebar.tsx", imports: "src/features/context/ContextControl", removedBy: "A4" },
 ];
 

@@ -1,8 +1,8 @@
 import { useEffect } from "react";
-import { Sidebar } from "../components/Sidebar";
+import { Sidebar } from "./Sidebar";
 import { AgentsView } from "../features/agents/AgentsView";
-import { HomeView } from "../features/devices/HomeView";
-import { SettingsView } from "../features/devices/SettingsView";
+import { HomeView } from "../features/home/HomeView";
+import { SettingsView } from "../features/settings/SettingsView";
 import { PluginsView } from "../features/plugins/PluginsView";
 import { SurfaceView } from "../features/surfaces/SurfaceView";
 import { useStore } from "../stores/runtime";

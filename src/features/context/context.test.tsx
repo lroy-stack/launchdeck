@@ -8,7 +8,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import statusesJson from "../../../examples/context-status.json";
-import { Sidebar } from "../../components/Sidebar";
+import { Sidebar } from "../../app/Sidebar";
 import { api } from "../../lib/ipc";
 import { contextStatusSchema, type ContextSettings, type ContextStatus } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
