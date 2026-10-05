@@ -3,7 +3,7 @@ import { errorMessage } from "../../lib/ipc";
 import { api } from "../../lib/ipc";
 import { issuesByParam, resolveAssignment, unavailableNote, type Args } from "../../lib/actions";
 import { DRAG_TYPE, SLOT_LABEL, type Slot } from "../../lib/assign";
-import type { ActionDefinition, Assignment, Issue, Surface } from "../../lib/schema";
+import type { ActionDefinition, Assignment, ExampleInfo, Issue, Surface } from "../../lib/schema";
 import { definitionId } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
 import { ActionGlyph, PrivilegedTag, SourceTag, UnavailableTag } from "../library/parts";
@@ -168,34 +168,7 @@ export function AssignmentEditor({ slot, value, onChange, pending, replaceWarnin
         </>
       )}
 
-      {value && resolution?.kind === "missing" && (
-        <>
-          <div className="slot-card">
-            <span className="lib-glyph" aria-hidden="true">
-              ?
-            </span>
-            <div className="slot-card-text">
-              <b>{definitionId(value)}</b>
-              <div className="tags">
-                <span className="tag unavailable">Unavailable</span>
-              </div>
-            </div>
-          </div>
-          <div className="notice unavailable" role="status">
-            <b>Not available.</b> {resolution.reason}
-          </div>
-          {Object.keys(value.args).length > 0 && (
-            <dl className="saved-args" aria-label="Saved settings">
-              {Object.entries(value.args).map(([k, v]) => (
-                <div key={k}>
-                  <dt>{k}</dt>
-                  <dd>{typeof v === "string" ? v : JSON.stringify(v)}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-        </>
-      )}
+      {value && resolution?.kind === "missing" && <MissingAction value={value} reason={resolution.reason} installed={index.providers.has(value.provider)} />}
 
       {value && (
         <div className="row test-row">
@@ -211,5 +184,84 @@ export function AssignmentEditor({ slot, value, onChange, pending, replaceWarnin
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * An assignment whose action is not in the catalog. When its provider is not
+ * installed at all, it names the plugin (a bundled example's name when the id is
+ * one) and offers the one step that fixes it. The id and the saved settings,
+ * kept untouched, are under Details.
+ */
+function MissingAction({ value, reason, installed }: { value: Assignment; reason: string; installed: boolean }) {
+  const attempt = useStore((s) => s.attempt);
+  const refreshPlugins = useStore((s) => s.refreshPlugins);
+  const setView = useStore((s) => s.setView);
+  const [examples, setExamples] = useState<ExampleInfo[]>([]);
+
+  useEffect(() => {
+    if (installed) return;
+    let current = true;
+    // The list only gives the plugin a friendlier name; without it the provider id stands in.
+    api.plugins.examples().then(
+      (list) => current && setExamples(list),
+      () => current && setExamples([]),
+    );
+    return () => {
+      current = false;
+    };
+  }, [installed, value.provider]);
+
+  const example = installed ? undefined : examples.find((e) => e.id === value.provider);
+  const install = (id: string) =>
+    void attempt(async () => {
+      await api.plugins.installExample(id);
+      await refreshPlugins();
+    });
+
+  return (
+    <>
+      <div className="slot-card">
+        <span className="lib-glyph" aria-hidden="true">
+          ?
+        </span>
+        <div className="slot-card-text">
+          <b>{installed ? "Action no longer offered" : "Plugin not installed"}</b>
+          <div className="tags">
+            <span className="tag unavailable">Unavailable</span>
+          </div>
+        </div>
+      </div>
+      <div className="notice unavailable" role="status">
+        <p>
+          <b>Not available.</b> {installed ? reason : `Needs a plugin that is not installed: ${example?.name ?? value.provider}. The assignment is kept and works again once it is.`}
+        </p>
+        <div className="row">
+          {example && !example.installed ? (
+            <button type="button" className="btn small" onClick={() => install(example.id)}>
+              Install
+            </button>
+          ) : (
+            <button type="button" className="btn small" onClick={() => setView("plugins")}>
+              Open Plugins
+            </button>
+          )}
+        </div>
+      </div>
+      <details>
+        <summary>Details</summary>
+        <code>{definitionId(value)}</code>
+        {Object.keys(value.args).length > 0 && (
+          <dl className="saved-args" aria-label="Saved settings">
+            {Object.entries(value.args).map(([k, v]) => (
+              <div key={k}>
+                <dt>{k}</dt>
+                <dd>{typeof v === "string" ? v : JSON.stringify(v)}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </details>
+    </>
   );
 }

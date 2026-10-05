@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import examplesJson from "../../../examples/plugin-examples.json";
 import { DRAG_TYPE } from "../../lib/assign";
 import { api } from "../../lib/ipc";
-import type { Control } from "../../lib/schema";
+import { exampleInfoSchema, type Assignment, type Control } from "../../lib/schema";
 import { activePage, useStore } from "../../stores/runtime";
 import { SurfaceView } from "../surfaces/SurfaceView";
 
@@ -32,6 +33,7 @@ beforeEach(async () => {
 afterEach(() => {
   cleanup();
   off();
+  vi.restoreAllMocks();
 });
 
 describe("the Action Library", () => {
@@ -75,6 +77,15 @@ describe("the Action Library", () => {
     expect(screen.getByText(/Unavailable now: The plugin is turned off/)).toBeTruthy();
     // And says which sources are not running, with a way to fix it.
     expect(screen.getByText(/2 sources not running/)).toBeTruthy();
+  });
+
+  it("points to Plugins when there is nothing to list", async () => {
+    const { catalog } = useStore.getState().catalog;
+    useStore.getState().setCatalog({ ...catalog, actions: [] });
+    render(<SurfaceView />);
+    const note = screen.getByText("No actions here yet. Search all of them, or add more from Plugins.").parentElement!;
+    await userEvent.setup().click(within(note).getByRole("button", { name: "Open Plugins" }));
+    expect(useStore.getState().view).toBe("plugins");
   });
 
   it("moves with the arrow keys, assigns with Enter, clears with Escape", async () => {
@@ -236,28 +247,61 @@ describe("giving an action to a pad", () => {
   });
 });
 
+/** A pad on the first page of Development whose press runs `press`, selected in the Inspector. */
+async function padWith(press: Assignment) {
+  const user = userEvent.setup();
+  const ws = useStore.getState().workspace!;
+  const surface = ws.surfaces.find((s) => s.id === "development")!;
+  const page = surface.pages[0]!;
+  const gone: Control = { ...page.controls[0]!, id: "gone", label: "Gone pad", pos: pad(4, 6), press };
+  useStore.setState({ workspace: { ...ws, surfaces: ws.surfaces.map((s) => (s.id === surface.id ? { ...s, pages: s.pages.map((p, i) => (i === 0 ? { ...p, controls: [...p.controls, gone] } : p)) } : s)) } });
+
+  render(<SurfaceView />);
+  const padButton = screen.getByRole("button", { name: /Gone pad\. Action unavailable/ });
+  await user.click(padButton);
+  return { user, padButton, slot: screen.getByRole("region", { name: "On press" }) };
+}
+
+const examples = exampleInfoSchema.array().parse(examplesJson);
+/** Inside `slot`, the text outside its Details disclosure. */
+const outsideDetails = (slot: HTMLElement): string => {
+  const copy = slot.cloneNode(true) as HTMLElement;
+  copy.querySelectorAll("details").forEach((d) => d.remove());
+  return copy.textContent ?? "";
+};
+
 describe("a pad whose action cannot run", () => {
   it("is flagged on the surface and explained in the inspector, and nothing is deleted", async () => {
-    const user = userEvent.setup();
-    const ws = useStore.getState().workspace!;
-    const surface = ws.surfaces.find((s) => s.id === "development")!;
-    const page = surface.pages[0]!;
-    const gone: Control = { ...page.controls[0]!, id: "gone", label: "Gone pad", pos: pad(4, 6), press: { provider: "acme.vanished", action: "go", args: { speed: 3 } } };
-    useStore.setState({ workspace: { ...ws, surfaces: ws.surfaces.map((s) => (s.id === surface.id ? { ...s, pages: s.pages.map((p, i) => (i === 0 ? { ...p, controls: [...p.controls, gone] } : p)) } : s)) } });
-
-    render(<SurfaceView />);
-    const padButton = screen.getByRole("button", { name: /Gone pad\. Action unavailable/ });
+    const { user, padButton, slot } = await padWith({ provider: "acme.vanished", action: "go", args: { speed: 3 } });
     expect(padButton.getAttribute("title")).toMatch(/not installed/);
-    await user.click(padButton);
 
-    expect(await screen.findByText("acme.vanished.go")).toBeTruthy();
-    expect(screen.getByText(/The provider “acme.vanished” is not installed/)).toBeTruthy();
-    // The saved settings stay visible, untouched, and the assignment can still be removed on purpose.
-    expect(screen.getByText("speed")).toBeTruthy();
+    expect(await within(slot).findByText(/Needs a plugin that is not installed: acme\.vanished\./)).toBeTruthy();
+    // Not a bundled example, so the way forward is the Plugins view.
+    await user.click(within(slot).getByRole("button", { name: "Open Plugins" }));
+    expect(useStore.getState().view).toBe("plugins");
+    useStore.setState({ view: "surface" });
+    // The id and the saved settings stay, untouched, under Details only.
+    expect(outsideDetails(slot)).not.toContain("acme.vanished.go");
+    expect(outsideDetails(slot)).not.toContain("speed");
+    const details = within(slot).getByText("Details").closest("details")!;
+    expect(within(details).getByText("acme.vanished.go")).toBeTruthy();
+    expect(within(details).getByText("speed")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Test run" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByLabelText("Label", { exact: true }) as HTMLInputElement).value).toBe("Gone pad");
     // Editing the label does not need the missing provider.
     await user.type(screen.getByLabelText("Label", { exact: true }), "!");
     expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("names a bundled example plugin that is not installed and offers to install it", async () => {
+    vi.spyOn(api.plugins, "examples").mockResolvedValue(examples);
+    const install = vi.spyOn(api.plugins, "installExample").mockRejectedValue("Browser preview: external plugins run in the desktop app.");
+    const { user, slot } = await padWith({ provider: "example.home-assistant", action: "toggle", args: { entity: "light.desk" } });
+
+    expect(await within(slot).findByText(/Needs a plugin that is not installed: Home Assistant\./)).toBeTruthy();
+    expect(outsideDetails(slot)).not.toContain("example.home-assistant");
+    expect(within(slot).queryByRole("button", { name: "Open Plugins" })).toBeNull();
+    await user.click(within(slot).getByRole("button", { name: "Install" }));
+    expect(install).toHaveBeenCalledWith("example.home-assistant");
   });
 });

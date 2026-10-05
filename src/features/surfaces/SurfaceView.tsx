@@ -21,7 +21,7 @@ export function SurfaceView() {
   const core = { workspace, state };
   const surface = activeSurface(core);
   const page = activePage(core);
-  if (!workspace || !state || !surface || !page) return <div className="empty-state">No surface selected.</div>;
+  if (!workspace || !state || !surface || !page) return <NoSurface first={workspace?.surfaces[0] ?? null} />;
 
   const mode = state.mode;
   const device = state.devices.find((d) => d.connected) ?? state.devices[0] ?? null;
@@ -73,11 +73,34 @@ export function SurfaceView() {
               {page.name} · {device ? device.identity.name : "No device"}
             </span>
           </div>
+          {mode === "live" && page.controls.length === 0 && (
+            <div className="slot-empty">
+              <p>This page has no pads yet. Switch to Edit to add some.</p>
+              <button type="button" className="btn small" onClick={() => setMode("edit")}>
+                Edit
+              </button>
+            </div>
+          )}
           <PadGrid page={page} frame={frame} mode={mode} device={device} />
         </main>
 
         {mode === "edit" ? <Inspector surface={surface} page={page} surfaces={workspace.surfaces} /> : <LivePanel surface={surface} />}
       </div>
+    </div>
+  );
+}
+
+/** Nothing on screen yet: one sentence, and the first surface one click away. */
+function NoSurface({ first }: { first: Surface | null }) {
+  const attempt = useStore((s) => s.attempt);
+  return (
+    <div className="empty-state">
+      <p>No surface selected.</p>
+      {first && (
+        <button type="button" className="btn small" onClick={() => void attempt(() => api.activateSurface(first.id))}>
+          Open {first.name}
+        </button>
+      )}
     </div>
   );
 }

@@ -200,8 +200,12 @@ export function ActionLibrary({ page }: { page: Page }) {
         ))}
         {results.length === 0 && (
           <div className="library-empty">
-            <p>{searching ? "Try fewer words, or part of a name. Search covers names, keywords, categories, sources and descriptions." : "Nothing here."}</p>
-            {(searching || category) && (
+            <p>
+              {searching
+                ? "Try fewer words, or part of a name. Search covers names, keywords, categories, sources and descriptions."
+                : "No actions here yet. Search all of them, or add more from Plugins."}
+            </p>
+            {searching || category ? (
               <button
                 type="button"
                 className="btn small"
@@ -211,6 +215,10 @@ export function ActionLibrary({ page }: { page: Page }) {
                 }}
               >
                 Show everything
+              </button>
+            ) : (
+              <button type="button" className="btn small" onClick={() => setView("plugins")}>
+                Open Plugins
               </button>
             )}
           </div>
