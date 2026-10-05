@@ -645,3 +645,6 @@ textarea { resize: vertical; }
 .context-add .field { flex: 1 1 150px; min-width: 0; }
 .context-add small { flex-basis: 100%; }
 @media (max-width: 900px) { .context-rule { grid-template-columns: 22px 1fr auto; } .context-rule select, .rule-actions { grid-column: 2 / -1; } }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
+.facts dt { color: var(--text-3); }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }

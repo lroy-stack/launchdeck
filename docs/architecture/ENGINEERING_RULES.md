@@ -101,5 +101,6 @@ cargo run --manifest-path src-tauri/Cargo.toml --example dump_<name> > examples/
 | `dump_catalog` | `examples/action-catalog.json` |
 | `dump_observables` | `examples/observables.json` |
 | `dump_context` | `examples/context-status.json` |
+| `dump_app_info` | `examples/app-info.json` |
 
 Then run the Rust guard test and Vitest again, and name the regenerated fixture and the reason in the commit message. A structural commit never regenerates a fixture (R18).

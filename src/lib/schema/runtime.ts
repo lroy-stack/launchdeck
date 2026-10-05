@@ -1,4 +1,5 @@
-// The running app: devices, the runtime state, events, the snapshot and LED frames.
+// The running app: devices, the runtime state, events, the snapshot, LED frames, and
+// what the app is (its versions, for Settings > About).
 
 import { z } from "zod";
 import { agentsSnapshotSchema } from "../agents";
@@ -97,3 +98,24 @@ export const frameSchema = z.object({
   leds: z.array(z.object({ pos: controlPosSchema, led: visualSchema })),
 });
 export type Frame = z.infer<typeof frameSchema>;
+
+/** `commands::app::AppInfo`: which LaunchDeck this is and every compatibility number (docs/architecture/versions.md). */
+export const appInfoSchema = z.object({
+  /** Cargo.toml's version, the only source of the app version. */
+  appVersion: z.string(),
+  /** What this build is offered as, such as "alpha". */
+  channel: z.string(),
+  sdkVersion: z.string(),
+  abiVersion: z.number(),
+  /** The plugin manifest schemas this build reads, both ends included. */
+  manifestSchemas: z.object({ oldest: z.number(), newest: z.number() }),
+  workspaceSchema: z.number(),
+  bridgeProtocol: z.number(),
+  artifactFormat: z.number(),
+  /** As Rust names them (`std::env::consts`): "macos", "windows", "linux"; "aarch64", "x86_64". */
+  os: z.string(),
+  arch: z.string(),
+  /** The app data folder, for people to read. */
+  dataFolder: z.string(),
+});
+export type AppInfo = z.infer<typeof appInfoSchema>;

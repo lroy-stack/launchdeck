@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../../lib/ipc";
 import { useStore } from "../../stores/runtime";
 import { ContextPanel } from "../context/ContextPanel";
+import { AboutPanel } from "./AboutPanel";
 import { DevicesPanel } from "./DevicesPanel";
 
 export function SettingsView() {
@@ -105,6 +106,8 @@ export function SettingsView() {
           </button>
         )}
       </section>
+
+      <AboutPanel />
     </div>
   );
 }

@@ -47,6 +47,8 @@ use crate::persistence::{LoadOutcome, Store};
 use crate::plugins::keyboard::EnigoKeyboard;
 use crate::surfaces::default_workspace;
 
+pub use commands::app::{AppInfo, SchemaRange};
+
 pub(crate) struct AppState {
     runtime: Arc<Runtime>,
 }
@@ -153,6 +155,7 @@ pub fn run() {
             commands::plugins::plugins_install_example,
             commands::plugins::plugins_reveal_folder,
             commands::app::app_reveal_data_folder,
+            commands::app::app_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running LaunchDeck");

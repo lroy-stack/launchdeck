@@ -406,6 +406,9 @@ export async function createPreviewTransport() {
         throw PLUGINS_IN_PREVIEW;
       case "app_reveal_data_folder":
         throw "Browser preview: there is no data folder; the desktop app keeps one.";
+      case "app_info":
+        // Captured from Rust (examples/app-info.json): this build's numbers, with a placeholder folder.
+        return (await import("../../examples/app-info.json")).default;
       case "agents_command":
       case "agents_set_access":
       case "agents_update_settings":

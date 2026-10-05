@@ -12,6 +12,7 @@ import {
   type HookSetup,
 } from "./agents";
 import {
+  appInfoSchema,
   catalogSchema,
   controlExplanationSchema,
   exampleInfoSchema,
@@ -31,6 +32,7 @@ import {
   snapshotSchema,
   validationSchema,
   workspaceSchema,
+  type AppInfo,
   type Assignment,
   type Catalog,
   type Control,
@@ -215,6 +217,8 @@ export const api = {
   },
   /** Show the app data folder (the workspace, its backups, plugins, settings) in the system's file manager. */
   revealDataFolder: (): Promise<void> => call("app_reveal_data_folder", null),
+  /** Every version a tester needs to say which LaunchDeck they run, and where the data folder is. */
+  appInfo: (): Promise<AppInfo> => call("app_info", appInfoSchema),
   /** Auto Context: the surface follows the application in front. */
   context: {
     status: (): Promise<ContextStatus> => call("context_status", contextStatusSchema),
