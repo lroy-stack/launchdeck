@@ -3,7 +3,7 @@
 **Not built.** There is no backend, no account, no download. This document keeps only ideas for hosting, listing and signing what LaunchDeck can share; it defines no file format. What would be listed is defined elsewhere:
 
 * plugins: a folder with `plugin.json` and one WebAssembly module, discovered, validated, sandboxed and loaded by the [Plugin SDK](../plugin-sdk/README.md) host;
-* Surface files (`.ldsurface`) and Packs (`.ldpack`): portable JSON files of surfaces, their pads and feedback, and, in a Pack, optional context rules and typed inputs. Their format is specified in [PRODUCTIZATION_PLAN.md section 7](../../PRODUCTIZATION_PLAN.md#7-portable-artifacts-plan).
+* Surface files (`.ldsurface`) and Packs (`.ldpack`): portable JSON files of surfaces, their pads and feedback, and, in a Pack, optional context rules and typed inputs. Their format is specified in [the Surface file and Pack format](../artifacts/FORMAT.md).
 
 ## Goals
 

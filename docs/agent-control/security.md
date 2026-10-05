@@ -132,7 +132,7 @@ These are real and deliberate to state.
 
 ## Future: permission isolation for adapters
 
-Today an in-process adapter is trusted code limited by its API. If third parties ship adapters (for example in a later version of the Pack format, which may carry them), that is not enough. The direction, none of it built:
+Today an in-process adapter is trusted code limited by its API. If third parties ship adapters (for example in a later version of the [Pack format](../artifacts/FORMAT.md), which may carry them), that is not enough. The direction, none of it built:
 
 * **Out of process by default.** Third-party adapters run as separate processes speaking the Agent Bridge, which already has the right shape: they can only describe their own agents. An adapter that needs more says so in its manifest.
 * **Declared permissions.** An adapter's manifest lists what it needs: the network hosts it may reach, the folders it may read, whether it may spawn processes, the capabilities it may register. They are shown before install and enforced by a sandbox (WASM or an OS sandbox), the way the plugin design already plans.

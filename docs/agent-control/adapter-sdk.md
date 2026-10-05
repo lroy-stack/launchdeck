@@ -163,7 +163,7 @@ Turn on the **Hook endpoint** on the Adapters tab. It generates a token, shows r
 
 There is no way to share an adapter as a file today. An adapter is shared as code: compiled into LaunchDeck, or a separate program that speaks the [Agent Bridge](bridge-protocol.md).
 
-LaunchDeck's unit of sharing is the **Pack**, a portable JSON file of surfaces, their pads and feedback, and optional context rules; its format is specified in [PRODUCTIZATION_PLAN.md section 7](../../PRODUCTIZATION_PLAN.md#7-portable-artifacts-plan). Format version 1 carries no agent pieces. Adapters, state mappings (a provider's status words to normalized statuses) and workflow templates (named starting tasks) are candidates for a later Pack format version. Two rules from an earlier draft manifest, which was validated but never loaded, would carry over:
+LaunchDeck's unit of sharing is the **Pack**, a portable JSON file of surfaces, their pads and feedback, and optional context rules; its format is specified in [the Surface file and Pack format](../artifacts/FORMAT.md). Format version 1 carries no agent pieces. Adapters, state mappings (a provider's status words to normalized statuses) and workflow templates (named starting tasks) are candidates for a later Pack format version. Two rules from an earlier draft manifest, which was validated but never loaded, would carry over:
 
 * A state mapping may not target `approval_required` or `offline`: an adapter cannot report those through a status update.
 * A workflow template carries text, never a command.

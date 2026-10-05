@@ -100,7 +100,7 @@ If built, it would be tested the way the rest of Agent Control is: a real `Agent
 
 ## Sharing a translator
 
-A translator is adapter code, so it would ship as a program that speaks the Agent Bridge. The Pack file format carries no adapters in its first version; adapters are a candidate for a later one (see [adapter-sdk.md](adapter-sdk.md#sharing-adapters-not-built)). This is a statement of where it would fit, not a feature.
+A translator is adapter code, so it would ship as a program that speaks the Agent Bridge. The [Pack file format](../artifacts/FORMAT.md) carries no adapters in its first version; adapters are a candidate for a later one (see [adapter-sdk.md](adapter-sdk.md#sharing-adapters-not-built)). This is a statement of where it would fit, not a feature.
 
 ## Platform ideas outside Agent Control
 
