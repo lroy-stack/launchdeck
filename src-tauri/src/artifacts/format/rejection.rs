@@ -115,7 +115,7 @@ pub fn echo(value: &str) -> String {
 /// A message from another module, which puts values between backticks, made
 /// fit to show: each value echoed and quoted, no control or direction
 /// character anywhere.
-pub(super) fn plain_message(message: &str) -> String {
+pub(in crate::artifacts) fn plain_message(message: &str) -> String {
     message
         .split('`')
         .enumerate()

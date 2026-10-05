@@ -17,10 +17,13 @@
 //! * `review`  the actions that run things, which a person reviews
 //! * `export`  a workspace's surfaces as a Surface file or a Pack, with a
 //!   preview of what is written and what is left out
+//! * `inspect` the bytes of a file, treated as hostile, read in the order of
+//!   plan 7.3 into a [`ParsedArtifact`] or refused with a [`Rejection`]
 
 mod env;
 mod export;
 mod format;
+mod inspect;
 mod json;
 mod limits;
 mod review;
@@ -35,6 +38,7 @@ pub use export::{
     SuggestedType, Suggestion,
 };
 pub use format::*;
+pub use inspect::{inspect, InspectWarning, InspectWarningCode, ParsedArtifact};
 pub use json::{
     content_digest, prepass, to_canonical, to_canonical_members, JsonProblem, PrepassError,
 };

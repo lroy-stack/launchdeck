@@ -4,36 +4,17 @@
 use serde_json::{json, Value};
 
 use super::*;
-use crate::artifacts::{content_digest, prepass, to_canonical};
+use crate::artifacts::{content_digest, to_canonical};
 use crate::platform::Platform;
 use crate::state::feedback::FeedbackRule;
 use crate::surfaces::default_workspace_for;
 
 use RejectionCode as R;
 
-/// The inspect order of plan 7.3 from step 3 on, as C3 will run it: enough
-/// to see each check refuse what it should, in the place it should.
+/// A whole file read as an importer reads it: every check of the format
+/// in the inspect order (plan 7.3).
 fn read(raw: &str) -> Result<ArtifactV1, Rejection> {
-    prepass(raw)?;
-    let envelope: Envelope =
-        serde_json::from_str(raw).map_err(|e| Rejection::new(R::NotArtifact, e.to_string()))?;
-    let kind = ArtifactKind::from_format(&envelope.format)
-        .ok_or_else(|| Rejection::new(R::NotArtifact, "not an artifact"))?;
-    let manifest: ManifestV1 = serde_json::from_str(envelope.manifest.get())
-        .map_err(|e| Rejection::at(R::InvalidManifest, "/manifest", e.to_string()))?;
-    check_manifest(&manifest)?;
-    if content_digest(envelope.content.get()) != manifest.integrity.content {
-        return Err(Rejection::new(R::Integrity, "digest"));
-    }
-    let content: ContentV1 = serde_json::from_str(envelope.content.get())
-        .map_err(|e| Rejection::at(R::InvalidContent, "/content", e.to_string()))?;
-    check_content(&content)?;
-    check_cross(kind, &manifest, &content)?;
-    Ok(ArtifactV1 {
-        kind,
-        manifest,
-        content,
-    })
+    crate::artifacts::testkit::read(raw)
 }
 
 /// Set the digest the content has.

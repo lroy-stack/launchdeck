@@ -37,5 +37,5 @@ pub use manifest::{
     InputOption, InputType, InputValue, Integrity, ManifestV1, Requirements, TestedKind,
     TestedWith, CREATED_WITH_APP,
 };
-pub(in crate::artifacts) use rejection::{echo, is_bidi};
+pub(in crate::artifacts) use rejection::{echo, is_bidi, plain_message};
 pub use rejection::{Rejection, RejectionCode};
