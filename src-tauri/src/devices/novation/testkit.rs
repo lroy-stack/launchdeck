@@ -193,6 +193,13 @@ impl SimLaunchpad {
         self
     }
 
+    /// Showing this layout, as a person may have chosen it before
+    /// LaunchDeck took the unit.
+    pub fn with_layout(self, layout: u8) -> Self {
+        self.state().layout = layout;
+        self
+    }
+
     /// Started in its bootloader: answers the inquiry with the family's
     /// second byte `11h` and the firmware digits as the bootloader's
     /// version (MINI-PRM p6), and ignores everything else.

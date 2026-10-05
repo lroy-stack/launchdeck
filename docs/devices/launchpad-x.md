@@ -28,15 +28,16 @@ LaunchDeck drives the X in Programmer mode. Header `F0 00 20 29 02 0C` is the No
 
 Nothing waits for the unit: connecting only opens the ports and asks; every render (every 40 ms) reads what the unit answered since the last one and goes on (`novation/session.rs`).
 
-**Identity.** On connect LaunchDeck asks the unit who it is (the Universal Device Inquiry):
+**Identity.** On connect LaunchDeck asks the unit who it is (the Universal Device Inquiry) and which layout it shows:
 
 ```
 F0 7E 7F 06 01 F7              who are you?
+F0 00 20 29 02 0C 00 F7        which layout? (the unit answers F0 00 20 29 02 0C 00 <layout> F7)
 ```
 
 The answer names the model's family and four firmware digits, shown in the device's details as the bootloader shows them (a captured X reply reads `0238`). The X is accepted with family `03 01` (Ableton's scripts and a captured reply) or `13 01` (what X-PRM p6 prints, a copy of the Mini MK3's). A unit that answers as its bootloader (second family byte `11`, inferred for the X from the Mini MK3's manual) is sent nothing more and is listed as failed: "The Launchpad is in its bootloader. Unplug it and plug it in again." One that answers with another model's family is turned down the same way: "LaunchDeck could not confirm which Launchpad this is. Press Look again." Both wait for Look again. A unit that does not answer, as through a driver that drops SysEx, is taken anyway after 500 ms.
 
-**Taking it.** The first render that has the answer, or the first one 500 ms after the question, asks for Programmer mode and reads it back:
+**Taking it.** The first render that has the answers, or the first one 500 ms after the questions, asks for Programmer mode and reads it back:
 
 ```
 F0 00 20 29 02 0C 0E 01 F7     select Programmer mode
@@ -49,9 +50,10 @@ The first render that has that answer, or the first one 500 ms later, sends the 
 
 ```
 F0 00 20 29 02 0C 0E 00 F7     back to Live mode
+F0 00 20 29 02 0C 00 <layout> F7   the layout the unit showed before
 ```
 
-A unit that was turned down, or not taken yet, is sent nothing.
+Live mode lands in Note mode (`01`, X-PRM p7), so the layout is selected again only when the unit showed another one (a Custom mode, for example) and not Programmer mode; a unit that did not say which layout it showed is left in Note mode. A unit that was turned down, or not taken yet, is sent nothing.
 
 ## Pad and button addressing
 

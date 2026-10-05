@@ -18,8 +18,6 @@ mod leds;
 mod ports;
 #[cfg(test)]
 mod ports_tests;
-// The inquiry families and the Live layout are read from M5 on.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by later packages"))]
 mod profile;
 // The Mini MK3 packages (M3-M8) put the rest of the codec to use.
 #[cfg_attr(not(test), expect(dead_code, reason = "used by later packages"))]

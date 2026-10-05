@@ -37,6 +37,7 @@ const OUT_ID: &str = "1002";
 const DEVICE_ID: &str = "launchpad-x:1";
 
 const INQUIRY: [u8; 6] = [0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7];
+const READ_LAYOUT: [u8; 8] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x00, 0xF7];
 const ENTER: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x01, 0xF7];
 const READ_MODE: [u8; 8] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0xF7];
 const EXIT: [u8; 9] = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0C, 0x0E, 0x00, 0xF7];
@@ -134,7 +135,11 @@ fn connect_asks_who_the_unit_is_and_the_next_render_takes_it() {
     let (mut dev, _rx) = connected(&midi);
     assert!(dev.is_connected());
     assert_eq!(dev.identity().id, DEVICE_ID);
-    assert_eq!(midi.take_sent(), to_output(&[INQUIRY.to_vec()]));
+    // D-X7: the layout the unit shows is read, to give it back on release.
+    assert_eq!(
+        midi.take_sent(),
+        to_output(&[INQUIRY.to_vec(), READ_LAYOUT.to_vec()])
+    );
     assert_eq!(midi.open_links(), 1);
     dev.render(&SurfaceFrame::default()).unwrap();
     // D-X6: Programmer mode used to be assumed, never read back.
@@ -429,6 +434,25 @@ fn mini_clear() -> Vec<u8> {
 
 const MINI_FRAME: &str = "F0 00 20 29 02 0D 03 03 0B 7F 00 40 F7";
 
+/// What connecting sends a Mini MK3: who are you, which layout.
+fn mini_probe() -> Vec<Vec<u8>> {
+    vec![hex("F0 7E 7F 06 01 F7"), hex("F0 00 20 29 02 0D 00 F7")]
+}
+
+/// Connected, identified, confirmed and taken; what was sent is dropped.
+fn mini_acquired(
+    sim: &SimLaunchpad,
+    clock: &FakeClock,
+) -> (FakeMidi, Mk3Device, UnboundedReceiver<DeviceInput>) {
+    let (midi, mut dev, rx) = mini_with(sim, clock);
+    for _ in 0..2 {
+        dev.render(&SurfaceFrame::default()).unwrap();
+    }
+    assert_eq!(dev.details().mode, ModeState::Confirmed);
+    sent(&midi);
+    (midi, dev, rx)
+}
+
 fn lower_left_pink() -> SurfaceFrame {
     frame(ControlPos::grid(0, 7), Rgb::new(255, 0, 128))
 }
@@ -438,7 +462,7 @@ fn the_mini_mk3_is_identified_before_it_is_taken() {
     let sim = SimLaunchpad::mini();
     let (midi, mut dev, _rx) = mini_with(&sim, &FakeClock::new());
     assert_eq!(dev.identity().id, "launchpad-mini-mk3:1");
-    assert_eq!(sent(&midi), [hex("F0 7E 7F 06 01 F7")]);
+    assert_eq!(sent(&midi), mini_probe());
     assert_eq!(dev.details().mode, ModeState::Acquiring);
     assert!(!sim.in_programmer_mode());
 
@@ -463,7 +487,7 @@ fn the_mini_mk3_is_identified_before_it_is_taken() {
 fn a_unit_in_its_bootloader_is_sent_nothing_more() {
     let sim = SimLaunchpad::mini().in_bootloader();
     let (midi, mut dev, _rx) = mini_with(&sim, &FakeClock::new());
-    assert_eq!(sent(&midi), [hex("F0 7E 7F 06 01 F7")]);
+    assert_eq!(sent(&midi), mini_probe());
     for _ in 0..2 {
         let error = dev.render(&lower_left_pink()).unwrap_err();
         assert!(matches!(error, DeviceError::Bootloader(_)), "{error:?}");
@@ -507,7 +531,7 @@ fn a_unit_that_does_not_answer_is_still_drawn_with_a_notice() {
     let sim = SimLaunchpad::mini().silent();
     let clock = FakeClock::new();
     let (midi, mut dev, mut rx) = mini_with(&sim, &clock);
-    assert_eq!(sent(&midi), [hex("F0 7E 7F 06 01 F7")]);
+    assert_eq!(sent(&midi), mini_probe());
     dev.render(&lower_left_pink()).unwrap();
     clock.advance(REPLY_TIMEOUT - Duration::from_millis(1));
     dev.render(&lower_left_pink()).unwrap();
@@ -560,11 +584,7 @@ fn input_before_the_unit_is_taken_is_not_a_press() {
 #[test]
 fn the_mini_mk3_profile_runs_on_the_same_device() {
     let sim = SimLaunchpad::mini();
-    let (midi, mut dev, mut rx) = mini_with(&sim, &FakeClock::new());
-    for _ in 0..2 {
-        dev.render(&SurfaceFrame::default()).unwrap();
-    }
-    sent(&midi);
+    let (midi, mut dev, mut rx) = mini_acquired(&sim, &FakeClock::new());
 
     dev.render(&lower_left_pink()).unwrap();
     assert_eq!(
@@ -584,12 +604,36 @@ fn the_mini_mk3_profile_runs_on_the_same_device() {
     );
 
     dev.disconnect().unwrap();
+    assert_eq!(
+        sent(&midi),
+        [mini_clear(), hex("F0 00 20 29 02 0D 0E 00 F7")],
+        "Live mode lands in Keys, the layout the unit showed"
+    );
     assert_eq!(sim.layout(), 0x05, "Live mode, Keys");
     assert_eq!(
         sim.led_at(ControlPos::grid(0, 7)),
         Some(SimLed::Rgb(0, 0, 0))
     );
     assert_eq!(midi.open_links(), 0);
+}
+
+#[test]
+fn release_gives_the_person_the_layout_the_unit_showed() {
+    // D-X7: Live mode lands in Keys, whatever layout the person had.
+    let sim = SimLaunchpad::mini().with_layout(0x04);
+    let (midi, mut dev, _rx) = mini_acquired(&sim, &FakeClock::new());
+    dev.render(&lower_left_pink()).unwrap();
+    sent(&midi);
+    dev.disconnect().unwrap();
+    assert_eq!(
+        sent(&midi),
+        [
+            mini_clear(),
+            hex("F0 00 20 29 02 0D 0E 00 F7"),
+            hex("F0 00 20 29 02 0D 00 04 F7"),
+        ]
+    );
+    assert_eq!(sim.layout(), 0x04, "Custom mode 1, Drums");
 }
 
 // ---- refusals through the device manager --------------------------------------
@@ -617,7 +661,10 @@ fn the_manager_reports_a_unit_in_its_bootloader_as_failed_with_the_reason() {
         info.problem.as_deref(),
         Some("The Launchpad is in its bootloader. Unplug it and plug it in again.")
     );
-    assert_eq!(midi.take_sent(), to_output(&[INQUIRY.to_vec()]));
+    assert_eq!(
+        midi.take_sent(),
+        to_output(&[INQUIRY.to_vec(), READ_LAYOUT.to_vec()])
+    );
     assert_eq!(midi.open_links(), 0);
     assert!(
         m.rescan_hardware(false).to_connect.is_empty(),
