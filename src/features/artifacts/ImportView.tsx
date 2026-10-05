@@ -10,9 +10,7 @@ import type { ArtifactLimits, ExampleInfo, ImportDecisions, ImportPlan, ImportRe
 import { useStore } from "../../stores/runtime";
 import { Disclosure, PlanSections } from "./PlanSections";
 import { EXPIRED, NOTHING_CHANGED, reportText, SHARE_NOTE, STALE, tooLarge } from "./text";
-
-/** How long the view waits after the last keystroke before asking Rust again. */
-const TYPING_PAUSE_MS = 150;
+import { TYPING_PAUSE_MS, useAsk } from "./useAsk";
 
 type Stage =
   | { kind: "choose"; note?: string }
@@ -228,36 +226,13 @@ function PlanStage({ initial, limits, applied, expired, cancelled }: PlanStagePr
  * answer to the latest request is shown.
  */
 function usePlan(initial: ImportPlan, expired: () => void) {
-  const attempt = useStore((s) => s.attempt);
   const [plan, setPlan] = useState(initial);
   const [decisions, setDecisions] = useState<ImportDecisions>(initial.decisions);
-  const [pending, setPending] = useState(false);
-  const latest = useRef(0);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const planId = initial.planId;
-
-  const send = useCallback(
-    (next: ImportDecisions, wait: number) => {
-      clearTimeout(timer.current);
-      const request = ++latest.current;
-      setPending(true);
-      timer.current = setTimeout(() => {
-        void attempt(async () => {
-          try {
-            const outcome = await api.artifacts.preview(planId, next);
-            if (request !== latest.current) return;
-            if (outcome.status === "expired") return expired();
-            setPlan(outcome.plan);
-          } finally {
-            if (request === latest.current) setPending(false);
-          }
-        });
-      }, wait);
-    },
-    [attempt, expired, planId],
+  const { send, drop, pending } = useAsk(
+    (next: ImportDecisions) => api.artifacts.preview(planId, next),
+    (outcome) => (outcome.status === "expired" ? expired() : setPlan(outcome.plan)),
   );
-
-  useEffect(() => () => clearTimeout(timer.current), []);
 
   const change = useCallback(
     (next: ImportDecisions, typed = false) => {
@@ -273,12 +248,10 @@ function usePlan(initial: ImportPlan, expired: () => void) {
     pending,
     change,
     /** Ask again with the same decisions: something else changed (a plugin was installed). */
-    again: () => send(decisions, 0),
+    again: () => send(decisions),
     /** A plan apply returned (stale or blocked): show it, and let no older preview replace it. */
     replacePlan: (next: ImportPlan) => {
-      clearTimeout(timer.current);
-      latest.current++;
-      setPending(false);
+      drop();
       setPlan(next);
     },
   };
