@@ -5,7 +5,7 @@
 // the plan Rust returns and send the person's decisions back whole. Here the
 // host's answers are stood in for.
 
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import missingJson from "../../../examples/artifacts/import-plan-missing.json";
@@ -389,15 +389,21 @@ describe("questions a Pack asks", () => {
 
   it("takes text, sends it once the person stops typing, and shows what Rust says under the field", async () => {
     const { preview } = host({ status: "plan", plan: asking });
-    const user = await chooseFile();
+    await chooseFile();
     const folder = await screen.findByRole("textbox", { name: "Project folder" });
     expect(screen.getByText("The project folder is required.")).toBeTruthy();
     expect(folder.getAttribute("aria-invalid")).toBe("true");
-    await user.type(folder, "/srv/app");
+    // Keystrokes in a row, with no pause between them: nothing is sent until the typing stops.
+    for (const value of ["/", "/s", "/srv", "/srv/", "/srv/app"]) fireEvent.change(folder, { target: { value } });
+    expect((folder as HTMLInputElement).value).toBe("/srv/app");
+    expect(preview).not.toHaveBeenCalled();
     await waitFor(() => expect(preview).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 200));
     expect(preview).toHaveBeenCalledTimes(1);
     expect(preview).toHaveBeenCalledWith(PLAN.planId, { ...PLAN.decisions, inputs: { folder: { kind: "text", value: "/srv/app" } } });
+    // Emptying the field takes the answer back.
+    fireEvent.change(folder, { target: { value: "" } });
+    await waitFor(() => expect(preview).toHaveBeenLastCalledWith(PLAN.planId, PLAN.decisions));
   });
 
   it("offers the applications seen in front on this system, and an option list", async () => {
