@@ -173,7 +173,7 @@ fn write_file(path: &Path, bytes: &[u8], private: bool) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::surfaces::default_workspace;
+    use crate::surfaces::{default_workspace, default_workspace_for, Platform};
 
     #[test]
     fn workspace_roundtrips_through_disk() {
@@ -361,14 +361,15 @@ mod tests {
 
     /// The strongest check of the conversion: the schema 3 workspace the last
     /// release shipped, migrated by the rules in [`bindings`], is the same
-    /// workspace the code builds by hand today, control by control.
+    /// workspace the code builds by hand today, control by control. The file
+    /// was saved on Linux, so it is compared with the Linux starter pads.
     #[test]
     fn a_real_v3_workspace_migrates_to_exactly_what_ships_now() {
         let old: Value = serde_json::from_str(V3_FIXTURE).unwrap();
         assert_eq!(old["schemaVersion"], 3);
         let ws = migrate(old).unwrap();
         assert_eq!(ws.schema_version, SCHEMA_VERSION);
-        let shipped = default_workspace();
+        let shipped = default_workspace_for(Platform::Linux);
         assert_eq!(ws.surfaces.len(), shipped.surfaces.len());
         for (a, b) in ws.surfaces.iter().zip(&shipped.surfaces) {
             assert_eq!(a, b, "surface `{}` differs after migration", b.id);

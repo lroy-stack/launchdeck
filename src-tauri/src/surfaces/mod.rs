@@ -9,6 +9,30 @@ use crate::core::model::*;
 
 pub mod agent_control;
 
+/// The system a starter workspace is built for. A few starter pads differ by
+/// system (the terminal, the editor, the file manager, the screenshot, and how
+/// a demo command waits); everything else is the same everywhere.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Platform {
+    /// Linux, and any other system that is neither macOS nor Windows.
+    Linux,
+    MacOs,
+    Windows,
+}
+
+impl Platform {
+    /// The system this was built for.
+    pub fn current() -> Platform {
+        if cfg!(target_os = "macos") {
+            Platform::MacOs
+        } else if cfg!(windows) {
+            Platform::Windows
+        } else {
+            Platform::Linux
+        }
+    }
+}
+
 // Palette used by the starter surfaces (kept readable on RGB LEDs).
 const BLUE: Rgb = Rgb::new(40, 110, 255);
 const GREEN: Rgb = Rgb::new(30, 220, 90);
@@ -76,12 +100,11 @@ fn open_page(id: &str) -> Assignment {
     plugin("navigation", "openPage", json!({ "pageId": id }))
 }
 
-/// Cross-platform harmless command that takes `secs` seconds then prints `msg`.
-fn demo_cmd(secs: u32, msg: &str) -> Assignment {
-    let command = if cfg!(windows) {
-        format!("ping -n {} 127.0.0.1 >nul & echo {msg}", secs + 1)
-    } else {
-        format!("sleep {secs} && echo '{msg}'")
+/// Harmless command that takes `secs` seconds then prints `msg`.
+fn demo_cmd(platform: Platform, secs: u32, msg: &str) -> Assignment {
+    let command = match platform {
+        Platform::Windows => format!("ping -n {} 127.0.0.1 >nul & echo {msg}", secs + 1),
+        Platform::Linux | Platform::MacOs => format!("sleep {secs} && echo '{msg}'"),
     };
     shell(&command)
 }
@@ -161,7 +184,7 @@ fn dev_pad(
     c
 }
 
-fn development() -> Surface {
+fn development(platform: Platform) -> Surface {
     let mut home = vec![
         dev_pad(
             g(0, 0),
@@ -170,12 +193,10 @@ fn development() -> Surface {
             CYAN,
             "Launch a terminal (placeholder command).",
             launch(
-                if cfg!(target_os = "macos") {
-                    "Terminal"
-                } else if cfg!(windows) {
-                    "wt"
-                } else {
-                    "x-terminal-emulator"
+                match platform {
+                    Platform::Linux => "x-terminal-emulator",
+                    Platform::MacOs => "Terminal",
+                    Platform::Windows => "wt",
                 },
                 &[],
             ),
@@ -187,10 +208,9 @@ fn development() -> Surface {
             BLUE,
             "Launch VS Code (`code` must be on your PATH, or the app name on macOS).",
             launch(
-                if cfg!(target_os = "macos") {
-                    "Visual Studio Code"
-                } else {
-                    "code"
+                match platform {
+                    Platform::MacOs => "Visual Studio Code",
+                    Platform::Linux | Platform::Windows => "code",
                 },
                 &[],
             ),
@@ -209,7 +229,7 @@ fn development() -> Surface {
             "▣",
             CYAN,
             "Placeholder: harmless echo. Replace with `docker compose up`.",
-            demo_cmd(1, "docker: demo only"),
+            demo_cmd(platform, 1, "docker: demo only"),
         ),
         dev_pad(
             g(0, 1),
@@ -217,7 +237,7 @@ fn development() -> Surface {
             "✓",
             YELLOW,
             "Safe demo: sleeps 2s then succeeds. Pad pulses yellow, then turns green.",
-            demo_cmd(2, "tests passed"),
+            demo_cmd(platform, 2, "tests passed"),
         ),
         dev_pad(
             g(1, 1),
@@ -225,7 +245,7 @@ fn development() -> Surface {
             "⚒",
             ORANGE,
             "Safe demo: sleeps 3s then succeeds.",
-            demo_cmd(3, "build ok"),
+            demo_cmd(platform, 3, "build ok"),
         ),
         dev_pad(
             g(2, 1),
@@ -233,7 +253,7 @@ fn development() -> Surface {
             "⚡",
             GREEN,
             "Safe demo: sleeps 1s then succeeds.",
-            demo_cmd(1, "dev server: demo only"),
+            demo_cmd(platform, 1, "dev server: demo only"),
         ),
         dev_pad(
             g(3, 1),
@@ -241,7 +261,7 @@ fn development() -> Surface {
             "⇪",
             RED,
             "Safe demo: sleeps 2s then succeeds. Replace with your deploy script.",
-            demo_cmd(2, "deploy: demo only"),
+            demo_cmd(platform, 2, "deploy: demo only"),
         ),
         {
             let mut c = ctl(g(0, 2), "Git", "⑂", PINK, open_page("git"));
@@ -266,7 +286,7 @@ fn development() -> Surface {
             "≡",
             CYAN,
             "Safe demo: prints a message.",
-            demo_cmd(1, "git status: demo only"),
+            demo_cmd(platform, 1, "git status: demo only"),
         ),
         dev_pad(
             g(1, 0),
@@ -274,7 +294,7 @@ fn development() -> Surface {
             "●",
             GREEN,
             "Safe demo. Replace with your commit script.",
-            demo_cmd(1, "git commit: demo only"),
+            demo_cmd(platform, 1, "git commit: demo only"),
         ),
         dev_pad(
             g(2, 0),
@@ -282,7 +302,7 @@ fn development() -> Surface {
             "↓",
             BLUE,
             "Safe demo. Replace with `git pull`.",
-            demo_cmd(1, "git pull: demo only"),
+            demo_cmd(platform, 1, "git pull: demo only"),
         ),
         dev_pad(
             g(3, 0),
@@ -290,7 +310,7 @@ fn development() -> Surface {
             "↑",
             ORANGE,
             "Safe demo. Replace with `git push`.",
-            demo_cmd(1, "git push: demo only"),
+            demo_cmd(platform, 1, "git push: demo only"),
         ),
         back_control(g(0, 7), "home"),
     ];
@@ -326,20 +346,16 @@ fn development() -> Surface {
 // Productivity
 // ---------------------------------------------------------------------------
 
-fn productivity() -> Surface {
-    let files_app = if cfg!(target_os = "macos") {
-        launch("Finder", &[])
-    } else if cfg!(windows) {
-        launch("explorer", &[])
-    } else {
-        launch("xdg-open", &["."])
+fn productivity(platform: Platform) -> Surface {
+    let files_app = match platform {
+        Platform::Linux => launch("xdg-open", &["."]),
+        Platform::MacOs => launch("Finder", &[]),
+        Platform::Windows => launch("explorer", &[]),
     };
-    let screenshot = if cfg!(target_os = "macos") {
-        shortcut(&["cmd", "shift", "4"])
-    } else if cfg!(windows) {
-        shortcut(&["win", "shift", "s"])
-    } else {
-        shell("gnome-screenshot --interactive")
+    let screenshot = match platform {
+        Platform::Linux => shell("gnome-screenshot --interactive"),
+        Platform::MacOs => shortcut(&["cmd", "shift", "4"]),
+        Platform::Windows => shortcut(&["win", "shift", "s"]),
     };
     let mut controls = vec![
         tool_pad(
@@ -436,7 +452,7 @@ fn productivity() -> Surface {
             "☾",
             GRAY,
             "Placeholder: wire this to your OS focus mode with a shell command.",
-            demo_cmd(1, "dnd: demo only"),
+            demo_cmd(platform, 1, "dnd: demo only"),
         ),
     ];
     controls.extend(surface_switchers("productivity"));
@@ -690,20 +706,27 @@ fn accessibility() -> Surface {
 
 // ---------------------------------------------------------------------------
 
-pub fn starter_surfaces() -> Vec<Surface> {
+pub fn starter_surfaces(platform: Platform) -> Vec<Surface> {
     vec![
         agent_control::agent_control(),
-        development(),
-        productivity(),
+        development(platform),
+        productivity(platform),
         smart_home(),
         accessibility(),
     ]
 }
 
+/// The workspace a new installation on this system starts with.
 pub fn default_workspace() -> Workspace {
+    default_workspace_for(Platform::current())
+}
+
+/// The workspace a new installation on `platform` starts with. Tests that
+/// compare with a file recorded on one system ask for that system.
+pub fn default_workspace_for(platform: Platform) -> Workspace {
     Workspace {
         schema_version: SCHEMA_VERSION,
-        surfaces: starter_surfaces(),
+        surfaces: starter_surfaces(platform),
         last_active_surface: Some(agent_control::SURFACE_ID.into()),
         preferences: Preferences::default(),
         context: Default::default(),
@@ -784,9 +807,11 @@ mod tests {
         assert_eq!(ws.schema_version, SCHEMA_VERSION);
     }
 
+    const SYSTEMS: [Platform; 3] = [Platform::Linux, Platform::MacOs, Platform::Windows];
+
     #[test]
     fn every_page_is_well_formed() {
-        for s in starter_surfaces() {
+        for s in SYSTEMS.into_iter().flat_map(starter_surfaces) {
             assert!(!s.pages.is_empty(), "{} has no pages", s.id);
             for p in &s.pages {
                 let mut seen_cells = HashSet::new();
@@ -890,7 +915,8 @@ mod tests {
     }
 
     /// `examples/default-workspace.json` is the contract fixture the TypeScript
-    /// schemas are tested against. Refresh it with:
+    /// schemas are tested against. It is the Linux workspace, whichever system
+    /// runs this. Refresh it with:
     /// `cargo run --example dump_workspace > ../examples/default-workspace.json`
     #[test]
     fn contract_fixture_matches_the_default_workspace() {
@@ -898,8 +924,182 @@ mod tests {
             serde_json::from_str(include_str!("../../../examples/default-workspace.json")).unwrap();
         assert_eq!(
             fixture,
-            serde_json::to_value(default_workspace()).unwrap(),
+            serde_json::to_value(default_workspace_for(Platform::Linux)).unwrap(),
             "examples/default-workspace.json is stale; regenerate it with the dump_workspace example"
+        );
+    }
+
+    /// `surface/page/label` of every control that is not the same in both.
+    fn differing_pads(a: &Workspace, b: &Workspace) -> Vec<String> {
+        assert_eq!(a.surfaces.len(), b.surfaces.len());
+        let mut differ = Vec::new();
+        for (sa, sb) in a.surfaces.iter().zip(&b.surfaces) {
+            assert_eq!(sa.pages.len(), sb.pages.len(), "{}", sa.id);
+            for (pa, pb) in sa.pages.iter().zip(&sb.pages) {
+                assert_eq!(pa.controls.len(), pb.controls.len(), "{}/{}", sa.id, pa.id);
+                for (ca, cb) in pa.controls.iter().zip(&pb.controls) {
+                    if ca != cb {
+                        differ.push(format!("{}/{}/{}", sa.id, pa.id, ca.label));
+                    }
+                }
+            }
+        }
+        differ
+    }
+
+    /// What pressing a starter pad does: `provider.action` and its settings.
+    fn press(
+        ws: &Workspace,
+        surface: &str,
+        page: &str,
+        label: &str,
+    ) -> (String, serde_json::Value) {
+        let control = ws
+            .surface(surface)
+            .and_then(|s| s.page(page))
+            .and_then(|p| p.controls.iter().find(|c| c.label == label))
+            .unwrap_or_else(|| panic!("no pad {surface}/{page}/{label}"));
+        let a = control.press.as_ref().unwrap();
+        (format!("{}.{}", a.provider, a.action), a.args.clone())
+    }
+
+    #[test]
+    fn the_systems_differ_only_in_the_pads_that_must() {
+        let linux = default_workspace_for(Platform::Linux);
+        assert_eq!(
+            differing_pads(&linux, &default_workspace_for(Platform::MacOs)),
+            [
+                "development/home/Terminal",
+                "development/home/VS Code",
+                "productivity/home/Files",
+                "productivity/home/Screenshot",
+            ]
+        );
+        // On Windows the demo commands wait with `ping` instead of `sleep`.
+        assert_eq!(
+            differing_pads(&linux, &default_workspace_for(Platform::Windows)),
+            [
+                "development/home/Terminal",
+                "development/home/Docker",
+                "development/home/Tests",
+                "development/home/Build",
+                "development/home/Dev Server",
+                "development/home/Deploy",
+                "development/git/Git Status",
+                "development/git/Commit",
+                "development/git/Pull",
+                "development/git/Push",
+                "productivity/home/Files",
+                "productivity/home/Screenshot",
+                "productivity/home/Do Not Disturb",
+            ]
+        );
+    }
+
+    #[test]
+    fn on_linux_the_starter_pads_use_common_desktop_commands() {
+        let ws = default_workspace_for(Platform::Linux);
+        let app = |name: &str| {
+            (
+                "system.launchApplication".to_string(),
+                json!({ "app": name }),
+            )
+        };
+        assert_eq!(
+            press(&ws, "development", "home", "Terminal"),
+            app("x-terminal-emulator")
+        );
+        assert_eq!(press(&ws, "development", "home", "VS Code"), app("code"));
+        assert_eq!(
+            press(&ws, "productivity", "home", "Files"),
+            (
+                "system.launchApplication".into(),
+                json!({ "app": "xdg-open", "args": "." })
+            )
+        );
+        assert_eq!(
+            press(&ws, "productivity", "home", "Screenshot"),
+            (
+                "shell.execute".into(),
+                json!({ "command": "gnome-screenshot --interactive" })
+            )
+        );
+        assert_eq!(
+            press(&ws, "development", "home", "Tests"),
+            (
+                "shell.execute".into(),
+                json!({ "command": "sleep 2 && echo 'tests passed'" })
+            )
+        );
+    }
+
+    #[test]
+    fn on_macos_the_starter_pads_name_applications_and_use_cmd() {
+        let ws = default_workspace_for(Platform::MacOs);
+        let app = |name: &str| {
+            (
+                "system.launchApplication".to_string(),
+                json!({ "app": name }),
+            )
+        };
+        assert_eq!(
+            press(&ws, "development", "home", "Terminal"),
+            app("Terminal")
+        );
+        assert_eq!(
+            press(&ws, "development", "home", "VS Code"),
+            app("Visual Studio Code")
+        );
+        assert_eq!(press(&ws, "productivity", "home", "Files"), app("Finder"));
+        assert_eq!(
+            press(&ws, "productivity", "home", "Screenshot"),
+            (
+                "system.keyboardShortcut".into(),
+                json!({ "keys": "cmd+shift+4" })
+            )
+        );
+        assert_eq!(
+            press(&ws, "development", "home", "Tests"),
+            (
+                "shell.execute".into(),
+                json!({ "command": "sleep 2 && echo 'tests passed'" })
+            )
+        );
+    }
+
+    #[test]
+    fn on_windows_the_starter_pads_use_windows_programs_and_ping_to_wait() {
+        let ws = default_workspace_for(Platform::Windows);
+        let app = |name: &str| {
+            (
+                "system.launchApplication".to_string(),
+                json!({ "app": name }),
+            )
+        };
+        assert_eq!(press(&ws, "development", "home", "Terminal"), app("wt"));
+        assert_eq!(press(&ws, "development", "home", "VS Code"), app("code"));
+        assert_eq!(press(&ws, "productivity", "home", "Files"), app("explorer"));
+        assert_eq!(
+            press(&ws, "productivity", "home", "Screenshot"),
+            (
+                "system.keyboardShortcut".into(),
+                json!({ "keys": "win+shift+s" })
+            )
+        );
+        assert_eq!(
+            press(&ws, "development", "home", "Tests"),
+            (
+                "shell.execute".into(),
+                json!({ "command": "ping -n 3 127.0.0.1 >nul & echo tests passed" })
+            )
+        );
+    }
+
+    #[test]
+    fn the_default_workspace_is_the_one_for_this_system() {
+        assert_eq!(
+            default_workspace(),
+            default_workspace_for(Platform::current())
         );
     }
 }
