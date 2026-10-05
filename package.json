@@ -14,11 +14,17 @@
     "lint": "eslint .",
     "test": "vitest run",
     "tauri": "tauri",
-    "rust:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml --check",
-    "rust:check": "cargo check --manifest-path src-tauri/Cargo.toml",
-    "rust:test": "cargo test --manifest-path src-tauri/Cargo.toml",
-    "plugins:build": "sh scripts/build-example-plugins.sh",
-    "check:arch": "node scripts/check-architecture.mjs"
+    "check": "node scripts/check.mjs",
+    "check:web": "node scripts/check.mjs --web",
+    "check:full": "node scripts/check.mjs --full",
+    "check:arch": "node scripts/check-architecture.mjs",
+    "versions:check": "node scripts/check-versions.mjs",
+    "docs:links": "node scripts/check-docs-links.mjs",
+    "rust:fmt": "node scripts/cargo.mjs fmt --check",
+    "rust:check": "node scripts/cargo.mjs check --all-targets",
+    "rust:clippy": "node scripts/cargo.mjs clippy --all-targets -- -D warnings",
+    "rust:test": "node scripts/cargo.mjs test --no-fail-fast",
+    "plugins:build": "sh scripts/build-example-plugins.sh"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.1",
