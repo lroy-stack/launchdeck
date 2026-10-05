@@ -114,6 +114,16 @@ impl Version {
         parts.next().is_none().then_some(v)
     }
 
+    /// The same version as `semver` sees it, to match a version requirement
+    /// against. Leading zeros, which [`Version::parse`] accepts, drop.
+    pub fn to_semver(&self) -> semver::Version {
+        semver::Version::new(
+            u64::from(self.major),
+            u64::from(self.minor),
+            u64::from(self.patch),
+        )
+    }
+
     /// A plugin built with a newer SDK than the host knows is refused. Before
     /// 1.0 the minor version is the breaking one.
     pub fn plugin_sdk_ok(plugin: Version, host: Version) -> bool {
@@ -1331,6 +1341,18 @@ mod tests {
         assert!(Version::plugin_sdk_ok(v("1.0.0"), v("2.0.0")));
         assert!(!Version::plugin_sdk_ok(v("2.0.0"), v("1.9.0")));
         assert!(Version::plugin_sdk_ok(v("1.3.0"), v("1.1.0")));
+    }
+
+    /// A plugin version as `semver` sees it, so a dependency requirement can
+    /// be matched against it. Leading zeros keep loading and simply drop.
+    #[test]
+    fn a_version_converts_to_semver() {
+        let v = |s| Version::parse(s).unwrap().to_semver();
+        assert_eq!(v("1.2.3"), semver::Version::new(1, 2, 3));
+        assert_eq!(v("01.002.0003"), semver::Version::new(1, 2, 3));
+        assert_eq!(v("0.0.0"), semver::Version::new(0, 0, 0));
+        let req = semver::VersionReq::parse("^0.4").unwrap();
+        assert!(req.matches(&v("0.4.1")) && !req.matches(&v("0.5.0")));
     }
 
     // ---- schema 3: states, event fields, suggestions ----------------------

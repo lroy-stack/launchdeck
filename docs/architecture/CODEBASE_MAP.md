@@ -108,7 +108,7 @@ One owner per concept. Before adding a type, a constant or a helper for one of t
 | Agent model | `agents::model` | the live state is `agents::service::AgentControl` |
 | Plugin manifest and SDK version | `plugins::external::manifest` (`MANIFEST_SCHEMA`), `plugins::external::{ABI_VERSION, SDK_VERSION}` | built-in providers describe themselves with `plugins::PluginManifest` |
 | Portable artifacts and their versions | `artifacts` (planned, C1) | `formatVersion` 1, independent of every other version number |
-| Version requirements | the `semver` crate (planned, C1) | today a hand-rolled `Version` in `plugins::external::manifest` |
+| Version requirements | the `semver` crate | a plugin manifest's `version` keeps its own grammar (`plugins::external::manifest::Version`, leading zeros accepted) and converts with `Version::to_semver` to be matched against a requirement |
 | IPC payload shapes | the Rust types (serde) | Zod schemas in `src/lib/schema/`, one file per domain; contract fixtures in section 6 |
 | Tauri commands | `commands`, one file per feature | registered in `generate_handler!` in `lib.rs`; only `src/lib/ipc.ts` calls them |
 
