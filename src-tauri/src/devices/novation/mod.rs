@@ -26,6 +26,8 @@ mod protocol;
 mod protocol_tests;
 mod session;
 #[cfg(test)]
+mod session_tests;
+#[cfg(test)]
 mod testkit;
 
 pub(crate) use hardware::NovationHardware;
