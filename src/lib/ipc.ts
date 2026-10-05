@@ -213,6 +213,8 @@ export const api = {
     /** Show the plugins folder in the system's file manager, creating it first. */
     revealFolder: (): Promise<void> => call("plugins_reveal_folder", null),
   },
+  /** Show the app data folder (the workspace, its backups, plugins, settings) in the system's file manager. */
+  revealDataFolder: (): Promise<void> => call("app_reveal_data_folder", null),
   /** Auto Context: the surface follows the application in front. */
   context: {
     status: (): Promise<ContextStatus> => call("context_status", contextStatusSchema),

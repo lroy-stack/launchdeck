@@ -70,6 +70,14 @@ export type RuntimeEvent = z.infer<typeof runtimeEventSchema>;
 export const controlStateKey = (surfaceId: string, pageId: string, controlId: string): string =>
   `${surfaceId}/${pageId}/${controlId}`;
 
+/** The saved workspace was set aside at start (`persistence::StartupNotice`): why, and where its copy is. */
+export const startupNoticeSchema = z.object({
+  kind: z.enum(["workspaceDamaged", "workspaceTooNew"]),
+  /** The backup's path, to show under Details. */
+  backup: z.string(),
+});
+export type StartupNotice = z.infer<typeof startupNoticeSchema>;
+
 export const snapshotSchema = z.object({
   workspace: workspaceSchema,
   state: runtimeStateSchema,
@@ -80,6 +88,8 @@ export const snapshotSchema = z.object({
   recentEvents: z.array(runtimeEventSchema),
   agents: agentsSnapshotSchema,
   context: contextStatusSchema,
+  /** What the person must be told about this start; empty almost always. */
+  notices: z.array(startupNoticeSchema).default([]),
 });
 export type Snapshot = z.infer<typeof snapshotSchema>;
 

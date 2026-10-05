@@ -35,6 +35,9 @@ code { background: var(--panel-2); border: 1px solid var(--line); border-radius:
 .splash { height: 100%; display: grid; place-content: center; gap: 12px; color: var(--text-2); text-align: center; }
 .splash.error pre { color: var(--bad); white-space: pre-wrap; max-width: 640px; }
 .preview-bar { background: #2a2210; color: #f3d38a; border-bottom: 1px solid #4a3a14; padding: 6px 16px; font-size: 12px; }
+.startup-notice { display: flex; flex-direction: column; gap: 8px; padding: 10px 16px; background: #2a1515; color: #fca5a5; border-bottom: 1px solid #5a2a2a; }
+.startup-notice p { color: inherit; }
+.startup-notice .row { align-items: center; }
 
 /* Sidebar ---------------------------------------------------------------- */
 .sidebar { background: var(--bg-2); border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow: auto; }

@@ -219,6 +219,7 @@ export async function createPreviewTransport() {
       recentEvents: events,
       agents,
       context: context(),
+      notices: [],
     });
 
   const invoke = async (cmd: string, args: Record<string, unknown> = {}): Promise<unknown> => {
@@ -389,6 +390,8 @@ export async function createPreviewTransport() {
       case "plugins_install_example":
       case "plugins_reveal_folder":
         throw PLUGINS_IN_PREVIEW;
+      case "app_reveal_data_folder":
+        throw "Browser preview: there is no data folder; the desktop app keeps one.";
       case "agents_command":
       case "agents_set_access":
       case "agents_update_settings":

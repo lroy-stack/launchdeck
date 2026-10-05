@@ -43,7 +43,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::core::runtime::{Runtime, RuntimeConfig, UiEmitter};
-use crate::persistence::Store;
+use crate::persistence::{LoadOutcome, Store};
 use crate::plugins::keyboard::EnigoKeyboard;
 use crate::surfaces::default_workspace;
 
@@ -64,7 +64,9 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             let store = Store::new(&dir);
-            let workspace = store.load_or_default(default_workspace);
+            // A saved workspace that could not be used is kept as a backup,
+            // and the snapshot tells the person so.
+            let LoadOutcome { workspace, notice } = store.load(default_workspace);
             let config = RuntimeConfig {
                 workspace,
                 store: Some(store),
@@ -83,7 +85,10 @@ pub fn run() {
                 // Which application is in front, by this system's own means.
                 observer: Some(context::observer::native()),
             };
-            let runtime = tauri::async_runtime::block_on(Runtime::start(config));
+            let runtime = tauri::async_runtime::block_on(Runtime::start_with_notices(
+                config,
+                notice.into_iter().collect(),
+            ));
             if let Err(e) = tray::build_tray(app, &runtime) {
                 // The tray is a convenience; never block startup on it.
                 log::warn!("system tray unavailable: {e}");
@@ -147,6 +152,7 @@ pub fn run() {
             commands::plugins::plugins_examples,
             commands::plugins::plugins_install_example,
             commands::plugins::plugins_reveal_folder,
+            commands::app::app_reveal_data_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running LaunchDeck");

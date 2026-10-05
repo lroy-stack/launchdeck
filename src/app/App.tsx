@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Sidebar } from "./Sidebar";
+import { StartupNotices } from "./StartupNotices";
 import { AgentsView } from "../features/agents/AgentsView";
 import { HomeView } from "../features/home/HomeView";
 import { SettingsView } from "../features/settings/SettingsView";
@@ -46,6 +47,7 @@ export function App() {
       <Sidebar />
       <div className="content">
         {preview && <div className="preview-bar">Browser preview · simulated runtime. Run the desktop app for the real thing.</div>}
+        <StartupNotices />
         {view === "home" && <HomeView />}
         {view === "agents" && <AgentsView />}
         {view === "surface" && <SurfaceView />}

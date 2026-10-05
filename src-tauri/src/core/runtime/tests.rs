@@ -115,8 +115,8 @@ fn bound_workspace() -> Workspace {
     }
 }
 
-async fn start(ws: Workspace, store: Option<Store>) -> Arc<Runtime> {
-    Runtime::start(RuntimeConfig {
+fn config(ws: Workspace, store: Option<Store>) -> RuntimeConfig {
+    RuntimeConfig {
         workspace: ws,
         store,
         emitter: Arc::new(NullEmitter),
@@ -127,8 +127,11 @@ async fn start(ws: Workspace, store: Option<Store>) -> Arc<Runtime> {
         plugin_dirs: vec![],
         secrets: None,
         observer: None,
-    })
-    .await
+    }
+}
+
+async fn start(ws: Workspace, store: Option<Store>) -> Arc<Runtime> {
+    Runtime::start(config(ws, store)).await
 }
 
 async fn wait_until(what: &str, mut cond: impl FnMut() -> bool) {
@@ -888,4 +891,21 @@ async fn a_reset_keeps_the_onboarding_flag() {
     let ws = rt.snapshot().workspace;
     assert!(ws.surface("mine").is_none());
     assert!(ws.preferences.onboarding_done);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_snapshot_carries_the_notices_of_the_start() {
+    use crate::persistence::{NoticeKind, StartupNotice};
+    let rt = start(default_workspace(), None).await;
+    assert!(rt.snapshot().notices.is_empty());
+
+    let notice = StartupNotice {
+        kind: NoticeKind::WorkspaceDamaged,
+        backup: "/data/workspace.json.bak".into(),
+    };
+    let rt =
+        Runtime::start_with_notices(config(default_workspace(), None), vec![notice.clone()]).await;
+    assert_eq!(rt.snapshot().notices, vec![notice]);
+    let json = serde_json::to_value(rt.snapshot()).unwrap();
+    assert_eq!(json["notices"][0]["kind"], "workspaceDamaged");
 }

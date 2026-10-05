@@ -9,7 +9,7 @@ import { emptyIndex, indexCatalog, type CatalogIndex } from "../lib/actions";
 import type { Slot } from "../lib/assign";
 import { primaryDevice } from "../lib/devices";
 import { applyDelta } from "../lib/observables";
-import type { Catalog, ContextStatus, Control, ControlPos, DeviceInfo, Frame, ObservableCatalog, ObservablesDelta, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, Surface, Workspace, Page } from "../lib/schema";
+import type { Catalog, ContextStatus, Control, ControlPos, DeviceInfo, Frame, ObservableCatalog, ObservablesDelta, PluginManifest, RuntimeEvent, RuntimeState, Snapshot, StartupNotice, Surface, Workspace, Page } from "../lib/schema";
 import { emptyObservableCatalog, posKey } from "../lib/schema";
 
 export type View = "home" | "agents" | "surface" | "plugins" | "settings";
@@ -53,6 +53,8 @@ interface Store {
   agents: AgentsSnapshot;
   /** Auto Context as Rust reports it: settings, the application in front, what was decided. */
   context: ContextStatus | null;
+  /** What Rust had to tell about this start (a saved workspace set aside). Fixed until the next start. */
+  notices: StartupNotice[];
 
   view: View;
   agentsTab: AgentsTab;
@@ -146,6 +148,7 @@ export const useStore = create<Store>((set, get) => ({
   frame: { leds: [] },
   agents: emptyAgents,
   context: null,
+  notices: [],
 
   view: "home",
   agentsTab: "overview",
@@ -212,6 +215,7 @@ export const useStore = create<Store>((set, get) => ({
         frame,
         agents: snap.agents,
         context: snap.context,
+        notices: snap.notices,
         view: snap.workspace.preferences.onboardingDone ? "surface" : "home",
       });
       if (observablesHeardEarly) {
