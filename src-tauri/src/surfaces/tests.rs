@@ -122,6 +122,24 @@ fn accessibility_surface_uses_large_targets_and_few_controls() {
     assert!(grid.iter().all(|c| c.span == Span { w: 2, h: 2 }));
 }
 
+/// Auto Context is ordered rules in the workspace; the early per-surface hint
+/// is only read from old files, never written for a starter.
+#[test]
+fn no_starter_surface_carries_the_old_context_hint() {
+    for platform in SYSTEMS {
+        let ws = default_workspace_for(platform);
+        let json = serde_json::to_value(&ws).unwrap();
+        for (surface, written) in ws.surfaces.iter().zip(json["surfaces"].as_array().unwrap()) {
+            assert_eq!(surface.context, None, "{platform:?}: {}", surface.id);
+            assert!(
+                written.get("context").is_none(),
+                "{platform:?}: {}",
+                surface.id
+            );
+        }
+    }
+}
+
 #[test]
 fn blank_surface_is_valid() {
     let s = blank_surface("mine", "Mine");

@@ -264,7 +264,7 @@ impl Page {
 
 /// An early hint for choosing a surface by application. Not used: Auto Context
 /// has ordered rules in the workspace's `context`. Kept so that workspaces
-/// written with it still load unchanged.
+/// written with it still load unchanged; nothing creates one any more.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContextHint {
@@ -284,7 +284,8 @@ pub struct Surface {
     /// `ai`, `development`, `productivity`, `smart-home`, `accessibility`, `custom`.
     pub category: String,
     pub pages: Vec<Page>,
-    #[serde(default)]
+    /// Read from old files and written back only where one was read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context: Option<ContextHint>,
 }
 

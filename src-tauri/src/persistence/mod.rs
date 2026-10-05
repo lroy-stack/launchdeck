@@ -173,6 +173,7 @@ fn write_file(path: &Path, bytes: &[u8], private: bool) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::model::Surface;
     use crate::surfaces::{default_workspace, default_workspace_for, Platform};
 
     #[test]
@@ -267,6 +268,42 @@ mod tests {
         assert_eq!(migrate(again).unwrap(), migrated);
     }
 
+    /// A surface's early `context` hint (`foregroundApps`) is written only
+    /// where a file already had one: such a file loads and keeps it, and a
+    /// surface without one gets no `context` member.
+    #[test]
+    fn a_surface_with_the_old_context_hint_still_loads_and_keeps_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path());
+        let hint = serde_json::json!({ "foregroundApps": ["com.apple.Safari", "firefox"] });
+        let mut doc = serde_json::to_value(default_workspace()).unwrap();
+        for surface in doc["surfaces"].as_array_mut().unwrap() {
+            let object = surface.as_object_mut().unwrap();
+            object.remove("context");
+            if object["id"] == "productivity" {
+                object.insert("context".into(), hint.clone());
+            }
+        }
+        fs::write(store.path(), doc.to_string()).unwrap();
+
+        let ws = store.load_or_default(|| panic!("a file with a hint must load"));
+        let kept = ws.surface("productivity").unwrap().context.as_ref();
+        assert_eq!(
+            kept.map(|h| h.foreground_apps.clone()),
+            Some(vec!["com.apple.Safari".to_string(), "firefox".to_string()])
+        );
+
+        store.save(&ws).unwrap();
+        let saved: Value =
+            serde_json::from_str(&fs::read_to_string(store.path()).unwrap()).unwrap();
+        for surface in saved["surfaces"].as_array().unwrap() {
+            match surface["id"].as_str().unwrap() {
+                "productivity" => assert_eq!(surface["context"], hint),
+                other => assert!(surface.get("context").is_none(), "{other}"),
+            }
+        }
+    }
+
     #[cfg(unix)]
     #[test]
     fn private_files_are_readable_by_the_owner_only() {
@@ -340,6 +377,11 @@ mod tests {
         // Everything else about the controls is untouched.
         let strip = |mut v: Value| {
             for s in v["surfaces"].as_array_mut().unwrap() {
+                // A surface without the old context hint is no longer written
+                // with `"context": null`; a hint the file had is kept.
+                if s["context"].is_null() {
+                    s.as_object_mut().unwrap().remove("context");
+                }
                 for p in s["pages"].as_array_mut().unwrap() {
                     for c in p["controls"].as_array_mut().unwrap() {
                         c.as_object_mut().unwrap().remove("press");
@@ -372,8 +414,20 @@ mod tests {
         let shipped = default_workspace_for(Platform::Linux);
         assert_eq!(ws.surfaces.len(), shipped.surfaces.len());
         for (a, b) in ws.surfaces.iter().zip(&shipped.surfaces) {
-            assert_eq!(a, b, "surface `{}` differs after migration", b.id);
+            // The file keeps the old context hint it was saved with; the
+            // starters no longer write one. It is compared on its own below.
+            let a = Surface {
+                context: None,
+                ..a.clone()
+            };
+            assert_eq!(&a, b, "surface `{}` differs after migration", b.id);
         }
+        let hint = ws.surface("development").and_then(|s| s.context.as_ref());
+        assert_eq!(
+            hint.map(|h| h.foreground_apps.clone()),
+            Some(vec!["com.microsoft.VSCode".to_string(), "Code".to_string()]),
+            "the hint the file had is kept"
+        );
         assert!(ws
             .surfaces
             .iter()

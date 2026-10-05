@@ -2123,8 +2123,7 @@
             }
           ]
         }
-      ],
-      "context": null
+      ]
     },
     {
       "id": "development",
@@ -3004,13 +3003,7 @@
             }
           ]
         }
-      ],
-      "context": {
-        "foregroundApps": [
-          "com.microsoft.VSCode",
-          "Code"
-        ]
-      }
+      ]
     },
     {
       "id": "productivity",
@@ -3495,8 +3488,7 @@
             }
           ]
         }
-      ],
-      "context": null
+      ]
     },
     {
       "id": "smart-home",
@@ -3898,8 +3890,7 @@
             }
           ]
         }
-      ],
-      "context": null
+      ]
     },
     {
       "id": "accessibility",
@@ -4524,8 +4515,7 @@
             }
           ]
         }
-      ],
-      "context": null
+      ]
     }
   ],
   "lastActiveSurface": "agent-control",

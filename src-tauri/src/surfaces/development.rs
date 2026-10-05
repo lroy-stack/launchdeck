@@ -3,7 +3,7 @@
 use super::build::{ctl, demo_cmd, g, launch, open_page, shell, url, with_state_visuals};
 use super::navigation::{back_control, surface_switchers};
 use super::palette::{BLUE, CYAN, GREEN, ORANGE, PINK, PURPLE, RED, YELLOW};
-use crate::core::model::{Assignment, ContextHint, Control, ControlPos, Page, Rgb, Surface};
+use crate::core::model::{Assignment, Control, ControlPos, Page, Rgb, Surface};
 use crate::platform::Platform;
 
 fn dev_pad(
@@ -171,8 +171,6 @@ pub(super) fn development(platform: Platform) -> Surface {
                 controls: git,
             },
         ],
-        context: Some(ContextHint {
-            foreground_apps: vec!["com.microsoft.VSCode".into(), "Code".into()],
-        }),
+        context: None,
     }
 }
