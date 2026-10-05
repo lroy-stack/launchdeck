@@ -24,7 +24,8 @@
     "rust:check": "node scripts/cargo.mjs check --all-targets",
     "rust:clippy": "node scripts/cargo.mjs clippy --all-targets -- -D warnings",
     "rust:test": "node scripts/cargo.mjs test --no-fail-fast",
-    "plugins:build": "sh scripts/build-example-plugins.sh"
+    "plugins:build": "sh scripts/build-example-plugins.sh",
+    "hooks:install": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.1",

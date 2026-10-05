@@ -1,0 +1,29 @@
+#!/bin/sh
+# Opt-in pre-commit hook: `npm run hooks:install` (git config core.hooksPath .githooks).
+# Fast checks on what is staged, well under 10 s: the architecture check, cargo fmt
+# when Rust is staged, ESLint and tsc when TypeScript is staged. No clippy, no tests:
+# `npm run check` before pushing. Cargo is $LAUNCHDECK_CARGO (default cargo).
+set -e
+cd "$(git rev-parse --show-toplevel)"
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -n "$staged" ] || exit 0
+
+node scripts/check-architecture.mjs --staged
+
+if printf '%s\n' "$staged" | grep -q '\.rs$'; then
+  node scripts/cargo.mjs fmt --check
+fi
+
+typescript=$(printf '%s\n' "$staged" | grep -E '\.(ts|tsx)$' || true)
+if [ -n "$typescript" ]; then
+  # One file per line; names with spaces stay whole.
+  old_ifs=$IFS
+  IFS='
+'
+  # shellcheck disable=SC2086
+  set -- $typescript
+  IFS=$old_ifs
+  npx --no eslint --no-warn-ignored -- "$@"
+  npx --no tsc --noEmit
+fi
