@@ -25,6 +25,7 @@
     "rust:clippy": "node scripts/cargo.mjs clippy --all-targets -- -D warnings",
     "rust:test": "node scripts/cargo.mjs test --no-fail-fast",
     "plugins:build": "sh scripts/build-example-plugins.sh",
+    "plugins:validate": "node scripts/cargo.mjs run --quiet --example validate_plugin --",
     "hooks:install": "git config core.hooksPath .githooks"
   },
   "dependencies": {

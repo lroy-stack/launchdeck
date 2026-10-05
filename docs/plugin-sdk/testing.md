@@ -3,7 +3,7 @@
 ## While developing
 
 1. Point LaunchDeck at your working folder with `LAUNCHDECK_PLUGINS`, rebuild your module, and press **Rescan**. Unchanged plugins are left alone, and a changed module restarts.
-2. Open the plugin's card on **Plugins**. The status pill says whether it loaded. If it did not, the card shows the reason in plain words. Typical ones:
+2. Open the plugin's card on **Plugins**. The status pill says whether it loaded. If it did not, the card says in one sentence what kind of problem stopped it (made for a different LaunchDeck version, a mistake in `plugin.json`, a code file that cannot be loaded, the same id found first in another folder, a failure while starting, a stop after an error), and **Details** shows the host's own words and the folder. A folder that is not loaded at all is listed under **Installed plugins** the same way. Typical reasons:
    * ``the module imports `env::abort`, which LaunchDeck does not provide``: build with `--use abort=` (see [AssemblyScript](assemblyscript.md)).
    * ``the module does not export `ld_handle(ptr, len) -> i32` ``: the entry file is missing `export * from "@launchdeck/plugin-sdk/assembly/abi"`.
    * `the manifest says protocol 1 but the module reports protocol 2`: `abi` in `plugin.json` and `ld_abi()` disagree.
@@ -11,6 +11,27 @@
    * ``the module imports `launchdeck::http_response`, which LaunchDeck does not provide`` (or `http_request`): the module calls `http.request` but the manifest does not declare `capabilities.network`.
 3. **Show log** displays the plugin's log: your `info(...)` lines and the host's own notes (start, failure, rejected events, each network request as method, address and path, and each refusal with its code). The card's **Network access** section also shows the last request that did not go through, with its reason. The log is a ring of the last 100 lines per plugin and is cleared when LaunchDeck exits.
 4. In Edit mode, select a pad that calls the plugin and press **Test run** to invoke it without a device. A failure appears as a message with the plugin's own text, and the activity feed shows `action.completed` or `action.failed` and the events the plugin published.
+
+## Validate a folder
+
+At the repository root, before you copy a plugin anywhere:
+
+```sh
+npm run plugins:validate -- examples/plugins/hello path/to/your-plugin
+```
+
+Each folder is copied to a temporary plugins folder and scanned by the real plugin host (`src-tauri/examples/validate_plugin.rs`): the manifest is parsed and validated, the module is loaded and linked, and `init` runs with the default settings and no network. Grants and secrets are kept in memory, nothing is written next to your folder, and nothing is granted. For each plugin it prints what the Plugins screen shows: the status, the kind of problem as the screen receives it (`incompatible`, `invalidManifest`, `invalidModule`, `initFailed`) and the host's own words. A manifest whose `sdk` is older than this LaunchDeck's SDK gets a warning, which never fails the check. The command exits with 1 when any folder fails. A relative folder is taken from where you typed the command. It needs the Rust toolchain and builds the host the first time (`LAUNCHDECK_CARGO` names another cargo).
+
+```text
+/…/examples/plugins/hello
+  example.hello 0.1.0 (Hello Plugin): on
+  warning: built with SDK 0.1.0, older than this LaunchDeck's 0.2.1: still accepted; rebuild with the current SDK to use what it adds
+/…/bad-module
+  example.hello 0.1.0 (Hello Plugin): error, invalidModule
+  not a valid WebAssembly module: failed to parse WebAssembly module
+```
+
+It does not run actions or `refresh` and makes no network request; **Test run** in the app does that.
 
 ## Automated tests
 
@@ -22,7 +43,7 @@ The Rust workspace tests the SDK on three levels, and plugin authors can borrow 
 * **The network broker, for real** (`src-tauri/tests/plugin_network.rs`, and unit tests next to the broker). A probe plugin built with the SDK (`src-tauri/tests/fixtures/plugins/net-probe`) makes requests through the real broker to a real local server (`tests/support/http_server.rs`) that records everything it receives, so a test can assert that a refused request never arrived. Covered: allowed, denied, not requested, not granted, disabled, invalid URLs, wrong scheme, explicit ports, redirects to allowed and to forbidden origins, timeouts, bodies too large in both directions, a malformed response, a plugin that traps mid-request, the per-call and per-minute limits, and an update that asks for more.
 * **Home Assistant, full chain** (`src-tauri/tests/home_assistant.rs`). The real example plugin against a mock Home Assistant (`tests/support/mock_home_assistant.rs`) and the virtual Launchpad X: enable, request, grant, address and token, state `off`, pad Off, press, pending, the call arrives, state `on`, pad On; revoke and nothing arrives; grant again and it recovers. The broker is never mocked. A test also fails if the plugin's id or API paths appear anywhere in LaunchDeck's own source.
 * **Where secrets are kept** (`src-tauri/tests/secret_store.rs`). The real Home Assistant plugin with each store: without a credential store nothing is saved and an authenticated request is not sent; a plain `secrets.json` from an earlier version is listed, not used, and moved only on request; and a test fails if a store other than the system's, the unavailable one or the in-memory one for tests is ever added. One test is ignored by default because it writes to a real credential store: on Linux `sh scripts/test-secret-service.sh` runs it inside a private session with its own keyring; on macOS and Windows `cargo test --test secret_store -- --ignored` runs it against your own Keychain or Credential Manager, where it writes and removes one entry (`LaunchDeck plugin example.home-assistant`). That last form has not been run yet.
-* **Contract fixtures.** `examples/observables.json` is the Observable Catalog, the messages the interface hears and three explanations of a control, captured from the real runtime (`cargo run --example dump_observables`); a Rust test fails if it goes stale and the Vitest suite parses it with the Zod schemas. `examples/plugins-overview.json` is what the Rust host sends to the Plugins screen, captured from real plugins (one healthy, one with a secret setting, one that fails to load, one rejected folder). A Rust test fails if it goes stale and the Vitest suite parses it with the Zod schemas.
+* **Contract fixtures.** `examples/observables.json` is the Observable Catalog, the messages the interface hears and three explanations of a control, captured from the real runtime (`cargo run --example dump_observables`); a Rust test fails if it goes stale and the Vitest suite parses it with the Zod schemas. `examples/plugins-overview.json` is what the Rust host sends to the Plugins screen, captured from real plugins (one healthy, one with a secret setting, one that fails to load, one rejected folder). A Rust test fails if it goes stale and the Vitest suite parses it with the Zod schemas. The same Rust target (`tests/plugins_contract.rs`) fails when the SDK's version in `sdk/assemblyscript/package.json` and the host's `SDK_VERSION` differ.
 
 Run them:
 
@@ -30,6 +51,7 @@ Run them:
 cd src-tauri && cargo test            # all Rust tests, including the SDK ones
 npm test                              # TypeScript, including the plugins contract
 npm run plugins:build                 # rebuild the example modules
+npm run plugins:validate -- <folder>  # check plugin folders as LaunchDeck loads them
 ```
 
 A minimal check for your own plugin without LaunchDeck: load the `.wasm` in Node, provide the three `launchdeck` imports (and `http_request` / `http_response` returning a canned answer, if it uses the network), call `ld_alloc`, write a request, and call `ld_handle`. The protocol is small enough that this is about fifty lines, and it works for any language.
