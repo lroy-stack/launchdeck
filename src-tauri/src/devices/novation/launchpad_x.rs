@@ -20,7 +20,7 @@ use super::{
     protocol::MAX_COLOURSPECS,
 };
 use crate::core::model::{ControlPos, Rgb};
-use crate::devices::midi::{MidiBackend, MidiLink};
+use crate::devices::midi::{MessageFramer, MidiBackend, MidiLink};
 use crate::devices::{
     AnimationCaps, AuxCaps, DeviceCapabilities, DeviceError, DeviceIdentity, DeviceInput,
     DeviceKind, GridCaps, InputKind, InputSender, SurfaceDevice, SurfaceFrame,
@@ -174,16 +174,19 @@ impl SurfaceDevice for LaunchpadX {
         self.input_open.store(false, Ordering::Release);
         let open = self.input_open.clone();
         let id = self.unit.id.clone();
+        let mut framer = MessageFramer::default();
         let on_bytes = Box::new(move |bytes: &[u8]| {
-            if !open.load(Ordering::Acquire) {
-                return;
-            }
-            if let Some((pos, kind)) = decode_message(bytes) {
-                let _ = sender.send(DeviceInput {
-                    device_id: id.clone(),
-                    pos,
-                    kind,
-                });
+            for message in framer.feed(bytes) {
+                if !open.load(Ordering::Acquire) {
+                    return;
+                }
+                if let Some((pos, kind)) = decode_message(&message) {
+                    let _ = sender.send(DeviceInput {
+                        device_id: id.clone(),
+                        pos,
+                        kind,
+                    });
+                }
             }
         });
         // Input and output together, or neither: the unit's own pair, by

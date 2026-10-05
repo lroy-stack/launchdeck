@@ -145,6 +145,29 @@ fn input_decodes_pads_and_ignores_sysex() {
 }
 
 #[test]
+fn input_is_read_as_whole_messages_whatever_the_callbacks_hold() {
+    let midi = fake();
+    let (_dev, mut rx) = connected(&midi);
+    let press = |pos, velocity| (pos, InputKind::Pressed { velocity });
+    // Two messages and a stray data pair (running status) in one callback.
+    midi.inject(IN_ID, &[0x90, 0x0B, 0x64, 0xB0, 0x5B, 0x7F, 0x0B, 0x00]);
+    // One message over two callbacks, with a clock byte inside.
+    midi.inject(IN_ID, &[0x90, 0x51]);
+    midi.inject(IN_ID, &[0xF8, 0x20]);
+    let read: Vec<_> = std::iter::from_fn(|| rx.try_recv().ok())
+        .map(|i| (i.pos, i.kind))
+        .collect();
+    assert_eq!(
+        read,
+        [
+            press(ControlPos::grid(0, 7), 100),
+            press(ControlPos::Top { index: 0 }, 127),
+            press(ControlPos::grid(0, 0), 32),
+        ]
+    );
+}
+
+#[test]
 fn disconnect_clears_leaves_programmer_mode_and_closes_the_link() {
     let midi = fake();
     let (mut dev, mut rx) = connected(&midi);

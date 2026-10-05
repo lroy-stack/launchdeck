@@ -1,11 +1,14 @@
 //! The MIDI transport seam: port listings and an open input+output pair,
 //! with no protocol knowledge. `system` is the only file that uses `midir`;
-//! `testkit` is an in-memory backend for tests.
+//! `framing` turns what an input delivers into whole messages; `testkit` is
+//! an in-memory backend for tests.
 
+mod framing;
 mod system;
 #[cfg(test)]
 pub(crate) mod testkit;
 
+pub(crate) use framing::MessageFramer;
 pub(crate) use system::SystemMidi;
 
 use super::DeviceError;
@@ -24,7 +27,8 @@ pub(crate) struct PortSnapshot {
     pub outputs: Vec<PortInfo>,
 }
 
-/// Called with the bytes of each message the input receives.
+/// Called with the bytes the input receives: whole messages on most
+/// systems, but a call may hold several or part of one (`MessageFramer`).
 pub(crate) type OnBytes = Box<dyn FnMut(&[u8]) + Send + 'static>;
 
 pub(crate) trait MidiBackend: Send + Sync {
