@@ -219,14 +219,14 @@ mod tests {
     fn a_plan_holds_what_changed_in_the_frames_order() {
         let cache = cleared();
         let f = frame(&[
-            (ControlPos::Side { index: 3 }, Rgb::new(255, 0, 0)),
-            (ControlPos::grid(0, 0), Rgb::OFF),
             (ControlPos::Top { index: 1 }, Rgb::new(0, 0, 255)),
+            (ControlPos::grid(0, 0), Rgb::OFF),
+            (ControlPos::Side { index: 3 }, Rgb::new(255, 0, 0)),
         ]);
         assert_eq!(
             cache.plan(&f).messages(X),
-            [hex("F0 00 20 29 02 0C 03 03 3B 7F 00 00 03 5C 00 00 7F F7")],
-            "side 3 (CC 59) then top 1 (CC 92); the dark pad was dark"
+            [hex("F0 00 20 29 02 0C 03 03 5C 00 00 7F 03 3B 7F 00 00 F7")],
+            "top 1 (CC 92) before side 3 (CC 59), not by index; the dark pad was dark"
         );
     }
 
