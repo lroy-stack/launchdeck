@@ -231,4 +231,4 @@ NEXT_PHASE.md         what to do next and how to continue on a Mac
 
 ## License
 
-No license has been chosen yet.
+LaunchDeck is released under the [MIT License](LICENSE). The plugin SDK and the example plugins are MIT too.
