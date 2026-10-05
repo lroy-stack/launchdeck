@@ -301,7 +301,7 @@ fn role(
         (Some("midi" | "mi"), Some(n)) => profile.interface(n),
         (Some("midi" | "mi"), None) => Some(Role::Midi),
         (Some("daw" | "da"), _) => Some(Role::Daw),
-        _ if platform == Platform::Linux => profile.interface(marked.alsa_port? + 1),
+        _ if platform == Platform::Linux => profile.interface(marked.alsa_port?.checked_add(1)?),
         _ => None,
     }
 }

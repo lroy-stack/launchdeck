@@ -655,3 +655,14 @@ fn other_launchpads_on_windows_are_named_by_their_port_stem() {
         [("unsupported:lppromk3", "LPProMK3")]
     );
 }
+
+#[test]
+fn absurd_numbers_in_a_name_are_not_a_crash() {
+    let max = "Launchpad X:Launchpad X 4294967295:4294967295";
+    assert_eq!(reads(Linux, max), Some((X, None, u32::MAX)));
+    assert_eq!(
+        reads(Windows, "MIDIIN99999999999 (LPX MIDI)"),
+        Some((X, Some(Role::Daw), 1)),
+        "a wrapper whose number does not fit is a bare name, never opened"
+    );
+}
