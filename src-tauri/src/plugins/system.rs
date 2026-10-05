@@ -13,6 +13,7 @@ use super::{str_arg, ActionDef, ActionError, Plugin, PluginContext, PluginManife
 use crate::actions::definition::{Issue, ProviderKind};
 use crate::actions::params::ParamDef;
 use crate::core::model::Rgb;
+use crate::platform::Platform;
 
 pub const ID: &str = "system";
 
@@ -225,7 +226,7 @@ impl Plugin for SystemPlugin {
                 validate_url(url).map_err(|e| Issue::param("url", e.message()))
             }
             "keyboardShortcut" => keys_of(args)
-                .and_then(|keys| parse_combo(&keys, cfg!(target_os = "macos")))
+                .and_then(|keys| parse_combo(&keys, Platform::current() == Platform::MacOs))
                 .map(|_| ())
                 .map_err(|e| Issue::param("keys", e.message())),
             _ => Ok(()),
@@ -265,7 +266,7 @@ impl Plugin for SystemPlugin {
             }
             "keyboardShortcut" => {
                 let keys = keys_of(args)?;
-                let combo = parse_combo(&keys, cfg!(target_os = "macos"))?;
+                let combo = parse_combo(&keys, Platform::current() == Platform::MacOs)?;
                 self.keyboard.press(&combo)?;
                 Ok(Value::Null)
             }

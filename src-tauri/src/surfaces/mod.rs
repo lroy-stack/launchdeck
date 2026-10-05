@@ -9,29 +9,8 @@ use crate::core::model::*;
 
 pub mod agent_control;
 
-/// The system a starter workspace is built for. A few starter pads differ by
-/// system (the terminal, the editor, the file manager, the screenshot, and how
-/// a demo command waits); everything else is the same everywhere.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Platform {
-    /// Linux, and any other system that is neither macOS nor Windows.
-    Linux,
-    MacOs,
-    Windows,
-}
-
-impl Platform {
-    /// The system this was built for.
-    pub fn current() -> Platform {
-        if cfg!(target_os = "macos") {
-            Platform::MacOs
-        } else if cfg!(windows) {
-            Platform::Windows
-        } else {
-            Platform::Linux
-        }
-    }
-}
+// The system a starter workspace is built for, kept at this path for its callers.
+pub use crate::platform::Platform;
 
 // Palette used by the starter surfaces (kept readable on RGB LEDs).
 const BLUE: Rgb = Rgb::new(40, 110, 255);

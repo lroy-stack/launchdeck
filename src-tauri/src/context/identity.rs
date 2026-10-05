@@ -9,6 +9,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::platform::Platform;
+
 /// Bundle identifiers, as `NSRunningApplication` reports them.
 pub const MACOS: &str = "macos";
 /// Executable file names, lower case.
@@ -151,23 +153,32 @@ impl PartialEq for ApplicationIdentity {
 }
 impl Eq for ApplicationIdentity {}
 
-/// The namespace applications have on the system this was built for, when it
-/// is one LaunchDeck can observe at all.
+/// The namespace applications have on `platform`, when it is one LaunchDeck
+/// can observe at all.
+pub fn namespace_of(platform: Platform) -> Option<&'static str> {
+    Some(match platform {
+        Platform::Linux => X11,
+        Platform::MacOs => MACOS,
+        Platform::Windows => WINDOWS,
+    })
+}
+
+/// The namespace applications have on the system this was built for.
 pub fn native_namespace() -> Option<&'static str> {
-    if cfg!(target_os = "macos") {
-        Some(MACOS)
-    } else if cfg!(target_os = "windows") {
-        Some(WINDOWS)
-    } else if cfg!(unix) {
-        Some(X11)
-    } else {
-        None
-    }
+    namespace_of(Platform::current())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn each_system_has_its_namespace() {
+        assert_eq!(namespace_of(Platform::Linux), Some(X11));
+        assert_eq!(namespace_of(Platform::MacOs), Some(MACOS));
+        assert_eq!(namespace_of(Platform::Windows), Some(WINDOWS));
+        assert_eq!(native_namespace(), namespace_of(Platform::current()));
+    }
 
     #[test]
     fn the_same_application_is_recognised_whatever_it_is_called() {

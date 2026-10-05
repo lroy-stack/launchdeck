@@ -173,9 +173,12 @@ describe("platform cfg placement", () => {
     expect(checkRustFile(rs("plugins/keyboard.rs"), os)).toEqual([]);
   });
 
-  it("allows cfg(unix) anywhere and the seeded exceptions until A3", () => {
+  it("allows cfg(unix) anywhere and target_os nowhere else, not even in the former exceptions", () => {
     expect(checkRustFile(rs("state/probe.rs"), "#[cfg(unix)]\nfn perms() {}\n")).toEqual([]);
-    expect(checkRustFile(rs("surfaces/mod.rs"), 'fn f() -> bool { cfg!(target_os = "macos") }\n')).toEqual([]);
+    const os = 'fn f() -> bool { cfg!(target_os = "macos") }\n';
+    for (const file of ["surfaces/mod.rs", "context/identity.rs", "plugins/system.rs"]) {
+      expect(rules(checkRustFile(rs(file), os))).toEqual(["platform-cfg"]);
+    }
     expect(checkRustFile(rs("main.rs"), '#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]\n')).toEqual(
       [],
     );

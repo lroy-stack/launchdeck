@@ -18,6 +18,7 @@ pub mod core;
 pub mod devices;
 pub mod events;
 pub mod persistence;
+pub mod platform;
 pub mod plugins;
 pub mod renderer;
 pub mod state;

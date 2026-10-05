@@ -120,10 +120,8 @@ export const platformCfg = {
     "plugins/keyboard.rs",
     "actions/builtin.rs",
   ],
-  exceptions: [
-    // A3 creates crate::platform and passes Platform in.
-    { files: ["surfaces/mod.rs", "context/identity.rs", "plugins/system.rs"], removedBy: "A3" },
-  ],
+  // Known violations, shaped { files: [...], removedBy: "<package>" }; none today.
+  exceptions: [],
 };
 
 // Every `mod` in lib.rs needs a row in this map (R1).

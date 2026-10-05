@@ -25,6 +25,8 @@ use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
+use crate::platform::Platform;
+
 /// Longest secret value kept.
 pub const MAX_SECRET_BYTES: usize = 4096;
 /// The plain file an earlier version wrote when the system had no credential store.
@@ -108,23 +110,24 @@ pub trait SecretStore: Send + Sync {
 
 /// What this operating system calls its credential store.
 pub fn system_store_name() -> &'static str {
-    if cfg!(target_os = "macos") {
-        "Keychain"
-    } else if cfg!(target_os = "windows") {
-        "Credential Manager"
-    } else {
-        "Secret Service keyring"
+    store_name(Platform::current())
+}
+
+/// What `platform` calls its credential store.
+fn store_name(platform: Platform) -> &'static str {
+    match platform {
+        Platform::MacOs => "Keychain",
+        Platform::Windows => "Credential Manager",
+        Platform::Linux => "Secret Service keyring",
     }
 }
 
-/// Why the system's store cannot be used, and what would change that.
-fn unavailable_reason() -> &'static str {
-    if cfg!(target_os = "macos") {
-        "The login keychain could not be reached. Unlock it in Keychain Access, then restart LaunchDeck."
-    } else if cfg!(target_os = "windows") {
-        "Windows Credential Manager could not be reached. Check that the Credential Manager service is running, then restart LaunchDeck."
-    } else {
-        "No Secret Service answered in this session. LaunchDeck keeps secrets in the system keyring (GNOME Keyring, KWallet or another Secret Service provider). Install and unlock one, then restart LaunchDeck."
+/// Why the store of `platform` cannot be used, and what would change that.
+fn unavailable_reason(platform: Platform) -> &'static str {
+    match platform {
+        Platform::MacOs => "The login keychain could not be reached. Unlock it in Keychain Access, then restart LaunchDeck.",
+        Platform::Windows => "Windows Credential Manager could not be reached. Check that the Credential Manager service is running, then restart LaunchDeck.",
+        Platform::Linux => "No Secret Service answered in this session. LaunchDeck keeps secrets in the system keyring (GNOME Keyring, KWallet or another Secret Service provider). Install and unlock one, then restart LaunchDeck.",
     }
 }
 
@@ -423,7 +426,8 @@ pub fn open_store(dir: Option<&Path>) -> Arc<dyn SecretStore> {
             log::warn!(
                 "no secure credential store answered; plugin secrets cannot be saved or used"
             );
-            Arc::new(UnavailableStore::new(unavailable_reason()))
+            let reason = unavailable_reason(Platform::current());
+            Arc::new(UnavailableStore::new(reason))
         }
     }
 }
@@ -639,5 +643,23 @@ mod tests {
     #[test]
     fn without_a_folder_secrets_live_in_memory() {
         assert_eq!(open_store(None).kind(), StoreKind::Memory);
+    }
+
+    #[test]
+    fn each_system_names_its_own_credential_store() {
+        assert_eq!(store_name(Platform::MacOs), "Keychain");
+        assert_eq!(store_name(Platform::Windows), "Credential Manager");
+        assert_eq!(store_name(Platform::Linux), "Secret Service keyring");
+        assert_eq!(system_store_name(), store_name(Platform::current()));
+    }
+
+    #[test]
+    fn each_system_says_why_its_store_is_unavailable() {
+        assert!(unavailable_reason(Platform::MacOs).contains("Keychain Access"));
+        assert!(unavailable_reason(Platform::Windows).contains("Credential Manager service"));
+        assert!(unavailable_reason(Platform::Linux).contains("Secret Service provider"));
+        for platform in [Platform::Linux, Platform::MacOs, Platform::Windows] {
+            assert!(unavailable_reason(platform).ends_with("then restart LaunchDeck."));
+        }
     }
 }
