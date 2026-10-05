@@ -756,6 +756,9 @@ fn an_action_that_runs_things_hides_nothing() {
                 "{c:?} in {arg}"
             );
             assert!(!refused.message.contains(c));
+            // The rejection names the character it found.
+            let named = format!("U+{:04X}", u32::from(c));
+            assert!(refused.message.contains(&named), "{}", refused.message);
         }
     }
     // Line breaks and tabs are fine; so is anything in an action that

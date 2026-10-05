@@ -293,20 +293,26 @@ fn runs_things(provider: &str, action: &str) -> bool {
 }
 
 /// A file in which an action that runs things holds a [`hidden`] character
-/// in an argument, at any depth, is refused at that argument (SF-3): the
-/// review would have to show an escape where the action runs the character.
+/// in an argument, at any depth, is refused at that argument, naming the
+/// character (SF-3): the review would have to show an escape where the
+/// action runs the character.
 /// So is a request whose address the runtime would send elsewhere than a
 /// person is shown (SF-4).
 pub(crate) fn check_visible(content: &ContentV1) -> Result<(), Rejection> {
     for (at, a) in assignments(content).filter(|(_, a)| runs_things(&a.provider, &a.action)) {
-        if let Some(name) = a.args.keys().find(|name| hides(&a.args[*name])) {
+        let found = a
+            .args
+            .iter()
+            .find_map(|(name, value)| hidden_in(value).map(|c| (name, c)));
+        if let Some((name, c)) = found {
             return Err(Rejection::at(
                 RejectionCode::InvalidContent,
                 format!("{at}/args/{}", segment(name)),
                 format!(
-                    "An action that runs something holds, in \"{}\", a character a person \
-                     cannot see or that reorders the text around it.",
-                    echo(name)
+                    "An action that runs something holds, in \"{}\", the character U+{:04X}, \
+                     which a person cannot see or which reorders the text around it.",
+                    echo(name),
+                    u32::from(c)
                 ),
             ));
         }
@@ -340,13 +346,13 @@ fn check_address(at: &str, a: &AssignmentV1) -> Result<(), Rejection> {
     })
 }
 
-/// Whether any text in `value`, at any depth, holds a [`hidden`] character.
-fn hides(value: &Value) -> bool {
+/// The first [`hidden`] character of any text in `value`, at any depth.
+fn hidden_in(value: &Value) -> Option<char> {
     match value {
-        Value::String(s) => s.chars().any(hidden),
-        Value::Array(items) => items.iter().any(hides),
-        Value::Object(map) => map.values().any(hides),
-        _ => false,
+        Value::String(s) => s.chars().find(|&c| hidden(c)),
+        Value::Array(items) => items.iter().find_map(hidden_in),
+        Value::Object(map) => map.values().find_map(hidden_in),
+        _ => None,
     }
 }
 
