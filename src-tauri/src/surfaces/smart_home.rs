@@ -50,5 +50,6 @@ pub(super) fn smart_home() -> Surface {
             controls,
         }],
         context: None,
+        imported_from: None,
     }
 }

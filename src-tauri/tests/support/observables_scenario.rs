@@ -115,6 +115,7 @@ fn workspace() -> Workspace {
                 controls: vec![shown, missing, silent],
             }],
             context: None,
+            imported_from: None,
         }],
         last_active_surface: Some("scenario".into()),
         preferences: Preferences::default(),

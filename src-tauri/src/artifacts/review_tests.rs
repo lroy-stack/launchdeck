@@ -757,6 +757,7 @@ fn an_action_that_runs_things_hides_nothing() {
                 controls: vec![control],
             }],
             context: None,
+            imported_from: None,
         };
         ContentV1 {
             surfaces: vec![crate::artifacts::format::SurfaceV1::from_model(&surface).unwrap()],

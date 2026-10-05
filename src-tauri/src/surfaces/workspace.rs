@@ -51,5 +51,6 @@ pub fn blank_surface(id: &str, name: &str) -> Surface {
             controls: surface_switchers(""),
         }],
         context: None,
+        imported_from: None,
     }
 }

@@ -154,6 +154,7 @@ fn workspace() -> Workspace {
                 controls: vec![hello, plus, minus, reset, level, ping, crash, off],
             }],
             context: None,
+            imported_from: None,
         }],
         last_active_surface: Some("sdk".into()),
         preferences: Preferences::default(),

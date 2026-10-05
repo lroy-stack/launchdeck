@@ -108,6 +108,7 @@ fn bound_workspace() -> Workspace {
                 controls: vec![alpha, beta, approve],
             }],
             context: None,
+            imported_from: None,
         }],
         last_active_surface: Some("bound".into()),
         preferences: Preferences::default(),
@@ -346,6 +347,7 @@ fn one_pad_workspace(command: &str) -> Workspace {
             controls: vec![control],
         }],
         context: None,
+        imported_from: None,
     }];
     ws.last_active_surface = Some("t".into());
     ws

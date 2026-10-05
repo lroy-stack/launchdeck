@@ -287,6 +287,35 @@ pub struct Surface {
     /// Read from old files and written back only where one was read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context: Option<ContextHint>,
+    /// The Surface file or Pack this surface was imported from. Absent on
+    /// every surface made here, so a workspace without imports is written
+    /// exactly as before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub imported_from: Option<ImportOrigin>,
+}
+
+/// Where an imported surface came from: which file, which import of it, and
+/// the digests that tell whether it changed since. Local only: never
+/// exported, and it holds no time, path or anything about this computer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportOrigin {
+    /// `launchdeck.surface` or `launchdeck.pack`.
+    pub format: String,
+    pub artifact_id: String,
+    pub artifact_name: String,
+    pub artifact_version: String,
+    /// Which import of the artifact, from 1: importing it again as new makes
+    /// another instance; replacing one keeps its number.
+    pub instance: u32,
+    /// The surface's id in the file.
+    pub source_surface_id: String,
+    /// `integrity.content` of the file.
+    pub content_digest: String,
+    /// `sha256:` and the digest of the surface as it was written here, in
+    /// its canonical file form: a surface whose digest is another now may
+    /// have been changed since it was imported.
+    pub surface_digest: String,
 }
 
 impl Surface {

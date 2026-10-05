@@ -173,7 +173,7 @@ fn write_file(path: &Path, bytes: &[u8], private: bool) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::model::Surface;
+    use crate::core::model::{ImportOrigin, Surface};
     use crate::surfaces::{default_workspace, default_workspace_for, Platform};
 
     #[test]
@@ -302,6 +302,67 @@ mod tests {
                 other => assert!(surface.get("context").is_none(), "{other}"),
             }
         }
+    }
+
+    fn origin() -> ImportOrigin {
+        ImportOrigin {
+            format: "launchdeck.pack".into(),
+            artifact_id: "acme.studio".into(),
+            artifact_name: "Studio".into(),
+            artifact_version: "1.2.0".into(),
+            instance: 2,
+            source_surface_id: "mixer".into(),
+            content_digest: format!("sha256:{}", "a".repeat(64)),
+            surface_digest: format!("sha256:{}", "b".repeat(64)),
+        }
+    }
+
+    /// Where an imported surface came from is kept with it, in camelCase
+    /// under `importedFrom`, and read back as it was written.
+    #[test]
+    fn an_imported_surface_keeps_its_origin_through_a_save_and_a_load() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path());
+        let mut ws = default_workspace();
+        ws.surfaces[1].imported_from = Some(origin());
+        store.save(&ws).unwrap();
+
+        let loaded = store.load_or_default(|| panic!("should load from disk"));
+        assert_eq!(loaded, ws);
+        let raw: Value = serde_json::from_str(&fs::read_to_string(store.path()).unwrap()).unwrap();
+        assert_eq!(
+            raw["surfaces"][1]["importedFrom"],
+            serde_json::json!({
+                "format": "launchdeck.pack",
+                "artifactId": "acme.studio",
+                "artifactName": "Studio",
+                "artifactVersion": "1.2.0",
+                "instance": 2,
+                "sourceSurfaceId": "mixer",
+                "contentDigest": format!("sha256:{}", "a".repeat(64)),
+                "surfaceDigest": format!("sha256:{}", "b".repeat(64)),
+            })
+        );
+        for (i, surface) in raw["surfaces"].as_array().unwrap().iter().enumerate() {
+            assert_eq!(surface.get("importedFrom").is_some(), i == 1, "{i}");
+        }
+    }
+
+    /// A surface that was not imported has no `importedFrom` member: a
+    /// workspace without one is written byte for byte as before (the default
+    /// workspace's fixture test holds the bytes), and no schema step is needed.
+    #[test]
+    fn a_workspace_without_imports_is_written_as_before() {
+        let ws = default_workspace();
+        assert!(ws.surfaces.iter().all(|s| s.imported_from.is_none()));
+        let text = serde_json::to_string_pretty(&ws).unwrap();
+        assert!(!text.contains("importedFrom"));
+        let mut doc: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(migrate(doc.clone()).unwrap(), ws);
+        doc["surfaces"][0]["importedFrom"] = serde_json::to_value(origin()).unwrap();
+        let read = migrate(doc).unwrap();
+        assert_eq!(read.schema_version, SCHEMA_VERSION);
+        assert_eq!(read.surfaces[0].imported_from, Some(origin()));
     }
 
     #[cfg(unix)]

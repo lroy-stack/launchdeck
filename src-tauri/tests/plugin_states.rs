@@ -199,6 +199,7 @@ fn workspace() -> Workspace {
                     ],
                 }],
                 context: None,
+                imported_from: None,
             },
             Surface {
                 id: "other".into(),
@@ -212,6 +213,7 @@ fn workspace() -> Workspace {
                     controls: vec![],
                 }],
                 context: None,
+                imported_from: None,
             },
         ],
         last_active_surface: Some("states".into()),

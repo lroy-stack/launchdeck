@@ -40,6 +40,7 @@ impl SurfaceV1 {
             category: self.category.clone(),
             pages: self.pages.iter().map(page_to_model).collect(),
             context: None,
+            imported_from: None,
         }
     }
 }
