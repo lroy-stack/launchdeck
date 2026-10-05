@@ -775,6 +775,22 @@ async fn many_pads_are_refreshed_in_turns() {
 fn launchdeck_knows_nothing_about_home_assistant() {
     // Nothing in the core may know this plugin: not its id, not the API it speaks.
     // (The product's name does appear in prose, as an example of a local server.)
+    // A needle that starts or ends with a word character counts only where it
+    // is not part of a longer word: `identity_id` is not `entity_id`, while
+    // `:8123/api/states` still mentions `/api/states`.
+    fn mentions(text: &str, needle: &str) -> bool {
+        let word = |c: char| c.is_ascii_alphanumeric() || c == '_';
+        let (first, last) = (needle.chars().next(), needle.chars().next_back());
+        text.match_indices(needle).any(|(at, _)| {
+            let before = text[..at].chars().next_back();
+            let after = text[at + needle.len()..].chars().next();
+            !(first.is_some_and(word) && before.is_some_and(word))
+                && !(last.is_some_and(word) && after.is_some_and(word))
+        })
+    }
+    assert!(mentions("state.entity_id", "entity_id"));
+    assert!(!mentions("identity_id", "entity_id"));
+    assert!(mentions("http://ha:8123/api/states", "/api/states"));
     fn walk(dir: &Path, hits: &mut Vec<String>) {
         for entry in fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
@@ -789,7 +805,7 @@ fn launchdeck_knows_nothing_about_home_assistant() {
                     "/api/services",
                     "entity_id",
                 ] {
-                    if text.contains(needle) {
+                    if mentions(&text, needle) {
                         hits.push(format!("{} mentions {needle}", path.display()));
                     }
                 }
