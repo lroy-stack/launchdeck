@@ -69,6 +69,7 @@ export async function createPreviewTransport() {
           animations: { pulse: true, flash: true },
         },
         connected: true,
+        status: "connected",
       },
     ],
     external: { enabled: true, port: 47821, listening: false, error: "Browser preview: no runtime" },

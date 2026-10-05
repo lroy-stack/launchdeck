@@ -17,6 +17,9 @@ const deviceCapabilitiesSchema = z.object({
   animations: z.object({ pulse: z.boolean(), flash: z.boolean() }),
 });
 
+export const deviceStatusSchema = z.enum(["connected", "available", "unplugged", "unsupported", "failed"]);
+export type DeviceStatus = z.infer<typeof deviceStatusSchema>;
+
 export const deviceInfoSchema = z.object({
   identity: z.object({
     id: z.string(),
@@ -25,7 +28,12 @@ export const deviceInfoSchema = z.object({
     kind: z.enum(["virtual", "hardware"]),
   }),
   capabilities: deviceCapabilitiesSchema,
+  /** `status === "connected"`, kept for older readers. */
   connected: z.boolean(),
+  /** Mirrors `DeviceStatus` in `devices/manager.rs`. */
+  status: deviceStatusSchema,
+  /** A sentence from Rust when something went wrong (a failed connect). */
+  problem: z.string().nullish(),
 });
 export type DeviceInfo = z.infer<typeof deviceInfoSchema>;
 

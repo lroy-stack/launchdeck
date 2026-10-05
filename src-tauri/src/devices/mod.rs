@@ -13,14 +13,33 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::core::model::{Animation, ControlPos, Rgb};
 
+/// What went wrong with a device, in a sentence a person can read. The text
+/// the operating system gave, if any, is the `detail`, for logs and bug reports.
 #[derive(Debug, thiserror::Error)]
 pub enum DeviceError {
-    #[error("device is not connected")]
+    #[error("The device is not connected.")]
     NotConnected,
-    #[error("MIDI port error: {0}")]
+    #[error("The Launchpad could not be reached.")]
     Port(String),
-    #[error("MIDI error: {0}")]
+    #[error("The Launchpad could not be reached.")]
     Midi(String),
+    #[error("LaunchDeck does not know this device. Press Look again.")]
+    Unknown(String),
+    #[error("Not supported yet: LaunchDeck works with the Launchpad X.")]
+    Unsupported(String),
+}
+
+impl DeviceError {
+    /// The operating system's text or the device id behind the sentence.
+    pub fn detail(&self) -> Option<&str> {
+        match self {
+            DeviceError::NotConnected => None,
+            DeviceError::Port(d)
+            | DeviceError::Midi(d)
+            | DeviceError::Unknown(d)
+            | DeviceError::Unsupported(d) => Some(d),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -149,6 +168,23 @@ pub struct DeviceInput {
 }
 
 pub type InputSender = UnboundedSender<DeviceInput>;
+
+/// The port names the operating system lists right now.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct PortNames {
+    pub inputs: Vec<String>,
+    pub outputs: Vec<String>,
+}
+
+/// Where hardware comes from: the system's ports, and a device for a unit
+/// found on them. The real one is `launchpad_x::SystemPorts`; tests give the
+/// manager made-up port names and devices.
+pub(crate) trait PortSource: Send {
+    fn list(&self) -> PortNames;
+    /// A device for a Launchpad X found on these ports. Nothing is opened
+    /// until `connect`.
+    fn launchpad_x(&self, found: launchpad_x::DiscoveredDevice) -> Box<dyn SurfaceDevice>;
+}
 
 /// A physical (or virtual) control surface.
 ///
