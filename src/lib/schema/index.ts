@@ -5,6 +5,7 @@
 // this index, as "./schema" or "../lib/schema".
 
 export * from "./actions";
+export * from "./artifacts";
 export * from "./context";
 export * from "./feedback";
 export * from "./observables";

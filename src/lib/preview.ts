@@ -13,6 +13,7 @@ type Handler = (payload: unknown) => void;
 const PLUGINS_IN_PREVIEW = "Browser preview: external plugins run in the desktop app.";
 const AGENTS_IN_PREVIEW = "Browser preview: agents are a still picture here. Run the desktop app to command them.";
 const OBSERVABLES_IN_PREVIEW = "Browser preview: states and explanations come from the desktop app's runtime.";
+const ARTIFACTS_IN_PREVIEW = "Browser preview: importing and exporting Surface files and Packs is available in the desktop app.";
 
 /** The captured snapshot has timestamps from when it was recorded; move them to now so elapsed times look right. */
 function rebase(a: AgentsSnapshot, now: number): AgentsSnapshot {
@@ -203,7 +204,9 @@ export async function createPreviewTransport() {
       context: context(),
     });
 
-  const invoke = async (cmd: string, args: Record<string, unknown> = {}): Promise<unknown> => {
+  const invoke = async (cmd: string, body: Record<string, unknown> | Uint8Array = {}): Promise<unknown> => {
+    // Only a file to import is sent as raw bytes, and that is refused below.
+    const args = body instanceof Uint8Array ? {} : body;
     switch (cmd) {
       case "get_snapshot":
         return snapshot();
@@ -335,6 +338,15 @@ export async function createPreviewTransport() {
       case "plugins_install_example":
       case "plugins_reveal_folder":
         throw PLUGINS_IN_PREVIEW;
+      case "artifacts_limits":
+      case "artifacts_export_preview":
+      case "artifacts_export_save":
+      case "artifacts_show_export":
+      case "artifacts_inspect":
+      case "artifacts_preview":
+      case "artifacts_apply":
+      case "artifacts_discard":
+        throw ARTIFACTS_IN_PREVIEW;
       case "agents_command":
       case "agents_set_access":
       case "agents_update_settings":

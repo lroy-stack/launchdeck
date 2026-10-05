@@ -12,6 +12,12 @@ import {
   type HookSetup,
 } from "./agents";
 import {
+  applyOutcomeSchema,
+  artifactLimitsSchema,
+  exportPreviewSchema,
+  exportSavedSchema,
+  inspectOutcomeSchema,
+  previewOutcomeSchema,
   catalogSchema,
   controlExplanationSchema,
   exampleInfoSchema,
@@ -31,6 +37,8 @@ import {
   snapshotSchema,
   validationSchema,
   workspaceSchema,
+  type ApplyOutcome,
+  type ArtifactLimits,
   type Assignment,
   type Catalog,
   type Control,
@@ -38,7 +46,12 @@ import {
   type FeedbackReview,
   type ControlPos,
   type ExampleInfo,
+  type ExportPreview,
+  type ExportRequest,
+  type ExportSaved,
   type Frame,
+  type ImportDecisions,
+  type InspectOutcome,
   type Mode,
   type ObservableCatalog,
   type ObservablesDelta,
@@ -50,6 +63,7 @@ import {
   type PluginLog,
   type PluginsOverview,
   type Preferences,
+  type PreviewOutcome,
   type RuntimeEvent,
   type RuntimeState,
   type ScanReport,
@@ -60,7 +74,12 @@ import {
 
 export const inTauri = (): boolean => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-type Invoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
+/** Named arguments, or the raw bytes of a body (a file to import). */
+type InvokeArgs = Record<string, unknown> | Uint8Array;
+interface InvokeOptions {
+  headers: Record<string, string>;
+}
+type Invoke = (cmd: string, args?: InvokeArgs, options?: InvokeOptions) => Promise<unknown>;
 type Listen = (event: string, handler: (payload: unknown) => void) => Promise<() => void>;
 
 interface Transport {
@@ -77,7 +96,7 @@ function getTransport(): Promise<Transport> {
     if (inTauri()) {
       const [{ invoke }, { listen }] = await Promise.all([import("@tauri-apps/api/core"), import("@tauri-apps/api/event")]);
       return {
-        invoke: (cmd, args) => invoke(cmd, args),
+        invoke: (cmd, args, options) => invoke(cmd, args, options),
         listen: (event, handler) => listen(event, (e) => handler(e.payload)),
         preview: false,
       };
@@ -91,14 +110,17 @@ function getTransport(): Promise<Transport> {
 
 export const isPreview = async (): Promise<boolean> => (await getTransport()).preview;
 
-async function call<T>(cmd: string, schema: z.ZodType<T> | null, args?: Record<string, unknown>): Promise<T> {
+async function call<T>(cmd: string, schema: z.ZodType<T> | null, args?: InvokeArgs, options?: InvokeOptions): Promise<T> {
   const t = await getTransport();
-  const raw = await t.invoke(cmd, args);
+  const raw = await t.invoke(cmd, args, options);
   if (!schema) return raw as T;
   const parsed = schema.safeParse(raw);
   if (!parsed.success) throw new Error(`Unexpected reply from ${cmd}: ${parsed.error.message}`);
   return parsed.data;
 }
+
+/** The header `artifacts_inspect` reads the file's name from. */
+const FILE_NAME_HEADER = "x-launchdeck-file-name";
 
 const msg = (e: unknown): string => (typeof e === "string" ? e : e instanceof Error ? e.message : JSON.stringify(e));
 export const errorMessage = msg;
@@ -199,6 +221,29 @@ export const api = {
     installExample: (id: string): Promise<PluginsOverview> => call("plugins_install_example", pluginsOverviewSchema, { id }),
     /** Show the plugins folder in the system's file manager, creating it first. */
     revealFolder: (): Promise<void> => call("plugins_reveal_folder", null),
+  },
+  /**
+   * Surface files and Packs. Rust reads, plans, checks and writes; the views show
+   * what it answers. The webview never sends a path: a file to import goes as its
+   * bytes, and an export is saved in the exports folder under a name Rust gives it.
+   */
+  artifacts: {
+    limits: (): Promise<ArtifactLimits> => call("artifacts_limits", artifactLimitsSchema),
+    /** What the file would hold, with Rust's proposals for an empty id, name or version. Saves nothing. */
+    exportPreview: (request: ExportRequest): Promise<ExportPreview> => call("artifacts_export_preview", exportPreviewSchema, { request }),
+    exportSave: (request: ExportRequest): Promise<ExportSaved> => call("artifacts_export_save", exportSavedSchema, { request }),
+    /** Show the folder of the last file saved. */
+    showExport: (): Promise<void> => call("artifacts_show_export", null),
+    /** Read a file to import: its plan, made with the decisions the view proposes, or why it was refused. Changes nothing. */
+    inspect: (bytes: Uint8Array, fileName: string): Promise<InspectOutcome> =>
+      call("artifacts_inspect", inspectOutcomeSchema, bytes, { headers: { [FILE_NAME_HEADER]: encodeURIComponent(fileName) } }),
+    /** The plan again, with the person's decisions, all of them. */
+    preview: (planId: string, decisions: ImportDecisions): Promise<PreviewOutcome> =>
+      call("artifacts_preview", previewOutcomeSchema, { planId, decisions }),
+    /** Import, if the plan made now with these decisions is still the one with this digest. */
+    apply: (planId: string, decisions: ImportDecisions, planDigest: string): Promise<ApplyOutcome> =>
+      call("artifacts_apply", applyOutcomeSchema, { planId, decisions, planDigest }),
+    discard: (planId: string): Promise<void> => call("artifacts_discard", null, { planId }),
   },
   /** Auto Context: the surface follows the application in front. */
   context: {

@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { assignmentSchema, hexColor } from "./actions";
+import { importOriginSchema } from "./artifacts";
 import { contextSettingsSchema } from "./context";
 import { feedbackRuleSchema } from "./feedback";
 
@@ -64,6 +65,8 @@ export const surfaceSchema = z.object({
   category: z.string(),
   pages: z.array(pageSchema),
   context: z.object({ foregroundApps: z.array(z.string()).default([]) }).nullish(),
+  /** Where an imported surface came from, for display (the "Imported" badge). Absent on any other. */
+  importedFrom: importOriginSchema.nullish(),
 });
 export type Surface = z.infer<typeof surfaceSchema>;
 
