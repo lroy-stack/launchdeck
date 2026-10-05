@@ -1,9 +1,11 @@
 //! What the artifact tests share: the real built-in catalog and an
-//! environment, both from a headless runtime.
+//! environment, both from a headless runtime, and a reader that runs the
+//! structural checks of a file in the inspect order (plan 7.3, from step 3).
 
 use std::sync::Arc;
 
 use super::env::{Environment, KnownDevice};
+use super::*;
 use crate::actions::definition::Catalog;
 use crate::core::runtime::{NullEmitter, Runtime, RuntimeConfig};
 use crate::plugins::keyboard::{Combo, Keyboard};
@@ -61,4 +63,33 @@ pub(super) async fn environment(app_version: &str) -> Environment {
         devices,
         recent_applications: Vec::new(),
     }
+}
+
+/// A file read as an importer will: the pre-pass, the envelope, the
+/// manifest, the digest, the content and the cross-checks.
+pub(super) fn read(text: &str) -> Result<ArtifactV1, Rejection> {
+    use RejectionCode as R;
+    prepass(text)?;
+    let envelope: Envelope =
+        serde_json::from_str(text).map_err(|e| Rejection::new(R::NotArtifact, e.to_string()))?;
+    let kind = ArtifactKind::from_format(&envelope.format)
+        .ok_or_else(|| Rejection::new(R::NotArtifact, "not an artifact"))?;
+    if envelope.format_version != FORMAT_VERSION {
+        return Err(Rejection::new(R::UnsupportedFormatVersion, "version"));
+    }
+    let manifest: ManifestV1 = serde_json::from_str(envelope.manifest.get())
+        .map_err(|e| Rejection::at(R::InvalidManifest, "/manifest", e.to_string()))?;
+    check_manifest(&manifest)?;
+    if content_digest(envelope.content.get()) != manifest.integrity.content {
+        return Err(Rejection::new(R::Integrity, "digest"));
+    }
+    let content: ContentV1 = serde_json::from_str(envelope.content.get())
+        .map_err(|e| Rejection::at(R::InvalidContent, "/content", e.to_string()))?;
+    check_content(&content)?;
+    check_cross(kind, &manifest, &content)?;
+    Ok(ArtifactV1 {
+        kind,
+        manifest,
+        content,
+    })
 }

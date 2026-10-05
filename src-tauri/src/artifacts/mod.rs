@@ -15,8 +15,11 @@
 //! * `env`     what export and import know about this installation, as
 //!   plain data ([`Environment`])
 //! * `review`  the actions that run things, which a person reviews
+//! * `export`  a workspace's surfaces as a Surface file or a Pack, with a
+//!   preview of what is written and what is left out
 
 mod env;
+mod export;
 mod format;
 mod json;
 mod limits;
@@ -26,6 +29,11 @@ mod review;
 mod testkit;
 
 pub use env::{Environment, KnownAction, KnownDevice, KnownProvider};
+pub use export::{
+    export, ExportCode, ExportIssue, ExportMetadata, ExportPreview, ExportRequest, ExportResult,
+    ExportedRule, ExportedSurface, ExtraIdentity, InputBinding, Parameter, RuleInput, Stripped,
+    SuggestedType, Suggestion,
+};
 pub use format::*;
 pub use json::{
     content_digest, prepass, to_canonical, to_canonical_members, JsonProblem, PrepassError,
