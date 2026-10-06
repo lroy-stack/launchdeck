@@ -11,7 +11,7 @@ Status: export and import have not yet been used in the app's window by a person
 
 ## Export a surface or a Pack
 
-1. Press **Export…** in the header of a surface (that surface is then chosen), or next to **Surfaces** in the sidebar.
+1. Press **Export…** in the header of a surface (that surface is then chosen), next to **Surfaces** in the sidebar, or in **Settings**, **Workspace**.
 2. Under **Surfaces**, tick the surfaces to share. One surface and nothing else makes a Surface file; more surfaces, context rules or questions make a Pack.
 3. Under **About the file**, give a **Name**, **Version**, **Id**, **Author**, **Author's web address**, **License** and **Description**, or leave them empty: LaunchDeck proposes a name (the first surface's), version 1.0.0 and an id, and shows the proposals in grey.
 4. Under **Context rules**, tick **Include Auto Context rules** to add your rules that show the chosen surfaces. A rule names its application as this computer knows it. For each rule you can:
@@ -25,7 +25,7 @@ On macOS the system may ask once whether LaunchDeck may use your Downloads folde
 
 ## Import a file
 
-1. Press **Import…** next to **Surfaces** in the sidebar, then **Choose a file…** and pick a `.ldpack` or `.ldsurface` file.
+1. Press **Import…** next to **Surfaces** in the sidebar (or **Import a Surface or Pack…** in **Settings**, **Workspace**), then **Choose a file…** and pick a `.ldpack` or `.ldsurface` file. On the welcome screen of the first start, **Import a Pack instead** opens the same screen, with **Back to the welcome** to return; once the import is done, the welcome is not shown again.
 2. If LaunchDeck cannot use the file, it says **This file cannot be imported**, why, and **Nothing was changed.** The code and the place in the file, for a developer, are under **Details**.
 3. Otherwise you see what importing would do, before anything changes. Each choice you make updates the preview.
 
