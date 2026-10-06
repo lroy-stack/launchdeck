@@ -1259,6 +1259,77 @@ fn inputs_need_valid_answers_where_they_are_used() {
     );
 }
 
+/// One input bound on pads in two surfaces: one answer fills both, and
+/// the input is asked for while any pad that stays takes it (C4), here
+/// the link once the request is removed.
+#[test]
+fn one_input_bound_in_two_surfaces_is_asked_while_a_kept_pad_takes_it() {
+    let request = bind(
+        a("http", "request", json!({ "url": "https://example.com" })),
+        "url",
+        "hook",
+    );
+    let link = bind(
+        a("system", "openUrl", json!({ "url": "https://example.com" })),
+        "url",
+        "hook",
+    );
+    let file = pack_of(
+        ManifestV1 {
+            inputs: vec![input("hook", InputType::Url)],
+            ..manifest("1.0.0")
+        },
+        vec![
+            surface("mixer", "Mixer", vec![pad(0, "Ping", Some(request))]),
+            surface("lights", "Lights", vec![pad(1, "Open", Some(link))]),
+        ],
+        vec![],
+    );
+    let ws = workspace(vec![]);
+    let used_by = |p: &ImportPlan| -> Vec<(String, String)> {
+        p.inputs[0]
+            .used_by
+            .iter()
+            .map(|at| (at.surface_source_id.clone(), at.control_id.clone()))
+            .collect()
+    };
+    let pair = |s: &str, c: &str| (s.to_string(), c.to_string());
+
+    let keep = plan_of(&file, &ws, &answers(&[]));
+    assert_eq!(
+        used_by(&keep),
+        [pair("mixer", "g.0.0"), pair("lights", "g.1.0")]
+    );
+    assert_eq!(blockers(&keep), [B::InputRequired]);
+
+    let remove = ImportDecisions {
+        runs: Some(Runs::Remove),
+        ..ImportDecisions::default()
+    };
+    let removed = plan_of(&file, &ws, &remove);
+    assert_eq!(used_by(&removed), [pair("lights", "g.1.0")]);
+    assert_eq!(blockers(&removed), [B::InputRequired]);
+
+    let answered = answers(&[("hook", text("https://hooks.example.com/x"))]);
+    let p = plan_of(&file, &ws, &answered);
+    assert!(p.ready, "{:?}", p.blockers);
+    let defs = &file.manifest.inputs;
+    let ids: BTreeMap<String, String> = [
+        ("mixer".to_string(), "mixer".to_string()),
+        ("lights".to_string(), "lights".to_string()),
+    ]
+    .into();
+    for s in &file.content.surfaces {
+        let pressed = s.pages[0].controls[0].press.as_ref().unwrap();
+        let written = bound(pressed, defs, &p.effects.input_values, &ids);
+        assert_eq!(
+            written.args["url"], "https://hooks.example.com/x",
+            "{}",
+            s.id
+        );
+    }
+}
+
 #[test]
 fn an_answer_is_written_into_the_pad_and_a_surface_reference_follows_its_surface() {
     let file = with_inputs(false);
