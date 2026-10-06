@@ -91,6 +91,28 @@
       "at": {
         "surfaceSourceId": "development",
         "pageId": "home",
+        "controlId": "g.0.0",
+        "slot": "press"
+      },
+      "label": "Terminal",
+      "kind": "launchesProgram",
+      "text": "x-terminal-emulator"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
+        "controlId": "g.1.0",
+        "slot": "press"
+      },
+      "label": "VS Code",
+      "kind": "launchesProgram",
+      "text": "code"
+    },
+    {
+      "at": {
+        "surfaceSourceId": "development",
+        "pageId": "home",
         "controlId": "g.3.0",
         "slot": "press"
       },
@@ -476,6 +498,16 @@
       "code": "externalSurfaceReference",
       "message": "The pad \"Access\" opens the surface \"accessibility\", which is not in this file. After import it opens that surface only where one has this id.",
       "at": "/content/surfaces/0/pages/1/controls/9/press/args/surfaceId"
+    },
+    {
+      "code": "reviewBeforeSharing",
+      "message": "The pad \"Terminal\" starts a program: check it holds no password or token before sharing.",
+      "at": "/content/surfaces/0/pages/0/controls/0/press"
+    },
+    {
+      "code": "reviewBeforeSharing",
+      "message": "The pad \"VS Code\" starts a program: check it holds no password or token before sharing.",
+      "at": "/content/surfaces/0/pages/0/controls/1/press"
     },
     {
       "code": "reviewBeforeSharing",

@@ -1477,9 +1477,16 @@ fn pads_that_run_things_are_listed_for_review() {
     );
     let (_, artifact) = written(&result);
     let review = &result.preview.review;
-    // Every shell command, and no launch by name without arguments.
-    assert_eq!(review.len(), 10);
-    assert!(review.iter().all(|r| r.kind == ReviewKind::RunsCommand));
+    // Every shell command, and every launch, by name without arguments too.
+    let count = |kind: ReviewKind| review.iter().filter(|r| r.kind == kind).count();
+    assert_eq!(count(ReviewKind::RunsCommand), 10);
+    let launches: Vec<&str> = review
+        .iter()
+        .filter(|r| r.kind == ReviewKind::LaunchesProgram)
+        .map(|r| r.text.as_str())
+        .collect();
+    assert_eq!(launches, ["x-terminal-emulator", "code"]);
+    assert_eq!(review.len(), 12);
     let tests = review.iter().find(|r| r.label == "Tests").unwrap();
     assert_eq!(tests.text, "sleep 2 && echo 'tests passed'");
     assert_eq!(tests.at, location("development", "g.0.1", Slot::Press));

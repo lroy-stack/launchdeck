@@ -51,8 +51,7 @@ async fn the_ids_are_the_real_catalogs() {
     for (provider, known) in &env.providers {
         for (action, def) in &known.actions {
             let found = classify(&a(provider, action, json!({})), &env);
-            // A launch without an application is one the runtime refuses,
-            // and is reviewed as every launch it cannot show to be plain.
+            // Every launch is reviewed, also one without an application.
             let expected = if def.privileged {
                 true
             } else if provider == system::ID {
@@ -100,46 +99,27 @@ fn what_runs_things() {
     }
 }
 
+/// Every launch is reviewed, on every system: a plain name without
+/// arguments too, which on Linux and Windows runs any program of that name
+/// on `PATH` (`reboot`, `logoff`), and launches the runtime would refuse.
 #[test]
-fn a_launch_is_reviewed_with_a_path_or_arguments() {
-    let launch = |args: Value| kind(&a("system", "launchApplication", args));
-    assert_eq!(launch(json!({ "app": "code" })), None);
-    assert_eq!(launch(json!({ "app": "Visual Studio Code" })), None);
-    assert_eq!(launch(json!({ "app": "code", "args": " \n " })), None);
-    assert_eq!(launch(json!({ "app": "code", "args": [] })), None);
-    for runs in [
-        json!({ "app": "/usr/bin/code" }),
-        json!({ "app": "C:\\Tools\\code.exe" }),
-        json!({ "app": "code", "args": "--new-window" }),
-        json!({ "app": "code", "args": ["--new-window"] }),
-    ] {
-        assert_eq!(
-            launch(runs.clone()),
-            Some(ReviewKind::LaunchesProgram),
-            "{runs}"
-        );
-    }
-}
-
-/// Launches as the runtime would read them, fed to the runtime's parser
-/// and to the review alike: whatever the runtime would pass beyond a
-/// plain application name is reviewed, and the review shows it.
-#[test]
-fn a_launch_is_reviewed_unless_a_plain_name_without_arguments() {
+fn every_launch_is_reviewed() {
     let launch = |args: &Value| kind(&a("system", "launchApplication", args.clone()));
-    for quiet in [
+    let plain = [
         json!({ "app": "code" }),
         json!({ "app": "Visual Studio Code" }),
         json!({ "app": "x-terminal-emulator" }),
         json!({ "app": "Adobe Photoshop (Beta)" }),
         json!({ "app": "tool_v2.1" }),
+        json!({ "app": "reboot" }),
+        json!({ "app": "logoff" }),
         json!({ "app": "code", "args": " \n " }),
         json!({ "app": "code", "args": [] }),
         json!({ "app": "code", "args": null }),
-    ] {
-        let spec = system::launch_spec(&quiet, Platform::current()).unwrap();
-        assert!(spec.args.is_empty(), "{quiet}");
-        assert_eq!(launch(&quiet), None, "{quiet}");
+    ];
+    for args in &plain {
+        let spec = system::launch_spec(args, Platform::current()).unwrap();
+        assert!(spec.args.is_empty(), "{args}");
     }
     let hostile = [
         // Arguments the runtime passes, however empty.
@@ -147,6 +127,7 @@ fn a_launch_is_reviewed_unless_a_plain_name_without_arguments() {
         json!({ "app": "code", "args": [" "] }),
         json!({ "app": "code", "args": ["", " "] }),
         json!({ "app": "code", "args": "--new-window" }),
+        json!({ "app": "code", "args": ["--new-window"] }),
         // Arguments the runtime refuses.
         json!({ "app": "code", "args": 1 }),
         json!({ "app": "code", "args": { "a": "b" } }),
@@ -178,22 +159,11 @@ fn a_launch_is_reviewed_unless_a_plain_name_without_arguments() {
         json!({ "app": 7 }),
         json!({}),
     ];
-    for args in &hostile {
+    for args in plain.iter().chain(&hostile) {
         assert_eq!(
             launch(args),
             Some(ReviewKind::LaunchesProgram),
             "{args} is not reviewed"
-        );
-    }
-    // Every system classifies alike, though Windows refuses more.
-    let systems = [Platform::Linux, Platform::MacOs, Platform::Windows];
-    for args in hostile.iter() {
-        assert!(systems.iter().all(|&p| launches_program(args, p)), "{args}");
-    }
-    for args in [json!({ "app": "code" }), json!({ "app": "Notes (Old)" })] {
-        assert!(
-            !systems.iter().any(|&p| launches_program(&args, p)),
-            "{args}"
         );
     }
 }

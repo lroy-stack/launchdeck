@@ -433,7 +433,7 @@ Planning classifies every press and long press as the runtime would run it, afte
 | --- | --- | --- |
 | `runsCommand` | `shell.execute` | The command, in full. |
 | `sendsRequest` | `http.request`, and any other action of LaunchDeck itself (not of a plugin) marked privileged | The method, the address, where it goes (host and port; "on this computer" or "on your local network" when it is), and the body; for another privileged action, its id and all its arguments. |
-| `launchesProgram` | `system.launchApplication`, unless it is a plain application name (ASCII letters, digits, space, `.`, `_`, `-`, parentheses, not starting with a dot) with no argument | The program and each argument as the runtime passes them. |
+| `launchesProgram` | `system.launchApplication`, every one, on every system: a plain name without arguments too, since on Linux and Windows it runs any program of that name on `PATH` | The program and each argument as the runtime passes them. |
 | `instructsAgent` | `agent-control.newTask`, `agent-control.continue` | The instruction (and the folder of a new task). |
 
 Every hidden character in a review text is shown as an escape. The first three kinds need the decision `runs`: `remove` (proposed) empties those slots and keeps each control's label, looks and feedback; `keep` imports them as the file has them. An instruction to an agent is shown, needs no decision and is always kept. Plugin actions are never review items: a plugin cannot be privileged, and its network access stays behind the grants the person gives, which an import never changes.
@@ -529,7 +529,7 @@ Where the editor or another part of LaunchDeck already has a limit (feedback rul
 
 A Pack written by LaunchDeck, **trimmed**: it is `examples/artifacts/development.ldpack` (the Development starter surface with a rule for Visual Studio Code, written by a test runtime with app version 9.9.9) with its second page (Git) and 11 of the 15 controls of its first page left out. The digest is the whole file's, so this excerpt, saved as a file, is refused with `integrity`.
 
-The four pads show three cases: **Terminal** launches an application by a plain name, which is not reviewed; **Docker** runs a command, which is reviewed and needs the `runs` decision; **Agents** opens a surface that is not in the file (`externalSurfaceReference`), while **Dev** opens the file's own surface and lists the argument in `surfaceRefs`, so it is renamed if the surface's id changes on import.
+The four pads show three cases: **Terminal** launches an application by a plain name and **Docker** runs a command, which are both reviewed and need the `runs` decision; **Agents** opens a surface that is not in the file (`externalSurfaceReference`), while **Dev** opens the file's own surface and lists the argument in `surfaceRefs`, so it is renamed if the surface's id changes on import.
 
 ```json
 {

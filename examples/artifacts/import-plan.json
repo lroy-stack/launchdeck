@@ -2,7 +2,7 @@
   "status": "plan",
   "plan": {
     "planId": "0123456789abcdef0123456789abcdef",
-    "planDigest": "sha256:9049d3f86ac62bbceb4e3eb1d50fce0adfd79e2becfbf958094326eeb8378f5f",
+    "planDigest": "sha256:0db3bda993b3c99997e114383ca65dd8547019425ae27f9feeb59468649a6dd0",
     "source": {
       "fileName": "development.ldpack",
       "sizeBytes": 23178,
@@ -64,6 +64,28 @@
     "dependencies": [],
     "inputs": [],
     "review": [
+      {
+        "at": {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.0.0",
+          "slot": "press"
+        },
+        "label": "Terminal",
+        "kind": "launchesProgram",
+        "text": "x-terminal-emulator"
+      },
+      {
+        "at": {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.1.0",
+          "slot": "press"
+        },
+        "label": "VS Code",
+        "kind": "launchesProgram",
+        "text": "code"
+      },
       {
         "at": {
           "surfaceSourceId": "development",
@@ -269,6 +291,18 @@
       "replaceSurfaces": [],
       "addRules": [],
       "removedSlots": [
+        {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.0.0",
+          "slot": "press"
+        },
+        {
+          "surfaceSourceId": "development",
+          "pageId": "home",
+          "controlId": "g.1.0",
+          "slot": "press"
+        },
         {
           "surfaceSourceId": "development",
           "pageId": "home",

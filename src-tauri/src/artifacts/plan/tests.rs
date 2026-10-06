@@ -1536,13 +1536,14 @@ fn pads_that_run_things_are_reviewed_and_kept_or_removed() {
         .map(|r| (r.kind, r.at.control_id.as_str()))
         .collect();
     use ReviewKind as K;
-    // A launch with arguments is reviewed; a plain application name is not.
+    // Every launch is reviewed, a plain application name too.
     assert_eq!(
         kinds,
         [
             (K::RunsCommand, "g.0.0"),
             (K::SendsRequest, "g.1.0"),
             (K::LaunchesProgram, "g.2.0"),
+            (K::LaunchesProgram, "g.3.0"),
             (K::InstructsAgent, "g.4.0"),
             (K::RunsCommand, "g.4.0"),
         ]
@@ -1571,6 +1572,7 @@ fn pads_that_run_things_are_reviewed_and_kept_or_removed() {
             at("g.0.0", Slot::Press),
             at("g.1.0", Slot::Press),
             at("g.2.0", Slot::Press),
+            at("g.3.0", Slot::Press),
             at("g.4.0", Slot::LongPress),
         ]
     );

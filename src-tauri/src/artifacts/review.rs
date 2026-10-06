@@ -3,11 +3,10 @@
 //!
 //! Three kinds run something on the computer or the network: a shell
 //! command, a request (`http.request`, and any other host definition marked
-//! privileged), and any launch but one of a plain application name without
-//! arguments, read with the runtime's own parser. The fourth,
-//! an instruction to an agent, is shown and never needs a decision. Plugin
-//! actions are never review items: a plugin cannot be privileged, and its
-//! network access stays behind the grants a person gives.
+//! privileged), and every launch, read with the runtime's own parser. The
+//! fourth, an instruction to an agent, is shown and never needs a decision.
+//! Plugin actions are never review items: a plugin cannot be privileged,
+//! and its network access stays behind the grants a person gives.
 
 use std::fmt::Write as _;
 
@@ -96,10 +95,9 @@ pub fn classify(assignment: &Assignment, env: &Environment) -> Option<ReviewKind
     match (provider, action) {
         (SHELL, SHELL_EXECUTE) => Some(ReviewKind::RunsCommand),
         (HTTP, HTTP_REQUEST) => Some(ReviewKind::SendsRequest),
-        (system::ID, system::LAUNCH_APPLICATION) => {
-            launches_program(&assignment.args, Platform::current())
-                .then_some(ReviewKind::LaunchesProgram)
-        }
+        // Every launch, on every system: on Linux and Windows a plain name
+        // runs any program of that name on `PATH`.
+        (system::ID, system::LAUNCH_APPLICATION) => Some(ReviewKind::LaunchesProgram),
         (AGENT_CONTROL, AGENT_NEW_TASK | AGENT_CONTINUE) => Some(ReviewKind::InstructsAgent),
         _ => {
             let privileged = env
@@ -110,29 +108,6 @@ pub fn classify(assignment: &Assignment, env: &Environment) -> Option<ReviewKind
             privileged.then_some(ReviewKind::SendsRequest)
         }
     }
-}
-
-/// Every launch but one of a plain application name with no argument, read
-/// by the runtime's own parser: what the review sees is what would start.
-/// A launch the runtime refuses is reviewed too. The answer is the same on
-/// every system: what Windows alone refuses is never a plain name without
-/// arguments.
-fn launches_program(args: &Value, platform: Platform) -> bool {
-    system::launch_spec(args, platform).map_or(true, |spec| {
-        !plain_application(&spec.app) || !spec.args.is_empty()
-    })
-}
-
-/// A name the system looks an application up by, never a path: ASCII
-/// letters and digits, space, dot, underscore, hyphen and parentheses, not
-/// starting with a dot. No separator of any system, no look-alike of one,
-/// no home directory, nothing a command interpreter reads.
-fn plain_application(app: &str) -> bool {
-    !app.is_empty()
-        && !app.starts_with('.')
-        && app
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, ' ' | '.' | '_' | '-' | '(' | ')'))
 }
 
 /// The application and each argument as the runtime passes them, one after
