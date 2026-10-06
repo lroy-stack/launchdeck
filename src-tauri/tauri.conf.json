@@ -26,6 +26,9 @@
   },
   "bundle": {
     "active": true,
+    "category": "Productivity",
+    "shortDescription": "Turn your Launchpad into a programmable control surface.",
+    "longDescription": "LaunchDeck turns a Novation Launchpad into a programmable control surface for your computer: pads open applications, press shortcuts, send requests and switch pages, light up to show the state of things, follow the application in front and put AI agents on the pads. A simulated Launchpad is built in.",
     "license": "MIT",
     "licenseFile": "../LICENSE",
     "targets": "all",
@@ -36,6 +39,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "signingIdentity": "-"
+    },
     "resources": {
       "../examples/plugins/hello/plugin.json": "examples/plugins/hello/plugin.json",
       "../examples/plugins/hello/hello.wasm": "examples/plugins/hello/hello.wasm",
