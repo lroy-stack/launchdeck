@@ -2,13 +2,13 @@
 
 What a person checks by hand on a Mac before a release, because no automated test reaches it: the app window, the tray, Auto Context in the running app, the Keychain, keys pressed for you, a physical Launchpad and a real Home Assistant. It replaces section 4 of the [October 2026 next-phase plan](../history/next-phase-2026-10.md#4-check-by-hand-on-the-mac), brought up to the 0.3.0 interface, and adds the release acceptance walk-through.
 
-**Status for 0.3.0: none of these checks has been done** (NOT VERIFIED (f)). The headless acceptance test (`src-tauri/tests/release_acceptance.rs`) drives the same scenario through the runtime, without a window.
+**Status for 0.3.0: none of these checks has been done** (NOT VERIFIED (f)). The headless acceptance test (`src-tauri/tests/release_acceptance.rs`) drives the same scenario through the runtime, without a window. What was done without a person, and is not repeated here: the `.app` and `.dmg` of the release candidate `900c08d` built and inspected, with the three example plugins inside ([release record](../verification/release-0.3.0.md#the-macos-bundle)), and the Auto Context observer seen reporting bundle ids outside the app ([macOS record](../verification/macos-2026-10-05.md#productization-macos-observer-evidence)).
 
 ## Before you start
 
 1. Quit LaunchDeck.
 2. **Move** the data folder aside, never delete it: `mv ~/Library/Application\ Support/dev.launchdeck.app ~/Library/Application\ Support/dev.launchdeck.app.before-checks`. Move it back afterwards to get your own surfaces again.
-3. Run the build under test: the `.app` from the `.dmg` of the release candidate ([releasing](releasing.md#4-the-bundles)), or `npm run tauri dev` from the release candidate commit. Write down which; some answers differ between them (below).
+3. Run the build under test: the `.app` from the `.dmg` of the release candidate ([releasing](releasing.md#4-the-bundles); the one inspected for the release record was not kept, so build it again from that commit), or `npm run tauri dev` from the release candidate commit. Write down which; some answers differ between them (below).
 4. Keep a text file open and note, for each check, **seen**, **not seen** or **not done**, with what you saw. The record goes under [docs/verification/](../verification/README.md).
 
 ## 1. The acceptance walk-through

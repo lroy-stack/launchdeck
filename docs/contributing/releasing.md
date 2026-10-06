@@ -40,11 +40,13 @@ npm run check:full
 On macOS, with several GB of free disk and no other cargo process running:
 
 ```bash
-npx tauri build --bundles app,dmg
+CI=true npx tauri build --bundles app,dmg
 plutil -p src-tauri/target/release/bundle/macos/LaunchDeck.app/Contents/Info.plist
 codesign -dv --verbose src-tauri/target/release/bundle/macos/LaunchDeck.app
 hdiutil verify src-tauri/target/release/bundle/dmg/*.dmg
 ```
+
+`CI=true` matters on a Mac someone is using: without it Tauri's `bundle_dmg.sh` runs an AppleScript that tells Finder to lay out the disk image's window, and on 0.3.0 that step failed the `.dmg` ([release record](../verification/release-0.3.0.md#the-macos-bundle)). With 8 GB of RAM, `CARGO_BUILD_JOBS=2` keeps the release build (LTO, one codegen unit) out of swap; it took about 4 to 8 minutes here.
 
 Check that the bundle identifier is `dev.launchdeck.app`, the version is the release's, and `Contents/Resources/examples/plugins` holds the three bundled example plugins (Hello, Counter, Home Assistant). The macOS build is ad-hoc signed and not notarized; [install](../getting-started/install.md#opening-a-build-on-macos) says what a person sees.
 

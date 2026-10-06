@@ -10,6 +10,17 @@ Written 2026-10-05, at commit `6a9224e` plus the documentation update that added
 
 No new features. The phase is done when the "Verified where" table in the [README](../../README.md#verified-where) can be rewritten from things that were run.
 
+> **Status at 0.3.0 (added 2026-10-06 with the [release record](../verification/release-0.3.0.md); the rest of this file is as written).**
+>
+> | Section | Status | Recorded in |
+> | --- | --- | --- |
+> | 1. Set up the Mac | Done on macOS 15.4.1, Apple M2 | [macOS record](../verification/macos-2026-10-05.md#section-1-setup) |
+> | 2. First build | Done: `macos.rs` compiled, fmt and clippy clean | [macOS record](../verification/macos-2026-10-05.md#section-2-first-build) |
+> | 3. Tests expected to fail | Done: the four predicted failures and one intermittent one found and fixed (the starter workspace and the context namespace as proposed); the whole suite green on macOS since, last at the 0.3.0 release candidate | [macOS record](../verification/macos-2026-10-05.md#section-3-tests), [release record](../verification/release-0.3.0.md) |
+> | 4. Check by hand | Not done (f). The checklist moved to [manual checks on macOS](../contributing/manual-checks-macos.md), brought up to the 0.3.0 interface. Done outside the app only: the macOS observer seen reporting bundle ids through `examples/foreground.rs`, and the app started once under `tauri dev` (nothing checked) | [macOS record](../verification/macos-2026-10-05.md#productization-macos-observer-evidence) |
+> | 5. Continuous integration | Workflows written (`ci.yml`, `bundle.yml`, `desktop-e2e.yml`); never run (a: account billing) | [macOS record](../verification/macos-2026-10-05.md#section-5-continuous-integration), [CI](../contributing/ci.md) |
+> | 8. Write down what you find | Done for sections 1 to 3 and 5; the files it lists were updated from the records during productization | [verification records](../verification/README.md) |
+
 Throughout this file, **"expected"** means predicted by reading the code, not observed. Treat every expectation as a hypothesis to confirm or correct.
 
 ## 0. Where things stand

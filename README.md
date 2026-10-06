@@ -43,14 +43,15 @@ On macOS LaunchDeck keeps its data in `~/Library/Application Support/dev.launchd
 
 ## Verified where
 
-From the [verification records](docs/verification/README.md): the [macOS record](docs/verification/macos-2026-10-05.md) and what the packages of this milestone recorded as run. Letters give the reason, listed under the table.
+From the [verification records](docs/verification/README.md): the [release record of 0.3.0](docs/verification/release-0.3.0.md) (release candidate `900c08d`), the [macOS record](docs/verification/macos-2026-10-05.md) and what the packages of this milestone recorded as run. Letters give the reason, listed under the table.
 
 | | macOS 15.4.1, Apple M2 | Linux | Windows |
 | --- | --- | --- | --- |
-| Rust build, fmt, clippy `-D warnings` (Rust 1.97.0) | Run here, clean, at 0.3.0 | Not built for 0.3.0 (a, d); clean in an earlier milestone | NOT VERIFIED (e): never built |
-| Rust tests | Whole suite last recorded green on 2026-10-05: 961 passed, 0 failed, 4 ignored (commit `e24e4f3`, before the Mini MK3 and acceptance work merged); the contract tests run here at 0.3.0 | 712 passed in an earlier milestone ([record](docs/history/next-phase-2026-10.md#0-where-things-stand)); not run for 0.3.0 (a, d) | NOT VERIFIED (e) |
-| TypeScript typecheck, lint, tests | Run here at 0.3.0: 594 tests passed | 309 tests in an earlier milestone; not run for 0.3.0 (a, d) | NOT VERIFIED (e) |
-| Release acceptance scenario, headless (`src-tauri/tests/release_acceptance.rs`) | Run here, 20 times green | NOT VERIFIED (a, d) | NOT VERIFIED (a, e) |
+| Rust build, fmt, clippy `-D warnings` (Rust 1.97.0) | Run here, clean, at the release candidate | Not built for 0.3.0 (a, d); clean in an earlier milestone | NOT VERIFIED (e): never built |
+| Rust tests | Run here at the release candidate, twice: 1299 passed, 0 failed, 8 ignored (measurements, a benchmark, a fixture regenerator, a real Launchpad, the real Keychain) | 712 passed in an earlier milestone ([record](docs/history/next-phase-2026-10.md#0-where-things-stand)); not run for 0.3.0 (a, d) | NOT VERIFIED (e) |
+| TypeScript typecheck, lint, tests, production build | Run here at the release candidate: 594 tests passed, 8 runs, none flaky | 309 tests in an earlier milestone; not run for 0.3.0 (a, d) | NOT VERIFIED (e) |
+| Release acceptance scenario, headless (`src-tauri/tests/release_acceptance.rs`) | Run here, 20 times green, and 7 more at the release candidate | NOT VERIFIED (a, d) | NOT VERIFIED (a, e) |
+| Bundle | `.app` and `.dmg` (arm64, ad-hoc signed, macOS 11 or later) built and inspected at the release candidate; never opened (f) | `.deb`, `.rpm`: NOT VERIFIED (a, d) | NSIS: NOT VERIFIED (a, e) |
 | App window, tray, Auto Context in the app, Keychain, keys pressed for you (Accessibility) | NOT VERIFIED (f): the window was started once and seen by the owner, nothing checked | Desktop suite 218 of 218 in an earlier milestone; the new acceptance suite written, not run (a, d) | NOT VERIFIED (e) |
 | Auto Context observer on its own | Seen reporting applications by bundle id ([record](docs/verification/macos-2026-10-05.md#productization-macos-observer-evidence)) | X11 in an earlier milestone; Wayland not supported | NOT VERIFIED (e): never compiled |
 | Launchpad X, Launchpad Mini MK3 | NOT HARDWARE VERIFIED (b) | NOT HARDWARE VERIFIED (b) | NOT HARDWARE VERIFIED (b) |

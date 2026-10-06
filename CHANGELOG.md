@@ -2,11 +2,11 @@
 
 Each release of LaunchDeck, grouped by capability. The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/). The app's version is plain numeric; the channel says what kind of release it is ([versions](docs/architecture/versions.md)).
 
-"Run here" means run on macOS 15.4.1, Apple M2, in this milestone. **NOT VERIFIED** gives its reason by letter: (a) GitHub Actions does not start (account billing); (b) no Novation Launchpad (X or Mini MK3) attached; (c) no Home Assistant reachable; (d) no Linux desktop; (e) no Windows machine; (f) the [manual checks on the Mac](docs/history/next-phase-2026-10.md#4-check-by-hand-on-the-mac) not done by a person, and the app window never driven by an agent.
+"Run here" means run on macOS 15.4.1, Apple M2, in this milestone. **NOT VERIFIED** gives its reason by letter: (a) GitHub Actions does not start (account billing); (b) no Novation Launchpad (X or Mini MK3) attached; (c) no Home Assistant reachable; (d) no Linux desktop; (e) no Windows machine; (f) the [manual checks on the Mac](docs/contributing/manual-checks-macos.md) not done by a person, and the app window never driven by an agent.
 
-## [Unreleased] — 0.3.0, first external alpha
+## 0.3.0 — 2026-10-06, first external alpha
 
-The first build meant for people outside the project. The release date and the release-candidate commit are added when the release is validated.
+The first build meant for people outside the project. Release candidate `900c08d`, validated on 2026-10-06 ([release record](docs/verification/release-0.3.0.md)). Not tagged or published yet: that is the owner's step.
 
 ### Surfaces and editor
 - Rename and delete surfaces and pages. Deleting a surface first lists the Auto Context rules that point to it; the last surface or page cannot be deleted. Run here in tests; the window NOT VERIFIED (f).
@@ -35,7 +35,7 @@ The first build meant for people outside the project. The release date and the r
 - Claude Code hooks were verified live in an earlier milestone; Codex hooks are written, not run.
 
 ### Plugins and the SDK
-- The example plugins Hello, Counter and Home Assistant ship with the app and install from the **Plugins** screen, which also shows the plugins folder. Run here in tests; the button in the window and the files inside a built bundle NOT VERIFIED (f).
+- The example plugins Hello, Counter and Home Assistant ship with the app and install from the **Plugins** screen, which also shows the plugins folder. Run here in tests, and the three are inside the macOS bundle built for the release record; the button in the window NOT VERIFIED (f).
 - A plugin that stops says what kind of problem stopped it, in a sentence. `npm run plugins:validate` checks a plugin folder with the app's own validator. Plugin ids starting with `launchdeck.` are reserved.
 - A secret that a schema 1-3 plugin kept in plain text is never handed to the plugin again. Its card offers **Migrate** (into the credential store, read back, then removed from the file) or **Remove**. Run here with an in-memory store; the real Keychain NOT VERIFIED (f).
 - The example plugins rebuild to the committed bytes (`examples/plugins/SHA256SUMS`, `scripts/build-example-plugins.sh --check`). Run here on macOS with Node 22 only; Linux, Windows and other Node versions NOT VERIFIED (a, d, e). C Ping is not rebuilt here (it needs a clang with wasm32).
@@ -65,9 +65,10 @@ The first build meant for people outside the project. The release date and the r
 ### Quality and CI
 - `npm run check` (types, lint, architecture, versions and license, documentation links, Vitest, cargo fmt and clippy) and `npm run check:full` (with every Rust test and the build); Rust pinned to 1.97.0.
 - The large Rust modules are split by responsibility, and the architecture rules are checked on every commit.
-- `src-tauri/tests/release_acceptance.rs` runs the release acceptance scenario headless, from a clean data folder to a restart. Run here, 20 times green.
+- `src-tauri/tests/release_acceptance.rs` runs the release acceptance scenario headless, from a clean data folder to a restart. Run here, 20 times green, and 7 more at the release candidate.
 - CI workflows for Linux, macOS and Windows, for bundles and for the desktop suite: written, NOT VERIFIED (a). The desktop acceptance suite for Linux is written, not run (a, d).
-- Test counts: the whole Rust suite last recorded green on 2026-10-05 (961 passed, 0 failed, 4 ignored, before the Mini MK3 and acceptance work merged); Vitest 594 passed at 0.3.0. The release candidate's own counts go into [docs/verification/](docs/verification/).
+- The macOS `.app` and `.dmg` (arm64, ad-hoc signed, macOS 11 or later, not notarized) built and inspected at the release candidate; never opened (f). The `.dmg` shows the MIT license as an agreement. Linux and Windows bundles NOT VERIFIED (a, d, e).
+- Test counts at the release candidate: Rust 1299 passed, 0 failed, 8 ignored, in two full runs; Vitest 594 passed in 8 runs; `artifacts_security` (108), `artifacts_roundtrip`, `release_acceptance` and `home_assistant` 5 times each on their own, none flaky ([release record](docs/verification/release-0.3.0.md)).
 
 ### Versions
 
@@ -83,7 +84,7 @@ The first build meant for people outside the project. The release date and the r
 
 ### Known limitations
 
-See [known limitations](README.md#known-limitations) and [Verified where](README.md#verified-where) in the README.
+See [known limitations](docs/user/known-limitations.md), and [Verified where](README.md#verified-where) in the README.
 
 ### License
 

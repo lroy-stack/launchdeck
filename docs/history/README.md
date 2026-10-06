@@ -2,7 +2,7 @@
 
 Plans and working documents of earlier milestones, kept as they were written. They explain why things are the way they are; they do not describe the product today. For that, start at the [documentation index](../README.md).
 
-Nothing here is edited for content. When a file moved, its relative links were rewritten so they still resolve, and only that. Paths and file names in their text are those of the time.
+Nothing here is edited for content, except one status note at the top of `next-phase-2026-10.md` that says, at the release of 0.3.0, which of its sections were done and where that is recorded. When a file moved, its relative links were rewritten so they still resolve, and only that. Paths and file names in their text are those of the time.
 
 | File | What it was | Moved from |
 | --- | --- | --- |

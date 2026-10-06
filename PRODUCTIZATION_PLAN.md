@@ -575,9 +575,9 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 | 25 | E5 | Settings, About, single version source | yes | E3, D2 | | done; Import and Export a Pack not offered under Workspace (C6 not on this lane: add them with C6); About reads `artifacts::FORMAT_VERSION`; the Settings window, the clipboard copy and Show data folder checked with vitest only, the app window NOT VERIFIED (f); a built bundle taking its version from Cargo.toml NOT VERIFIED until R5 |
 | 26 | E6 | Empty states and readable activity | no | A4 | R2 | done |
 | 27 | R2 | Release acceptance automation | yes | C5, D2 | E6 | todo |
-| 28 | R3 | Documentation restructure and user docs | yes (comments) | A2 | | todo |
-| 29 | R4 | README, CHANGELOG, versions, 0.3.0 | yes | A2 | | todo |
-| 30 | R5 | Release validation and record | yes | A2 | | todo |
+| 28 | R3 | Documentation restructure and user docs | yes (comments) | A2 | | done |
+| 29 | R4 | README, CHANGELOG, versions, 0.3.0 | yes | A2 | | done |
+| 30 | R5 | Release validation and record | yes | A2 | | done; release candidate `900c08d`, [record](docs/verification/release-0.3.0.md); `check:full` green (Rust 1299 passed, 8 ignored; Vitest 594); macOS `.app` and `.dmg` built and inspected, never opened (f); actionlint not installed, NOT VERIFIED; CI (a), hardware (b), Home Assistant (c), Linux (d), Windows (e) and the human pass (f) NOT VERIFIED |
 | 31 | M1-M13 | Launchpad Mini MK3 and the shared Novation MK3 layer (device lane, worktree `launchdeck-ux`; `LAUNCHPAD_MINI_MK3_PLAN.md` section 16.4) | yes | E2 | E3-E5, C1-C7 (other lanes) | M1-M12 done; M13 (device settings UI) todo, after the lanes are merged. Byte, port-name, simulator, device and runtime tests run here; the acceptance suite written and run here once without a unit; everything physical on a Mini MK3 or an X NOT HARDWARE VERIFIED (b: no Novation device attached); Windows and Linux port names derived from documents, not observed (d, e); release on quit NOT VERIFIED in the app window (f). Docs in `docs/devices/` |
 
 R3, R4 and R5 declare only A2 so that they still run if a feature package fails; they are last in the order and describe only what is in the tree.

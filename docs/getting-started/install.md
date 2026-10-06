@@ -6,11 +6,11 @@ LaunchDeck 0.3.0 is the first external alpha. This page says what you can instal
 
 | System | What there is | Status |
 | --- | --- | --- |
-| macOS 11 or later, Apple silicon | Build it from source ([build from source](build-from-source.md)). A `.app` and a `.dmg` can be built with `npx tauri build --bundles app,dmg` | Built from source and tested here (macOS 15.4.1, Apple M2). No bundle has been built or opened here yet: NOT VERIFIED |
+| macOS 11 or later, Apple silicon | Build it from source ([build from source](build-from-source.md)). A `.app` and a `.dmg` can be built with `CI=true npx tauri build --bundles app,dmg` ([releasing](../contributing/releasing.md#4-the-bundles)) | Built from source and tested here (macOS 15.4.1, Apple M2). The `.app` and `.dmg` of the release candidate were built here, ad-hoc signed, with the three example plugins inside, and inspected ([release record](../verification/release-0.3.0.md#the-macos-bundle)); neither has been opened yet: NOT VERIFIED |
 | Linux | `.deb` and `.rpm` packages built by the Bundle workflow on GitHub Actions | NOT VERIFIED: the workflow has never run (GitHub Actions does not start, account billing), and nothing in 0.3.0 has been built on Linux |
 | Windows | An NSIS installer built by the same workflow | NOT VERIFIED: never built, on any machine |
 
-There is no installer you can download yet; one is added when the release is validated. Not planned for this alpha: MSI, AppImage, Intel or universal macOS builds, and automatic updates.
+There is no installer you can download yet: the `.dmg` built for the release record was not kept or published. Not planned for this alpha: MSI, AppImage, Intel or universal macOS builds, and automatic updates.
 
 ## Opening a build on macOS
 
@@ -19,6 +19,8 @@ A LaunchDeck build is not signed with an Apple Developer certificate and not not
 1. Try to open LaunchDeck once and close the warning.
 2. Open **System Settings**, **Privacy & Security**, scroll to the message about LaunchDeck and press **Open Anyway**.
 3. Confirm with your password.
+
+Opening the `.dmg` first shows LaunchDeck's license (MIT) as an agreement to accept; the app is inside, next to a link to Applications.
 
 This is the usual macOS path for unsigned applications. It has not been tried with a LaunchDeck download (NOT VERIFIED): a build made on the same Mac carries no quarantine flag, so macOS does not ask. Only open a build that you made yourself or that comes from someone you trust.
 
