@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
-use super::CmdResult;
+use super::{CmdResult, CommandError};
 use crate::agents::bridge::PROTOCOL;
 use crate::artifacts::FORMAT_VERSION;
 use crate::core::model::SCHEMA_VERSION;
@@ -74,9 +74,9 @@ impl AppInfo {
 }
 
 fn data_folder(app: &AppHandle) -> CmdResult<PathBuf> {
-    app.path()
-        .app_data_dir()
-        .map_err(|e| format!("LaunchDeck could not find its data folder ({e}).").into())
+    app.path().app_data_dir().map_err(|e| {
+        CommandError::new("LaunchDeck could not find its data folder.").with_detail(e.to_string())
+    })
 }
 
 /// Every version a tester needs, and where the data folder is.
@@ -90,8 +90,10 @@ pub(crate) fn app_info(app: AppHandle) -> CmdResult<AppInfo> {
 #[tauri::command]
 pub(crate) fn app_reveal_data_folder(app: AppHandle) -> CmdResult<()> {
     let folder = data_folder(&app)?;
-    Ok(open::that_detached(&folder)
-        .map_err(|e| format!("LaunchDeck could not open {} ({e}).", folder.display()))?)
+    open::that_detached(&folder).map_err(|e| {
+        CommandError::new("LaunchDeck could not open its data folder.")
+            .with_detail(format!("{}: {e}", folder.display()))
+    })
 }
 
 #[cfg(test)]

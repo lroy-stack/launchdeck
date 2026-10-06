@@ -27,8 +27,7 @@ pub(crate) async fn plugins_set_enabled(
 ) -> CmdResult<PluginInfo> {
     let host = state.runtime.plugin_host().clone();
     tauri::async_runtime::spawn_blocking(move || host.set_enabled(&id, enabled))
-        .await
-        .map_err(|e| e.to_string())?
+        .await?
         .map_err(|e| CommandError::from(e.to_string()))
 }
 
@@ -41,8 +40,7 @@ pub(crate) async fn plugins_set_config(
 ) -> CmdResult<PluginInfo> {
     let host = state.runtime.plugin_host().clone();
     tauri::async_runtime::spawn_blocking(move || host.set_config(&id, &key, value))
-        .await
-        .map_err(|e| e.to_string())?
+        .await?
         .map_err(|e| CommandError::from(e.to_string()))
 }
 
@@ -53,8 +51,7 @@ pub(crate) async fn plugins_reload(
 ) -> CmdResult<PluginInfo> {
     let host = state.runtime.plugin_host().clone();
     tauri::async_runtime::spawn_blocking(move || host.reload(&id))
-        .await
-        .map_err(|e| e.to_string())?
+        .await?
         .map_err(|e| CommandError::from(e.to_string()))
 }
 
@@ -63,7 +60,7 @@ pub(crate) async fn plugins_rescan(state: State<'_, AppState>) -> CmdResult<Scan
     let host = state.runtime.plugin_host().clone();
     tauri::async_runtime::spawn_blocking(move || host.scan())
         .await
-        .map_err(|e| CommandError::from(e.to_string()))
+        .map_err(CommandError::from)
 }
 
 #[tauri::command]
@@ -87,8 +84,7 @@ pub(crate) async fn plugins_set_permission(
 ) -> CmdResult<PluginInfo> {
     let host = state.runtime.plugin_host().clone();
     tauri::async_runtime::spawn_blocking(move || host.set_permission(&id, &origin, decision))
-        .await
-        .map_err(|e| e.to_string())?
+        .await?
         .map_err(|e| CommandError::from(e.to_string()))
 }
 
@@ -102,8 +98,7 @@ pub(crate) async fn plugins_set_secret(
 ) -> CmdResult<PluginInfo> {
     let host = state.runtime.plugin_host().clone();
     tauri::async_runtime::spawn_blocking(move || host.set_secret(&id, &key, &value))
-        .await
-        .map_err(|e| e.to_string())?
+        .await?
         .map_err(|e| CommandError::from(e.to_string()))
 }
 
@@ -115,8 +110,7 @@ pub(crate) async fn plugins_clear_secret(
 ) -> CmdResult<PluginInfo> {
     let host = state.runtime.plugin_host().clone();
     tauri::async_runtime::spawn_blocking(move || host.clear_secret(&id, &key))
-        .await
-        .map_err(|e| e.to_string())?
+        .await?
         .map_err(|e| CommandError::from(e.to_string()))
 }
 
@@ -127,8 +121,7 @@ pub(crate) async fn plugins_migrate_legacy_secrets(
 ) -> CmdResult<LegacyMigration> {
     let host = state.runtime.plugin_host().clone();
     tauri::async_runtime::spawn_blocking(move || host.migrate_legacy_secrets())
-        .await
-        .map_err(|e| e.to_string())?
+        .await?
         .map_err(|e| CommandError::from(e.to_string()))
 }
 
@@ -137,8 +130,7 @@ pub(crate) async fn plugins_migrate_legacy_secrets(
 pub(crate) async fn plugins_discard_legacy_secrets(state: State<'_, AppState>) -> CmdResult<usize> {
     let host = state.runtime.plugin_host().clone();
     tauri::async_runtime::spawn_blocking(move || host.discard_legacy_secrets())
-        .await
-        .map_err(|e| e.to_string())?
+        .await?
         .map_err(|e| CommandError::from(e.to_string()))
 }
 
@@ -152,8 +144,7 @@ pub(crate) async fn plugins_migrate_plugin_legacy_secrets(
 ) -> CmdResult<PluginInfo> {
     let host = state.runtime.plugin_host().clone();
     tauri::async_runtime::spawn_blocking(move || host.migrate_plugin_legacy_secrets(&id))
-        .await
-        .map_err(|e| e.to_string())?
+        .await?
         .map_err(|e| CommandError::from(e.to_string()))
 }
 
@@ -165,8 +156,7 @@ pub(crate) async fn plugins_remove_plugin_legacy_secrets(
 ) -> CmdResult<PluginInfo> {
     let host = state.runtime.plugin_host().clone();
     tauri::async_runtime::spawn_blocking(move || host.remove_plugin_legacy_secrets(&id))
-        .await
-        .map_err(|e| e.to_string())?
+        .await?
         .map_err(|e| CommandError::from(e.to_string()))
 }
 
@@ -204,24 +194,29 @@ pub(crate) async fn plugins_install_example(
     state: State<'_, AppState>,
     id: String,
 ) -> CmdResult<PluginsOverview> {
-    let root = examples_root(&app).ok_or("the example plugins are not available")?;
+    let root = examples_root(&app)
+        .ok_or("The example plugins that come with LaunchDeck are missing from this copy.")?;
     let host = state.runtime.plugin_host().clone();
     tauri::async_runtime::spawn_blocking(move || {
         host.install_example(&root, &id)
             .map(|()| host.overview())
             .map_err(|e| CommandError::from(e.to_string()))
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
 /// Show the plugins folder in the system's file manager, creating it first.
 #[tauri::command]
 pub(crate) fn plugins_reveal_folder(state: State<'_, AppState>) -> CmdResult<()> {
     let host = state.runtime.plugin_host();
-    let folder = host.install_folder().ok_or("there is no plugins folder")?;
+    let folder = host
+        .install_folder()
+        .ok_or("LaunchDeck has no plugins folder.")?;
+    let failed = |sentence: &str, e: std::io::Error| {
+        CommandError::new(sentence).with_detail(format!("{}: {e}", folder.display()))
+    };
     std::fs::create_dir_all(folder)
-        .map_err(|e| format!("could not create {}: {e}", folder.display()))?;
-    Ok(open::that_detached(folder)
-        .map_err(|e| format!("could not open {}: {e}", folder.display()))?)
+        .map_err(|e| failed("LaunchDeck could not create the plugins folder.", e))?;
+    open::that_detached(folder)
+        .map_err(|e| failed("LaunchDeck could not open the plugins folder.", e))
 }

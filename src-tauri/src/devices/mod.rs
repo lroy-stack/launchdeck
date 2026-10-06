@@ -61,13 +61,17 @@ pub enum DeviceError {
     TakenOver(String),
     #[error("This device cannot do that.")]
     Unavailable(String),
+    /// A value LaunchDeck's own limits refuse before any device is asked:
+    /// the sentence that says the limit.
+    #[error("{0}")]
+    Invalid(String),
 }
 
 impl DeviceError {
     /// The operating system's text or the device id behind the sentence.
     pub fn detail(&self) -> Option<&str> {
         match self {
-            DeviceError::NotConnected | DeviceError::TakenOver(_) => None,
+            DeviceError::NotConnected | DeviceError::TakenOver(_) | DeviceError::Invalid(_) => None,
             DeviceError::Port(d)
             | DeviceError::Midi(d)
             | DeviceError::Unknown(d)

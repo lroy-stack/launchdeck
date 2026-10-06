@@ -76,14 +76,14 @@ impl Runtime {
         self.lock().devices.list()
     }
 
-    pub fn connect_device(&self, id: &str) -> Result<(), String> {
-        let change = self.lock().devices.connect(id).map_err(sentence)?;
+    pub fn connect_device(&self, id: &str) -> Result<(), DeviceError> {
+        let change = self.lock().devices.connect(id)?;
         self.announce(vec![change]);
         Ok(())
     }
 
-    pub fn disconnect_device(&self, id: &str) -> Result<(), String> {
-        let change = self.lock().devices.disconnect(id).map_err(sentence)?;
+    pub fn disconnect_device(&self, id: &str) -> Result<(), DeviceError> {
+        let change = self.lock().devices.disconnect(id)?;
         self.announce(vec![change]);
         Ok(())
     }
@@ -97,11 +97,11 @@ impl Runtime {
     /// The LED brightness in percent of every device that has it, or each
     /// device's own level (`None`): saved as a preference and given to the
     /// connected devices now and to every device when it connects.
-    pub fn set_device_brightness(&self, percent: Option<u8>) -> Result<(), String> {
+    pub fn set_device_brightness(&self, percent: Option<u8>) -> Result<(), DeviceError> {
         if percent.is_some_and(|p| p > BRIGHTNESS_MAX) {
-            return Err(format!(
+            return Err(DeviceError::Invalid(format!(
                 "Brightness goes from 0 to {BRIGHTNESS_MAX} percent."
-            ));
+            )));
         }
         {
             let mut inner = self.lock();
@@ -115,25 +115,26 @@ impl Runtime {
 
     /// Turns a connected device's LEDs off (`asleep`) or on again. Nothing
     /// puts a device to sleep by itself.
-    pub fn set_device_sleep(&self, id: &str, asleep: bool) -> Result<(), String> {
+    pub fn set_device_sleep(&self, id: &str, asleep: bool) -> Result<(), DeviceError> {
         self.lock()
             .devices
-            .apply(id, DeviceSetting::Sleep(asleep))
-            .map_err(sentence)?;
+            .apply(id, DeviceSetting::Sleep(asleep))?;
         self.emit_state();
         Ok(())
     }
 
     /// Scrolls text across a connected device, or stops the scroll
     /// (`None`). The text is checked against LaunchDeck's limits first.
-    pub fn scroll_device_text(&self, id: &str, text: Option<TextScroll>) -> Result<(), String> {
+    pub fn scroll_device_text(
+        &self,
+        id: &str,
+        text: Option<TextScroll>,
+    ) -> Result<(), DeviceError> {
         if let Some(text) = &text {
-            text.check()?;
+            text.check()
+                .map_err(|limit| DeviceError::Invalid(limit.into()))?;
         }
-        self.lock()
-            .devices
-            .scroll_text(id, text.as_ref())
-            .map_err(sentence)?;
+        self.lock().devices.scroll_text(id, text.as_ref())?;
         self.emit_state();
         Ok(())
     }
@@ -166,15 +167,6 @@ impl Runtime {
         // A newly listed, unplugged or failed device also changes the list.
         self.announce(changes);
         self.emit_state();
-    }
-}
-
-/// The sentence for the person, then what the system said, until command
-/// errors carry their detail separately.
-fn sentence(e: DeviceError) -> String {
-    match e.detail() {
-        Some(detail) => format!("{e} Details: {detail}"),
-        None => e.to_string(),
     }
 }
 
@@ -480,6 +472,13 @@ mod tests {
         assert_eq!(connected(&rt), 0);
     }
 
+    /// The sentence a refused device call gives the person, and its detail
+    /// apart from it.
+    fn said(result: Result<(), DeviceError>) -> (String, Option<String>) {
+        let e = result.unwrap_err();
+        (e.to_string(), e.detail().map(str::to_string))
+    }
+
     fn on_disk(dir: &std::path::Path) -> Workspace {
         Store::new(dir).load_or_default(|| panic!("the saved file must load"))
     }
@@ -501,8 +500,8 @@ mod tests {
         );
 
         assert_eq!(
-            rt.set_device_brightness(Some(101)).unwrap_err(),
-            "Brightness goes from 0 to 100 percent."
+            said(rt.set_device_brightness(Some(101))),
+            ("Brightness goes from 0 to 100 percent.".into(), None)
         );
         assert_eq!(rt.snapshot().workspace.preferences.device_brightness, None);
 
@@ -555,13 +554,16 @@ mod tests {
             [DeviceSetting::Sleep(true), DeviceSetting::Sleep(false)]
         );
         assert_eq!(
-            rt.set_device_sleep("nope", true).unwrap_err(),
-            "LaunchDeck does not know this device. Press Look again. Details: nope"
+            said(rt.set_device_sleep("nope", true)),
+            (
+                "LaunchDeck does not know this device. Press Look again.".into(),
+                Some("nope".into())
+            )
         );
         rt.disconnect_device(FEATURED).unwrap();
         assert_eq!(
-            rt.set_device_sleep(FEATURED, true).unwrap_err(),
-            "The device is not connected."
+            said(rt.set_device_sleep(FEATURED, true)),
+            ("The device is not connected.".into(), None)
         );
         assert_eq!(given.lock().unwrap().settings.len(), 2);
     }
@@ -585,9 +587,11 @@ mod tests {
         let too_long = "x".repeat(65);
         for refused in [too_long.as_str(), "é", ""] {
             assert_eq!(
-                rt.scroll_device_text(FEATURED, Some(text(refused)))
-                    .unwrap_err(),
-                "Scrolling text takes up to 64 letters, digits and punctuation marks.",
+                said(rt.scroll_device_text(FEATURED, Some(text(refused)))),
+                (
+                    "Scrolling text takes up to 64 letters, digits and punctuation marks.".into(),
+                    None
+                ),
                 "{refused:?}"
             );
         }
@@ -596,8 +600,11 @@ mod tests {
             ..text("Hi")
         };
         assert_eq!(
-            rt.scroll_device_text(FEATURED, Some(slow)).unwrap_err(),
-            "Scrolling text moves at 1 to 63 pads per second."
+            said(rt.scroll_device_text(FEATURED, Some(slow))),
+            (
+                "Scrolling text moves at 1 to 63 pads per second.".into(),
+                None
+            )
         );
         assert!(
             given.lock().unwrap().texts.is_empty(),
@@ -612,8 +619,18 @@ mod tests {
             [Some(text("Hello World")), None]
         );
         assert_eq!(
-            rt.scroll_device_text("nope", None).unwrap_err(),
-            "LaunchDeck does not know this device. Press Look again. Details: nope"
+            said(rt.scroll_device_text("nope", None)),
+            (
+                "LaunchDeck does not know this device. Press Look again.".into(),
+                Some("nope".into())
+            )
+        );
+        assert_eq!(
+            said(rt.connect_device("nope")),
+            (
+                "LaunchDeck does not know this device. Press Look again.".into(),
+                Some("nope".into())
+            )
         );
     }
 }

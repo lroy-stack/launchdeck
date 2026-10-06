@@ -4,6 +4,9 @@
 
 use serde::Serialize;
 
+use crate::artifacts::FileError;
+use crate::devices::DeviceError;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CommandError {
@@ -37,6 +40,36 @@ impl From<String> for CommandError {
 impl From<&str> for CommandError {
     fn from(message: &str) -> Self {
         Self::new(message)
+    }
+}
+
+/// The device's sentence, and what the system said or the device id under
+/// Details.
+impl From<DeviceError> for CommandError {
+    fn from(e: DeviceError) -> Self {
+        let message = Self::new(e.to_string());
+        match e.detail() {
+            Some(detail) => message.with_detail(detail),
+            None => message,
+        }
+    }
+}
+
+/// An export that could not be saved or shown: already a sentence and a detail.
+impl From<FileError> for CommandError {
+    fn from(e: FileError) -> Self {
+        Self {
+            message: e.message,
+            detail: e.detail,
+        }
+    }
+}
+
+/// Work moved off the UI thread that never came back (it panicked or was
+/// cancelled).
+impl From<tauri::Error> for CommandError {
+    fn from(e: tauri::Error) -> Self {
+        Self::new("LaunchDeck could not finish this. Try again.").with_detail(e.to_string())
     }
 }
 
@@ -84,6 +117,30 @@ mod tests {
             json!({ "message": "name must be 1-40 characters" })
         );
         assert_eq!(CommandError::from("No."), CommandError::new("No."));
+    }
+
+    #[test]
+    fn a_device_error_keeps_what_the_system_said_under_detail() {
+        assert_eq!(
+            CommandError::from(DeviceError::Port("port is in use".into())),
+            CommandError::new("The Launchpad could not be reached.").with_detail("port is in use")
+        );
+        assert_eq!(
+            CommandError::from(DeviceError::NotConnected),
+            CommandError::new("The device is not connected.")
+        );
+    }
+
+    #[test]
+    fn a_file_error_is_sent_as_it_is() {
+        let e = FileError {
+            message: "LaunchDeck could not save the file.".into(),
+            detail: Some("disk full".into()),
+        };
+        assert_eq!(
+            serde_json::to_value(CommandError::from(e)).unwrap(),
+            json!({ "message": "LaunchDeck could not save the file.", "detail": "disk full" })
+        );
     }
 
     #[test]

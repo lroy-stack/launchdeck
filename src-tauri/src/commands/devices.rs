@@ -22,7 +22,7 @@ pub(crate) async fn rescan_devices(state: State<'_, AppState>) -> CmdResult<()> 
     let rt = state.runtime.clone();
     tauri::async_runtime::spawn_blocking(move || rt.look_again())
         .await
-        .map_err(|e| CommandError::from(e.to_string()))
+        .map_err(CommandError::from)
 }
 
 /// The LED brightness in percent for every device that has it, or each
