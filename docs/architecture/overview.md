@@ -28,11 +28,11 @@ Providers (the runtime, Agent Control, installed plugins) write *states* to the 
 
 | Layer | Module | Responsibility |
 | --- | --- | --- |
-| Device Manager | `devices/manager.rs` | Registers devices, connects and disconnects them, fans frames out to every connected device, drops a device that fails to render, rescans hardware every 3 s. |
-| Device abstraction | `devices/mod.rs` | `SurfaceDevice` trait, `DeviceCapabilities`, `DeviceInput`, `SurfaceFrame`. |
-| Virtual device | `devices/virtual_device.rs` | `VirtualLaunchpadX`, the simulator. It implements the same trait and is the device the UI drives. |
+| Device Manager | `devices/manager.rs` | Registers devices, connects and disconnects them, fans frames out to every connected device, drops a device that fails to render, rescans hardware every 3 s through a `HardwareSource` (`devices/source.rs`; `NovationHardware` for the Launchpads), lists each device with its status, features and details, and gives every device back when LaunchDeck quits. Knows no model. |
+| Device abstraction | `devices/mod.rs`, `devices/features.rs` | `SurfaceDevice` trait, `DeviceCapabilities`, `DeviceInput`, `SurfaceFrame`; `DeviceFeatures` (what a device can do beyond drawing frames), `DeviceDetails` (what LaunchDeck observed on it), `DeviceSetting` and `TextScroll`. See [devices/capabilities.md](../devices/capabilities.md). |
+| Virtual device | `devices/virtual_device.rs` | `VirtualDevice`, built from a `VirtualModel`; `VirtualLaunchpadX` is the simulator. It implements the same trait and is the device the UI drives. A virtual Launchpad Mini MK3 (`novation::virtual_model`) exists for tests and is not offered in the app. |
 | Novation MK3 codec | `devices/novation/{protocol, layout}.rs` | What the Launchpad Mini MK3 and the Launchpad X share: SysEx framing, commands and readbacks, the device inquiry and reply parser, colourspecs, channel lighting, text; the Programmer-mode index map and input decoding. Pure, byte-tested from the manuals. |
-| Novation MK3 device | `devices/novation/{device, session, leds}.rs`, `launchpad_x.rs` | `Mk3Device`, the one adapter for every MK3 model: the `session` says what to send to take and give back a unit, `leds` what a frame needs sent; a model is a profile (`launchpad_x.rs` for the Launchpad X). With the rest of `devices/novation/`, the **only** code with MIDI bytes. |
+| Novation MK3 device | `devices/novation/{device, session, settings, leds, palette, ports, hardware, profile}.rs`, `launchpad_x.rs`, `launchpad_mini_mk3.rs` | `Mk3Device`, the one adapter for every MK3 model: the `session` says what to send to take, keep and give back a unit, `settings` what brightness and scrolling text send, `leds` what a frame needs sent (`palette` for native pulse and flash); `ports` finds each model's units on the system's ports and `hardware` (`NovationHardware`) hands them to the Device Manager. A model is a profile: `launchpad_x.rs`, `launchpad_mini_mk3.rs`. With the rest of `devices/novation/`, the **only** code with MIDI bytes. See [devices/novation-mk3-protocol.md](../devices/novation-mk3-protocol.md). |
 | MIDI transport | `devices/midi/` | `MidiBackend` (list ports, open an input+output pair) and `MidiLink` (send, close), with no protocol knowledge. `system.rs` is the only `midir` file; `testkit.rs` is `FakeMidi`, the in-memory backend the adapter is tested against. |
 | Surface Runtime | `core/runtime/` (`navigation.rs`, `input.rs`) | Active surface and page, control lookup (span aware), navigation, Live and Edit modes, long press. |
 | State Hub | `state/` | The current value of every state a provider offers (`known`, `unknown`, `unavailable`), addressed by provider, definition and arguments. No history, nothing saved, not a bus. See [state-and-feedback.md](../state-and-feedback.md). |
@@ -83,7 +83,9 @@ The renderer adapts a frame to the target:
 * **No native flash**: flash toggles on and off with a 0.7 s period.
 * **No RGB**: colour is reduced to luminance.
 
-The virtual device advertises native pulse and flash and keeps the animation tag, so the UI animates it smoothly with CSS. The Launchpad X advertises *no* native animation (see the device notes), so it receives synthesised frames. Both go through the same renderer.
+The virtual device advertises native pulse and flash and keeps the animation tag, so the UI animates it smoothly with CSS. The Launchpad X advertises *no* native animation (see [its notes](../devices/launchpad-x.md)), so it receives synthesised frames. The Launchpad Mini MK3 advertises native pulse and flash: the unit animates them itself, in the nearest colour of its fixed palette, at its own tempo (flash 500 ms, pulse 1000 ms; see [its notes](../devices/launchpad-mini-mk3.md)). All of them go through the same renderer.
+
+What a device can do beyond drawing frames (a mode LaunchDeck takes, brightness, sleep, scrolling text, a firmware version) is `DeviceFeatures`, which the renderer never reads; what LaunchDeck observed on it (the firmware, whether Programmer Mode was confirmed, a notice) is `DeviceDetails`. Both are in the device list, described in [devices/capabilities.md](../devices/capabilities.md).
 
 ## Events
 
@@ -119,7 +121,7 @@ Commands (UI to Rust), all registered in `src-tauri/src/lib.rs`:
 | Actions | `run_action` (a test run that returns the outcome), `actions_catalog` (the Action Library's catalog), `actions_validate` (check an assignment without saving or running it) |
 | State and feedback | `observables_catalog` (every state and event a control can react to), `observable_state` (what one state reads now), `explain_control` (why a pad looks as it does), `review_feedback` (check a draft list of rules without saving it) |
 | Auto Context | `context_status`, `context_update` (save Auto on or off, the rules and the fallback), `context_resume` (end a manual override) |
-| Devices and events | `connect_device`, `disconnect_device`, `rescan_devices`, `send_event` |
+| Devices and events | `connect_device`, `disconnect_device`, `rescan_devices`, `set_device_brightness` (a preference for every device that has it), `set_device_sleep`, `scroll_device_text`, `send_event` |
 | Agent Control | `agents_command`, `agents_focus`, `agents_dismiss`, `agents_set_access`, `agents_demo`, `agents_update_settings`, `agents_hook_setup`, `agents_rotate_hook_token` |
 | Installed plugins | `plugins_list`, `plugins_set_enabled`, `plugins_set_config`, `plugins_reload`, `plugins_rescan`, `plugins_logs`, `plugins_set_permission` (allow, deny or revoke one address), `plugins_set_secret`, `plugins_clear_secret`, `plugins_migrate_legacy_secrets`, `plugins_discard_legacy_secrets`, `plugins_migrate_plugin_legacy_secrets` and `plugins_remove_plugin_legacy_secrets` (one plugin's plain-text secrets), `plugins_examples` and `plugins_install_example` (the example plugins the app ships: Hello, Counter, Home Assistant), `plugins_reveal_folder` (show the plugins folder) |
 

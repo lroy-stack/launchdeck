@@ -1,8 +1,8 @@
 # Testing the Launchpads without and with hardware
 
-LaunchDeck drives the Launchpad Mini MK3 and the Launchpad X through one device layer (`src-tauri/src/devices/novation/`). This file says how that layer is tested without a unit, how to run the acceptance suite on one, what the device layer was measured to cost on the host, and the rule that decides how LED changes are batched.
+LaunchDeck drives the Launchpad Mini MK3 and the Launchpad X through one device layer (`src-tauri/src/devices/novation/`). This file says how that layer is tested without a unit, how to run the acceptance suite on one, which questions only a unit can answer, what the device layer was measured to cost on the host, and the rule that decides how LED changes are batched. "Plan" below is `LAUNCHPAD_MINI_MK3_PLAN.md`, the plan of the device lane; what LaunchDeck does with each model is in [launchpad-mini-mk3.md](launchpad-mini-mk3.md) and [launchpad-x.md](launchpad-x.md).
 
-**Hardware status: NOT HARDWARE VERIFIED.** No Novation device was attached when anything here was written or run (2026-10-06, macOS 15.4.1, Apple M2). Every physical behaviour below is what Novation's manuals say and what a simulated unit does, not what a unit was seen to do.
+**Hardware status: NOT HARDWARE VERIFIED (b).** No Novation device was attached when anything here was written or run (2026-10-06, macOS 15.4.1, Apple M2). Every physical behaviour below is what Novation's manuals say and what a simulated unit does, not what a unit was seen to do.
 
 ## Without a unit
 
@@ -62,6 +62,35 @@ The script runs `cargo test --lib launchpad_acceptance -- --ignored --nocapture 
 **The report** is Markdown: a head (start time in UTC, report path, unit), then per step a heading with its result (`pass`, `FAIL` or `skipped`), the open questions it answers, what it printed (indented), its checks as a list (`[pass]`, `[FAIL]`, `[skipped]`, or `[noted: …]` for an answer or an observation nothing is expected of), and its transcript (`+12.345 s -> F0 7E 7F 06 01 F7` sent, `<-` received, the first 60 messages of the step), and at the end the summary table and the numbers. It is rewritten after every step, so a run cut short still leaves one. The next hardware milestone commits a report from a Mini MK3 under `docs/verification/` (plan section 15.3).
 
 **Status.** Written 2026-10-06 and run here once, on macOS 15.4.1 with no Launchpad attached: it listed no MIDI port, printed the NOT HARDWARE VERIFIED line and passed. Steps 2 to 14 have never run on a unit; the steps that ask nothing ran only against the simulated Mini MK3 of the suite's own test. NOT HARDWARE VERIFIED.
+
+## Open questions
+
+What Novation's documents leave open (plan section 1, questions Q1 to Q17), what LaunchDeck assumes until a unit answers, and the step of the suite that answers it. "Not covered" means the suite does not answer it, so it stays open after a run.
+
+| Question | Assumed until answered | Answered by | If the answer differs |
+| --- | --- | --- | --- |
+| The port names `midir` reports on each system, and which pair is the MIDI interface (Q1, Q2) | the names of `novation/ports_tests.rs`, derived from documents and community projects | step 1, on each system it runs on | a new fixture and a parser fix |
+| Whether the DAW interface answers the inquiry (Q2) | not needed: LaunchDeck never opens it | step 2 with `LAUNCHDECK_ACCEPTANCE_DAW=1` | nothing; recorded |
+| The X's inquiry family, and its bootloader's (Q3) | `03 01` or the manual's `13 01`; bootloader `03 11`, inferred from the Mini's manual | step 2 on an X (the bootloader: not covered) | the X profile's families |
+| How the four firmware digits map to Novation's version names (Q15) | not mapped: the digits are shown as they are | step 2 records them; the mapping needs Novation | wording only |
+| How long a unit takes to answer (plan 9.1) | 500 ms, then LaunchDeck goes on without the answer | steps 2 and 3 (reply times) | `REPLY_TIMEOUT` in `novation/session.rs` |
+| The values a Mini pad and button send on press, the release form, the channel (Q6) | above 0 is a press; 0 or a Note Off a release; any channel | step 4 | the decoder in `novation/layout.rs` |
+| Whether the palette table matches the LEDs (plan 8.3) | `novation/palette.rs`, read off the manual's swatch picture | step 5 (by eye) | the table, in one commit |
+| The flash and pulse periods at the default tempo (Q8) | 500 ms and 1000 ms | step 7 (by eye) | the Mini profile's features |
+| Whether a static RGB colour stops a running flash, or only changes its colour A (plan 8.5) | it stops it | step 7 | the planner first sends palette 0 to an LED leaving a flash, one commit with a test |
+| Whether per-LED notes are processed faster than one lighting SysEx (Q9, plan 8.4) | one SysEx per render | step 8 (the readback barrier) | the batching rule below |
+| How 0-127 maps onto the 8 brightness levels of the Setup menu (Q10) | linear: percent × 127 / 100 | step 9 (how many levels are visible) | the mapping in `novation/settings.rs` |
+| Whether a brightness set by SysEx survives switching the unit off (Q10) | unknown; LaunchDeck sets it again on every connect anyway | not covered | nothing |
+| The longest text, characters outside ASCII, whether a scroll reports its end, the width of a character (Q11) | 64 printable ASCII characters; no end message; a scroll that does not loop is over after six columns a character | step 10 | LaunchDeck's text limits and the estimate in `novation/settings.rs` |
+| Whether the press that wakes a sleeping unit is sent as MIDI, and whether the LEDs are kept while asleep (Q12) | either way: that press and its release are not passed on, and the frame is sent whole on waking | step 11 | the sleep handling in `novation/session.rs` |
+| Whether external LED feedback off also hides the lighting SysEx; what internal feedback does in Programmer Mode (Q13) | external feedback is switched on while LaunchDeck draws; internal is left alone | step 12 | the configuration in `novation/session.rs` |
+| Whether Programmer Mode leaves Legacy mode (Q13) | yes | not covered | handle Legacy mode |
+| What the unit shows after a replug; that release gives the person's layout back with Setup working (Q14) | Live mode after power-on; the saved layout restored | steps 13 and 14 | the release sequence |
+| What a unit does when its host crashes (Q14) | it stays in Programmer Mode until a host gives it back or it is replugged | not covered (the suite never crashes) | the limitation in [launchpad-mini-mk3.md](launchpad-mini-mk3.md#limitations) |
+| What the bootloader's USB device ID changes; how macOS lists two identical units (Q16) | nothing LaunchDeck reads; the k-th MIDI input pairs with the k-th MIDI output | not covered: needs two units | the pairing in `novation/ports.rs` |
+| How a DAW next to LaunchDeck takes the unit, and whether 2 s, 3 times and 30 s suit the heartbeat and the takeover guard (Q13, plan 9.1) | `HEARTBEAT` 2 s; `TAKEOVER_LIMIT` 3 within `TAKEOVER_WINDOW` 30 s | not covered: needs a DAW running | the constants in `novation/session.rs` |
+
+After the first run on a Mini MK3: commit its report under `docs/verification/`, settle each answered question in its own commit citing the report, and replace NOT HARDWARE VERIFIED with what was seen, naming the firmware and the system. Native flash and pulse on the Launchpad X are a one-line change of its profile, left for after a run on an X.
 
 ## Measurements
 
