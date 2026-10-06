@@ -1,6 +1,6 @@
 # History
 
-Plans and working documents of earlier milestones, kept as they were written. They explain why things are the way they are; they do not describe the product today. For that, see the user guides in [docs/user/](../user/).
+Plans and working documents of earlier milestones, kept as they were written. They explain why things are the way they are; they do not describe the product today. For that, start at the [documentation index](../README.md).
 
 Nothing here is edited for content. When a file moved, its relative links were rewritten so they still resolve, and only that. Paths and file names in their text are those of the time.
 
