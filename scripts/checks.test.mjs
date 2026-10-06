@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cargoInvocation } from "./cargo.mjs";
 import { stepsFor } from "./check.mjs";
 import { anchorsOf, brokenLinks, linksOf, slugify } from "./check-docs-links.mjs";
-import { cargoPackageVersion, versionProblems } from "./check-versions.mjs";
+import { cargoPackageField, cargoPackageVersion, licenseProblems, versionProblems } from "./check-versions.mjs";
 
 describe("versions", () => {
   const cargo = (version) => `[package]\nname = "launchdeck"\nversion = "${version}"\n\n[dependencies]\nserde = { version = "1" }\n`;
@@ -32,6 +32,43 @@ describe("versions", () => {
       expect(problems[0]).toContain("tauri.conf.json");
       expect(problems[0]).toContain("src-tauri/Cargo.toml");
     }
+  });
+});
+
+describe("license", () => {
+  const MIT_TEXT = "MIT License\n\nCopyright (c) 2026 the LaunchDeck authors\n\nPermission is hereby granted, free of charge, ...\n";
+
+  it("reads the [package] license of Cargo.toml only", () => {
+    expect(cargoPackageField('[package]\nname = "x"\nlicense = "MIT"\n', "license")).toBe("MIT");
+    expect(cargoPackageField('[dependencies]\nlicense = "GPL-3.0"\n[package]\nname = "x"\n', "license")).toBeNull();
+  });
+
+  it("passes when every declaration says MIT and LICENSE is the MIT text", () => {
+    const declarations = [
+      { file: "package.json", license: "MIT" },
+      { file: "src-tauri/Cargo.toml", license: "MIT" },
+    ];
+    expect(licenseProblems({ declarations, licenseText: MIT_TEXT })).toEqual([]);
+  });
+
+  it("names each file whose license is missing or not MIT", () => {
+    const problems = licenseProblems({
+      declarations: [
+        { file: "package.json", license: "MIT" },
+        { file: "sdk/assemblyscript/package.json", license: "Apache-2.0" },
+        { file: "examples/plugins/hello/package.json", license: undefined },
+      ],
+      licenseText: MIT_TEXT,
+    });
+    expect(problems).toHaveLength(2);
+    expect(problems[0]).toContain("sdk/assemblyscript/package.json");
+    expect(problems[0]).toContain("Apache-2.0");
+    expect(problems[1]).toContain("examples/plugins/hello/package.json");
+  });
+
+  it("refuses a LICENSE file that is missing or not the MIT text", () => {
+    expect(licenseProblems({ declarations: [], licenseText: null })[0]).toContain("LICENSE");
+    expect(licenseProblems({ declarations: [], licenseText: "Apache License\nVersion 2.0\n" })[0]).toContain("LICENSE");
   });
 });
 
