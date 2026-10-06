@@ -427,6 +427,35 @@ pub(crate) fn request_destination(url: &str) -> Result<Destination, ActionError>
     })
 }
 
+/// An address as the HTTP client that sends `http.request` reads it, of
+/// any scheme.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ClientReading {
+    /// A user name or a password is written before the host.
+    pub user: bool,
+    /// Lowercase; an IPv6 address in brackets.
+    pub host: String,
+    pub path: String,
+    /// The client drops a fragment.
+    pub query: Option<String>,
+}
+
+/// How the HTTP client (`http::Uri`) reads `address`, for an artifact's
+/// credential check, which reads every address the client's way and a
+/// browser's (security finding SF-2b). `None` when the client does not
+/// read it as an address with a scheme and a host part.
+pub(crate) fn as_the_client_reads(address: &str) -> Option<ClientReading> {
+    let uri = address.parse::<ureq::http::Uri>().ok()?;
+    uri.scheme_str()?;
+    let authority = uri.authority()?;
+    Some(ClientReading {
+        user: authority.as_str().contains('@'),
+        host: authority.host().to_ascii_lowercase(),
+        path: uri.path().to_string(),
+        query: uri.query().map(str::to_string),
+    })
+}
+
 fn http_request(request: HttpRequest) -> Result<Value, ActionError> {
     let HttpRequest { method, url, body } = request;
     let url = url.as_str();
@@ -599,6 +628,36 @@ mod tests {
             .check(HTTP_REQUEST, &json!({ "url": "https://a\\@b/" }))
             .unwrap_err();
         assert_eq!(issue.param.as_deref(), Some("url"));
+    }
+
+    /// SF-2b: the client's reading of any address, for the credential
+    /// check: userinfo, host, path and query as it sends them, never a
+    /// fragment.
+    #[test]
+    fn the_client_reads_any_address_with_a_scheme_and_a_host() {
+        let read = |a: &str| as_the_client_reads(a);
+        assert_eq!(
+            read("postgresql://admin:x@DB:5432/app?sslmode=1#f"),
+            Some(ClientReading {
+                user: true,
+                host: "db".into(),
+                path: "/app".into(),
+                query: Some("sslmode=1".into()),
+            })
+        );
+        assert_eq!(read("http://[::1]:8/").unwrap().host, "[::1]");
+        assert_eq!(read("https://e.com").map(|r| r.path), Some("/".into()));
+        for unread in [
+            "https://ex%61mple.com/",
+            "https://e.com\\x/",
+            "https://b\u{fc}cher.example/",
+            "example.com",
+            "mailto:me@e.com",
+            "/home/me",
+            "",
+        ] {
+            assert_eq!(read(unread), None, "{unread}");
+        }
     }
 
     /// SF-5: the built-in request follows no redirect. A 3xx is a failure

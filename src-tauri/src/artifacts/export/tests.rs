@@ -1376,6 +1376,34 @@ fn a_credential_is_refused_unless_bound() {
     assert!(!errors[0].message.contains("LEAK"));
 }
 
+/// SF-2b: an address that the runtime's HTTP client and a browser read
+/// apart is refused on its own sentence: what it carries cannot be told.
+#[test]
+fn an_address_read_two_ways_is_refused() {
+    for url in [
+        "https://ex%61mple.com/hook",
+        "https://hooks.example\\@evil.example/",
+    ] {
+        let ws = workspace(vec![surface(
+            "home",
+            vec![pad(
+                0,
+                "Hook",
+                a("system", "openUrl", json!({ "url": url })),
+            )],
+        )]);
+        let errors = refused(&ws, &pack(&["home"]));
+        assert_eq!(codes(&errors), [E::Credential], "{url}");
+        assert_eq!(
+            errors[0].message,
+            "The pad \"Hook\" holds in \"url\" an address that LaunchDeck's HTTP client and \
+             a browser read differently, so a password or token in it cannot be ruled out. \
+             Bind \"url\" to an input so the importer gives their own, or remove it.",
+            "{url}"
+        );
+    }
+}
+
 /// A feedback rule is written as it is: a credential in a state's
 /// arguments or in an event's condition blocks the file too, at the rule.
 #[test]

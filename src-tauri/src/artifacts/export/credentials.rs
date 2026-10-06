@@ -2,8 +2,39 @@
 //! a file would receive them. Export refuses one in an argument unless the
 //! argument is asked of the importer, and in an input's default. A plain
 //! address, host or path is fine.
+//!
+//! An address is read as the runtime's HTTP client reads it and as a
+//! browser does (SF-2b), and checked in each reading; one that the two read
+//! apart is refused on its own, since what it carries cannot be told.
 
 use serde_json::Value;
+
+use crate::actions::builtin::as_the_client_reads;
+
+/// What in a value is shaped like a credential.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum Found {
+    /// A credential, said for a person without repeating it.
+    Credential(String),
+    /// An address that LaunchDeck's HTTP client and a browser read apart:
+    /// only one of them reads it as an address, or they find different
+    /// hosts.
+    ReadApart,
+}
+
+impl Found {
+    /// What was found `place` (` in "url"`, ` in a feedback rule`, or
+    /// nothing), as the rest of a sentence about whatever holds it.
+    pub(super) fn said(&self, place: &str) -> String {
+        match self {
+            Found::Credential(what) => format!("carries a password or token{place}: {what}"),
+            Found::ReadApart => format!(
+                "holds{place} an address that LaunchDeck's HTTP client and a browser read \
+                 differently, so a password or token in it cannot be ruled out"
+            ),
+        }
+    }
+}
 
 /// Names that carry a secret only as an address parameter, compared without
 /// case, `-` and `_`: as an argument or a member they name other things too
@@ -49,9 +80,9 @@ const SECRET_PATHS: [(&str, &str); 6] = [
     ("api.telegram.org", "/bot"),
 ];
 
-/// What in `value`, at any depth, is shaped like a credential, said for a
-/// person without repeating it; `None` when nothing is.
-pub(super) fn credential_in(value: &Value) -> Option<String> {
+/// What in `value`, at any depth, is shaped like a credential; `None` when
+/// nothing is.
+pub(super) fn credential_in(value: &Value) -> Option<Found> {
     match value {
         Value::String(text) => credential_in_text(text),
         Value::Array(items) => items.iter().find_map(credential_in),
@@ -65,7 +96,7 @@ pub(super) fn credential_in(value: &Value) -> Option<String> {
 
 /// A header written as a name and a value:
 /// `{ "name": "Authorization", "value": "…" }`.
-fn header_pair(map: &serde_json::Map<String, Value>) -> Option<String> {
+fn header_pair(map: &serde_json::Map<String, Value>) -> Option<Found> {
     match (map.get("name"), map.get("value")) {
         (Some(Value::String(name)), Some(value)) => credential_named(name, value),
         _ => None,
@@ -75,14 +106,14 @@ fn header_pair(map: &serde_json::Map<String, Value>) -> Option<String> {
 /// A member or an argument whose name says it holds a secret, when it holds
 /// something: an authorization, cookie or API-key header, or a name such as
 /// `password`, `X-Auth-Token` or `accessKey`.
-pub(super) fn credential_named(name: &str, value: &Value) -> Option<String> {
+pub(super) fn credential_named(name: &str, value: &Value) -> Option<Found> {
     if !has_text(value) {
         return None;
     }
     if SECRET_HEADERS.iter().any(|h| name.eq_ignore_ascii_case(h)) {
-        return Some(format!("the header \"{name}\""));
+        return Some(Found::Credential(format!("the header \"{name}\"")));
     }
-    secret_name(name).then(|| format!("the value of \"{name}\""))
+    secret_name(name).then(|| Found::Credential(format!("the value of \"{name}\"")))
 }
 
 fn has_text(value: &Value) -> bool {
@@ -125,21 +156,24 @@ fn secret_parameter(name: &str) -> bool {
     secret_name(name) || SECRET_PARAMETERS.contains(&folded(name).as_str())
 }
 
-fn credential_in_text(text: &str) -> Option<String> {
+fn credential_in_text(text: &str) -> Option<Found> {
     if let Some(found) = as_json(text).as_ref().and_then(credential_in) {
         return Some(found);
     }
     let lower = text.to_ascii_lowercase();
-    if let Some(found) = addresses(text).find_map(|url| credential_in_address(&url)) {
+    if let Some(found) = addresses(text).find_map(credential_in_address) {
         return Some(found);
     }
-    if let Some(header) = header_in(&lower) {
-        return Some(format!("the header \"{header}\""));
-    }
-    if let Some(name) = assignment_in(text) {
-        return Some(format!("the value of \"{name}\""));
-    }
-    webhook_id(&lower).then(|| "the id of a webhook".to_string())
+    let what = if let Some(header) = header_in(&lower) {
+        format!("the header \"{header}\"")
+    } else if let Some(name) = assignment_in(text) {
+        format!("the value of \"{name}\"")
+    } else if webhook_id(&lower) {
+        "the id of a webhook".to_string()
+    } else {
+        return None;
+    };
+    Some(Found::Credential(what))
 }
 
 /// A text that is a JSON object or array, such as a request body, read as
@@ -163,52 +197,116 @@ fn run_start(text: &str, end: usize, part_of: impl Fn(char) -> bool) -> usize {
         .map_or(0, |(i, c)| i + c.len_utf8())
 }
 
-/// The addresses in a text: the whole text when it is one (any scheme), and
-/// every address of any scheme inside it (`https://`, `postgresql://`), up
-/// to a space or a quote.
-fn addresses(text: &str) -> impl Iterator<Item = url::Url> + '_ {
+/// The addresses in a text: the whole text, and every address of any
+/// scheme inside it (`https://`, `postgresql://`), up to a space or a
+/// quote.
+fn addresses(text: &str) -> impl Iterator<Item = &str> + '_ {
     let scheme_char = |c: char| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.');
-    let starts: Vec<usize> = text
-        .match_indices("://")
-        .map(|(i, _)| run_start(text, i, scheme_char))
-        .collect();
-    let whole = url::Url::parse(text.trim()).ok();
-    let inside = starts.into_iter().filter_map(move |start| {
-        let rest = &text[start..];
+    let inside = text.match_indices("://").map(move |(i, _)| {
+        let rest = &text[run_start(text, i, scheme_char)..];
         let end = rest
             .find(|c: char| c.is_whitespace() || matches!(c, '"' | '\'' | '`' | '<' | '>'))
             .unwrap_or(rest.len());
-        url::Url::parse(&rest[..end]).ok()
+        &rest[..end]
     });
-    whole.into_iter().chain(inside)
+    std::iter::once(text.trim()).chain(inside)
 }
 
-fn credential_in_address(url: &url::Url) -> Option<String> {
-    if !url.username().is_empty() || url.password().is_some() {
-        return Some("an address with a user name or password".into());
+const WITH_USER: &str = "an address with a user name or password";
+
+/// What an address carries, in the browser's reading and in the HTTP
+/// client's; then whether the two read it apart; then a user name or a
+/// password as written, which neither reader may take for one.
+fn credential_in_address(address: &str) -> Option<Found> {
+    let browser = Reading::browser(address);
+    let client = Reading::client(address);
+    if let Some(what) = browser.iter().chain(&client).find_map(Reading::credential) {
+        return Some(Found::Credential(what));
     }
-    let pairs = [url.query(), url.fragment()].into_iter().flatten();
-    let secret = pairs
-        .flat_map(parameters)
-        .find(|(name, value)| !value.is_empty() && secret_parameter(name));
-    if let Some((name, _)) = secret {
-        return Some(format!("the address parameter \"{name}\""));
+    let seen = browser.as_ref().and_then(Reading::host);
+    if seen != client.as_ref().and_then(Reading::host) {
+        return Some(Found::ReadApart);
     }
-    let path = percent_decoded(url.path()).to_ascii_lowercase();
-    if webhook_id(&path) {
-        return Some("the id of a webhook".to_string());
+    user_as_written(address).then(|| Found::Credential(WITH_USER.into()))
+}
+
+/// An `@` between `://` and the first `/`, `?` or `#` after it, with no
+/// blank in between.
+fn user_as_written(address: &str) -> bool {
+    address.split_once("://").is_some_and(|(_, rest)| {
+        let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+        authority.contains('@') && !authority.contains(char::is_whitespace)
+    })
+}
+
+/// An address as one reader reads it: a browser (WHATWG, the `url` crate)
+/// or the HTTP client that sends `http.request` (`actions::builtin`).
+struct Reading {
+    with_user: bool,
+    /// Lowercase; empty when there is none.
+    host: String,
+    path: String,
+    /// The query, and the fragment when the reader keeps one.
+    parts: Vec<String>,
+}
+
+impl Reading {
+    fn browser(address: &str) -> Option<Reading> {
+        let url = url::Url::parse(address).ok()?;
+        Some(Reading {
+            with_user: !url.username().is_empty() || url.password().is_some(),
+            host: url.host_str().unwrap_or_default().to_string(),
+            path: url.path().to_string(),
+            parts: [url.query(), url.fragment()]
+                .into_iter()
+                .flatten()
+                .map(str::to_string)
+                .collect(),
+        })
     }
-    let host = url.host_str().unwrap_or_default();
-    let on = |service: &str| {
-        host == service
-            || host
-                .strip_suffix(service)
-                .is_some_and(|sub| sub.ends_with('.'))
-    };
-    SECRET_PATHS
-        .iter()
-        .any(|(service, part)| on(service) && followed_by_a_value(&path, part))
-        .then(|| "the secret part of a webhook or bot address".to_string())
+
+    fn client(address: &str) -> Option<Reading> {
+        let read = as_the_client_reads(address)?;
+        Some(Reading {
+            with_user: read.user,
+            host: read.host,
+            path: read.path,
+            parts: read.query.into_iter().collect(),
+        })
+    }
+
+    fn host(&self) -> Option<&str> {
+        Some(self.host.as_str()).filter(|h| !h.is_empty())
+    }
+
+    fn credential(&self) -> Option<String> {
+        if self.with_user {
+            return Some(WITH_USER.into());
+        }
+        let secret = self
+            .parts
+            .iter()
+            .flat_map(|part| parameters(part))
+            .find(|(name, value)| !value.is_empty() && secret_parameter(name));
+        if let Some((name, _)) = secret {
+            return Some(format!("the address parameter \"{name}\""));
+        }
+        let path = percent_decoded(&self.path).to_ascii_lowercase();
+        if webhook_id(&path) {
+            return Some("the id of a webhook".to_string());
+        }
+        let host = self.host.as_str();
+        let on = |service: &str| {
+            host == service
+                || host
+                    .strip_suffix(service)
+                    .is_some_and(|sub| sub.ends_with('.'))
+        };
+        SECRET_PATHS
+            .iter()
+            .any(|(service, part)| on(service) && followed_by_a_value(&path, part))
+            .then(|| "the secret part of a webhook or bot address".to_string())
+    }
 }
 
 /// The `name=value` pairs of a query or a fragment, decoded, separated by
@@ -460,7 +558,11 @@ mod tests {
                 "an address with a user name or password",
             ),
         ] {
-            assert_eq!(credential_in(&value).as_deref(), Some(said), "{value}");
+            assert_eq!(
+                credential_in(&value),
+                Some(Found::Credential(said.into())),
+                "{value}"
+            );
         }
         for plain in [
             json!("https://e.com/path?page=2"),
@@ -490,5 +592,73 @@ mod tests {
         ] {
             assert_eq!(credential_in(&plain), None, "{plain}");
         }
+    }
+
+    /// SF-2b: every address is read as the runtime's HTTP client reads it
+    /// and as a browser does. Each reading is checked; an address only one
+    /// of them reads, or that they read with different hosts, is refused on
+    /// its own; and a user name before the host counts as written, whatever
+    /// either reader makes of it.
+    #[test]
+    fn an_address_is_read_as_the_client_and_a_browser_read_it() {
+        for apart in [
+            // Only a browser reads a percent or a letter outside ASCII in
+            // a host, or a backslash as a slash.
+            "https://ex%61mple.com/hook",
+            "https://b\u{fc}cher.example/",
+            "https://e.com\\x/?a=1",
+            "see https://e.com\\x/ now",
+            // A browser reads a number as an IP address.
+            "http://0x7f.1/",
+            "http://127.1:8123/",
+        ] {
+            assert_eq!(
+                credential_in(&json!(apart)),
+                Some(Found::ReadApart),
+                "{apart}"
+            );
+        }
+        for (value, said) in [
+            // The client keeps the path a browser shortens: the secret part
+            // of a webhook address is still in the file.
+            (
+                "https://hooks.slack.com/services/T0/B0/x/../../../..",
+                "the secret part of a webhook or bot address",
+            ),
+            // Neither reads it, and the user name and password are there.
+            (
+                "https://user:pw\\@evil.example/",
+                "an address with a user name or password",
+            ),
+            (
+                "curl https://a@b@c/",
+                "an address with a user name or password",
+            ),
+        ] {
+            assert_eq!(
+                credential_in(&json!(value)),
+                Some(Found::Credential(said.into())),
+                "{value}"
+            );
+        }
+        // Addresses the two read alike, and texts that are no address.
+        for plain in [
+            "https://E.com./x(1)?page=2#top",
+            "[link](https://e.com/a,b;c)",
+            "curl https://e.com/a|grep x",
+            "https://[::1]:8123/",
+            "file:///etc/hosts",
+            "protocol:// is not supported",
+            "echo https://e.com and mail me@e.org",
+            "localhost:8080",
+            "Enter",
+        ] {
+            assert_eq!(credential_in(&json!(plain)), None, "{plain}");
+        }
+        assert_eq!(
+            Found::ReadApart.said(" in \"url\""),
+            "holds in \"url\" an address that LaunchDeck's HTTP client and a browser read \
+             differently, so a password or token in it cannot be ruled out"
+        );
     }
 }

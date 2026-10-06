@@ -83,13 +83,13 @@ fn check_defaults(inputs: &[InputDef], found: &mut Collected) {
         let Some(InputValue::Text { value }) = &input.default else {
             continue;
         };
-        if let Some(what) = credential_in(&Value::String(value.clone())) {
+        if let Some(credential) = credential_in(&Value::String(value.clone())) {
             found.error(
                 ExportCode::Credential,
                 format!(
-                    "The default of the input \"{}\" carries a password or token: {what}. \
-                     Remove it from the default.",
-                    input.id
+                    "The default of the input \"{}\" {}. Remove it from the default.",
+                    input.id,
+                    credential.said("")
                 ),
                 Some(format!("/manifest/inputs/{i}/default")),
             );
