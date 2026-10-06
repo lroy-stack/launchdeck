@@ -39,13 +39,14 @@ const PACKET_BYTES: usize = 3;
 const IN_ID: &str = "2001";
 const OUT_ID: &str = "2002";
 
-/// LEDs one render changes.
-struct Case {
-    name: &'static str,
-    positions: Vec<ControlPos>,
+/// LEDs one render changes. The acceptance suite times the same cases
+/// and strategies on a unit.
+pub(super) struct Case {
+    pub(super) name: &'static str,
+    pub(super) positions: Vec<ControlPos>,
 }
 
-fn cases() -> Vec<Case> {
+pub(super) fn cases() -> Vec<Case> {
     let grid = |rows: u8| -> Vec<ControlPos> {
         (0..rows)
             .flat_map(|row| (0..8).map(move |col| ControlPos::grid(col, row)))
@@ -73,7 +74,7 @@ fn cases() -> Vec<Case> {
 
 /// How the LEDs of one render are sent.
 #[derive(Clone, Copy)]
-enum Strategy {
+pub(super) enum Strategy {
     /// One `03h` message, RGB colourspecs: what LaunchDeck sends.
     BatchRgb,
     /// One `03h` message, static palette colourspecs.
@@ -84,7 +85,7 @@ enum Strategy {
     PerLedNotes,
 }
 
-const STRATEGIES: [(Strategy, &str); 4] = [
+pub(super) const STRATEGIES: [(Strategy, &str); 4] = [
     (Strategy::BatchRgb, "(a) one 03h batch, RGB"),
     (Strategy::BatchPalette, "(b) one 03h batch, palette"),
     (Strategy::PerLedSysex, "(c) per-LED 03h, RGB"),
@@ -101,7 +102,7 @@ fn palette(n: u8) -> u8 {
 }
 
 /// The messages that light these LED indices.
-fn encode(strategy: Strategy, product: Product, indices: &[u8]) -> Vec<Vec<u8>> {
+pub(super) fn encode(strategy: Strategy, product: Product, indices: &[u8]) -> Vec<Vec<u8>> {
     let numbered = indices.iter().zip(0u8..);
     match strategy {
         Strategy::BatchRgb | Strategy::PerLedSysex => {

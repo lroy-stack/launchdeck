@@ -13,6 +13,8 @@ mod device;
 #[cfg(test)]
 mod device_tests;
 mod hardware;
+#[cfg(test)]
+mod hardware_tests;
 mod launchpad_mini_mk3;
 mod launchpad_x;
 mod layout;
