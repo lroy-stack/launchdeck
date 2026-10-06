@@ -117,11 +117,19 @@ struct Pending {
     parsed: ParsedArtifact,
 }
 
+/// The pending import, and how many files were opened: a file is stored as
+/// pending only if no other was opened after it.
+#[derive(Default)]
+struct Waiting {
+    opened: u64,
+    import: Option<Pending>,
+}
+
 pub struct ArtifactService {
     runtime: Arc<Runtime>,
     exports_dir: PathBuf,
     app_version: String,
-    pending: Mutex<Option<Pending>>,
+    pending: Mutex<Waiting>,
     last_export: Mutex<Option<PathBuf>>,
 }
 
@@ -156,7 +164,7 @@ impl ArtifactService {
             runtime,
             exports_dir,
             app_version: env!("CARGO_PKG_VERSION").to_string(),
-            pending: Mutex::new(None),
+            pending: Mutex::new(Waiting::default()),
             last_export: Mutex::new(None),
         }
     }
@@ -231,10 +239,25 @@ impl ArtifactService {
 
     /// Read a file to import, as hostile input, and plan it with the
     /// decisions the import view proposes (`suggested`). Replaces any
-    /// pending import, also when the file is refused.
+    /// pending import, also when the file is refused. The pending import is
+    /// not held while the file is read and planned, so no other command
+    /// waits for that.
     pub fn inspect(&self, bytes: &[u8], file_name: &str) -> InspectOutcome {
-        let mut pending = lock(&self.pending);
-        *pending = None;
+        self.inspect_opened(self.opening(), bytes, file_name)
+    }
+
+    /// A file is being opened: the pending import is forgotten, and the
+    /// file's turn is returned.
+    fn opening(&self) -> u64 {
+        let mut waiting = lock(&self.pending);
+        waiting.opened += 1;
+        waiting.import = None;
+        waiting.opened
+    }
+
+    /// [`Self::inspect`] of the file opened at `turn`, which becomes the
+    /// pending import unless another file was opened since.
+    fn inspect_opened(&self, turn: u64, bytes: &[u8], file_name: &str) -> InspectOutcome {
         let parsed = match inspect(bytes, file_name) {
             Ok(parsed) => parsed,
             Err(rejection) => return InspectOutcome::Rejected { rejection },
@@ -248,10 +271,13 @@ impl ArtifactService {
         } else {
             plan(&parsed, ws, &env, &first.suggested)
         };
-        *pending = Some(Pending {
-            plan_id: proposed.plan_id.clone(),
-            parsed,
-        });
+        let mut waiting = lock(&self.pending);
+        if waiting.opened == turn {
+            waiting.import = Some(Pending {
+                plan_id: proposed.plan_id.clone(),
+                parsed,
+            });
+        }
         InspectOutcome::Plan {
             plan: Box::new(proposed),
         }
@@ -260,8 +286,8 @@ impl ArtifactService {
     /// The pending import's plan with `decisions`, against the workspace
     /// and what is installed now.
     pub fn preview(&self, plan_id: &str, decisions: &ImportDecisions) -> PreviewOutcome {
-        let pending = lock(&self.pending);
-        let Some(p) = pending.as_ref().filter(|p| p.plan_id == plan_id) else {
+        let waiting = lock(&self.pending);
+        let Some(p) = waiting.import.as_ref().filter(|p| p.plan_id == plan_id) else {
             return PreviewOutcome::Expired;
         };
         let snapshot = self.runtime.snapshot();
@@ -289,8 +315,8 @@ impl ArtifactService {
         decisions: &ImportDecisions,
         plan_digest: &str,
     ) -> ApplyOutcome {
-        let mut pending = lock(&self.pending);
-        let Some(p) = pending.as_ref().filter(|p| p.plan_id == plan_id) else {
+        let mut waiting = lock(&self.pending);
+        let Some(p) = waiting.import.as_ref().filter(|p| p.plan_id == plan_id) else {
             return ApplyOutcome::Expired;
         };
         let snapshot = self.runtime.snapshot();
@@ -312,7 +338,7 @@ impl ArtifactService {
         });
         match committed {
             Ok(()) => {
-                *pending = None;
+                waiting.import = None;
                 let report = report.expect("the builder reports what it built");
                 log::info!(
                     "import applied: {} surfaces added, {} replaced, {} rules",
@@ -341,9 +367,13 @@ impl ArtifactService {
 
     /// Forget the pending import, if it is this one.
     pub fn discard(&self, plan_id: &str) {
-        let mut pending = lock(&self.pending);
-        if pending.as_ref().is_some_and(|p| p.plan_id == plan_id) {
-            *pending = None;
+        let mut waiting = lock(&self.pending);
+        if waiting
+            .import
+            .as_ref()
+            .is_some_and(|p| p.plan_id == plan_id)
+        {
+            waiting.import = None;
         }
     }
 

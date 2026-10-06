@@ -334,6 +334,8 @@ The plan is computed in Rust. Whatever shows it computes no id, conflict, depend
 | `artifacts_preview(planId, decisions)` | The plan again with other decisions: `{ status: "plan", plan }` or `{ status: "expired" }`. |
 | `artifacts_apply(planId, decisions, planDigest)` | `applied`, `stale`, `blocked`, `failed` or `expired` (below). |
 | `artifacts_discard(planId)` | Forget the pending import. |
+
+One import is pending at a time: the file opened last. Opening a file forgets the pending import at once, also when the file is then refused; reading and planning it hold nothing another command waits for, and a file opened earlier but planned later never replaces it.
 | `artifacts_export_preview(request)` | The export preview, without writing. |
 | `artifacts_export_save(request)` | Save the file: `{ fileName, folder, sizeBytes, contentDigest }`. |
 | `artifacts_show_export()` | Show the folder of the last saved file in the system's file manager. |
