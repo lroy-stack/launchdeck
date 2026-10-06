@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { primaryDevice, statusText, statusTone } from "./devices";
+import { capabilityList, noticeOf, primaryDevice, statusText, statusTone, summaryText } from "./devices";
 import type { DeviceInfo, DeviceStatus } from "./schema";
 
 const caps: DeviceInfo["capabilities"] = {
@@ -77,5 +77,86 @@ describe("primaryDevice", () => {
 
   it("is null without devices", () => {
     expect(primaryDevice([])).toBeNull();
+  });
+});
+
+const MINI_FEATURES: NonNullable<DeviceInfo["features"]> = {
+  hostMode: true,
+  palette: true,
+  batchedLighting: true,
+  flashPeriodMs: 500,
+  pulsePeriodMs: 1000,
+  brightness: true,
+  sleep: true,
+  scrollingText: true,
+  firmwareVersion: true,
+};
+
+function mini(details: Partial<NonNullable<DeviceInfo["details"]>> = {}, status: DeviceStatus = "connected"): DeviceInfo {
+  return {
+    identity: { id: "launchpad-mini-mk3:1", name: "Launchpad Mini MK3", model: "launchpad-mini-mk3", kind: "hardware" },
+    capabilities: { ...caps, velocity: false, animations: { pulse: true, flash: true } },
+    connected: status === "connected",
+    status,
+    details: { firmware: "0531", mode: "confirmed", brightness: null, asleep: false, scrolling: false, notice: null, ...details },
+    features: MINI_FEATURES,
+  };
+}
+
+describe("summaryText", () => {
+  it("names the model, the status, the firmware and the mode LaunchDeck holds", () => {
+    expect(summaryText(mini())).toBe("Launchpad Mini MK3 · Connected · Firmware 0531 · Programmer Mode (confirmed)");
+    expect(summaryText(mini({ mode: "unconfirmed" }))).toBe("Launchpad Mini MK3 · Connected · Firmware 0531 · Programmer Mode (not confirmed)");
+    expect(summaryText(mini({ mode: "acquiring", firmware: null }))).toBe("Launchpad Mini MK3 · Connected · Switching to Programmer Mode");
+  });
+
+  it("says when the device sleeps or scrolls text", () => {
+    expect(summaryText(mini({ asleep: true }))).toBe("Launchpad Mini MK3 · Connected · Firmware 0531 · Programmer Mode (confirmed) · Asleep");
+    expect(summaryText(mini({ scrolling: true }))).toBe("Launchpad Mini MK3 · Connected · Firmware 0531 · Programmer Mode (confirmed) · Scrolling text");
+  });
+
+  it("leaves out what a device does not report", () => {
+    expect(summaryText(device("launchpad-x:1", "connected"))).toBe("launchpad-x:1 · Connected");
+    expect(summaryText(simulator)).toBe("Virtual Launchpad X · Simulator");
+  });
+});
+
+describe("noticeOf", () => {
+  const NOTICE = "Firmware version 0531 does not support brightness. Novation Components can update it.";
+
+  it("gives a connected device's notice", () => {
+    expect(noticeOf({ ...mini(), notice: NOTICE })).toBe(NOTICE);
+  });
+
+  it("gives none for a device that is not connected, or has nothing to say", () => {
+    expect(noticeOf({ ...mini({}, "unplugged"), notice: NOTICE })).toBeNull();
+    expect(noticeOf(mini())).toBeNull();
+  });
+});
+
+describe("capabilityList", () => {
+  it("says what a Launchpad Mini MK3 can do, in words", () => {
+    expect(capabilityList(mini())).toEqual([
+      "64 pads, in 8 rows of 8",
+      "8 buttons along the top and 8 down the side",
+      "A logo that lights up",
+      "Lights in any colour",
+      "Flashes and pulses by itself (a flash every 0.5 s, a pulse every 1 s)",
+      "Brightness can be set",
+      "Sleeps with its lights off on request",
+      "Scrolls text across its pads",
+      "Reports its firmware version",
+      "LaunchDeck takes it over while connected and hands it back afterwards",
+    ]);
+  });
+
+  it("says when pads feel how hard they are pressed, and claims nothing a device lacks", () => {
+    const words = capabilityList(device("launchpad-x:1", "connected"));
+    expect(words).toContain("Feels how hard a pad is pressed");
+    expect(words.join(" ")).not.toMatch(/flash|bright|sleep|text|firmware/i);
+  });
+
+  it("uses no MIDI words", () => {
+    expect(capabilityList(mini()).join(" ")).not.toMatch(/midi|note|cc|sysex|palette|grid|rgb/i);
   });
 });

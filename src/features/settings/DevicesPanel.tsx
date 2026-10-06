@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { DeviceStatusLine } from "../../components/DeviceStatusLine";
+import { BrightnessSetting, DeviceSettings } from "./DeviceSettings";
 import { api } from "../../lib/ipc";
 import type { DeviceInfo } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
 
-/** Settings > Devices: each device's status in words, Look again, Connect and Disconnect. */
+/**
+ * Settings > Devices: each device's status in words, Look again, Connect and Disconnect; for a connected Launchpad
+ * its settings and what it can do, and one brightness for every device that has it.
+ */
 export function DevicesPanel() {
   const devices = useStore((s) => s.state?.devices ?? null);
   const attempt = useStore((s) => s.attempt);
@@ -40,6 +44,12 @@ export function DevicesPanel() {
         ))}
       </ul>
       {!devices.some((d) => d.identity.kind === "hardware") && <p className="hint">No Launchpad found. The simulator works the same way.</p>}
+      {devices
+        .filter((d) => d.identity.kind === "hardware" && d.status === "connected")
+        .map((d) => (
+          <DeviceSettings key={d.identity.id} device={d} />
+        ))}
+      {devices.some((d) => d.features?.brightness) && <BrightnessSetting devices={devices} />}
       <details className="tech-details">
         <summary>Technical details</summary>
         <p className="hint">
@@ -90,5 +100,9 @@ function technical(d: DeviceInfo): string {
     c.rgb ? "RGB" : "single colour",
     c.velocity ? "velocity" : "no velocity",
     c.animations.pulse ? "native pulse" : "software pulse",
-  ].join(" · ");
+    d.features?.palette ? "palette colours for its own flash and pulse" : null,
+    d.features?.batchedLighting ? "many LEDs per SysEx message" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }

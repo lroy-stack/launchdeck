@@ -70,6 +70,7 @@ import {
   type RuntimeState,
   type ScanReport,
   type Snapshot,
+  type TextScroll,
   type Validation,
   type Workspace,
 } from "./schema";
@@ -204,6 +205,15 @@ export const api = {
   connectDevice: (id: string): Promise<void> => call("connect_device", null, { id }),
   disconnectDevice: (id: string): Promise<void> => call("disconnect_device", null, { id }),
   rescanDevices: (): Promise<void> => call("rescan_devices", null),
+  /**
+   * LED brightness in percent (0-100) for every device that has it, or `null` for each device's own level. Rust saves
+   * it as a preference and gives it to the devices; brightness never goes through `updatePreferences`.
+   */
+  setDeviceBrightness: (percent: number | null): Promise<void> => call("set_device_brightness", null, { percent }),
+  /** Turns a connected device's lights off (`asleep`) or on again. */
+  setDeviceSleep: (id: string, asleep: boolean): Promise<void> => call("set_device_sleep", null, { id, asleep }),
+  /** Scrolls text across a connected device, or stops it (`null`). Rust checks the text and says what is wrong. */
+  scrollDeviceText: (id: string, text: TextScroll | null): Promise<void> => call("scroll_device_text", null, { id, text }),
   sendEvent: (source: string, event: string, payload?: unknown): Promise<void> =>
     call("send_event", null, { source, event, payload: payload ?? null }),
   /** External plugins (WebAssembly) installed from disk. */

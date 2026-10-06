@@ -41,6 +41,20 @@ describe("preview transport", () => {
     await expect(t.invoke("create_surface", { name: "  " })).rejects.toBe("name must be 1-40 characters");
   });
 
+  it("keeps the brightness as Rust does, and refuses sleep and text for the simulator", async () => {
+    const t = await createPreviewTransport();
+    const pushed: unknown[] = [];
+    await t.listen("workspace-changed", (w) => pushed.push(w));
+    await t.invoke("set_device_brightness", { percent: 40 });
+    expect(snapshotSchema.parse(await t.invoke("get_snapshot")).workspace.preferences.deviceBrightness).toBe(40);
+    await t.invoke("set_device_brightness", { percent: null });
+    expect(snapshotSchema.parse(await t.invoke("get_snapshot")).workspace.preferences.deviceBrightness).toBeUndefined();
+    expect(pushed).toHaveLength(2);
+    await expect(t.invoke("set_device_brightness", { percent: 101 })).rejects.toBe("Brightness goes from 0 to 100 percent.");
+    await expect(t.invoke("set_device_sleep", { id: "virtual-launchpad-x", asleep: true })).rejects.toBe("This device cannot do that.");
+    await expect(t.invoke("scroll_device_text", { id: "virtual-launchpad-x", text: null })).rejects.toBe("This device cannot do that.");
+  });
+
   it("rejects unknown surfaces", async () => {
     const t = await createPreviewTransport();
     await expect(t.invoke("activate_surface", { surfaceId: "nope", pageId: null })).rejects.toBeTruthy();
