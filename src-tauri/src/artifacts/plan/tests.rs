@@ -507,6 +507,59 @@ fn the_next_free_id_of_a_long_id_stays_within_64_characters() {
     assert!(p.ready, "{:?}", p.blockers);
 }
 
+/// The plan is made again under the runtime's lock when the import is
+/// applied, so it stays linear in pads: 2048 controls that each run two
+/// commands, every slot removed, and 32 inputs, planned well within a
+/// second (it took over 4 s in a debug build while each input and each
+/// pad searched the list of removed slots).
+#[test]
+fn a_large_pack_is_planned_in_linear_time() {
+    let control = |i: usize| {
+        let (col, row) = ((i % 16) as u8, (i / 16) as u8);
+        let mut c = pad(
+            col,
+            "Run",
+            Some(a("shell", "execute", json!({ "command": "true" }))),
+        );
+        c.id = format!("g.{col}.{row}");
+        c.pos = Pos::Grid { col, row };
+        c.long_press = c.press.clone();
+        c
+    };
+    let mut big = surface("big", "Big", vec![]);
+    big.pages = (0..16)
+        .map(|p| PageV1 {
+            id: format!("p{p}"),
+            name: format!("Page {p}"),
+            controls: (0..128).map(control).collect(),
+        })
+        .collect();
+    let inputs = (0..32)
+        .map(|i| InputDef {
+            required: false,
+            ..input(&format!("i{i}"), InputType::String)
+        })
+        .collect();
+    let file = pack_of(
+        ManifestV1 {
+            inputs,
+            ..manifest("1.0.0")
+        },
+        vec![big],
+        vec![],
+    );
+    let remove = ImportDecisions {
+        runs: Some(Runs::Remove),
+        ..ImportDecisions::default()
+    };
+    let started = std::time::Instant::now();
+    let p = plan_of(&file, &workspace(vec![]), &remove);
+    let took = started.elapsed();
+    assert_eq!(p.effects.removed_slots.len(), 4096);
+    assert!(p.inputs.iter().all(|i| i.used_by.is_empty()));
+    assert!(took < std::time::Duration::from_secs(1), "{took:?}");
+}
+
 // Conflict B: the same display name is kept, and said.
 
 #[test]

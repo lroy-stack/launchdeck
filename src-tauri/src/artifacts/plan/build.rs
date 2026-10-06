@@ -2,7 +2,7 @@
 //! workspace, the environment and the person's decisions, then what stops
 //! the import, the effects and their digest.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 use serde_json::Value;
@@ -109,6 +109,8 @@ struct Pads<'a> {
     pads: Vec<Pressed<'a>>,
     /// In the same order: each assignment with the answers and local ids.
     written: Vec<Assignment>,
+    /// In the same order: whether the pad stays (its slot is not emptied).
+    stays: Vec<bool>,
     review: Vec<ReviewItem>,
     /// A pad runs a command, sends a request or starts a program.
     runs_things: bool,
@@ -121,7 +123,9 @@ impl Pads<'_> {
         self.pads
             .iter()
             .zip(&self.written)
-            .filter(|(p, _)| !self.removed.contains(&p.at))
+            .zip(&self.stays)
+            .filter(|(_, stays)| **stays)
+            .map(|(pad, _)| pad)
     }
 }
 
@@ -144,25 +148,28 @@ fn pads<'a>(
             )
         })
         .collect();
+    let kinds: Vec<Option<ReviewKind>> = written.iter().map(|w| classify(w, env)).collect();
     let review: Vec<ReviewItem> = pads
         .iter()
         .zip(&written)
-        .filter_map(|(p, w)| {
-            classify(w, env).map(|kind| ReviewItem::new(p.at.clone(), p.label, kind, w))
-        })
+        .zip(&kinds)
+        .filter_map(|((p, w), kind)| kind.map(|k| ReviewItem::new(p.at.clone(), p.label, k, w)))
         .collect();
-    let decided: Vec<Location> = review
+    let decided: Vec<bool> = kinds
         .iter()
-        .filter(|r| needs_decision(r))
-        .map(|r| r.at.clone())
+        .map(|k| k.is_some_and(needs_decision))
+        .collect();
+    let removing = runs == Some(Runs::Remove);
+    let removed: Vec<Location> = pads
+        .iter()
+        .zip(&decided)
+        .filter(|(_, decided)| removing && **decided)
+        .map(|(p, _)| p.at.clone())
         .collect();
     Pads {
-        runs_things: !decided.is_empty(),
-        removed: if runs == Some(Runs::Remove) {
-            decided
-        } else {
-            Vec::new()
-        },
+        runs_things: decided.contains(&true),
+        stays: decided.iter().map(|d| !(removing && *d)).collect(),
+        removed,
         pads,
         written,
         review,
@@ -250,8 +257,8 @@ fn suggested(
 
 /// A command, a request or a launch, which the person keeps or removes; an
 /// instruction to an agent is shown and always kept.
-fn needs_decision(item: &ReviewItem) -> bool {
-    item.kind != ReviewKind::InstructsAgent
+fn needs_decision(kind: ReviewKind) -> bool {
+    kind != ReviewKind::InstructsAgent
 }
 
 /// What inspecting the file found that a person should know.
@@ -338,6 +345,14 @@ fn planned_inputs(
     answers: &Answers,
     pads: &Pads<'_>,
 ) -> Vec<PlannedInput> {
+    // The pads that stay, by the inputs they take, each pad once per input.
+    let mut used_by: BTreeMap<&str, Vec<Location>> = BTreeMap::new();
+    for (p, _) in pads.kept() {
+        let taken: BTreeSet<&str> = p.assignment.inputs.values().map(String::as_str).collect();
+        for input in taken {
+            used_by.entry(input).or_default().push(p.at.clone());
+        }
+    }
     parsed
         .manifest
         .inputs
@@ -346,11 +361,7 @@ fn planned_inputs(
             def: def.clone(),
             value: decisions.inputs.get(&def.id).cloned(),
             issues: answers.issues.get(&def.id).cloned().unwrap_or_default(),
-            used_by: pads
-                .kept()
-                .filter(|(p, _)| p.assignment.inputs.values().any(|input| input == &def.id))
-                .map(|(p, _)| p.at.clone())
-                .collect(),
+            used_by: used_by.remove(def.id.as_str()).unwrap_or_default(),
         })
         .collect()
 }

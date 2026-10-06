@@ -117,6 +117,7 @@ pub(in crate::artifacts) fn build(
         .iter()
         .map(|s| s.local_id.as_str())
         .collect();
+    let removed: HashSet<&Location> = effects.removed_slots.iter().collect();
     let mut surfaces = current.surfaces.clone();
     for incoming in &parsed.content.surfaces {
         let local_id = local_ids.get(&incoming.id).ok_or_else(|| {
@@ -126,7 +127,7 @@ pub(in crate::artifacts) fn build(
                 echo(&incoming.id)
             ))
         })?;
-        let surface = written(parsed, plan, incoming, local_id, &local_ids)?;
+        let surface = written(parsed, plan, incoming, local_id, &local_ids, &removed)?;
         if !replaced.contains(local_id.as_str()) {
             surfaces.push(surface);
             continue;
@@ -167,6 +168,7 @@ fn written(
     incoming: &SurfaceV1,
     local_id: &str,
     local_ids: &BTreeMap<String, String>,
+    removed: &HashSet<&Location>,
 ) -> Result<Surface, ApplyError> {
     let model = incoming.to_model();
     let category = plan
@@ -178,7 +180,7 @@ fn written(
         .pages
         .iter()
         .zip(model.pages)
-        .map(|(v1, page)| written_page(parsed, plan, incoming, v1, page, local_ids))
+        .map(|(v1, page)| written_page(parsed, plan, incoming, v1, page, local_ids, removed))
         .collect();
     let surface = Surface {
         id: local_id.to_string(),
@@ -216,6 +218,7 @@ fn written_page(
     v1: &PageV1,
     page: Page,
     local_ids: &BTreeMap<String, String>,
+    removed: &HashSet<&Location>,
 ) -> Page {
     let effects = &plan.effects;
     let slot = |control: &ControlV1, slot: Slot, a: Option<&AssignmentV1>| -> Option<Assignment> {
@@ -226,7 +229,7 @@ fn written_page(
             slot,
         };
         let defs = &parsed.manifest.inputs;
-        a.filter(|_| !effects.removed_slots.contains(&at))
+        a.filter(|_| !removed.contains(&at))
             .map(|a| bound(a, defs, &effects.input_values, local_ids))
     };
     let controls = v1

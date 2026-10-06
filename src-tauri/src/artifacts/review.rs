@@ -31,7 +31,7 @@ use crate::platform::Platform;
 use crate::plugins::system;
 
 /// Which of a control's two assignments.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Slot {
     Press,
@@ -50,7 +50,7 @@ impl Slot {
 
 /// A press or a long press in a file: the surface by the id the file gives
 /// it, then the page and the control by their own ids.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Location {
     pub surface_source_id: String,
