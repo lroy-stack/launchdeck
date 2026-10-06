@@ -90,7 +90,7 @@ Export reads the workspace and what the app knows about its providers and device
 | Integrity | a one-character edit; no integrity; uppercase hex; `md5:`; and, accepted on purpose, a whitespace-only reformat and CRLF line ends |
 | Manifest | ids `../evil`, `Acme.Pack`, `single`, `/abs`, `C:\x`; versions `1.0`, `01.0.0`, `1.0.0+build`; empty and 61-character names; a direction override in a label; a control character in the description; author addresses `javascript:`, `http://`, `https://u:p@example.com` |
 | Dependencies | invalid plugin id; `>>1`; a pre-release comparator; a duplicate; 33; the host provider `system`; an undeclared plugin |
-| Limits and geometry | 17 surfaces; 33 pages; 129 controls on a page; 2049 controls; 33 looks; 33 feedback rules; 65 rules; 9 identities; column 16; span 9; a logo control; overlapping controls; duplicate surface, page and control ids |
+| Limits and geometry | 17 surfaces; 33 pages; 129 controls on a page; 2049 controls; 33 looks; 33 feedback rules; 65 rules; 9 identities; 100 000 surface references in one press; column 16; span 9; a logo control; overlapping controls; duplicate surface, page and control ids |
 | References | a rule to a surface not in the Pack; a rule page not in its surface; `surfaceRefs` to a missing argument, a non-text or an unknown surface; a binding to an undeclared input; an application input bound to an argument; a text input bound to a rule; `show` naming a missing look |
 | Feedback | a 10 ms hold; 9 conditions; both `show` and `showFromValue`; an invalid state provider id |
 | Assignments | `args` not an object; an extra member; arguments 5 deep; 33 KiB of arguments |

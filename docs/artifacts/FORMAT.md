@@ -74,7 +74,7 @@ A refused file gives `{ code, message, at? }`. `message` is a sentence for a per
 | `invalidManifest` | The manifest breaks a rule: a member, a text, an id, a version, a requirement, an input, the digest's form; also requirements weaker than the content, and a plugin used but not declared. |
 | `integrity` | The content does not have the digest the manifest names. |
 | `invalidContent` | The content breaks a rule: a member, a text, an id, a duplicate id, geometry, arguments, a feedback rule, a reference, a hidden character in what an action runs. |
-| `tooMany` | More of something than a file may hold (surfaces, pages, controls, looks, rules, identities, dependencies, inputs, options, tested devices, input bindings, arguments). |
+| `tooMany` | More of something than a file may hold (surfaces, pages, controls, looks, rules, identities, dependencies, inputs, options, tested devices, input bindings, arguments, surface references). |
 | `kindMismatch` | A Surface file holding what only a Pack may: more than one surface, context rules, inputs. |
 
 ## Text rules
@@ -216,7 +216,7 @@ What a press or a long press does.
 | `action` | 1 to 64. |
 | `args` | An object: at most 16 members, each name `[A-Za-z_][A-Za-z0-9_]{0,31}`; nested at most 4 deep (`args` itself counts); at most 32 KiB written compactly; no text over 16384 characters. |
 | `inputs` | Pack only: `{ argument name: input id }`, the arguments an answer replaces (below). |
-| `surfaceRefs` | Argument names, each once, whose value names a surface of this file (below). |
+| `surfaceRefs` | Argument names, each once and at most 16 (`tooMany` beyond), whose value names a surface of this file (below). |
 
 ### Feedback rule
 
@@ -487,7 +487,7 @@ The numbers are in `src-tauri/src/artifacts/limits.rs`; the app reads them throu
 | Context rules | 64 per file; 64 in the workspace after import (more are skipped) | `contextRules` |
 | Identities of an application | 1 to 8; id 1 to 255; namespace 1 to 16 bytes | `identities`, `identityId`, `namespace` |
 | Application name | 1 to 80 | `applicationName` |
-| Arguments of an assignment | 16 members, 4 deep, 32 KiB, a text 16384 | `argKeys`, `argDepth`, `argBytes`, `argText` |
+| Arguments of an assignment | 16 members, 4 deep, 32 KiB, a text 16384; 16 surface references | `argKeys`, `argDepth`, `argBytes`, `argText` |
 | Input bindings | 256 per file | `bindings` |
 | Manifest name | 1 to 60 | `name` |
 | Manifest description | 1000 | `description` |

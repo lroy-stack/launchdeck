@@ -569,6 +569,13 @@ fn counts_over_a_limit_are_too_many() {
         refused(|v| control(v)["press"]["args"] = Value::Object(args)),
         at(R::TooMany, &format!("{CONTROL}/press/args"))
     );
+    // Each reference names a distinct argument, so there are no more of
+    // them than arguments; counted before they are compared.
+    let refs: Vec<String> = (0..17).map(|i| format!("a{i}")).collect();
+    assert_eq!(
+        refused(|v| control(v)["press"]["surfaceRefs"] = json!(refs)),
+        at(R::TooMany, &format!("{CONTROL}/press/surfaceRefs"))
+    );
 }
 
 #[test]

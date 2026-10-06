@@ -558,6 +558,14 @@ fn check_assignment(at: &str, a: &AssignmentV1) -> Result<(), Rejection> {
             ));
         }
     }
+    // Each names a distinct argument: counted before they are compared.
+    if a.surface_refs.len() > MAX_ARG_KEYS {
+        return Err(too_many(
+            &format!("{at}/surfaceRefs"),
+            "surface references in one action",
+            MAX_ARG_KEYS,
+        ));
+    }
     for (i, arg) in a.surface_refs.iter().enumerate() {
         if !valid_param_name(arg) || a.surface_refs[..i].contains(arg) {
             return Err(Rejection::at(

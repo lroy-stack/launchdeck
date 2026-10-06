@@ -732,6 +732,24 @@ fn limits_thirty_three_looks() {
     );
 }
 
+/// A hundred thousand distinct surface references in one press, about
+/// 0.9 MB: refused by their count, before they are compared with one
+/// another (comparing them took minutes, holding the pending import).
+#[test]
+fn limits_100k_surface_refs() {
+    let refs: Vec<String> = (0..100_000).map(|i| format!("r{i}")).collect();
+    let mut v = pack();
+    terminal(&mut v)["press"]["surfaceRefs"] = json!(refs);
+    let text = compact(&String::from_utf8(sealed(v)).unwrap());
+    assert!(text.len() < 2 * MIB);
+    let started = Instant::now();
+    assert_eq!(
+        refused(text.as_bytes(), "refs.ldpack"),
+        at(R::TooMany, &format!("{TERMINAL}/press/surfaceRefs"))
+    );
+    assert!(started.elapsed() < Duration::from_secs(10));
+}
+
 fn event_rule(extra: Value) -> Value {
     let mut rule =
         json!({ "when": { "event": { "provider": "ci", "id": "done" } }, "show": "success" });
