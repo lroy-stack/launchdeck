@@ -1,6 +1,6 @@
 {
   "abiVersion": 1,
-  "appVersion": "0.2.0",
+  "appVersion": "0.3.0",
   "arch": "aarch64",
   "artifactFormat": 1,
   "bridgeProtocol": 1,

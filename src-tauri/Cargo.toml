@@ -1,6 +1,6 @@
 [package]
 name = "launchdeck"
-version = "0.2.0"
+version = "0.3.0"
 description = "LaunchDeck: a programmable physical interface runtime for MIDI grid controllers"
 edition = "2021"
 rust-version = "1.95"
