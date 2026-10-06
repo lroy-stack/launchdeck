@@ -63,7 +63,7 @@ Neither real adapter can pause, resume, cancel or retry a session, because the h
 
 No hardware and no agent are needed.
 
-1. Start LaunchDeck and open **Agents**, or press **Run the Agent Demo** on Home.
+1. Start LaunchDeck and open **Agents**, or press **Run the Agent Demo** on **Overview**.
 2. Four simulated agents start side by side. The pads in the top row of the Agent Control surface and the cards in the app show the same states.
 3. One agent asks for approval. APPROVE flashes. Press it on the virtual Launchpad (or **Approve** in the app) and the agent resumes.
 

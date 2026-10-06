@@ -1,22 +1,10 @@
-# Context Engine: the surface follows the application in front
+# Auto Context: the surface follows the application in front
 
 With **Auto Context** on, LaunchDeck shows the surface you chose for the application you are using: your editor comes to the front and the Development surface is on the pads; the terminal comes to the front and it is another one. You write one short rule per application. Nothing else decides: no window titles, no project, no time of day, no script.
 
-```text
-Foreground observer (per system)     which application is in front
-        ↓
-Application identity                  { namespace, id, displayName }
-        ↓
-Ordered rules                         first match wins, then the fallback
-        ↓
-Auto / Manual Override                is this a moment to apply it?
-        ↓
-The runtime's own activation          the same one the sidebar uses
-        ↓
-Renderer and devices
-```
+How it is built, for developers: [the Context Engine](../architecture/context-engine.md).
 
-The engine never talks to a device. Its only output is the activation every manual switch already goes through, so the events, the State Hub, the virtual Launchpad and a physical one all follow exactly as they do when you click. One difference: what Auto shows is not saved as the "last surface" (a person's choice is), so the workspace file is not rewritten at every switch of application; after a restart, the application in front decides again.
+A switch made by Auto Context is the same switch as a click in the sidebar: the pads on screen and on a Launchpad follow in the same way. It is not remembered as your last surface, though: after a restart LaunchDeck opens on the surface you last chose, until the application in front is seen and its rule applies.
 
 ## Using it
 
@@ -32,13 +20,7 @@ The same panel shows, at all times: whether the observer works and how, which ap
 
 ## Rules
 
-A rule is one application and one target.
-
-```jsonc
-{ "application": { "namespace": "x11", "id": "Code", "displayName": "Visual Studio Code" },
-  "surfaceId": "development",
-  "pageId": "git" }          // optional
-```
+A rule is one application and one target: a surface, and optionally a page.
 
 * **Ordered, first match wins.** The list is numbered and reordered with ↑ and ↓. Order is the only precedence there is.
 * **A page is optional.** Without one, the surface opens on its first page, or keeps the page it shows if it is already on screen.
@@ -78,7 +60,7 @@ Rules name applications by what the operating system itself uses to tell them ap
 * Two identities are the same application when the namespace is the same and the id is equal ignoring case. The **display name is never compared**: an application that renames itself, or whose name is localized, still matches.
 * On Windows the *file name* is used, not the path: the folder changes with every update of many applications.
 * An application with no native identity (a macOS process without a bundle, an X window without `WM_CLASS`) is treated as "nothing in front" and cannot have a rule.
-* You never type an identity. To see what one is: Settings shows it next to the application's name, and `cargo run --example foreground` prints it as applications come to the front.
+* You never type an identity. Settings shows it next to the application's name.
 
 ## When a rule is applied
 
@@ -117,15 +99,13 @@ Going back to **Live** applies the current application's rule once (unless a man
 
 ## Platform support
 
-| Environment | Auto Context | How | Tested here |
-| --- | --- | --- | --- |
-| Linux, X11, with a window manager | **Available** | The window manager's `_NET_ACTIVE_WINDOW` (EWMH); `PropertyNotify` events, no polling | Yes, on Linux in an earlier milestone: real X server, openbox, real windows (`tools/desktop-e2e`, suite `context`) |
-| macOS | Compiled; running **NOT VERIFIED** | `NSWorkspace` activation notifications; a read every 2 s as a safety net | Compiled and clippy-clean; not seen running |
-| Windows | Written, **never compiled** | `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)`; a read every 2 s as a safety net | No |
-| Linux, Wayland (any compositor) | **Not available** | Wayland gives applications no way to learn which application has focus. Per compositor: wlroots (Sway, Hyprland) has a protocol that is not implemented here; GNOME needs a Shell extension; KDE needs a KWin script. | The refusal and its message: yes |
-| Linux, X11 without an EWMH window manager | **Not available** | Nothing reports the active window | Yes |
-
-On macOS LaunchDeck is built, and the Rust (715 passed, 0 failed, 2 ignored) and TypeScript (309) tests pass on macOS 15.4.1, Apple M2, Rust 1.97.0; the macOS adapter compiled there as written and passed clippy, but the Auto Context observer has not been seen running and the app window has not been checked by hand (the check is [4.2 in NEXT_PHASE.md](../history/next-phase-2026-10.md#42-auto-context); the record is [VERIFICATION.md](../verification/macos-2026-10-05.md)). The Windows adapter could not be built in the environment it was written in (the Rust standard library for that target could not be downloaded) and has never been compiled. Both are small, written against the exact signatures of the binding crates already in the dependency tree, and share the identity code that *is* tested. Treat them as unverified until someone runs them.
+| Environment | Auto Context | Tested |
+| --- | --- | --- |
+| macOS | **Available**, through macOS application notifications | The observer was seen reporting applications by their bundle id on macOS 15.4.1, outside the app ([record](../verification/macos-2026-10-05.md#productization-macos-observer-evidence)). Auto Context in the LaunchDeck window: NOT VERIFIED, the manual checks on the Mac have not been done. |
+| Linux, X11, with a window manager | **Available** | On a real X server with real windows in an earlier milestone; not run for 0.3.0 (no Linux desktop here, CI does not run). |
+| Windows | Written | NOT VERIFIED: never compiled, no Windows machine. |
+| Linux, Wayland (any compositor) | **Not available** | Wayland gives applications no way to learn which application has focus. LaunchDeck says so. |
+| Linux, X11 without a window manager that reports the active window | **Not available** | LaunchDeck says so. |
 
 **Known limits where it does work**
 
@@ -141,7 +121,7 @@ Which application you use is nobody's business, including LaunchDeck's files.
 
 | | |
 | --- | --- |
-| **Saved** (`workspace.json`, under `context`) | Whether Auto Context is on, the rules (each with the one identity it names), the fallback. |
+| **Saved** with your surfaces | Whether Auto Context is on, the rules (each with the one identity it names), the fallback. |
 | **In memory only**, gone when LaunchDeck closes | The application in front, the last one accepted, the up-to-12 applications offered when adding a rule, the last decision. |
 | **Never read** | Window titles, window contents, URLs, documents, the list of running or installed applications. |
 | **Never written or sent** | Any history, timeline, duration or count of application use. No analytics. Nothing in the audit trail or the logs. |
@@ -149,24 +129,6 @@ Which application you use is nobody's business, including LaunchDeck's files.
 Plugins have no access to any of it: no API reads the context, adds a rule or activates a surface through the engine. The only thing published to the State Hub is `context.mode`, one word (`auto`, `manual`, `paused`, `off`, `unavailable`), so a pad can show whether Auto Context is in charge.
 
 The observer runs whenever LaunchDeck does and the system allows it, including with Auto Context off, so that the rule picker has something to offer. It holds one identity at a time.
-
-## For developers
-
-| Piece | Where |
-| --- | --- |
-| Identity | `src-tauri/src/context/identity.rs` |
-| Rules and their evaluation (pure) | `context/rules.rs` |
-| The state machine (pure; time is passed in) | `context/engine.rs` |
-| Observers | `context/observer/`: `x11.rs`, `macos.rs`, `windows.rs`, and `scripted.rs` for tests |
-| What the interface is told | `context/status.rs`; Tauri event `context-changed`; commands `context_status`, `context_update`, `context_resume` |
-| Runtime integration | `core/runtime/navigation.rs`: `activate()` with an origin; `core/runtime/context.rs`: `on_foreground`, `settle_context` |
-| Interface | `src/features/context/` |
-
-Tests: the engine as a state machine (`cargo test --lib context::`), the runtime with a scripted observer and the virtual Launchpad (`cargo test --test context_engine`), the status contract (`examples/context-status.json`, `cargo test --test context_contract`), the interface (`npm test`), and the real observer on a real X server (`python3 tools/desktop-e2e/run.py context`).
-
-Measured on Linux/X11: the surface is on screen about 210 ms after the window manager is asked to activate a window (release build; 215 to 275 ms in a debug build), of which 150 ms is the stability wait. The observer uses no CPU while nothing changes (0 clock ticks in 10 s) and about 0.4 ms of CPU per change of application; evaluating a full list of 64 rules takes about 1.5 microseconds (both in a debug build).
-
-The research and the decisions behind this are in [CONTEXT_ENGINE_PLAN.md](../history/plans/CONTEXT_ENGINE_PLAN.md).
 
 ## Not built
 

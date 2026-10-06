@@ -1,78 +1,68 @@
-# Surfaces
+# Surfaces and the editor
 
-A **surface** is a named layout for a device. It has **pages**, and a page has **controls**.
+A **surface** is a named layout for your Launchpad: a set of **pages**, each with **pads** (the editor calls them controls). The pads on screen are a simulated Launchpad; a real one, when connected, shows the same page.
 
-```
-Workspace (schemaVersion, surfaces[], preferences, context)
- └ Surface (id, name, category, icon, pages[])
-    └ Page (id, name, controls[])
-       └ Control
-```
+Status: everything on this page is built and covered by Vitest and the Rust tests on macOS. Nobody has used it in the app window yet for 0.3.0 (NOT VERIFIED: the manual checks on the Mac have not been done).
 
-The workspace's `context` holds the [Auto Context](context-engine.md) settings: whether it is on, the ordered rules (application to surface and page) and the fallback. It is absent from a workspace that never used Auto Context. A surface may also carry an older `context` field of its own (`foregroundApps`, a list of names); it is still read so that old files load, and nothing uses it. Rules are the only thing that switches a surface.
+## Finding your way
 
-## Control
+The sidebar has **Overview**, **Agents**, **Surfaces**, **Plugins** and **Settings**, your Launchpad's status (click it for **Settings, Devices**), the Auto Context switch, and the list of surfaces. Click a surface to open it. **+** next to *Surfaces* makes a new, empty surface and opens it in Edit mode; **Import…** and **Export…** are there too ([sharing](sharing.md)). Surfaces you imported carry an **Imported** badge.
 
-| Field | Notes |
-| --- | --- |
-| `id` | Unique on the page. Defaults to the position key (`g.3.4`, `t.0`, `s.7`). |
-| `pos` | `{kind:"grid",col,row}` (row 0 is the top), `{kind:"top",index}`, `{kind:"side",index}`. `logo` is output only. |
-| `span` | `{w,h}` cells for grid controls. Used by the Accessibility surface for large targets. |
-| `label`, `description`, `icon` | Text shown in the editor. |
-| `visual` | Idle look: `{color:"#rrggbb", animation:"none"|"pulse"|"flash"}`. |
-| `states` | Map of state name to visual. The state picks the look. |
-| `press`, `longPress` | An [assignment](#actions): `{provider, action, args}`. Long press fires after 500 ms. |
-| `feedback` | Ordered rules that decide which look the pad shows: state rules read a provider's value, event rules show a look for a while (see [state-and-feedback](../architecture/state-and-feedback.md)). |
-| `legacyBindings` | Schema 3 bindings that could not be converted, kept as they were. Inert. |
+The top row of every starter surface switches surfaces, so a Launchpad works without the screen. The tray menu in the menu bar has the surfaces too.
 
-Validation (Rust, on every save): label 1 to 40 characters, no overlaps (spans included), positions in range, spans 1x1 to 8x8, and every slot that changed holds a well formed assignment (the provider and action exist, the arguments fit the action's parameters). A slot that did not change is not re-checked, so a surface whose plugin is missing can still be edited and saved.
+## Live and Edit
 
-## Actions
+Every surface is shown in one of two modes, switched at the top right:
 
-A slot holds an **assignment**, the only thing saved about an action:
+* **Live.** Press pads to run their actions: click on the simulated Launchpad, or press the real one. The pages are listed on the left, and on the right what the surface shows (for Agent Control, the agents' states) and recent activity. A page with no pads says so and offers **Edit**.
+* **Edit.** Actions are paused. The [Action Library](action-library.md) is on the left, the pages are a strip above the pads, and the **Inspector** is on the right. Auto Context does not switch surfaces while you edit.
 
-```json
-{ "provider": "system", "action": "openUrl", "args": { "url": "https://github.com" } }
-```
+**Labels** shows or hides the pad labels on screen.
 
-You rarely write one by hand. In Edit mode the [Action Library](action-library.md) lists everything a pad can do, and the inspector draws the settings. The built-in providers are:
+## Editing a surface
 
-| Provider | Actions | Notes |
+In Edit mode the surface's header has its **icon**, **name** and **description** as fields: change one and press Enter, or leave the field, to save; Escape undoes. **Delete surface** asks first, and names the Auto Context rules that show the surface: they are removed with it, and a fallback that shows it goes back to keeping the surface on screen. The last surface cannot be deleted.
+
+Pages, in the strip above the pads:
+
+* **+ Add page** asks for a name and opens the new page.
+* **⋯** next to a page has **Rename** and **Delete**. Deleting asks first. A surface keeps at least one page.
+
+To bring back the starter surfaces as they were, use **Settings, Workspace, Reset to starter surfaces**. It replaces all your surfaces.
+
+## Editing a pad
+
+Select a pad on screen (an empty cell is fine), or press a pad on the real Launchpad: it is selected in the Inspector. The Inspector edits a draft; nothing changes until you press **Save** (**Add control** for a new pad). **Revert** returns to what is saved, and **Delete** removes the pad.
+
+* **Label** and **Description.** The label is 1 to 40 characters.
+* **Width** and **Height** let a pad cover several cells, up to 8 by 8 (the Accessibility starter uses 2 by 2). Pads cannot overlap.
+* **Action.** What happens on **press** and on **long press** (held for half a second). Give each one an action from the [Action Library](action-library.md), then fill in its settings. **Test run** runs the draft once without saving. Shell commands and web requests are marked **Privileged**.
+* **Resting look.** The pad's icon, colour and animation (**Solid**, **Pulse** or **Flash**) when nothing else applies.
+* **Feedback.** Rules that change the pad's look: following a value a plugin or LaunchDeck reports, or showing a look for a while when something happens. See [the feedback editor](feedback-editor.md).
+
+If something is missing or wrong, the Inspector marks the field and says what to fix before **Save** is possible. A pad whose plugin is not installed keeps its settings and is marked as needing that plugin; nothing is deleted.
+
+Pads without feedback rules show what their action does: running while it runs, then success for 2.5 seconds or error for 4 seconds.
+
+## The starter surfaces
+
+| Surface | For | What is on it |
 | --- | --- | --- |
-| `system` | `openUrl`, `launchApplication`, `keyboardShortcut`, `volumeUp`, `volumeDown`, `toggleMute`, `playPause` | `keys` is text such as `mod+shift+p` (`mod` is Cmd on macOS and Ctrl elsewhere). `openUrl` allows http, https, mailto, tel, sms, facetime. `launchApplication` takes one argument per line. |
-| `shell` | `execute` | **Privileged.** `command`. |
-| `http` | `request` | **Privileged.** `method` (GET, POST, PUT, PATCH, DELETE), `url`, `body`. |
-| `navigation` | `openSurface`, `openPage` | Handled by the runtime. `openSurface` takes `surfaceId` and an optional `pageId`. |
-| `agent-control`, `demo` | See [plugins](../architecture/plugins.md) | |
-| An installed plugin's id | Whatever it declares | See [plugin-sdk](../plugin-sdk/README.md). |
+| **Agent Control** | Watching and steering AI agents | One pad per session coloured by status, large APPROVE and REJECT pads, Pause, Resume, Retry and Stop that light only when they can work, task pads, Run Agent Demo. See [Agent Control](agent-control.md). |
+| **Development** | Build, test, ship | Terminal, editor, a Git page. The commands are harmless `echo` placeholders to replace with yours. A "Failing" pad shows the error flash. |
+| **Productivity** | Everyday shortcuts | Browser, mail, calendar and files; copy, paste, undo, redo and search; screenshot and play/pause. Which file manager and screenshot shortcut a pad uses depends on the system. |
+| **Accessibility** | Fewer, larger, high-contrast targets | Twelve 2x2 pads in colour-coded groups (navigate, edit, scroll and zoom, volume) and a Help page. A usability aid, not a medical device. |
+| **Home** | Lights and switches through Home Assistant | Six pads that toggle example lights and switches through the Home Assistant example plugin. Until that plugin is installed (**Plugins**, **Install**), given its address and token, and each pad given your own entity, the pads read as needing the plugin and nothing is sent anywhere. |
 
-A surface file that names a provider which is not installed still loads. The pad is flagged, the editor shows the saved assignment as missing and keeps its settings, and nothing is deleted. Workspaces written before schema 3 are converted on first load; see [actions/definitions.md](../architecture/actions/definitions.md#persistence-and-migration).
+Pads that press keys (Productivity, Accessibility) need **Accessibility** permission on macOS, which macOS asks for the first time.
 
-## Starter surfaces
-
-| Surface | Purpose | Highlights |
-| --- | --- | --- |
-| **Agent Control** | Watch and steer agents. The flagship surface. | One pad per session coloured by status, large APPROVE and REJECT pads, Pause, Resume, Retry and Stop that light only when they can work, task pads, Run Agent Demo. Provider-neutral. See [agent-control/surfaces.md](../agent-control/surfaces.md). |
-| **Development** | Build, test, ship. | Terminal, editor, git page. Commands are harmless `echo` placeholders you replace. A "Failing" pad shows the error flash. |
-| **Productivity** | Everyday shortcuts. | Browser, mail, calendar and files; copy, paste, undo, redo and search; screenshot, play/pause. Which file manager and screenshot shortcut a pad uses depends on the system. |
-| **Accessibility** | Fewer, larger, high-contrast targets. | Twelve 2x2 pads in colour-coded groups (navigate, edit, scroll and zoom, volume), Help page. A usability aid, not a medical device. |
-| **Home** (id `smart-home`) | Lights and switches through Home Assistant. | Six pads toggle example entities (`light.living_room`, `light.kitchen`, `light.desk`, `light.porch`, `switch.bedroom_fan`, `switch.coffee_machine`) through the Home Assistant example plugin. Until that plugin is installed (Plugins, Install), given its address and token, and each pad your own entity, the pads read as needing the plugin and nothing is sent anywhere. |
-
-The top row on every surface switches surfaces, so a Launchpad works without the screen.
-
-### Pads that follow events
-
-The Agent Control surface shows how a surface follows outside state. Its track pads have a state rule on the states Agent Control keeps (`agent-control.slot.status`, `slot.focused`, `command.state`), and the colour of each of the eleven normalized statuses is defined once in `agents/visual.rs` (see [agent-control/surfaces.md](../agent-control/surfaces.md#the-mapping-state-to-appearance)). A pad driven by state rules is right whenever it is shown, because it reads the value rather than waiting for an event. Controls *without* feedback rules (for example a Development build pad) use the automatic cycle instead: running while the action runs, then success for 2.5 s or error for 4 s, then idle.
-
-## Authoring tips
+## Tips
 
 * Keep a surface to one job. Use pages for depth, not for unrelated jobs.
-* Use colour as meaning (green good, red bad) and animation for things that need attention.
-* For accessibility surfaces prefer spans of 2x2 or larger, high-contrast colours and labels as well as icons.
-* To react to an outside tool, add an event rule for its `source` and event, name the look to show and how long it lasts, then give the control that look. In the inspector: **Feedback, Add feedback, An event** (see [feedback-editor.md](feedback-editor.md)); the same rule can be written by hand in the surface file. A provider that reports a *state* is better read with a state rule: it is right even for a pad created after the value was reported.
-* To have a surface appear when you switch to an application, add a rule under **Settings, Auto Context** rather than a pad. See [context-engine.md](context-engine.md).
-* To react to agents, read the `agent-control` states described in [agent-control/surfaces.md](../agent-control/surfaces.md#make-your-own) and call the `agent-control` plugin actions on press. Never count or address sessions in a surface; the platform publishes what a pad needs.
+* Use colour as meaning (green good, red bad) and animation for what needs attention.
+* For accessibility, prefer pads of 2x2 or larger, high-contrast colours, and labels as well as icons.
+* To react to an outside tool, add an event rule in the Inspector (**Feedback, Add feedback, An event**). A plugin that reports a value is better read with a state rule: it is right even for a pad made after the value was reported.
+* To have a surface appear when you switch to an application, add a rule under **Settings, Auto Context** rather than a pad. See [Auto Context](context-engine.md).
+* To give a surface to someone, export it: [sharing surfaces](sharing.md).
 
-## Files
-
-Surfaces live in `workspace.json` (schema 4) in the app data folder. The shape matches `examples/default-workspace.json`, which is the authoritative example; it was generated on Linux, and a few starter pads differ by system (which terminal, file manager and screenshot shortcut they name). Sharing and packaging of surfaces is described in [roadmap/marketplace.md](../roadmap/marketplace.md).
+Your surfaces are saved on every change in the app's data folder ([where](../getting-started/install.md#where-launchdeck-keeps-its-data)). If the file cannot be read when LaunchDeck starts, it starts with the starters, keeps your file as `workspace.json.bak`, and says so in a banner with **Show folder**. How the file is built, for developers: [the surface model](../architecture/surface-format.md).
