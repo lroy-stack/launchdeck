@@ -70,6 +70,8 @@ An older version, or the very same file, can be imported the same way; the previ
 
 ## Removing an imported surface
 
-Not possible yet in this version: a single surface cannot be deleted, imported or not. **Settings**, **Workspace**, **Reset to starter surfaces** replaces all your surfaces with the starter ones, which removes imported surfaces together with everything else.
+An imported surface is deleted like any other. Open it, switch to Edit mode, press **Delete surface** in the surface's header and confirm with **Delete**. The confirmation names what goes with it: Auto Context rules that show the surface are removed, and a fallback that shows it goes back to keeping the surface on screen. Pads on other surfaces that open it keep their setting and, when pressed, say the surface is missing. The only surface left cannot be deleted.
+
+To remove everything at once instead, **Settings**, **Workspace**, **Reset to starter surfaces** replaces all your surfaces, imported or not, with the starter ones.
 
 More: [what the files hold and how they are protected](../artifacts/README.md).
