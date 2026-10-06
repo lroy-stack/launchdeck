@@ -6,7 +6,7 @@ LaunchDeck turns a Novation Launchpad into a programmable control surface for yo
 
 ## Install
 
-There is no installer for 0.3.0 yet; it is added when the release is validated. Until then, build it from source. You need Node ^20.19, ^22.13 or 24+, Rust 1.97.0 (pinned by `rust-toolchain.toml`) and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your system (on macOS, the Xcode Command Line Tools are enough).
+There is no installer to download for 0.3.0 yet; [Install](docs/getting-started/install.md) says what exists on each system, where LaunchDeck keeps its data and how to start over. Until then, [build it from source](docs/getting-started/build-from-source.md). You need Node ^20.19, ^22.13 or 24+, Rust 1.97.0 (pinned by `rust-toolchain.toml`) and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your system (on macOS, the Xcode Command Line Tools are enough).
 
 ```bash
 npm install
@@ -18,7 +18,7 @@ On macOS LaunchDeck keeps its data in `~/Library/Application Support/dev.launchd
 
 ## Try it in two minutes, without a Launchpad
 
-1. Start LaunchDeck. The first-run screen shows the simulator as your Launchpad and asks what the pads are for. Choose **Development** and press **Start with Development**.
+1. Start LaunchDeck. The first-run screen shows the simulator as your Launchpad and asks what the pads are for. Choose **Development** and press **Start with Development** ([first run](docs/getting-started/first-run.md)).
 2. Click the pads on screen. They take the same path a press on a physical Launchpad takes, and light up the same way.
 3. Switch the surface to **Edit**, select an empty pad and give it an action from the **Action Library**. Back in **Live**, press it.
 4. Open **Agents** and press **Run Agent Demo**. Four simulated agents start; when APPROVE flashes, press it.
@@ -37,13 +37,13 @@ On macOS LaunchDeck keeps its data in `~/Library/Application Support/dev.launchd
 | Plugins: sandboxed WebAssembly, examples installed from the Plugins screen, network access only where you allow it, secrets in the system credential store | Built and tested; the Keychain itself **NOT VERIFIED** (f) | [Plugins](docs/user/plugins.md), [Plugin SDK](docs/plugin-sdk/README.md) |
 | Home Assistant example plugin and the Home starter | Tested against a stand-in server only; a real Home Assistant **NOT VERIFIED** (c) | [Home Assistant](examples/plugins/home-assistant/README.md) |
 | Sharing: export a surface or a Pack to a file, import one with a preview of everything it would add | Built and tested | [Sharing surfaces](docs/user/sharing.md) |
-| First run, Settings in sections, About with every version | Built and tested | [Versions](docs/architecture/versions.md) |
+| First run, Settings in sections, About with every version | Built and tested | [First run](docs/getting-started/first-run.md), [Versions](docs/architecture/versions.md) |
 
 "Built and tested" means built and run in automated tests on macOS in this milestone, as recorded below. It does not mean a person has used it in the window yet.
 
 ## Verified where
 
-From the [macOS verification record](docs/verification/macos-2026-10-05.md) and what the packages of this milestone recorded as run. Letters give the reason, listed under the table.
+From the [verification records](docs/verification/README.md): the [macOS record](docs/verification/macos-2026-10-05.md) and what the packages of this milestone recorded as run. Letters give the reason, listed under the table.
 
 | | macOS 15.4.1, Apple M2 | Linux | Windows |
 | --- | --- | --- | --- |
@@ -57,7 +57,7 @@ From the [macOS verification record](docs/verification/macos-2026-10-05.md) and 
 | Home Assistant | Stand-in server only; a real one NOT VERIFIED (c) | Stand-in server only, earlier milestone | NOT VERIFIED (e) |
 | CI (`.github/workflows`) | NOT VERIFIED (a) | NOT VERIFIED (a) | NOT VERIFIED (a) |
 
-(a) GitHub Actions does not start: account billing. (b) No Novation Launchpad (X or Mini MK3) attached; the [hardware test](docs/contributing/hardware-testing.md) has never run on a unit. (c) No Home Assistant reachable. (d) No Linux desktop here. (e) No Windows machine. (f) The [checks a person does on the Mac](docs/history/next-phase-2026-10.md#4-check-by-hand-on-the-mac) (sections 4.1 to 4.6) have not been done, and no agent drove the app window.
+(a) GitHub Actions does not start: account billing. (b) No Novation Launchpad (X or Mini MK3) attached; the [hardware test](docs/contributing/hardware-testing.md) has never run on a unit. (c) No Home Assistant reachable. (d) No Linux desktop here. (e) No Windows machine. (f) The [checks a person does on the Mac](docs/contributing/manual-checks-macos.md) have not been done, and no agent drove the app window.
 
 ## Security in short
 
@@ -77,19 +77,23 @@ From the [macOS verification record](docs/verification/macos-2026-10-05.md) and 
 * **Auto Context matches applications only** (no window titles), and Wayland is not supported.
 * **Keys pressed for you** need Accessibility permission on macOS.
 
+The full list, with what to do about each: [known limitations](docs/user/known-limitations.md).
+
 ## Documentation
 
-* **Using LaunchDeck**: the user guides in [docs/user/](docs/user/), starting with [surfaces and the editor](docs/user/surfaces-and-editor.md).
+* **Start here**: [the documentation index](docs/README.md), [install](docs/getting-started/install.md) and [the first run](docs/getting-started/first-run.md).
+* **Using LaunchDeck**: the user guides in [docs/user/](docs/user/), starting with [surfaces and the editor](docs/user/surfaces-and-editor.md), and the [known limitations](docs/user/known-limitations.md).
 * **Writing plugins**: the [Plugin SDK](docs/plugin-sdk/README.md) and the [example plugins](examples/plugins/README.md).
 * **Connecting agents**: the [bridge protocol](docs/agent-control/bridge-protocol.md), the [adapter SDK](docs/agent-control/adapter-sdk.md) and the [example client](examples/generic-agent/README.md).
 * **Sharing files**: the [Surface and Pack format](docs/artifacts/README.md).
 * **How it is built**: the [architecture overview](docs/architecture/overview.md), the [codebase map](docs/architecture/CODEBASE_MAP.md), the [engineering rules](docs/architecture/ENGINEERING_RULES.md) and the [versions](docs/architecture/versions.md).
-* **What was run, and where**: the [verification records](docs/verification/) and the [changes in each release](CHANGELOG.md).
+* **What was run, and where**: the [verification records](docs/verification/README.md) and the [changes in each release](CHANGELOG.md).
+* **Contributing**: [build from source](docs/getting-started/build-from-source.md), [testing](docs/contributing/testing.md), [CI](docs/contributing/ci.md) and [releasing](docs/contributing/releasing.md).
 * **History**: the plans and records of earlier milestones in [docs/history/](docs/history/).
 
 ## Contributing
 
-Run `npm run check` before you send a change: types, lint, the architecture rules, versions and license, documentation links, the TypeScript tests, and the Rust format and lints. `npm run check:full` adds every Rust test and the build. [AGENTS.md](AGENTS.md) says where code goes.
+Run `npm run check` before you send a change: types, lint, the architecture rules, versions and license, documentation links, the TypeScript tests, and the Rust format and lints. `npm run check:full` adds every Rust test and the build. [Testing](docs/contributing/testing.md) says which test covers what; [AGENTS.md](AGENTS.md) and the [engineering rules](docs/architecture/ENGINEERING_RULES.md) say where code goes.
 
 ## License
 
