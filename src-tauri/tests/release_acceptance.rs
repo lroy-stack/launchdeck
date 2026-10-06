@@ -1,4 +1,4 @@
-//! The release acceptance scenario (PRODUCTIZATION_PLAN.md section 13),
+//! The release acceptance scenario (PRODUCTIZATION_PLAN.md section 11),
 //! headless, through the same `Runtime`, `PluginHost` and `ArtifactService`
 //! calls the Tauri commands make: a clean data folder; the first run
 //! (Development, Live, the onboarding flag); the virtual device; a pad from
