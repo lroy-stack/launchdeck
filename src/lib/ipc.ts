@@ -124,8 +124,39 @@ async function call<T>(cmd: string, schema: z.ZodType<T> | null, args?: InvokeAr
 /** The header `artifacts_inspect` reads the file's name from. */
 const FILE_NAME_HEADER = "x-launchdeck-file-name";
 
-const msg = (e: unknown): string => (typeof e === "string" ? e : e instanceof Error ? e.message : JSON.stringify(e));
-export const errorMessage = msg;
+/** A failure as a person reads it: Rust's sentence, and what it kept for Details. */
+export interface Problem {
+  message: string;
+  detail?: string;
+}
+
+const isCommandError = (e: unknown): e is Problem =>
+  typeof e === "object" &&
+  e !== null &&
+  typeof (e as Problem).message === "string" &&
+  ((e as Problem).detail === undefined || typeof (e as Problem).detail === "string");
+
+/**
+ * Any rejection as a `Problem`: a command's `{message, detail}`, a plain string (a Rust error not
+ * converted yet, or the browser preview), an `Error`, or anything else, which only says something
+ * went wrong and keeps the value as the detail.
+ */
+export function toProblem(e: unknown): Problem {
+  if (typeof e === "string") return { message: e };
+  if (e instanceof Error) return { message: e.message };
+  if (isCommandError(e)) return e.detail === undefined ? { message: e.message } : { message: e.message, detail: e.detail };
+  return { message: "Something went wrong.", detail: shown(e) };
+}
+
+function shown(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
+}
+
+export const errorMessage = (e: unknown): string => toProblem(e).message;
 
 /** Which track an Agent Control command is aimed at. */
 export type AgentTarget = { kind: "focus" } | { kind: "session"; id: string } | { kind: "agent"; id: string };

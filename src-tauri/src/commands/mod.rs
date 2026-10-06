@@ -8,8 +8,9 @@ pub(crate) mod app;
 pub(crate) mod artifacts;
 pub(crate) mod context;
 pub(crate) mod devices;
+mod error;
 pub(crate) mod feedback;
 pub(crate) mod plugins;
 pub(crate) mod workspace;
 
-pub(crate) type CmdResult<T> = Result<T, String>;
+pub(crate) use error::{about, CmdResult, CommandError};

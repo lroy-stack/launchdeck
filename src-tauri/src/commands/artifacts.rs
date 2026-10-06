@@ -8,7 +8,7 @@
 use tauri::ipc::{InvokeBody, Request};
 use tauri::{AppHandle, Manager, State};
 
-use super::CmdResult;
+use super::{CmdResult, CommandError};
 use crate::artifacts::{
     ApplyOutcome, ArtifactLimits, ExportPreview, ExportRequest, ExportSaved, ImportDecisions,
     InspectOutcome, PreviewOutcome, Rejection, RejectionCode,
@@ -41,13 +41,16 @@ pub(crate) async fn artifacts_export_save(
     })
     .await
     .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
+    .map_err(|e| CommandError::from(e.to_string()))
 }
 
 /// Show the folder of the last exported file.
 #[tauri::command]
 pub(crate) fn artifacts_show_export(state: State<'_, AppState>) -> CmdResult<()> {
-    state.artifacts.show_export().map_err(|e| e.to_string())
+    state
+        .artifacts
+        .show_export()
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 /// The file's bytes are the raw body; anything else is no file. Its name,
@@ -73,7 +76,7 @@ pub(crate) async fn artifacts_inspect(
         app.state::<AppState>().artifacts.inspect(&bytes, &name)
     })
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| CommandError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -88,7 +91,7 @@ pub(crate) async fn artifacts_preview(
             .preview(&plan_id, &decisions)
     })
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| CommandError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -104,7 +107,7 @@ pub(crate) async fn artifacts_apply(
             .apply(&plan_id, &decisions, &plan_digest)
     })
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| CommandError::from(e.to_string()))
 }
 
 #[tauri::command]

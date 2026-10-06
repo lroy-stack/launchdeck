@@ -76,7 +76,7 @@ impl AppInfo {
 fn data_folder(app: &AppHandle) -> CmdResult<PathBuf> {
     app.path()
         .app_data_dir()
-        .map_err(|e| format!("LaunchDeck could not find its data folder ({e})."))
+        .map_err(|e| format!("LaunchDeck could not find its data folder ({e}).").into())
 }
 
 /// Every version a tester needs, and where the data folder is.
@@ -90,8 +90,8 @@ pub(crate) fn app_info(app: AppHandle) -> CmdResult<AppInfo> {
 #[tauri::command]
 pub(crate) fn app_reveal_data_folder(app: AppHandle) -> CmdResult<()> {
     let folder = data_folder(&app)?;
-    open::that_detached(&folder)
-        .map_err(|e| format!("LaunchDeck could not open {} ({e}).", folder.display()))
+    Ok(open::that_detached(&folder)
+        .map_err(|e| format!("LaunchDeck could not open {} ({e}).", folder.display()))?)
 }
 
 #[cfg(test)]

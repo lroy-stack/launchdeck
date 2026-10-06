@@ -18,7 +18,7 @@ pub(crate) fn context_update(
     state: State<'_, AppState>,
     settings: ContextSettings,
 ) -> CmdResult<ContextStatus> {
-    state.runtime.update_context(settings)
+    Ok(state.runtime.update_context(settings)?)
 }
 
 /// Resume Auto: end a manual override.

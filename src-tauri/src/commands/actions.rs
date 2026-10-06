@@ -5,7 +5,7 @@
 use serde_json::Value;
 use tauri::State;
 
-use super::CmdResult;
+use super::{CmdResult, CommandError};
 use crate::actions::definition::{Assignment, Catalog, Issue};
 use crate::events::external::{parse_inbound, Parsed};
 use crate::state::catalog::ObservableCatalog;
@@ -18,7 +18,7 @@ use crate::AppState;
 #[tauri::command]
 pub(crate) async fn run_action(state: State<'_, AppState>, action: Assignment) -> CmdResult<Value> {
     let runtime = state.runtime.clone();
-    runtime.run_action(action).await
+    runtime.run_action(action).await.map_err(CommandError::from)
 }
 
 /// The Action Library's catalog: every provider and every action, with
@@ -47,6 +47,7 @@ pub(crate) fn observable_state(
     state
         .runtime
         .read_state(&provider, &id, &args.unwrap_or(Value::Null))
+        .map_err(CommandError::from)
 }
 
 #[derive(serde::Serialize)]

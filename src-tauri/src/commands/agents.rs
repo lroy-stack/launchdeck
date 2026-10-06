@@ -2,7 +2,7 @@
 
 use tauri::State;
 
-use super::CmdResult;
+use super::{CmdResult, CommandError};
 use crate::agents::adapters::HookSetup;
 use crate::agents::model::{AccessLevel, Command};
 use crate::agents::service::Target;
@@ -39,14 +39,14 @@ pub(crate) fn agents_command(
         .runtime
         .agents()
         .command(target.into(), command)
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 /// Select a slot on the Agent Control surface (`null` clears the selection).
 #[tauri::command]
 pub(crate) fn agents_focus(state: State<'_, AppState>, slot: Option<usize>) -> CmdResult<()> {
     match slot {
-        Some(slot) => state.runtime.agents().focus_slot(slot),
+        Some(slot) => Ok(state.runtime.agents().focus_slot(slot)?),
         None => {
             state.runtime.agents().clear_focus();
             Ok(())
@@ -61,7 +61,7 @@ pub(crate) fn agents_dismiss(
     session_id: Option<String>,
 ) -> CmdResult<usize> {
     match session_id {
-        Some(id) => state.runtime.agents().dismiss_session(&id).map(|()| 1),
+        Some(id) => Ok(state.runtime.agents().dismiss_session(&id).map(|()| 1)?),
         None => Ok(state.runtime.agents().dismiss_finished()),
     }
 }
@@ -72,13 +72,13 @@ pub(crate) fn agents_set_access(
     agent_id: String,
     access: AccessLevel,
 ) -> CmdResult<()> {
-    state.runtime.agents().set_access(&agent_id, access)
+    Ok(state.runtime.agents().set_access(&agent_id, access)?)
 }
 
 #[tauri::command]
 pub(crate) fn agents_demo(state: State<'_, AppState>, run: bool) -> CmdResult<()> {
     if run {
-        state.runtime.demo_adapter().run_demo()
+        Ok(state.runtime.demo_adapter().run_demo()?)
     } else {
         state.runtime.demo_adapter().reset_demo();
         Ok(())
@@ -90,7 +90,7 @@ pub(crate) async fn agents_update_settings(
     state: State<'_, AppState>,
     patch: SettingsPatch,
 ) -> CmdResult<()> {
-    state.runtime.update_agent_settings(patch).await
+    Ok(state.runtime.update_agent_settings(patch).await?)
 }
 
 /// Contains the hook token, so it is only returned when the user asks for it.
@@ -101,5 +101,6 @@ pub(crate) fn agents_hook_setup(state: State<'_, AppState>) -> HookSetup {
 
 #[tauri::command]
 pub(crate) async fn agents_rotate_hook_token(state: State<'_, AppState>) -> CmdResult<()> {
-    state.runtime.hooks().rotate_token().await.map(|_| ())
+    state.runtime.hooks().rotate_token().await?;
+    Ok(())
 }

@@ -7,7 +7,7 @@ use serde_json::Value;
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Manager, State};
 
-use super::CmdResult;
+use super::{CmdResult, CommandError};
 use crate::plugins::external::capabilities::Decision;
 use crate::plugins::external::{
     ExampleInfo, LegacyMigration, LogEntry, PluginInfo, PluginsOverview, ScanReport,
@@ -29,7 +29,7 @@ pub(crate) async fn plugins_set_enabled(
     tauri::async_runtime::spawn_blocking(move || host.set_enabled(&id, enabled))
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -43,7 +43,7 @@ pub(crate) async fn plugins_set_config(
     tauri::async_runtime::spawn_blocking(move || host.set_config(&id, &key, value))
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -55,7 +55,7 @@ pub(crate) async fn plugins_reload(
     tauri::async_runtime::spawn_blocking(move || host.reload(&id))
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -63,7 +63,7 @@ pub(crate) async fn plugins_rescan(state: State<'_, AppState>) -> CmdResult<Scan
     let host = state.runtime.plugin_host().clone();
     tauri::async_runtime::spawn_blocking(move || host.scan())
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -72,7 +72,7 @@ pub(crate) fn plugins_logs(state: State<'_, AppState>, id: String) -> CmdResult<
         .runtime
         .plugin_host()
         .logs(&id)
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 /// Grant (`"granted"`), deny (`"denied"`) or take back (`null`) one origin a
@@ -89,7 +89,7 @@ pub(crate) async fn plugins_set_permission(
     tauri::async_runtime::spawn_blocking(move || host.set_permission(&id, &origin, decision))
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 /// Store a secret. The value goes to the credential store and is never returned.
@@ -104,7 +104,7 @@ pub(crate) async fn plugins_set_secret(
     tauri::async_runtime::spawn_blocking(move || host.set_secret(&id, &key, &value))
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -117,7 +117,7 @@ pub(crate) async fn plugins_clear_secret(
     tauri::async_runtime::spawn_blocking(move || host.clear_secret(&id, &key))
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 /// Move the secrets an earlier version kept in plain text into the credential store.
@@ -129,7 +129,7 @@ pub(crate) async fn plugins_migrate_legacy_secrets(
     tauri::async_runtime::spawn_blocking(move || host.migrate_legacy_secrets())
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 /// Delete the plain secrets without moving them. Returns how many there were.
@@ -139,7 +139,7 @@ pub(crate) async fn plugins_discard_legacy_secrets(state: State<'_, AppState>) -
     tauri::async_runtime::spawn_blocking(move || host.discard_legacy_secrets())
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 /// Move one plugin's plain-text secrets into the credential store: each is
@@ -154,7 +154,7 @@ pub(crate) async fn plugins_migrate_plugin_legacy_secrets(
     tauri::async_runtime::spawn_blocking(move || host.migrate_plugin_legacy_secrets(&id))
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 /// Delete one plugin's plain-text secrets from `plugins.json` without moving them.
@@ -167,7 +167,7 @@ pub(crate) async fn plugins_remove_plugin_legacy_secrets(
     tauri::async_runtime::spawn_blocking(move || host.remove_plugin_legacy_secrets(&id))
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::from(e.to_string()))
 }
 
 /// Where the example plugins the app ships are: `examples/plugins` in its
@@ -209,7 +209,7 @@ pub(crate) async fn plugins_install_example(
     tauri::async_runtime::spawn_blocking(move || {
         host.install_example(&root, &id)
             .map(|()| host.overview())
-            .map_err(|e| e.to_string())
+            .map_err(|e| CommandError::from(e.to_string()))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -222,5 +222,6 @@ pub(crate) fn plugins_reveal_folder(state: State<'_, AppState>) -> CmdResult<()>
     let folder = host.install_folder().ok_or("there is no plugins folder")?;
     std::fs::create_dir_all(folder)
         .map_err(|e| format!("could not create {}: {e}", folder.display()))?;
-    open::that_detached(folder).map_err(|e| format!("could not open {}: {e}", folder.display()))
+    Ok(open::that_detached(folder)
+        .map_err(|e| format!("could not open {}: {e}", folder.display()))?)
 }

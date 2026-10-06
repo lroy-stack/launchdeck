@@ -3,7 +3,7 @@
 
 use tauri::State;
 
-use super::CmdResult;
+use super::{about, CmdResult};
 use crate::core::explain::ControlExplanation;
 use crate::core::model::Control;
 use crate::core::review::FeedbackReview;
@@ -21,6 +21,11 @@ pub(crate) fn explain_control(
     state
         .runtime
         .explain_control(&surface_id, &page_id, &control_id)
+        .map_err(about(&[
+            ("surface", &surface_id),
+            ("page", &page_id),
+            ("control", &control_id),
+        ]))
 }
 
 /// What a draft of a control's feedback comes to, without saving it: the
@@ -36,4 +41,9 @@ pub(crate) fn review_feedback(
     state
         .runtime
         .review_feedback(&surface_id, &page_id, &control)
+        .map_err(about(&[
+            ("surface", &surface_id),
+            ("page", &page_id),
+            ("control", &control.id),
+        ]))
 }

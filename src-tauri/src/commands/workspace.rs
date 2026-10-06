@@ -4,7 +4,7 @@
 
 use tauri::State;
 
-use super::CmdResult;
+use super::{about, CmdResult, CommandError};
 use crate::core::model::{Control, ControlPos, Preferences};
 use crate::core::runtime::{Mode, Snapshot};
 use crate::devices::SurfaceFrame;
@@ -34,11 +34,18 @@ pub(crate) fn activate_surface(
     state
         .runtime
         .activate_surface(&surface_id, page_id.as_deref())
+        .map_err(about(&[
+            ("surface", &surface_id),
+            ("page", page_id.as_deref().unwrap_or("")),
+        ]))
 }
 
 #[tauri::command]
 pub(crate) fn activate_page(state: State<'_, AppState>, page_id: String) -> CmdResult<()> {
-    state.runtime.activate_page(&page_id)
+    state
+        .runtime
+        .activate_page(&page_id)
+        .map_err(about(&[("page", &page_id)]))
 }
 
 /// Press or release a pad on the virtual Launchpad X. This goes through the
@@ -55,7 +62,7 @@ pub(crate) fn virtual_input(
     } else {
         handle.release(pos)
     };
-    result.map_err(|e| e.to_string())
+    result.map_err(|e| CommandError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -65,7 +72,15 @@ pub(crate) fn update_control(
     page_id: String,
     control: Control,
 ) -> CmdResult<()> {
-    state.runtime.update_control(&surface_id, &page_id, control)
+    let control_id = control.id.clone();
+    state
+        .runtime
+        .update_control(&surface_id, &page_id, control)
+        .map_err(about(&[
+            ("surface", &surface_id),
+            ("page", &page_id),
+            ("control", &control_id),
+        ]))
 }
 
 #[tauri::command]
@@ -78,11 +93,19 @@ pub(crate) fn remove_control(
     state
         .runtime
         .remove_control(&surface_id, &page_id, &control_id)
+        .map_err(about(&[
+            ("surface", &surface_id),
+            ("page", &page_id),
+            ("control", &control_id),
+        ]))
 }
 
 #[tauri::command]
 pub(crate) fn create_surface(state: State<'_, AppState>, name: String) -> CmdResult<String> {
-    state.runtime.create_surface(&name)
+    state
+        .runtime
+        .create_surface(&name)
+        .map_err(CommandError::from)
 }
 
 #[tauri::command]
@@ -91,14 +114,20 @@ pub(crate) fn add_page(
     surface_id: String,
     name: String,
 ) -> CmdResult<String> {
-    state.runtime.add_page(&surface_id, &name)
+    state
+        .runtime
+        .add_page(&surface_id, &name)
+        .map_err(about(&[("surface", &surface_id)]))
 }
 
 /// The commands that rename or delete return nothing: the UI follows the
 /// workspace event.
 #[tauri::command]
 pub(crate) fn remove_surface(state: State<'_, AppState>, surface_id: String) -> CmdResult<()> {
-    state.runtime.remove_surface(&surface_id)
+    state
+        .runtime
+        .remove_surface(&surface_id)
+        .map_err(about(&[("surface", &surface_id)]))
 }
 
 #[tauri::command]
@@ -112,6 +141,7 @@ pub(crate) fn update_surface(
     state
         .runtime
         .update_surface(&surface_id, &name, &description, icon)
+        .map_err(about(&[("surface", &surface_id)]))
 }
 
 #[tauri::command]
@@ -121,7 +151,10 @@ pub(crate) fn rename_page(
     page_id: String,
     name: String,
 ) -> CmdResult<()> {
-    state.runtime.rename_page(&surface_id, &page_id, &name)
+    state
+        .runtime
+        .rename_page(&surface_id, &page_id, &name)
+        .map_err(about(&[("surface", &surface_id), ("page", &page_id)]))
 }
 
 #[tauri::command]
@@ -130,13 +163,19 @@ pub(crate) fn remove_page(
     surface_id: String,
     page_id: String,
 ) -> CmdResult<()> {
-    state.runtime.remove_page(&surface_id, &page_id)
+    state
+        .runtime
+        .remove_page(&surface_id, &page_id)
+        .map_err(about(&[("surface", &surface_id), ("page", &page_id)]))
 }
 
 /// Only the onboarding preference changes; the UI follows the workspace event.
 #[tauri::command]
 pub(crate) fn set_onboarding_done(state: State<'_, AppState>, done: bool) -> CmdResult<()> {
-    state.runtime.set_onboarding_done(done)
+    state
+        .runtime
+        .set_onboarding_done(done)
+        .map_err(CommandError::from)
 }
 
 #[tauri::command]
