@@ -160,12 +160,12 @@ fn word(w: &str) -> String {
     out
 }
 
-/// The one escaping of every review text (SF-3): each [`hidden`] character
-/// is written as an escape (`\r`, `\u001b`, `\u202e`), so nothing in a text
-/// hides or reorders what a person reads. A multi-line text keeps its line
-/// breaks and tabs, with long runs of blank lines [`counted`]; a one-line
-/// text escapes them too.
-fn visible(text: &str, multi_line: bool) -> String {
+/// The one escaping of every review text (SF-3), and of the names an
+/// import plan shows: each [`hidden`] character is written as an escape
+/// (`\r`, `\u001b`, `\u202e`), so nothing in a text hides or reorders what
+/// a person reads. A multi-line text keeps its line breaks and tabs, with
+/// long runs of blank lines [`counted`]; a one-line text escapes them too.
+pub(in crate::artifacts) fn visible(text: &str, multi_line: bool) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
         push_visible(&mut out, c, multi_line);

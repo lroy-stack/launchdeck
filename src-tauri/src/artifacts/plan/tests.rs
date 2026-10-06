@@ -15,8 +15,8 @@ use crate::actions::definition::{Assignment, Issue, ProviderKind, ProviderStatus
 use crate::actions::params::{ParamDef, RefTarget};
 use crate::artifacts::env::{Environment, KnownAction, KnownDevice, KnownProvider, PlanHost};
 use crate::artifacts::format::{
-    compute_requirements, AnimationV1, AppRefV1, ArtifactKind, ArtifactV1, AssignmentV1, Color,
-    ContentV1, ContextRuleV1, ControlV1, CreatedWith, DependencyV1, InputDef, InputOption,
+    compute_requirements, AnimationV1, AppRefV1, ArtifactKind, ArtifactV1, AssignmentV1, Author,
+    Color, ContentV1, ContextRuleV1, ControlV1, CreatedWith, DependencyV1, InputDef, InputOption,
     InputRef, InputType, InputValue, Integrity, ManifestV1, PageV1, Pos, RejectionCode, SurfaceV1,
     VisualV1,
 };
@@ -573,6 +573,86 @@ fn a_name_used_here_is_kept_and_pointed_out() {
 }
 
 // Conflict C: the same file imported before.
+
+/// The names a person reads in the plan are escaped as review text is: a
+/// character they cannot see (here a zero-width space and a right-to-left
+/// mark, which the format allows in a name) shows as an escape in the
+/// file's name, description and author, a surface's name, a control's
+/// label, a rule's application, a dependency's name and a question.
+/// Right-to-left letters stay as they are, and what is imported is the
+/// file's own text.
+#[test]
+fn the_names_a_person_reads_are_escaped_and_what_is_imported_is_not() {
+    const HIDING: &str = "Mi\u{200B}x\u{200F}er";
+    const SHOWN: &str = "Mi\\u200bx\\u200fer";
+    const HEBREW: &str = "\u{5E9}\u{5DC}\u{5D5}\u{5DD}";
+    let question = |id: &str, kind: InputType| InputDef {
+        id: id.into(),
+        kind,
+        label: HIDING.into(),
+        description: format!("{HIDING}\n{HEBREW}"),
+        required: false,
+        default: None,
+        options: Vec::new(),
+        max_length: None,
+    };
+    let choice = InputDef {
+        options: vec![InputOption {
+            value: "a".into(),
+            label: HIDING.into(),
+        }],
+        ..question("choice", InputType::Enum)
+    };
+    let file = pack_of(
+        ManifestV1 {
+            name: HIDING.into(),
+            description: format!("{HIDING}\n{HEBREW}"),
+            author: Some(Author {
+                name: HIDING.into(),
+                url: None,
+            }),
+            dependencies: vec![DependencyV1 {
+                plugin_id: "acme.ghost".into(),
+                name: Some(HIDING.into()),
+                version: "^1".into(),
+                required: true,
+            }],
+            inputs: vec![question("who", InputType::String), choice],
+            ..manifest("1.0.0")
+        },
+        vec![
+            surface(
+                "desk",
+                HIDING,
+                vec![pad(0, HIDING, Some(a("acme.ghost", "toggle", json!({}))))],
+            ),
+            surface("rtl", HEBREW, vec![pad(0, HEBREW, None)]),
+        ],
+        vec![to(app(HIDING, &[(X11, "code")]), "desk")],
+    );
+    let p = plan_of(&file, &workspace(vec![]), &ImportDecisions::default());
+    assert_eq!(p.artifact.name, SHOWN);
+    assert_eq!(p.artifact.description, format!("{SHOWN}\n{HEBREW}"));
+    assert_eq!(p.artifact.author.as_ref().unwrap().name, SHOWN);
+    assert_eq!(p.surfaces[0].name, SHOWN);
+    assert_eq!(p.surfaces[1].name, HEBREW);
+    assert_eq!(p.dependencies[0].name, SHOWN);
+    assert_eq!(p.dependencies[0].used_by[0].label, SHOWN);
+    assert_eq!(p.context_rules[0].application_name, SHOWN);
+    assert_eq!(p.inputs[0].def.label, SHOWN);
+    assert_eq!(p.inputs[0].def.description, format!("{SHOWN}\n{HEBREW}"));
+    assert_eq!(p.inputs[1].def.options[0].label, SHOWN);
+    assert_eq!(p.inputs[1].def.options[0].value, "a");
+    // What apply writes is the file's text.
+    assert_eq!(p.effects.add_surfaces[0].name, HIDING);
+    assert_eq!(file.content.surfaces[0].pages[0].controls[0].label, HIDING);
+
+    // A surface imported before is named as it is here, escaped too.
+    let mut earlier = imported(&file, "desk", "desk", 1);
+    earlier.name = HIDING.into();
+    let again = plan_of(&file, &workspace(vec![earlier]), &as_new());
+    assert_eq!(again.existing[0].surfaces[0].name, SHOWN);
+}
 
 #[test]
 fn an_earlier_import_must_be_resolved_and_is_described() {

@@ -23,6 +23,7 @@ use crate::artifacts::format::{
 };
 use crate::artifacts::inspect::ParsedArtifact;
 use crate::artifacts::json::segment;
+use crate::artifacts::review::visible;
 use crate::core::model::ControlPos;
 use crate::devices::DeviceCapabilities;
 use crate::plugins::external::manifest::Version;
@@ -88,7 +89,7 @@ pub(super) fn dependencies(
             }
             DependencyCheck {
                 plugin_id: dep.plugin_id.clone(),
-                name,
+                name: visible(&name, false),
                 requirement: dep.version.clone(),
                 required: dep.required,
                 status,
@@ -152,7 +153,7 @@ fn used_by(controls: &[Placed<'_>], provider: &str) -> Vec<UsedBy> {
             surface_source_id: p.surface.id.clone(),
             page_id: p.page_id.to_string(),
             control_id: p.control.id.clone(),
-            label: p.control.label.clone(),
+            label: visible(&p.control.label, false),
         })
         .collect()
 }

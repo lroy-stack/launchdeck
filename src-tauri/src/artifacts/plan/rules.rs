@@ -8,6 +8,7 @@ use super::inputs::Answers;
 use super::types::{AddedRule, PlannedRule, RuleOutcome};
 use crate::artifacts::format::{AppRefV1, InputDef, InputValue};
 use crate::artifacts::inspect::ParsedArtifact;
+use crate::artifacts::review::visible;
 use crate::context::identity::ApplicationIdentity;
 use crate::context::portable::Resolved;
 use crate::context::rules::{checked, ContextRule, ContextSettings, MAX_RULES};
@@ -110,7 +111,7 @@ pub(super) fn plan_rules(
         };
         rules.push(PlannedRule {
             index,
-            application_name,
+            application_name: visible(&application_name, false),
             application: candidate.map(|r| r.application).or(identity),
             surface_local_id,
             page_id: rule.page.clone(),

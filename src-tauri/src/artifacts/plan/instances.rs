@@ -11,6 +11,7 @@ use crate::artifacts::env::Environment;
 use crate::artifacts::format::{numbered_surface_id, SurfaceV1};
 use crate::artifacts::inspect::{ParsedArtifact, KNOWN_CATEGORIES};
 use crate::artifacts::json::{content_digest, to_canonical};
+use crate::artifacts::review::visible;
 use crate::core::model::{ImportOrigin, Surface, Workspace};
 use crate::state::feedback::When;
 
@@ -82,7 +83,7 @@ pub(super) fn existing(parsed: &ParsedArtifact, workspace: &Workspace) -> Vec<Ex
                     .iter()
                     .map(|(s, o)| ExistingSurface {
                         local_id: s.id.clone(),
-                        name: s.name.clone(),
+                        name: visible(&s.name, false),
                         source_id: o.source_surface_id.clone(),
                         locally_edited: locally_edited(s, o),
                     })
@@ -263,7 +264,7 @@ pub(super) fn planned_surfaces(
             PlannedSurface {
                 source_id: s.id.clone(),
                 local_id: m.local_id.clone(),
-                name: s.name.clone(),
+                name: visible(&s.name, false),
                 category: imported_category(&s.category).to_string(),
                 pages: s.pages.len(),
                 controls: s.pages.iter().map(|p| p.controls.len()).sum(),

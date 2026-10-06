@@ -359,6 +359,8 @@ One import is pending at a time. Inspecting another file replaces it, also when 
 | `blockers`, `ready` | What stops the import; `ready` when nothing does. |
 | `effects` | Exactly what applying writes, and the only part the digest covers: the instance, the surfaces added (`sourceId`, `localId`, `name`), the surfaces replaced, the rules added, the slots emptied, the valid answers. |
 
+The texts a person reads in the plan are display-safe: the file's name, description, author and license, each surface's name (and the names of earlier imports), the labels of the controls that use a plugin, each rule's application name, each dependency's name, and each input's label, description and option labels have every character a person cannot see written as an escape, as review text has (right-to-left letters stay as they are). `effects` and what applying writes keep the file's own text.
+
 ### Decisions
 
 ```json
