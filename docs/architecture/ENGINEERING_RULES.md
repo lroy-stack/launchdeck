@@ -44,7 +44,7 @@ The first sentence of each rule is its text in `PRODUCTIZATION_PLAN.md` section 
 
 **R16.** No dumping grounds (`utils`, `helpers`, `common`, `misc`). A helper belongs to the module that owns its concept; a generic bucket hides ownership and attracts unrelated code. *Checked*: a new file or directory with one of these names fails.
 
-**R17.** No parallel systems: search before adding; one Pack concept, one version-requirement implementation (`semver`), one identifier rule per vocabulary. Before writing a type, a parser or a helper, search for an existing one (`rg`) and extend it. Two implementations of one idea disagree sooner or later: today two hand-written version parsers do, and C1 replaces them. *Review*.
+**R17.** No parallel systems: search before adding; one Pack concept, one version-requirement implementation (`semver`), one identifier rule per vocabulary. Before writing a type, a parser or a helper, search for an existing one (`rg`) and extend it. Two implementations of one idea disagree sooner or later. Version requirements use `semver` (C1 removed the Agent Pack's parser); the plugin manifest still reads its own `Version` grammar (it accepts leading zeros) and converts it with `Version::to_semver` to compare. *Review*.
 
 **R18.** Structural and product changes in separate commits; characterization green before and after; a refactor never edits fixtures. A pure move is easy to review because nothing may change; mixed with a behaviour change it cannot be reviewed as a move. A fixture diff in a refactor commit means the refactor changed behaviour. *Review*.
 

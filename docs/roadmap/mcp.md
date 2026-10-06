@@ -1,6 +1,6 @@
 # MCP (roadmap)
 
-**Not built.** LaunchDeck does not implement the Model Context Protocol. This page keeps the platform-level ideas. The part that concerns agents has its own document, with the current design, its limits and the research behind it: [agent-control/mcp.md](mcp-bridge.md).
+**Not built.** LaunchDeck does not implement the Model Context Protocol. This page keeps the platform-level ideas. The part that concerns agents has its own document, with the current design, its limits and the research behind it: [the MCP bridge](mcp-bridge.md).
 
 ## Where MCP would sit
 
@@ -12,7 +12,7 @@ MCP client (agent)  <--stdio-->  launchdeck-mcp  <--Agent Bridge, 127.0.0.1-->  
 
 ## Agent status and approval
 
-Covered in [agent-control/mcp.md](mcp-bridge.md): three tools (`report_status`, `request_approval`, `end_session`), identity fixed by configuration, monitor-first, bounded waits that end in "no decision", and the plain statement that a tool the model chooses to call is cooperation, not enforcement.
+Covered in [the MCP bridge](mcp-bridge.md): three tools (`report_status`, `request_approval`, `end_session`), identity fixed by configuration, monitor-first, bounded waits that end in "no decision", and the plain statement that a tool the model chooses to call is cooperation, not enforcement.
 
 The earlier idea of normalising agent status to `task.*` events is gone. Agent Control publishes its own semantic events with `source: "agent-control"`, and the generic `event` protocol cannot use that source.
 

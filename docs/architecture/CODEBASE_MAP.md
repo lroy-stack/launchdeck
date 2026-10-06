@@ -143,13 +143,13 @@ The contract fixtures today. Each `dump_*` fixture is written from the real runt
 
 | Fixture (`examples/`) | Generator | Rust guard | TypeScript tests |
 | --- | --- | --- | --- |
-| `default-workspace.json` | `dump_workspace` (`surfaces::default_workspace_for(Platform::Linux)`) | `surfaces::tests::contract_fixture_matches_the_default_workspace` in `surfaces/tests.rs` (exact equality) | `src/lib/schema.test.ts`, `src/lib/actions.test.ts`, `src/lib/feedback.test.ts`, `src/stores/runtime.test.ts` |
+| `default-workspace.json` | `dump_workspace` (`surfaces::default_workspace_for(Platform::Linux)`) | `surfaces::tests::contract_fixture_matches_the_default_workspace` in `surfaces/tests.rs` (exact equality) | `src/lib/schema.test.ts`, `src/lib/actions.test.ts`, `src/stores/runtime.test.ts` |
 | `agents-snapshot.json` | `dump_agents` (`tests/support/agents_scenario.rs`) | `tests/agents_contract.rs` | `src/lib/agents.test.ts` |
 | `plugins-overview.json` | `dump_plugins` (`tests/support/plugins_scenario.rs`) | `tests/plugins_contract.rs` | `src/lib/plugins.test.ts`, `src/features/plugins/access.test.tsx` |
 | `plugin-examples.json` | `dump_plugin_examples` (`tests/support/plugin_examples_scenario.rs`: the examples `bundle.resources` ships, Counter installed) | `tests/plugins_contract.rs` | `src/lib/plugins.test.ts` |
 | `action-catalog.json` | `dump_catalog` (`tests/support/catalog_scenario.rs`) | `tests/catalog_contract.rs` | `src/lib/actions.test.ts` |
 | `param-cases.json` | `dump_param_cases` (`tests/support/param_cases_scenario.rs`: arguments `actions::params::normalize` accepts and refuses, for every parameter kind, the bounds, `maxLength`, required and default values, unknown keys, the 16384-character and 128-byte limits, what counts as blank; each with the stored arguments or every issue's parameter, kind and message) | `tests/catalog_contract.rs` (exact equality) | `src/lib/actions.test.ts` replays every row through the `normalizeArgs` mirror (R9) |
-| `observables.json` | `dump_observables` (`tests/support/observables_scenario.rs`) | `tests/observables_contract.rs` | `src/lib/schema.test.ts`, `src/lib/observables.test.ts`, `src/lib/feedback.test.ts`, `src/lib/feedbackEdit.test.ts`, and through `src/features/feedback/testkit.tsx` the feedback feature tests |
+| `observables.json` | `dump_observables` (`tests/support/observables_scenario.rs`) | `tests/observables_contract.rs` | `src/lib/schema.test.ts`, `src/lib/observables.test.ts`, `src/lib/feedbackEdit.test.ts`, and through `src/features/feedback/testkit.tsx` the feedback feature tests |
 | `context-status.json` | `dump_context` (`tests/support/context_scenario.rs`) | `tests/context_contract.rs` | `src/features/context/context.test.tsx` |
 | `artifacts/development.ldpack`, `artifacts/export-preview.json`, `artifacts/import-plan.json`, `artifacts/import-plan-missing.json`, `artifacts/inspect-rejected.json` | `dump_artifacts` (`tests/support/artifacts_scenario.rs`: the artifact service on the real runtime, the starter workspace as on Linux, X11 identities, app version 9.9.9, a fixed plan id; the example writes the files itself) | `tests/artifacts_contract.rs` (exact equality, and no other file in the folder) | none yet: C6 adds the Zod schemas and the Vitest test that parse them |
 | `app-info.json` | `dump_app_info` (`tests/support/app_info_scenario.rs`: `AppInfo` with a placeholder data folder; `os` and `arch` of the machine that wrote it) | `tests/app_info_contract.rs` | `src/features/settings/settings.test.tsx` |
@@ -162,5 +162,4 @@ The contract fixtures today. Each `dump_*` fixture is written from the real runt
 
 | Exception | Where | Fix |
 | --- | --- | --- |
-| `editor` ↔ `feedback` import cycle; shared widgets inside features; the sidebar importing a feature | `src/features/{editor, feedback, surfaces, agents, devices}`, `src/components/Sidebar.tsx` | A4; details in [FRONTEND_MAP.md](FRONTEND_MAP.md) |
 | Migration step files read feature constants | `persistence::bindings` (`agents`, `plugins::demo`), `persistence::migrate` (`surfaces::add_agent_control`) | permanent and allowed: a step must know the shapes it converts |
