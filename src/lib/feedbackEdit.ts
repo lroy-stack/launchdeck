@@ -6,7 +6,7 @@
 // allows, and says what is still missing from a rule before it can be saved.
 // It never evaluates a rule and never decides a look.
 
-import { fold, normalizeArgs, tokensOf, withinOneEdit, type Args } from "./actions";
+import { fold, isMissingIssue, normalizeArgs, tokensOf, withinOneEdit, type Args } from "./actions";
 import { findObservable, readInstance } from "./observables";
 import type {
   ActionDefinition,
@@ -557,7 +557,7 @@ export function problemsOf(feedback: FeedbackRule[], catalog: ObservableCatalog)
       const test = rule.when.is;
       if ("value" in test && (test.value === "" || (typeof test.value === "number" && !Number.isFinite(test.value)))) out.push({ rule: i, field: "value", message: "Choose a value.", needed: true });
       if (entry) {
-        for (const issue of scopeOf(entry, rule.when.state.args ?? {}).issues) out.push({ rule: i, field: "args", param: issue.param, message: issue.message, needed: issue.message.endsWith(" is required") });
+        for (const issue of scopeOf(entry, rule.when.state.args ?? {}).issues) out.push({ rule: i, field: "args", param: issue.param, message: issue.message, needed: isMissingIssue(issue) });
       }
     } else {
       if (typeof rule.hold === "object" && !Number.isFinite(rule.hold.ms)) out.push({ rule: i, field: "hold", message: "Enter how many seconds.", needed: true });

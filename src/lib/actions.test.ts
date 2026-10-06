@@ -8,6 +8,7 @@ import {
   describeArgs,
   groupByCategory,
   indexCatalog,
+  isMissingIssue,
   isPrivileged,
   normalizeArgs,
   resolveAssignment,
@@ -236,6 +237,21 @@ describe("settings", () => {
     const http = def("http.request").params;
     expect(normalizeArgs(http, { url: "https://a.b", method: "TRACE" }).issues[0]?.message).toMatch(/listed choices/);
     expect(normalizeArgs(http, { url: "https://a.b", extra: 1 }).issues[0]).toMatchObject({ param: "extra" });
+  });
+
+  it("says by kind, as Rust does, whether a setting is still to fill in or wrong", () => {
+    const http = def("http.request").params;
+    expect(normalizeArgs(http, {}).issues).toEqual([{ param: "url", message: "URL is required", kind: "missing" }]);
+    expect(normalizeArgs(http, { url: "https://a.b", method: "TRACE" }).issues.map((i) => i.kind)).toEqual(["invalid"]);
+    expect(normalizeArgs(http, { url: "https://a.b", extra: 1 }).issues.map((i) => i.kind)).toEqual(["invalid"]);
+    expect(normalizeArgs(http, {}).issues.every(isMissingIssue)).toBe(true);
+  });
+
+  it("reads the kind, and the wording only for an issue that has no kind", () => {
+    expect(isMissingIssue({ param: "x", message: "X must be text", kind: "missing" })).toBe(true);
+    expect(isMissingIssue({ param: "x", message: "X is required", kind: "invalid" })).toBe(false);
+    expect(isMissingIssue({ param: "x", message: "X is required" })).toBe(true);
+    expect(isMissingIssue({ param: "x", message: "X must be text" })).toBe(false);
   });
 
   it("checks text length", () => {

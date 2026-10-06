@@ -21,6 +21,18 @@ pub struct Issue {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub param: Option<String>,
     pub message: String,
+    pub kind: IssueKind,
+}
+
+/// Whether a value is still to be given or is wrong as given. A form shows
+/// the first as "needed" and the second as a mistake, whatever the wording.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum IssueKind {
+    /// A required value that is absent or empty.
+    Missing,
+    /// Anything else.
+    Invalid,
 }
 
 impl Issue {
@@ -28,6 +40,7 @@ impl Issue {
         Self {
             param: None,
             message: message.into(),
+            kind: IssueKind::Invalid,
         }
     }
 
@@ -35,6 +48,15 @@ impl Issue {
         Self {
             param: Some(param.to_string()),
             message: message.into(),
+            kind: IssueKind::Invalid,
+        }
+    }
+
+    /// A required value of `param` that is absent or empty.
+    pub fn missing(param: &str, message: impl Into<String>) -> Self {
+        Self {
+            kind: IssueKind::Missing,
+            ..Self::param(param, message)
         }
     }
 }

@@ -346,6 +346,11 @@ describe("what is still missing, and who says so", () => {
     expect(problemsOf([r], catalog)).toEqual([{ rule: 0, field: "args", param: "slot", message: "Track is required", needed: true }]);
   });
 
+  it("marks a scope given a wrong value as wrong, not needed", () => {
+    const r = { ...newStateRule({ provider: "agent-control", id: "slot.status", args: { slot: 9 } }, { op: "hasValue" }), show: "x" };
+    expect(problemsOf([r], catalog).map((p) => [p.field, p.param, p.needed])).toEqual([["args", "slot", false]]);
+  });
+
   it("marks an event condition left empty", () => {
     const e = withCondition({ ...newEventRule("example.channels", "channel.changed"), show: "x" }, "channel", "");
     expect(problemsOf([e], catalog).map((p) => p.field)).toEqual(["where"]);

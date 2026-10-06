@@ -260,7 +260,7 @@ const isBlank = (p: ParamDef, v: unknown): boolean => {
   return typeof v === "string" && (p.type === "string" || p.type === "reference") && v.trim() === "";
 };
 
-const bad = (p: ParamDef, message: string): Issue => ({ param: p.name, message });
+const bad = (p: ParamDef, message: string): Issue => ({ param: p.name, message, kind: "invalid" });
 
 function checkValue(p: ParamDef, v: unknown): Issue | null {
   switch (p.type) {
@@ -301,7 +301,7 @@ export interface Normalized {
 export function normalizeArgs(params: ParamDef[], args: Args): Normalized {
   const issues: Issue[] = [];
   for (const key of Object.keys(args)) {
-    if (!params.some((p) => p.name === key)) issues.push({ param: key, message: `\`${key}\` is not a setting of this action` });
+    if (!params.some((p) => p.name === key)) issues.push({ param: key, message: `\`${key}\` is not a setting of this action`, kind: "invalid" });
   }
   const out: Args = {};
   for (const p of params) {
@@ -309,7 +309,7 @@ export function normalizeArgs(params: ParamDef[], args: Args): Normalized {
     let value: unknown;
     if (isBlank(p, given)) {
       if (p.default !== undefined && p.default !== null) value = p.default;
-      else if (p.required) issues.push(bad(p, `${p.label} is required`));
+      else if (p.required) issues.push({ param: p.name, message: `${p.label} is required`, kind: "missing" });
     } else {
       value = given;
     }
@@ -321,8 +321,11 @@ export function normalizeArgs(params: ParamDef[], args: Args): Normalized {
   return { args: out, issues };
 }
 
-/** The "<label> is required" message, which Rust and the mirror above both word that way. */
-export const isMissingIssue = (i: Issue): boolean => i.message.endsWith(" is required");
+/**
+ * A setting still to fill in, as Rust's `IssueKind::Missing` says. The wording check is only for an
+ * issue without a kind, which a build older than 0.3 sent: remove it after 0.3.
+ */
+export const isMissingIssue = (i: Issue): boolean => (i.kind === undefined ? i.message.endsWith(" is required") : i.kind === "missing");
 
 /** Issues keyed by setting; the ones that belong to no setting go under `""`. */
 export function issuesByParam(issues: Issue[]): Map<string, string[]> {

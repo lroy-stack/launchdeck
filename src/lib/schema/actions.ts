@@ -96,7 +96,12 @@ export const catalogSchema = z.object({
 export type Catalog = z.infer<typeof catalogSchema>;
 export const emptyCatalog: Catalog = { providers: [], actions: [], issues: [] };
 
-export const issueSchema = z.object({ param: z.string().optional(), message: z.string() });
+/** `missing`: a required value that is absent or empty; `invalid`: anything else (Rust's `IssueKind`). */
+export const issueKindSchema = z.enum(["missing", "invalid"]);
+export type IssueKind = z.infer<typeof issueKindSchema>;
+
+/** `kind` is optional only for issues from a build older than 0.3, which did not send it. */
+export const issueSchema = z.object({ param: z.string().optional(), message: z.string(), kind: issueKindSchema.optional() });
 export type Issue = z.infer<typeof issueSchema>;
 
 export const validationSchema = z.object({

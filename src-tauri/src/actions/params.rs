@@ -471,7 +471,7 @@ pub fn normalize(defs: &[ParamDef], args: &Value) -> Result<Value, Vec<Issue>> {
             match &d.default {
                 Some(default) => Some(default.clone()),
                 None if d.required => {
-                    issues.push(Issue::param(&d.name, format!("{} is required", d.label)));
+                    issues.push(Issue::missing(&d.name, format!("{} is required", d.label)));
                     None
                 }
                 None => None,
@@ -498,6 +498,7 @@ pub fn normalize(defs: &[ParamDef], args: &Value) -> Result<Value, Vec<Issue>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::actions::definition::IssueKind;
     use serde_json::json;
 
     /// Every default-ignorable code point of Unicode is hidden, and nothing
@@ -566,7 +567,33 @@ mod tests {
             assert_eq!(issues.len(), 1, "{args}");
             assert_eq!(issues[0].param.as_deref(), Some("url"));
             assert_eq!(issues[0].message, "Link is required");
+            assert_eq!(issues[0].kind, IssueKind::Missing);
         }
+    }
+
+    /// A form tells "still to fill in" from "wrong" by the kind, never by
+    /// the wording, which may change.
+    #[test]
+    fn a_missing_value_and_a_wrong_one_are_told_apart_by_kind() {
+        let issues = normalize(&defs(), &json!({ "slot": 9, "extra": 1 })).unwrap_err();
+        let kinds: Vec<_> = issues
+            .iter()
+            .map(|i| (i.param.as_deref().unwrap(), i.kind))
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                ("extra", IssueKind::Invalid),
+                ("url", IssueKind::Missing),
+                ("slot", IssueKind::Invalid),
+            ]
+        );
+        let wire = serde_json::to_value(&issues[1]).unwrap();
+        assert_eq!(
+            wire,
+            json!({ "param": "url", "message": "Link is required", "kind": "missing" })
+        );
+        assert_eq!(serde_json::to_value(&issues[0]).unwrap()["kind"], "invalid");
     }
 
     #[test]
