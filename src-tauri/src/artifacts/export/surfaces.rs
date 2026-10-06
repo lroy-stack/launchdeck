@@ -249,7 +249,8 @@ fn refuse_credentials(exported: &AssignmentV1, place: &Place<'_>, found: &mut Co
 }
 
 /// Every text argument is a parameter the importer could be asked for; one
-/// that looks like a path on this computer is also suggested as one. An
+/// that looks like a path on this computer is also suggested as one, and
+/// one that names a home folder inside a longer text is pointed out. An
 /// argument naming an exported surface is neither: the import renames it.
 /// A bound argument is listed as asked of the importer, without a value.
 fn offer_arguments(exported: &AssignmentV1, place: &Place<'_>, found: &mut Collected) {
@@ -291,8 +292,38 @@ fn offer_arguments(exported: &AssignmentV1, place: &Place<'_>, found: &mut Colle
                 value: text.clone(),
                 suggested_type: SuggestedType::Path,
             });
+        } else if names_home_folder(text) {
+            found.warn(
+                ExportCode::LocalPath,
+                format!(
+                    "The pad \"{}\" names a folder in a home folder in \"{arg}\", \
+                     which shows a user name. Check it before sharing.",
+                    place.label
+                ),
+                Some(format!("{}/args/{}", place.pointer, segment(arg))),
+            );
         }
     }
+}
+
+/// A folder in a home folder anywhere in a text, which holds a user name:
+/// `/Users/<name>/`, `/home/<name>/` or `<letter>:\Users\<name>\`.
+fn names_home_folder(text: &str) -> bool {
+    let user_then = |rest: &str, separator: char| {
+        rest.split_once(separator)
+            .is_some_and(|(user, _)| !user.is_empty() && !user.contains(char::is_whitespace))
+    };
+    let unix = ["/Users/", "/home/"].iter().any(|root| {
+        text.match_indices(root)
+            .any(|(i, _)| user_then(&text[i + root.len()..], '/'))
+    });
+    const WINDOWS: &str = ":\\users\\";
+    let lower = text.to_ascii_lowercase();
+    let windows = lower.match_indices(WINDOWS).any(|(i, _)| {
+        lower[..i].ends_with(|c: char| c.is_ascii_alphabetic())
+            && user_then(&lower[i + WINDOWS.len()..], '\\')
+    });
+    unix || windows
 }
 
 /// `/…`, `~/…` or `<letter>:\…`.

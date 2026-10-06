@@ -1594,6 +1594,43 @@ fn text_arguments_are_offered_and_paths_suggested() {
     assert_eq!(local, 3);
 }
 
+/// A folder in someone's home folder inside a longer text carries their
+/// user name: a warning, with no suggestion to ask for the whole text.
+#[test]
+fn a_home_folder_inside_a_text_is_a_warning() {
+    let texts = [
+        "cd /Users/me/proj && make",
+        "--file=/home/me/x",
+        "Read /Users/me/notes/todo.md first",
+        "type C:\\Users\\me\\x.txt",
+    ];
+    let quiet = ["make -C build", "ls /Users and /home", "cat /usr/share/x"];
+    let pads: Vec<Control> = texts
+        .iter()
+        .chain(&quiet)
+        .enumerate()
+        .map(|(i, text)| {
+            let command = a("shell", "execute", json!({ "command": text }));
+            pad(i as u8, "Run", command)
+        })
+        .collect();
+    let ws = workspace(vec![surface("dev", pads)]);
+    let result = export(&ws, &hand_env(), &pack(&["dev"]));
+    written(&result);
+    let local: Vec<&str> = result
+        .preview
+        .warnings
+        .iter()
+        .filter(|w| w.code == E::LocalPath)
+        .map(|w| w.at.as_deref().unwrap_or_default())
+        .collect();
+    let expected: Vec<String> = (0..texts.len())
+        .map(|i| format!("/content/surfaces/0/pages/0/controls/{i}/press/args/command"))
+        .collect();
+    assert_eq!(local, expected);
+    assert!(result.preview.suggestions.is_empty());
+}
+
 // Requirements, devices and metadata.
 
 #[test]
