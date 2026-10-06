@@ -1,12 +1,35 @@
 //! Device abstraction.
 //!
 //! The rest of the runtime only ever sees `SurfaceDevice`, `DeviceCapabilities`,
-//! `SurfaceFrame` and `DeviceInput`. Raw MIDI lives exclusively in
-//! `launchpad_x.rs`.
+//! `SurfaceFrame` and `DeviceInput`. Raw MIDI bytes live exclusively in
+//! `novation`; the MIDI transport in `midi` (`midir` only in
+//! `midi/system.rs`). The device manager finds hardware through a
+//! `source::HardwareSource` and knows no model. What a device can do beyond
+//! drawing frames, the settings and text it can be given, and what
+//! LaunchDeck observed on it are in `features`.
 
-pub mod launchpad_x;
+mod features;
 pub mod manager;
+mod midi;
+mod novation;
+mod source;
 pub mod virtual_device;
+
+pub use features::{
+    DeviceDetails, DeviceFeatures, DeviceSetting, ModeState, ScrollDirection, TextScroll,
+};
+
+/// What the runtime's device tests drive: fake MIDI ports, a simulated
+/// Launchpad behind them and the source that finds it, a virtual Mini MK3,
+/// and what the LEDs are expected to show.
+#[cfg(test)]
+pub(crate) mod testkit {
+    pub(crate) use super::midi::testkit::{port, FakeMidi};
+    pub(crate) use super::novation::{
+        nearest, palette_rgb, to_7bit, virtual_model, NovationHardware, SimLaunchpad, SimLed,
+        LAUNCHPAD_MINI_MK3,
+    };
+}
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
@@ -25,20 +48,43 @@ pub enum DeviceError {
     Midi(String),
     #[error("LaunchDeck does not know this device. Press Look again.")]
     Unknown(String),
-    #[error("Not supported yet: LaunchDeck works with the Launchpad X.")]
+    #[error(
+        "Not supported yet: LaunchDeck works with the Launchpad X and the Launchpad Mini MK3."
+    )]
     Unsupported(String),
+    #[error("The Launchpad is in its bootloader. Unplug it and plug it in again.")]
+    Bootloader(String),
+    #[error("LaunchDeck could not confirm which Launchpad this is. Press Look again.")]
+    OtherModel(String),
+    /// Holds the model's name, which the sentence says.
+    #[error("Another program is using the {0}. Press Look again to use it here.")]
+    TakenOver(String),
+    #[error("This device cannot do that.")]
+    Unavailable(String),
 }
 
 impl DeviceError {
     /// The operating system's text or the device id behind the sentence.
     pub fn detail(&self) -> Option<&str> {
         match self {
-            DeviceError::NotConnected => None,
+            DeviceError::NotConnected | DeviceError::TakenOver(_) => None,
             DeviceError::Port(d)
             | DeviceError::Midi(d)
             | DeviceError::Unknown(d)
-            | DeviceError::Unsupported(d) => Some(d),
+            | DeviceError::Unsupported(d)
+            | DeviceError::Bootloader(d)
+            | DeviceError::OtherModel(d)
+            | DeviceError::Unavailable(d) => Some(d),
         }
+    }
+
+    /// The device turned LaunchDeck down: trying again by itself would not
+    /// help, so it waits for the person to press Look again.
+    pub(crate) fn is_refusal(&self) -> bool {
+        matches!(
+            self,
+            DeviceError::Bootloader(_) | DeviceError::OtherModel(_) | DeviceError::TakenOver(_)
+        )
     }
 }
 
@@ -169,23 +215,6 @@ pub struct DeviceInput {
 
 pub type InputSender = UnboundedSender<DeviceInput>;
 
-/// The port names the operating system lists right now.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub(crate) struct PortNames {
-    pub inputs: Vec<String>,
-    pub outputs: Vec<String>,
-}
-
-/// Where hardware comes from: the system's ports, and a device for a unit
-/// found on them. The real one is `launchpad_x::SystemPorts`; tests give the
-/// manager made-up port names and devices.
-pub(crate) trait PortSource: Send {
-    fn list(&self) -> PortNames;
-    /// A device for a Launchpad X found on these ports. Nothing is opened
-    /// until `connect`.
-    fn launchpad_x(&self, found: launchpad_x::DiscoveredDevice) -> Box<dyn SurfaceDevice>;
-}
-
 /// A physical (or virtual) control surface.
 ///
 /// Differences from the initial sketch: input subscription is folded into
@@ -199,4 +228,22 @@ pub trait SurfaceDevice: Send {
     fn is_connected(&self) -> bool;
     fn render(&mut self, frame: &SurfaceFrame) -> Result<(), DeviceError>;
     fn clear(&mut self) -> Result<(), DeviceError>;
+    /// What LaunchDeck observed on the device; the defaults for a device
+    /// that reports nothing.
+    fn details(&self) -> DeviceDetails {
+        DeviceDetails::default()
+    }
+    /// What the device can do beyond drawing frames; nothing by default.
+    fn features(&self) -> DeviceFeatures {
+        DeviceFeatures::default()
+    }
+    /// Gives the device a setting. A device without the feature refuses.
+    fn apply(&mut self, setting: DeviceSetting) -> Result<(), DeviceError> {
+        Err(DeviceError::Unavailable(format!("{setting:?}")))
+    }
+    /// Scrolls text across the device, or stops the scroll (`None`). A
+    /// device without the feature refuses.
+    fn scroll_text(&mut self, _text: Option<&TextScroll>) -> Result<(), DeviceError> {
+        Err(DeviceError::Unavailable("scrolling text".into()))
+    }
 }

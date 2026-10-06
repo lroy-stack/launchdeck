@@ -341,6 +341,11 @@ pub struct Preferences {
     pub external_events_port: u16,
     #[serde(default = "default_true")]
     pub external_events_enabled: bool,
+    /// LED brightness in percent for every device that has it; absent
+    /// leaves each device its own level. Set through
+    /// `Runtime::set_device_brightness`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_brightness: Option<u8>,
 }
 
 fn default_ws_port() -> u16 {
@@ -356,6 +361,7 @@ impl Default for Preferences {
             onboarding_done: false,
             external_events_port: default_ws_port(),
             external_events_enabled: true,
+            device_brightness: None,
         }
     }
 }

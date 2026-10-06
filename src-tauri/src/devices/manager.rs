@@ -2,18 +2,23 @@
 //! and says what state each one is in.
 
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use serde::Serialize;
 
-use super::launchpad_x::{self, SystemPorts};
+use super::midi::SystemMidi;
+use super::novation::NovationHardware;
+use super::source::HardwareSource;
 use super::{
-    AnimationCaps, AuxCaps, DeviceCapabilities, DeviceError, DeviceIdentity, DeviceKind,
-    InputSender, PortSource, SurfaceDevice, SurfaceFrame,
+    AnimationCaps, AuxCaps, DeviceCapabilities, DeviceDetails, DeviceError, DeviceFeatures,
+    DeviceIdentity, DeviceKind, DeviceSetting, InputSender, SurfaceDevice, SurfaceFrame,
+    TextScroll,
 };
+use crate::platform::Platform;
 
 /// What a person is told after a connect attempt failed. The operating
 /// system's text goes to the log and to the error of the connect command.
-pub(crate) const CONNECT_PROBLEM: &str = "LaunchDeck could not open the Launchpad. Another program may be using it; close it and press Look again.";
+pub(crate) const CONNECT_PROBLEM: &str = "Launchpad detected, but its control port is unavailable. Another program may be using it: close it and press Look again.";
 
 struct Entry {
     identity: DeviceIdentity,
@@ -22,10 +27,13 @@ struct Entry {
     /// It connected and the person has not disconnected it since. A unit in
     /// use that goes missing is unplugged, and is connected again when found.
     in_use: bool,
-    /// Missing from the last look at the ports while in use.
+    /// Missing from the last look at the hardware while in use.
     unplugged: bool,
-    /// Why the last connect attempt failed, until one succeeds.
+    /// Why the last connect attempt failed or the device turned LaunchDeck
+    /// down, until a connect succeeds.
     problem: Option<String>,
+    /// The device's details as the runtime was last told them.
+    announced: DeviceDetails,
 }
 
 impl Entry {
@@ -43,6 +51,7 @@ impl Entry {
 
     fn info(&self) -> DeviceInfo {
         let status = self.status();
+        let details = self.device.details();
         DeviceInfo {
             identity: self.identity.clone(),
             capabilities: self.capabilities,
@@ -51,7 +60,52 @@ impl Entry {
             problem: (status == DeviceStatus::Failed)
                 .then(|| self.problem.clone())
                 .flatten(),
+            notice: (status == DeviceStatus::Connected)
+                .then(|| details.notice.clone())
+                .flatten(),
+            details,
+            features: self.device.features(),
         }
+    }
+
+    /// Gives the device a setting if it has the feature; a failure is
+    /// logged, since the device keeps working without it.
+    fn give(&mut self, setting: DeviceSetting) {
+        let features = self.device.features();
+        let has = match setting {
+            DeviceSetting::Brightness(_) => features.brightness,
+            DeviceSetting::Sleep(_) => features.sleep,
+        };
+        if !has {
+            return;
+        }
+        if let Err(e) = self.device.apply(setting) {
+            log::warn!(
+                "`{}` did not take {setting:?}: {e} ({})",
+                self.identity.id,
+                e.detail().unwrap_or("no detail")
+            );
+        }
+    }
+
+    /// Whether the device's details changed since the runtime was last
+    /// told them; they count as told from here on.
+    fn details_changed(&mut self) -> bool {
+        let details = self.device.details();
+        if details == self.announced {
+            return false;
+        }
+        self.announced = details;
+        true
+    }
+}
+
+/// The problem a person is shown for a failed connect or a refusal.
+fn problem(error: &DeviceError) -> String {
+    if error.is_refusal() {
+        error.to_string()
+    } else {
+        CONNECT_PROBLEM.to_string()
     }
 }
 
@@ -66,7 +120,8 @@ pub enum DeviceStatus {
     Unplugged,
     /// Another Launchpad model: listed by name, never opened.
     Unsupported,
-    /// The last connect attempt failed; `problem` says why.
+    /// The last connect attempt failed, or the device turned LaunchDeck
+    /// down (bootloader, another model, taken over); `problem` says why.
     Failed,
 }
 
@@ -81,16 +136,26 @@ pub struct DeviceInfo {
     /// A sentence for the person when something went wrong.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub problem: Option<String>,
+    /// Connected, with a limitation, in a sentence (`details.notice` while
+    /// connected).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notice: Option<String>,
+    pub details: DeviceDetails,
+    /// What the device can do beyond drawing frames.
+    pub features: DeviceFeatures,
 }
 
-/// Device lifecycle changes the runtime turns into `device.*` events.
+/// Device lifecycle changes the runtime turns into `device.*` events, and
+/// changed details, which only change the device list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeviceChange {
     Connected(String),
     Disconnected(String),
+    /// What LaunchDeck observed on the device changed (`DeviceDetails`).
+    Updated(String),
 }
 
-/// What one look at the ports changed.
+/// What one look at the hardware changed.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Rescan {
     /// Units to connect: new ones, ones that came back, and failed ones when retried.
@@ -101,24 +166,35 @@ pub struct Rescan {
 
 pub struct DeviceManager {
     entries: Vec<Entry>,
-    /// Other Launchpad models from the last look, by name only.
+    /// Devices of other models from the last look, by name only.
     unsupported: Vec<DeviceIdentity>,
-    ports: Box<dyn PortSource>,
+    hardware: Box<dyn HardwareSource>,
     input: InputSender,
+    /// The LED brightness in percent every device with the feature is
+    /// given when it connects; `None` leaves each its own.
+    brightness: Option<u8>,
 }
 
 impl DeviceManager {
     pub fn new(input: InputSender) -> Self {
-        Self::with_ports(input, Box::new(SystemPorts))
+        let hardware = NovationHardware::new(Arc::new(SystemMidi), Platform::current());
+        Self::with_hardware(input, Box::new(hardware))
     }
 
-    pub(crate) fn with_ports(input: InputSender, ports: Box<dyn PortSource>) -> Self {
+    pub(crate) fn with_hardware(input: InputSender, hardware: Box<dyn HardwareSource>) -> Self {
         Self {
             entries: Vec::new(),
             unsupported: Vec::new(),
-            ports,
+            hardware,
             input,
+            brightness: None,
         }
+    }
+
+    /// Finds hardware through this source from now on.
+    #[cfg(test)]
+    pub(crate) fn set_hardware(&mut self, hardware: Box<dyn HardwareSource>) {
+        self.hardware = hardware;
     }
 
     pub fn register(&mut self, device: Box<dyn SurfaceDevice>) {
@@ -134,6 +210,7 @@ impl DeviceManager {
             in_use: false,
             unplugged: false,
             problem: None,
+            announced: DeviceDetails::default(),
         });
     }
 
@@ -144,6 +221,9 @@ impl DeviceManager {
             connected: false,
             status: DeviceStatus::Unsupported,
             problem: None,
+            notice: None,
+            details: DeviceDetails::default(),
+            features: DeviceFeatures::default(),
         });
         self.entries
             .iter()
@@ -162,16 +242,22 @@ impl DeviceManager {
             .ok_or_else(|| DeviceError::Unknown(id.to_string()))
     }
 
-    /// Connect a device. A failure is remembered as the device's problem
-    /// until a later attempt succeeds or the person disconnects it.
+    /// Connect a device and give it the preferred brightness. A failure is
+    /// remembered as the device's problem until a later attempt succeeds
+    /// or the person disconnects it.
     pub fn connect(&mut self, id: &str) -> Result<DeviceChange, DeviceError> {
         let input = self.input.clone();
+        let brightness = self.brightness;
         let entry = self.entry_mut(id)?;
         match entry.device.connect(input) {
             Ok(()) => {
                 entry.in_use = true;
                 entry.unplugged = false;
                 entry.problem = None;
+                if brightness.is_some() {
+                    entry.give(DeviceSetting::Brightness(brightness));
+                }
+                entry.announced = entry.device.details();
                 Ok(DeviceChange::Connected(id.to_string()))
             }
             Err(e) => {
@@ -181,10 +267,45 @@ impl DeviceManager {
                 );
                 // A half-open connection would read as connected.
                 let _ = entry.device.disconnect();
-                entry.problem = Some(CONNECT_PROBLEM.to_string());
+                entry.problem = Some(problem(&e));
                 Err(e)
             }
         }
+    }
+
+    /// The LED brightness in percent for every device with the feature, or
+    /// each device's own level (`None`): given to the connected ones now,
+    /// and to every device when it connects.
+    pub fn set_preferred_brightness(&mut self, percent: Option<u8>) {
+        self.brightness = percent;
+        for entry in &mut self.entries {
+            if entry.device.is_connected() {
+                entry.give(DeviceSetting::Brightness(percent));
+                entry.announced = entry.device.details();
+            }
+        }
+    }
+
+    /// Gives one connected device a setting.
+    pub fn apply(&mut self, id: &str, setting: DeviceSetting) -> Result<(), DeviceError> {
+        let entry = self.entry_mut(id)?;
+        if !entry.device.is_connected() {
+            return Err(DeviceError::NotConnected);
+        }
+        entry.device.apply(setting)?;
+        entry.announced = entry.device.details();
+        Ok(())
+    }
+
+    /// Scrolls text across one connected device, or stops the scroll.
+    pub fn scroll_text(&mut self, id: &str, text: Option<&TextScroll>) -> Result<(), DeviceError> {
+        let entry = self.entry_mut(id)?;
+        if !entry.device.is_connected() {
+            return Err(DeviceError::NotConnected);
+        }
+        entry.device.scroll_text(text)?;
+        entry.announced = entry.device.details();
+        Ok(())
     }
 
     pub fn disconnect(&mut self, id: &str) -> Result<DeviceChange, DeviceError> {
@@ -193,6 +314,22 @@ impl DeviceManager {
         entry.in_use = false;
         entry.problem = None;
         Ok(DeviceChange::Disconnected(id.to_string()))
+    }
+
+    /// Gives back every connected device, as a disconnect does: LaunchDeck
+    /// is quitting. A few messages per device, no waiting for answers; a
+    /// later look at the hardware takes none of them again.
+    pub fn release_all(&mut self) {
+        for entry in self.entries.iter_mut().filter(|e| e.device.is_connected()) {
+            if let Err(e) = entry.device.disconnect() {
+                log::warn!(
+                    "could not release `{}`: {e} ({})",
+                    entry.identity.id,
+                    e.detail().unwrap_or("no detail")
+                );
+            }
+            entry.in_use = false;
+        }
     }
 
     /// Capabilities of every connected device (for the render loop).
@@ -205,57 +342,64 @@ impl DeviceManager {
     }
 
     /// Render one frame to one device. A failing hardware device is
-    /// disconnected and reported so the runtime can emit `device.disconnected`.
+    /// disconnected and reported so the runtime can emit `device.disconnected`;
+    /// one that turned LaunchDeck down keeps its sentence as its problem
+    /// until Look again. Changed details are reported as `Updated`.
     pub fn render(&mut self, id: &str, frame: &SurfaceFrame) -> Option<DeviceChange> {
         let entry = self.entries.iter_mut().find(|e| e.identity.id == id)?;
         match entry.device.render(frame) {
-            Ok(()) => None,
+            Ok(()) => entry
+                .details_changed()
+                .then(|| DeviceChange::Updated(id.to_string())),
             Err(e) => {
                 log::warn!(
                     "render to `{id}` failed: {e} ({})",
                     e.detail().unwrap_or("")
                 );
                 let _ = entry.device.disconnect();
+                if e.is_refusal() {
+                    entry.problem = Some(problem(&e));
+                }
                 Some(DeviceChange::Disconnected(id.to_string()))
             }
         }
     }
 
-    /// Look at the system's ports. New Launchpad X units and units in use
-    /// that are found again are returned to connect; `retry_failed` adds the
-    /// ones whose last attempt failed (the person pressed Look again). A unit
-    /// in use that is missing stays listed as unplugged; one that was never
-    /// in use is forgotten. Other Launchpad models are listed by name.
+    /// Look at what is plugged in. New units and units in use that are
+    /// found again are returned to connect; `retry_failed` adds the ones
+    /// whose last attempt failed (the person pressed Look again). A unit in
+    /// use that is missing stays listed as unplugged; one that was never in
+    /// use is forgotten. Devices of other models are listed by name.
     pub fn rescan_hardware(&mut self, retry_failed: bool) -> Rescan {
-        let found = launchpad_x::discover(&self.ports.list());
-        self.unsupported = found
-            .unsupported
-            .iter()
-            .map(|name| DeviceIdentity {
-                id: launchpad_x::unsupported_id(name),
-                name: name.clone(),
-                model: UNSUPPORTED_MODEL.into(),
-                kind: DeviceKind::Hardware,
-            })
-            .collect();
-        let found_ids: HashSet<String> = found.units.iter().map(|d| d.id.clone()).collect();
+        let scan = self.hardware.scan();
+        self.unsupported = scan.unsupported;
+        let found_ids: HashSet<String> = scan.units.iter().map(|u| u.id.clone()).collect();
         let mut rescan = Rescan::default();
-        for unit in found.units {
-            let id = unit.id.clone();
+        for unit in scan.units {
+            let id = unit.id;
             let Some(entry) = self.entries.iter_mut().find(|e| e.identity.id == id) else {
-                self.register(self.ports.launchpad_x(unit));
-                rescan.to_connect.push(id);
+                if let Some(device) = self.hardware.device(&id) {
+                    log::info!("found {} as `{id}`", unit.name);
+                    self.register(device);
+                    rescan.to_connect.push(id);
+                }
                 continue;
             };
-            // A failed attempt waits for Look again instead of repeating every few seconds.
-            let retry = if entry.problem.is_some() {
+            // A unit in use that went missing connects again when it returns,
+            // whatever its last attempt said: it was plugged in again. A
+            // failed attempt or a refusal otherwise waits for Look again
+            // instead of repeating every few seconds.
+            let retry = if entry.problem.is_some() && !entry.unplugged {
                 retry_failed
             } else {
                 entry.in_use
             };
             if retry && !entry.device.is_connected() {
-                // A fresh device: the ports may have changed while it was away.
-                entry.device = self.ports.launchpad_x(unit);
+                // A fresh device: its ports may have changed while it was away.
+                let Some(device) = self.hardware.device(&id) else {
+                    continue;
+                };
+                entry.device = device;
                 entry.unplugged = false;
                 rescan.to_connect.push(id);
             }
@@ -276,9 +420,6 @@ impl DeviceManager {
         rescan
     }
 }
-
-/// The model of a Launchpad LaunchDeck does not drive.
-const UNSUPPORTED_MODEL: &str = "unsupported";
 
 const NO_CAPABILITIES: DeviceCapabilities = DeviceCapabilities {
     grid: None,
@@ -313,6 +454,11 @@ mod tests {
         assert_eq!(m.list().len(), 1, "same id is registered once");
         assert!(!m.list()[0].connected);
         assert_eq!(
+            m.list()[0].features,
+            DeviceFeatures::default(),
+            "the simulator has nothing beyond drawing"
+        );
+        assert_eq!(
             m.connect(VIRTUAL_ID).unwrap(),
             DeviceChange::Connected(VIRTUAL_ID.into())
         );
@@ -338,7 +484,7 @@ mod tests {
     #[test]
     fn the_virtual_device_reads_connected_and_unknown_ids_are_refused_in_a_sentence() {
         let (tx, _rx) = unbounded_channel();
-        let mut m = DeviceManager::with_ports(tx, Box::new(FakePorts::default()));
+        let mut m = DeviceManager::with_hardware(tx, Box::new(FakeHardware::default()));
         let (dev, _handle) = VirtualLaunchpadX::new();
         m.register(Box::new(dev));
         m.connect(VIRTUAL_ID).unwrap();
@@ -360,78 +506,120 @@ mod tests {
         assert_eq!(m.list().len(), 1);
     }
 
-    // ---- hardware, with made-up ports --------------------------------------
+    // ---- hardware, with made-up units --------------------------------------
 
-    use crate::devices::launchpad_x::DiscoveredDevice;
-    use crate::devices::{PortNames, PortSource};
+    use crate::devices::source::{Found, HardwareScan, HardwareSource, UNSUPPORTED_MODEL};
+    use crate::devices::{DeviceDetails, ModeState};
     use std::sync::{Arc, Mutex};
 
-    const LPX: &str = "Launchpad X LPX MIDI";
-    const LPX_ID: &str = "launchpad-x:launchpad-x-lpx-midi";
+    const LPX_ID: &str = "launchpad-x:1";
 
-    /// Ports the test sets, and devices whose connect succeeds unless the
-    /// port is marked busy. Records every port a device was made for.
+    const GRID: DeviceCapabilities = DeviceCapabilities {
+        grid: Some(crate::devices::GridCaps {
+            width: 8,
+            height: 8,
+        }),
+        ..NO_CAPABILITIES
+    };
+
+    /// Units the test plugs in, and devices whose connect succeeds unless the
+    /// unit is marked busy. Records every unit a device was made for.
     #[derive(Default, Clone)]
-    struct FakePorts(Arc<Mutex<FakeState>>);
+    struct FakeHardware(Arc<Mutex<FakeState>>);
 
     #[derive(Default)]
     struct FakeState {
-        names: Vec<String>,
+        plugged: Vec<String>,
+        others: Vec<DeviceIdentity>,
         busy: bool,
         made_for: Vec<String>,
+        /// What every unit reports it observed.
+        details: DeviceDetails,
+        /// Every unit turns LaunchDeck down at its next render.
+        refuse: bool,
     }
 
-    impl FakePorts {
-        fn set(&self, names: &[&str]) {
-            self.0.lock().unwrap().names = names.iter().map(|n| n.to_string()).collect();
+    impl FakeHardware {
+        fn plug(&self, ids: &[&str]) {
+            self.0.lock().unwrap().plugged = ids.iter().map(|id| id.to_string()).collect();
+        }
+        /// Devices of other models, by name.
+        fn others(&self, names: &[&str]) {
+            self.0.lock().unwrap().others = names
+                .iter()
+                .map(|name| DeviceIdentity {
+                    id: format!("unsupported:{}", name.to_lowercase().replace(' ', "-")),
+                    name: name.to_string(),
+                    model: UNSUPPORTED_MODEL.into(),
+                    kind: DeviceKind::Hardware,
+                })
+                .collect();
         }
         fn busy(&self, busy: bool) {
             self.0.lock().unwrap().busy = busy;
         }
+        fn details(&self, details: DeviceDetails) {
+            self.0.lock().unwrap().details = details;
+        }
+        fn refuse(&self, refuse: bool) {
+            self.0.lock().unwrap().refuse = refuse;
+        }
         fn made_for(&self) -> Vec<String> {
             self.0.lock().unwrap().made_for.clone()
         }
+        fn plugged(&self, id: &str) -> bool {
+            self.0.lock().unwrap().plugged.iter().any(|p| p == id)
+        }
     }
 
-    impl PortSource for FakePorts {
-        fn list(&self) -> PortNames {
-            let names = self.0.lock().unwrap().names.clone();
-            PortNames {
-                inputs: names.clone(),
-                outputs: names,
+    impl HardwareSource for FakeHardware {
+        fn scan(&mut self) -> HardwareScan {
+            let state = self.0.lock().unwrap();
+            HardwareScan {
+                units: state
+                    .plugged
+                    .iter()
+                    .map(|id| Found {
+                        id: id.clone(),
+                        name: "Launchpad X".into(),
+                    })
+                    .collect(),
+                unsupported: state.others.clone(),
             }
         }
-        fn launchpad_x(&self, found: DiscoveredDevice) -> Box<dyn SurfaceDevice> {
-            self.0.lock().unwrap().made_for.push(found.in_port.clone());
-            Box::new(FakeUnit {
-                found,
-                ports: self.clone(),
+        fn device(&self, id: &str) -> Option<Box<dyn SurfaceDevice>> {
+            if !self.plugged(id) {
+                return None;
+            }
+            self.0.lock().unwrap().made_for.push(id.to_string());
+            Some(Box::new(FakeUnit {
+                id: id.to_string(),
+                hardware: self.clone(),
                 connected: false,
-            })
+            }))
         }
     }
 
     struct FakeUnit {
-        found: DiscoveredDevice,
-        ports: FakePorts,
+        id: String,
+        hardware: FakeHardware,
         connected: bool,
     }
 
     impl SurfaceDevice for FakeUnit {
         fn identity(&self) -> DeviceIdentity {
             DeviceIdentity {
-                id: self.found.id.clone(),
-                name: self.found.name.clone(),
+                id: self.id.clone(),
+                name: "Launchpad X".into(),
                 model: "launchpad-x".into(),
                 kind: DeviceKind::Hardware,
             }
         }
         fn capabilities(&self) -> DeviceCapabilities {
-            launchpad_x::capabilities()
+            GRID
         }
         fn connect(&mut self, _input: InputSender) -> Result<(), DeviceError> {
-            let state = self.ports.0.lock().unwrap();
-            if state.busy || !state.names.contains(&self.found.out_port) {
+            if self.hardware.0.lock().unwrap().busy || !self.hardware.plugged(&self.id) {
                 return Err(DeviceError::Port("port is in use by another client".into()));
             }
             self.connected = true;
@@ -445,14 +633,10 @@ mod tests {
             self.connected
         }
         fn render(&mut self, _frame: &SurfaceFrame) -> Result<(), DeviceError> {
-            let present = self
-                .ports
-                .0
-                .lock()
-                .unwrap()
-                .names
-                .contains(&self.found.out_port);
-            match (self.connected, present) {
+            if self.connected && self.hardware.0.lock().unwrap().refuse {
+                return Err(DeviceError::Bootloader(BOOTLOADER_DETAIL.into()));
+            }
+            match (self.connected, self.hardware.plugged(&self.id)) {
                 (true, true) => Ok(()),
                 (true, false) => Err(DeviceError::Midi("device unplugged".into())),
                 (false, _) => Err(DeviceError::NotConnected),
@@ -461,14 +645,19 @@ mod tests {
         fn clear(&mut self) -> Result<(), DeviceError> {
             Ok(())
         }
+        fn details(&self) -> DeviceDetails {
+            self.hardware.0.lock().unwrap().details.clone()
+        }
     }
 
-    fn manager(ports: &FakePorts) -> DeviceManager {
+    const BOOTLOADER_DETAIL: &str = "bootloader 0102";
+
+    fn manager(hardware: &FakeHardware) -> DeviceManager {
         let (tx, _rx) = unbounded_channel();
-        DeviceManager::with_ports(tx, Box::new(ports.clone()))
+        DeviceManager::with_hardware(tx, Box::new(hardware.clone()))
     }
 
-    /// What the runtime does after a look at the ports.
+    /// What the runtime does after a look at the hw.
     fn look(m: &mut DeviceManager, retry_failed: bool) -> Rescan {
         let rescan = m.rescan_hardware(retry_failed);
         for id in &rescan.to_connect {
@@ -486,13 +675,13 @@ mod tests {
 
     #[test]
     fn a_found_unit_connects_and_an_unplugged_one_stays_listed_until_it_returns() {
-        let ports = FakePorts::default();
-        let mut m = manager(&ports);
-        ports.set(&[LPX]);
+        let hw = FakeHardware::default();
+        let mut m = manager(&hw);
+        hw.plug(&[LPX_ID]);
         assert_eq!(look(&mut m, false).to_connect, [LPX_ID]);
         assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Connected, None)));
 
-        ports.set(&[]);
+        hw.plug(&[]);
         let gone = look(&mut m, false);
         assert_eq!(gone.changes, [DeviceChange::Disconnected(LPX_ID.into())]);
         assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Unplugged, None)));
@@ -500,7 +689,7 @@ mod tests {
         assert!(look(&mut m, false).changes.is_empty(), "reported once");
         assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Unplugged, None)));
 
-        ports.set(&[LPX]);
+        hw.plug(&[LPX_ID]);
         assert_eq!(look(&mut m, false).to_connect, [LPX_ID]);
         assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Connected, None)));
         assert_eq!(m.list().len(), 1);
@@ -508,12 +697,12 @@ mod tests {
 
     #[test]
     fn a_unit_that_failed_drawing_before_the_rescan_is_unplugged_too() {
-        let ports = FakePorts::default();
-        let mut m = manager(&ports);
-        ports.set(&[LPX]);
+        let hw = FakeHardware::default();
+        let mut m = manager(&hw);
+        hw.plug(&[LPX_ID]);
         look(&mut m, false);
-        // Pulled out: the next frame fails before the next look at the ports.
-        ports.set(&[]);
+        // Pulled out: the next frame fails before the next look at the hw.
+        hw.plug(&[]);
         assert_eq!(
             m.render(LPX_ID, &SurfaceFrame::default()),
             Some(DeviceChange::Disconnected(LPX_ID.into()))
@@ -521,21 +710,21 @@ mod tests {
         assert!(look(&mut m, false).changes.is_empty(), "already reported");
         assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Unplugged, None)));
         // Back, but busy: failed, and left alone until Look again.
-        ports.set(&[LPX]);
-        ports.busy(true);
+        hw.plug(&[LPX_ID]);
+        hw.busy(true);
         assert_eq!(look(&mut m, false).to_connect, [LPX_ID]);
         assert_eq!(status_of(&m, LPX_ID).unwrap().0, DeviceStatus::Failed);
         assert!(look(&mut m, false).to_connect.is_empty());
-        ports.busy(false);
+        hw.busy(false);
         look(&mut m, true);
         assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Connected, None)));
     }
 
     #[test]
     fn a_unit_the_person_disconnected_is_forgotten_when_it_goes() {
-        let ports = FakePorts::default();
-        let mut m = manager(&ports);
-        ports.set(&[LPX]);
+        let hw = FakeHardware::default();
+        let mut m = manager(&hw);
+        hw.plug(&[LPX_ID]);
         look(&mut m, false);
         m.disconnect(LPX_ID).unwrap();
         assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Available, None)));
@@ -543,17 +732,17 @@ mod tests {
             look(&mut m, false).to_connect.is_empty(),
             "stays disconnected"
         );
-        ports.set(&[]);
+        hw.plug(&[]);
         look(&mut m, false);
         assert_eq!(status_of(&m, LPX_ID), None);
     }
 
     #[test]
     fn a_failed_connect_is_reported_with_a_problem_and_retried_on_look_again() {
-        let ports = FakePorts::default();
-        let mut m = manager(&ports);
-        ports.set(&[LPX]);
-        ports.busy(true);
+        let hw = FakeHardware::default();
+        let mut m = manager(&hw);
+        hw.plug(&[LPX_ID]);
+        hw.busy(true);
         let rescan = m.rescan_hardware(false);
         let err = m.connect(&rescan.to_connect[0]).unwrap_err();
         assert_eq!(err.to_string(), "The Launchpad could not be reached.");
@@ -568,24 +757,19 @@ mod tests {
 
         // The periodic look does not hammer a busy unit; Look again retries it.
         assert!(look(&mut m, false).to_connect.is_empty());
-        ports.busy(false);
+        hw.busy(false);
         assert_eq!(look(&mut m, true).to_connect, [LPX_ID]);
         assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Connected, None)));
     }
 
     #[test]
     fn other_launchpads_are_listed_by_name_and_never_opened() {
-        let ports = FakePorts::default();
-        let mut m = manager(&ports);
-        ports.set(&[
-            LPX,
-            "Launchpad Mini MK3 LPMiniMK3 MIDI",
-            "Launchpad Mini MK3 LPMiniMK3 DAW",
-            "Launchpad Pro MK3",
-            "IAC Driver Bus 1",
-        ]);
+        let hw = FakeHardware::default();
+        let mut m = manager(&hw);
+        hw.plug(&[LPX_ID]);
+        hw.others(&["Launchpad Pro MK3", "Launchpad XL"]);
         assert_eq!(look(&mut m, true).to_connect, [LPX_ID]);
-        assert_eq!(ports.made_for(), [LPX], "only the Launchpad X got a device");
+        assert_eq!(hw.made_for(), [LPX_ID], "only the Launchpad X got a device");
         let list = m.list();
         let names: Vec<(&str, DeviceStatus)> = list
             .iter()
@@ -595,13 +779,9 @@ mod tests {
             names,
             [
                 ("Launchpad X", DeviceStatus::Connected),
-                (
-                    "Launchpad Mini MK3 LPMiniMK3 MIDI",
-                    DeviceStatus::Unsupported
-                ),
                 ("Launchpad Pro MK3", DeviceStatus::Unsupported),
-            ],
-            "the IAC bus is not a Launchpad"
+                ("Launchpad XL", DeviceStatus::Unsupported),
+            ]
         );
         assert!(list[1..].iter().all(|d| !d.connected
             && d.capabilities.grid.is_none()
@@ -611,28 +791,182 @@ mod tests {
         let err = m.connect(pro).unwrap_err();
         assert_eq!(
             err.to_string(),
-            "Not supported yet: LaunchDeck works with the Launchpad X."
+            "Not supported yet: LaunchDeck works with the Launchpad X and the Launchpad Mini MK3."
         );
         assert!(m.disconnect(pro).is_err());
-        assert_eq!(ports.made_for(), [LPX], "a connect request opens nothing");
+        assert_eq!(hw.made_for(), [LPX_ID], "a connect request opens nothing");
 
-        ports.set(&[LPX]);
+        hw.others(&[]);
         look(&mut m, true);
         assert_eq!(m.list().len(), 1, "gone from the list when unplugged");
     }
 
     #[test]
     fn device_info_serializes_status_and_problem_in_camel_case() {
-        let ports = FakePorts::default();
-        let mut m = manager(&ports);
-        ports.set(&[LPX, "Launchpad Pro MK3"]);
-        ports.busy(true);
+        let hw = FakeHardware::default();
+        let mut m = manager(&hw);
+        hw.plug(&[LPX_ID]);
+        hw.others(&["Launchpad Pro MK3"]);
+        hw.busy(true);
         look(&mut m, false);
         let json = serde_json::to_value(m.list()).unwrap();
         assert_eq!(json[0]["status"], "failed");
         assert_eq!(json[0]["connected"], false);
-        assert_eq!(json[0]["problem"], CONNECT_PROBLEM);
+        assert_eq!(
+            json[0]["problem"],
+            "Launchpad detected, but its control port is unavailable. Another program may be using it: close it and press Look again."
+        );
         assert_eq!(json[1]["status"], "unsupported");
         assert!(json[1].get("problem").is_none());
+        assert!(json[1].get("notice").is_none());
+        assert_eq!(json[1]["details"]["mode"], "none");
+    }
+
+    const NOTICE: &str = "Launchpad X connected, but Programmer Mode could not be confirmed.";
+
+    #[test]
+    fn a_change_of_details_is_reported_once_and_a_notice_only_while_connected() {
+        let hw = FakeHardware::default();
+        let mut m = manager(&hw);
+        hw.plug(&[LPX_ID]);
+        look(&mut m, false);
+        let frame = SurfaceFrame::default();
+        assert_eq!(m.render(LPX_ID, &frame), None, "nothing new");
+
+        hw.details(DeviceDetails {
+            firmware: Some("0238".into()),
+            mode: ModeState::Unconfirmed,
+            notice: Some(NOTICE.into()),
+            ..DeviceDetails::default()
+        });
+        assert_eq!(
+            m.render(LPX_ID, &frame),
+            Some(DeviceChange::Updated(LPX_ID.into()))
+        );
+        assert_eq!(m.render(LPX_ID, &frame), None, "reported once");
+        let info = m.list().remove(0);
+        assert_eq!(info.notice.as_deref(), Some(NOTICE));
+        assert_eq!(info.details.mode, ModeState::Unconfirmed);
+        let json = serde_json::to_value(&info).unwrap();
+        assert_eq!(json["status"], "connected");
+        assert_eq!(json["notice"], NOTICE);
+        assert_eq!(json["details"]["firmware"], "0238");
+        assert_eq!(json["details"]["mode"], "unconfirmed");
+
+        m.disconnect(LPX_ID).unwrap();
+        let info = m.list().remove(0);
+        assert_eq!(info.notice, None, "a notice is about a connected device");
+        assert!(serde_json::to_value(&info).unwrap().get("notice").is_none());
+    }
+
+    #[test]
+    fn a_refusal_while_drawing_fails_the_unit_with_its_sentence_until_look_again() {
+        let hw = FakeHardware::default();
+        let mut m = manager(&hw);
+        hw.plug(&[LPX_ID]);
+        look(&mut m, false);
+        hw.refuse(true);
+        assert_eq!(
+            m.render(LPX_ID, &SurfaceFrame::default()),
+            Some(DeviceChange::Disconnected(LPX_ID.into()))
+        );
+        let sentence = "The Launchpad is in its bootloader. Unplug it and plug it in again.";
+        assert_eq!(
+            status_of(&m, LPX_ID),
+            Some((DeviceStatus::Failed, Some(sentence.into())))
+        );
+        assert!(
+            look(&mut m, false).to_connect.is_empty(),
+            "the periodic look leaves it alone"
+        );
+        hw.refuse(false);
+        assert_eq!(look(&mut m, true).to_connect, [LPX_ID]);
+        assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Connected, None)));
+    }
+
+    #[test]
+    fn a_refused_unit_plugged_in_again_as_its_sentence_asks_is_tried_again() {
+        let hw = FakeHardware::default();
+        let mut m = manager(&hw);
+        hw.plug(&[LPX_ID]);
+        look(&mut m, false);
+        hw.refuse(true);
+        m.render(LPX_ID, &SurfaceFrame::default());
+        assert_eq!(status_of(&m, LPX_ID).unwrap().0, DeviceStatus::Failed);
+
+        hw.plug(&[]);
+        look(&mut m, false);
+        assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Unplugged, None)));
+        hw.refuse(false);
+        hw.plug(&[LPX_ID]);
+        assert_eq!(
+            look(&mut m, false).to_connect,
+            [LPX_ID],
+            "back: tried again"
+        );
+        assert_eq!(status_of(&m, LPX_ID), Some((DeviceStatus::Connected, None)));
+    }
+
+    #[test]
+    fn releasing_every_device_disconnects_each_one_and_none_is_connected_again() {
+        let hw = FakeHardware::default();
+        let mut m = manager(&hw);
+        let (dev, _handle) = VirtualLaunchpadX::new();
+        m.register(Box::new(dev));
+        m.connect(VIRTUAL_ID).unwrap();
+        hw.plug(&[LPX_ID]);
+        look(&mut m, false);
+        assert_eq!(m.connected_capabilities().len(), 2);
+
+        m.release_all();
+        assert!(m.connected_capabilities().is_empty());
+        assert!(m.list().iter().all(|d| d.status == DeviceStatus::Available));
+        assert!(
+            look(&mut m, false).to_connect.is_empty(),
+            "a unit released is not taken again"
+        );
+        m.release_all();
+        assert!(m.connected_capabilities().is_empty());
+    }
+
+    #[test]
+    fn refusals_and_missing_features_read_as_sentences() {
+        let cases = [
+            (
+                DeviceError::Bootloader(BOOTLOADER_DETAIL.into()),
+                "The Launchpad is in its bootloader. Unplug it and plug it in again.",
+                Some(BOOTLOADER_DETAIL),
+                true,
+            ),
+            (
+                DeviceError::OtherModel("inquiry family 03 01".into()),
+                "LaunchDeck could not confirm which Launchpad this is. Press Look again.",
+                Some("inquiry family 03 01"),
+                true,
+            ),
+            (
+                DeviceError::TakenOver("Launchpad Mini MK3".into()),
+                "Another program is using the Launchpad Mini MK3. Press Look again to use it here.",
+                None,
+                true,
+            ),
+            (
+                DeviceError::Unavailable("brightness".into()),
+                "This device cannot do that.",
+                Some("brightness"),
+                false,
+            ),
+            (
+                DeviceError::Port("port is in use by another client".into()),
+                "The Launchpad could not be reached.",
+                Some("port is in use by another client"),
+                false,
+            ),
+        ];
+        for (error, sentence, detail, refusal) in cases {
+            assert_eq!(error.to_string(), sentence);
+            assert_eq!(error.detail(), detail, "{sentence}");
+            assert_eq!(error.is_refusal(), refusal, "{sentence}");
+        }
     }
 }

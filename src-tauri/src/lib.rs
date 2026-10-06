@@ -6,7 +6,7 @@
 //! * `state`       states and feedback: values, definitions, rules, evaluation, the state hub
 //! * `actions`     semantic actions: assignments, parameters, the registry, built-in providers
 //! * `context`     the Context Engine: the surface follows the application in front
-//! * `devices`     `SurfaceDevice` trait, virtual Launchpad X, Launchpad X (the only MIDI code)
+//! * `devices`     `SurfaceDevice` trait, virtual Launchpad X, Launchpad X, the MIDI transport
 //! * `renderer`    semantic visual state to capability-aware frames
 //! * `plugins`     plugin runtime, the System and Demo plugins, installed WebAssembly plugins
 //! * `agents`      Agent Control: autonomous agents on a physical control surface
@@ -141,6 +141,9 @@ pub fn run() {
             commands::devices::connect_device,
             commands::devices::disconnect_device,
             commands::devices::rescan_devices,
+            commands::devices::set_device_brightness,
+            commands::devices::set_device_sleep,
+            commands::devices::scroll_device_text,
             commands::agents::agents_command,
             commands::agents::agents_focus,
             commands::agents::agents_dismiss,
@@ -176,6 +179,15 @@ pub fn run() {
             commands::app::app_reveal_data_folder,
             commands::app::app_info,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running LaunchDeck");
+        .build(tauri::generate_context!())
+        .expect("error while building LaunchDeck")
+        .run(|app, event| {
+            // Every way out that is not a crash or a kill, the tray's Quit
+            // (`app.exit`) included, ends here: give every Launchpad back.
+            if let tauri::RunEvent::Exit = event {
+                if let Some(state) = app.try_state::<AppState>() {
+                    state.runtime.release_devices();
+                }
+            }
+        });
 }

@@ -105,7 +105,7 @@ export const importExceptions = [];
 // Each outside system in exactly one adapter file (R4). Crate names as written in
 // Rust paths; `objc2_*` covers objc2_app_kit and objc2_foundation.
 export const crateConfinement = [
-  { crates: ["midir"], files: ["devices/launchpad_x.rs"] },
+  { crates: ["midir"], files: ["devices/midi/system.rs"] },
   { crates: ["wasmtime"], files: ["plugins/external/sandbox.rs"] },
   { crates: ["keyring"], files: ["plugins/external/secrets.rs"] },
   { crates: ["enigo"], files: ["plugins/keyboard.rs"] },

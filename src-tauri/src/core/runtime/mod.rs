@@ -406,4 +406,6 @@ impl Runtime {
 }
 
 #[cfg(test)]
+mod device_tests;
+#[cfg(test)]
 mod tests;

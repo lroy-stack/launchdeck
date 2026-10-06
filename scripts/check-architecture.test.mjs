@@ -146,10 +146,11 @@ describe("crate confinement", () => {
   it("allows a crate only in its adapter file", () => {
     expect(rules(checkRustFile(rs("context/rules.rs"), "use tauri::Manager;\n"))).toEqual(["crate-confinement"]);
     expect(checkRustFile(rs("lib.rs"), "use tauri::Manager;\n")).toEqual([]);
-    expect(checkRustFile(rs("devices/launchpad_x.rs"), "fn f() { let _ = midir::MidiOutput::new(\"x\"); }\n")).toEqual([]);
+    expect(checkRustFile(rs("devices/midi/system.rs"), "fn f() { let _ = midir::MidiOutput::new(\"x\"); }\n")).toEqual([]);
     expect(rules(checkRustFile(rs("devices/manager.rs"), "fn f() { let _ = midir::MidiOutput::new(\"x\"); }\n"))).toEqual([
       "crate-confinement",
     ]);
+    expect(rules(checkRustFile(rs("devices/launchpad_x.rs"), "use midir::MidiInput;\n"))).toEqual(["crate-confinement"]);
     expect(checkRustFile(rs("context/observer/macos.rs"), "use objc2_app_kit::NSWorkspace;\n")).toEqual([]);
     expect(rules(checkRustFile(rs("context/identity.rs"), "use objc2_app_kit::NSWorkspace;\n"))).toEqual([
       "crate-confinement",
