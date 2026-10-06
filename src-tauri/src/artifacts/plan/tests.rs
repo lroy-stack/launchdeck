@@ -1546,10 +1546,14 @@ fn missing_disabled_and_incompatible_plugins_never_block() {
         .contains("until you install acme.gone ^2"));
     assert_eq!(p.surfaces[0].missing_providers, ["acme.gone", "acme.lamp"]);
 
-    // A version the requirement accepts is compatible.
+    // A version the requirement accepts is compatible. An installed plugin
+    // is named by its own name, not by the one the file gives it.
     let fits = pack_of(
         ManifestV1 {
-            dependencies: vec![dep("acme.notes", "^1.2", true)],
+            dependencies: vec![DependencyV1 {
+                name: Some("Agent Control".into()),
+                ..dep("acme.notes", "^1.2", true)
+            }],
             ..manifest("1.0.0")
         },
         vec![surface(

@@ -201,6 +201,11 @@ function Rules({ plan, decisions, change }: { plan: ImportPlan; decisions: Impor
               {r.applicationName} → {surfaceName(r.surfaceLocalId)}
               {r.pageId ? ` (page ${r.pageId})` : ""}
             </label>
+            {r.application && (
+              <small className="hint">
+                Matches the application with the id <code>{r.application.id}</code>
+              </small>
+            )}
             <small className="hint">{ruleOutcomeText(r.outcome, inputLabel)}</small>
           </li>
         ))}
@@ -218,6 +223,9 @@ function Plugins({ plan, examples, install }: { plan: ImportPlan; examples: Exam
         {plan.dependencies.map((d) => (
           <li key={d.pluginId}>
             <b>{d.name}</b>
+            {/* Rust names an installed plugin by its own name; otherwise the name is the file's. */}
+            {d.status.kind === "missing" && d.name !== d.pluginId && <span className="hint">as the file names it</span>}
+            <code>{d.pluginId}</code>
             <span className="pill ghost">{d.requirement}</span>
             <span className={`pill ${d.status.kind === "compatible" ? "live" : "warn"}`}>{DEPENDENCY_TAG[d.status.kind]}</span>
             <span>{dependencyText(d)}</span>

@@ -199,7 +199,8 @@ pub enum RuleOutcome {
 #[serde(rename_all = "camelCase")]
 pub struct DependencyCheck {
     pub plugin_id: String,
-    /// For display: the file's name for it, the installed plugin's, or its id.
+    /// For display: the installed plugin's name, else the file's name for
+    /// it, else its id.
     pub name: String,
     pub requirement: String,
     /// A pad's action needs it; otherwise only feedback reads it.

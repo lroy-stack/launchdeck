@@ -65,10 +65,10 @@ pub(super) fn dependencies(
         .map(|(i, dep)| {
             let at = format!("/manifest/dependencies/{i}");
             let installed = env.provider(&dep.plugin_id);
-            let name = dep
-                .name
-                .clone()
-                .or_else(|| installed.map(|p| p.name.clone()))
+            // An installed plugin by its own name: the file's could be any.
+            let name = installed
+                .map(|p| p.name.clone())
+                .or_else(|| dep.name.clone())
                 .unwrap_or_else(|| dep.plugin_id.clone());
             let status = status(dep, installed);
             let used_by = used_by(&controls, &dep.plugin_id);

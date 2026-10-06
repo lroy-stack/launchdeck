@@ -141,6 +141,8 @@ describe("importing a file", () => {
     const rule = within(section("Context rules")).getByRole("checkbox", { name: /Visual Studio Code/ });
     expect((rule as HTMLInputElement).checked).toBe(false);
     expect(within(section("Context rules")).getByText("Not added unless you select it.")).toBeTruthy();
+    // What the rule matches is the application's id, whatever name the file gives it.
+    expect(within(section("Context rules")).getByText(PLAN.contextRules[0]!.application!.id)).toBeTruthy();
     const runs = section("Pads that run things");
     for (const item of PLAN.review) expect(within(runs).getByText(item.text)).toBeTruthy();
     expect((within(runs).getByRole("radio", { name: /Remove/ }) as HTMLInputElement).checked).toBe(true);
@@ -382,6 +384,9 @@ describe("a plugin the file needs", () => {
     const plugins = (await screen.findByRole("heading", { name: "Plugins needed" })).closest("section")!;
     expect(within(plugins).getByText("Missing")).toBeTruthy();
     expect(within(plugins).getByText("Counter Plugin")).toBeTruthy();
+    // Not installed: the name is the file's, and the id is what is looked for.
+    expect(within(plugins).getByText("example.counter")).toBeTruthy();
+    expect(within(plugins).getByText("as the file names it")).toBeTruthy();
     expect(within(plugins).getByText(/Plus/)).toBeTruthy();
     expect((importButton() as HTMLButtonElement).disabled).toBe(false);
     await user.click(importButton());
