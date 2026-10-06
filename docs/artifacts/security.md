@@ -41,7 +41,7 @@ After a file is read, planning and applying are checked again with the app's own
 
 ## Actions that run things
 
-Three kinds of pad run something on the computer or the network: a **command** (`shell.execute`), a **request** (`http.request`, and any other action of LaunchDeck itself marked privileged), and a **launch** of a program (`system.launchApplication`, every one). A fourth, an **instruction to an agent** (`agent-control.newTask`, `agent-control.continue`), is shown too. The import lists each of them with exactly what it runs, and the person must choose to **keep** or **remove** the first three kinds; remove is proposed. Removing empties the slot and keeps the control's label, looks and feedback.
+Three kinds of pad run something on the computer or the network: a **command** (`shell.execute`), a **request** (`http.request`, and any other action of LaunchDeck itself marked privileged), and a **launch** of a program (`system.launchApplication`, every one). A fourth, an **instruction to an agent** (`agent-control.newTask`, `agent-control.continue`, and the answers `approve`, `reject` and `retry`, each shown by name, such as "approves the agent's pending request"), is shown too. The import lists each of them with exactly what it runs, and the person must choose to **keep** or **remove** the first three kinds; remove is proposed. Removing empties the slot and keeps the control's label, looks and feedback.
 
 What the person reads is what would run. Each point below closes a way a file could show one thing and run another (the SF numbers are the security findings of the milestone that led to them):
 
@@ -110,8 +110,8 @@ Status: these tests ran on macOS only, in this milestone. CI: NOT VERIFIED (GitH
 ## What is not claimed
 
 * **Only some pads are reviewed.** A pad that opens a web page or a `mailto:` address, presses a key combination or a media key, or switches surfaces is imported as the file has it, and does that when pressed. A command kept on purpose runs with the person's rights when pressed.
-* **Answers to an agent are not reviewed.** A pad that approves, rejects or retries an agent's session (`agent-control.approve`, `reject`, `retry`) is imported as the file has it, and is not listed for review. With the Claude Code and Codex hooks adapters, approve answers the focused session's pending permission request with "allow", and the agent then runs the tool call it asked for, a shell command for example. Only `newTask` and `continue`, which give an agent an instruction, are shown.
-* **Labels can lie.** A pad labelled "Build" may run anything, and one labelled "Volume up" may approve an agent's request; the review shows the real command, request or launch, not the label.
+* **Instructions to an agent are shown, never removed.** A pad that gives an agent a task or a message, approves or rejects its pending request, or retries its session is listed with what it sends ("approves the agent's pending request") and is kept whatever the person decides for the pads that run things. With the Claude Code and Codex hooks adapters, approve answers the focused session's pending permission request with "allow", and the agent then runs the tool call it asked for, a shell command for example: read these before you import.
+* **Labels can lie.** A pad labelled "Build" may run anything, and one labelled "Volume up" may approve an agent's request; the review shows the real command, request, launch or instruction to an agent, not the label.
 * **A dependency is only an id.** If the person installs a plugin with the declared id from someone else, the pads use that plugin.
 * **Integrity is not authenticity**, as above.
 * **The app window.** The import and export screens, the file picker and the Downloads prompt have not been used in the app's window by a person: NOT VERIFIED.

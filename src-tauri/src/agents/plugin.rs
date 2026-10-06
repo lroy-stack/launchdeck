@@ -23,6 +23,11 @@ pub const PLUGIN_ID: &str = "agent-control";
 pub const CONTINUE: &str = "continue";
 /// The action that starts a new agent session on a task.
 pub const NEW_TASK: &str = "newTask";
+/// The actions that answer the focused session's pending request, and
+/// that retry a failed or cancelled one.
+pub const APPROVE: &str = "approve";
+pub const REJECT: &str = "reject";
+pub const RETRY: &str = "retry";
 
 pub struct AgentControlPlugin {
     ctl: Arc<AgentControl>,
@@ -68,12 +73,12 @@ fn slot_param() -> ParamDef {
 /// the selection or the demo are always available.
 fn command_of(action: &str) -> Option<CommandKind> {
     Some(match action {
-        "approve" => CommandKind::Approve,
-        "reject" => CommandKind::Reject,
+        APPROVE => CommandKind::Approve,
+        REJECT => CommandKind::Reject,
         "pause" => CommandKind::Pause,
         "resume" => CommandKind::Resume,
         "cancel" => CommandKind::Cancel,
-        "retry" => CommandKind::Retry,
+        RETRY => CommandKind::Retry,
         CONTINUE => CommandKind::SendInstruction,
         NEW_TASK => CommandKind::Spawn,
         _ => return None,
@@ -125,14 +130,14 @@ impl Plugin for AgentControlPlugin {
             kind: ProviderKind::Module,
             actions: vec![
                 def(
-                    "approve",
+                    APPROVE,
                     "Approve",
                     "Approve the focused session's pending request.",
                 )
                 .keywords(&["yes", "allow", "accept", "permission", "confirm", "agent"])
                 .look("Approve", visual::GREEN, "✔"),
                 def(
-                    "reject",
+                    REJECT,
                     "Reject",
                     "Reject the focused session's pending request.",
                 )
@@ -151,7 +156,7 @@ impl Plugin for AgentControlPlugin {
                 def("cancel", "Cancel", "Cancel the focused session.")
                     .keywords(&["stop", "abort", "kill", "end", "agent"])
                     .look("Stop", visual::RED, "■"),
-                def("retry", "Retry", "Retry a failed or cancelled session.")
+                def(RETRY, "Retry", "Retry a failed or cancelled session.")
                     .keywords(&["again", "rerun", "restart", "agent"])
                     .look("Retry", visual::YELLOW, "↻"),
                 def(
@@ -273,12 +278,12 @@ impl Plugin for AgentControlPlugin {
         args: &Value,
     ) -> Result<Value, ActionError> {
         match action {
-            "approve" => self.command(Command::Approve),
-            "reject" => self.command(Command::Reject),
+            APPROVE => self.command(Command::Approve),
+            REJECT => self.command(Command::Reject),
             "pause" => self.command(Command::Pause),
             "resume" => self.command(Command::Resume),
             "cancel" => self.command(Command::Cancel),
-            "retry" => self.command(Command::Retry),
+            RETRY => self.command(Command::Retry),
             CONTINUE => self.command(Command::SendInstruction {
                 text: instruction_of(args).into(),
             }),

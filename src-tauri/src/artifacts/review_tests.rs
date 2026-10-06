@@ -58,7 +58,14 @@ async fn the_ids_are_the_real_catalogs() {
                 action == system::LAUNCH_APPLICATION
             } else {
                 provider == AGENT_CONTROL
-                    && [AGENT_NEW_TASK, AGENT_CONTINUE].contains(&action.as_str())
+                    && [
+                        AGENT_NEW_TASK,
+                        AGENT_CONTINUE,
+                        AGENT_APPROVE,
+                        AGENT_REJECT,
+                        AGENT_RETRY,
+                    ]
+                    .contains(&action.as_str())
             };
             assert_eq!(found.is_some(), expected, "{provider}.{action}");
         }
@@ -88,8 +95,18 @@ fn what_runs_things() {
         kind(&a("agent-control", "continue", json!({}))),
         Some(InstructsAgent)
     );
+    // Answering an agent's request, or retrying its session, makes it run
+    // what it asked for.
+    for answer in ["approve", "reject", "retry"] {
+        assert_eq!(
+            kind(&a("agent-control", answer, json!({}))),
+            Some(InstructsAgent),
+            "{answer}"
+        );
+    }
     for quiet in [
-        a("agent-control", "approve", json!({})),
+        a("agent-control", "pause", json!({})),
+        a("agent-control", "focusSlot", json!({ "slot": 0 })),
         a("navigation", "openSurface", json!({ "surfaceId": "dev" })),
         a("system", "openUrl", json!({ "url": "https://example.com" })),
         a("shell", "other", json!({})),
@@ -357,6 +374,17 @@ fn the_text_is_what_runs() {
         item(a("agent-control", "continue", json!({ "text": "go on" }))),
         "go on"
     );
+    // A command to an agent is named, whatever its arguments say.
+    for (command, text) in [
+        ("approve", "approves the agent's pending request"),
+        ("reject", "rejects the agent's pending request"),
+        ("retry", "retries the agent's failed or cancelled session"),
+    ] {
+        assert_eq!(
+            item(a("agent-control", command, json!({ "text": "x" }))),
+            text
+        );
+    }
 }
 
 /// Blank lines are counted, not drawn: a text padded with line breaks

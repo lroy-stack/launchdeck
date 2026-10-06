@@ -4,7 +4,9 @@
 //! Three kinds run something on the computer or the network: a shell
 //! command, a request (`http.request`, and any other host definition marked
 //! privileged), and every launch, read with the runtime's own parser. The
-//! fourth, an instruction to an agent, is shown and never needs a decision.
+//! fourth, an instruction to an agent (a task, a message, or an answer to
+//! its request or a retry of its session, each named), is shown and never
+//! needs a decision.
 //! Plugin actions are never review items: a plugin cannot be privileged,
 //! and its network access stays behind the grants a person gives.
 
@@ -23,8 +25,9 @@ use crate::actions::builtin::{
 use crate::actions::definition::{Assignment, ProviderKind};
 use crate::actions::params::hidden_char as hidden;
 use crate::agents::plugin::{
-    instruction_of, new_task_of, CONTINUE as AGENT_CONTINUE, NEW_TASK as AGENT_NEW_TASK,
-    PLUGIN_ID as AGENT_CONTROL,
+    instruction_of, new_task_of, APPROVE as AGENT_APPROVE, CONTINUE as AGENT_CONTINUE,
+    NEW_TASK as AGENT_NEW_TASK, PLUGIN_ID as AGENT_CONTROL, REJECT as AGENT_REJECT,
+    RETRY as AGENT_RETRY,
 };
 use crate::platform::Platform;
 use crate::plugins::system;
@@ -98,7 +101,12 @@ pub fn classify(assignment: &Assignment, env: &Environment) -> Option<ReviewKind
         // Every launch, on every system: on Linux and Windows a plain name
         // runs any program of that name on `PATH`.
         (system::ID, system::LAUNCH_APPLICATION) => Some(ReviewKind::LaunchesProgram),
-        (AGENT_CONTROL, AGENT_NEW_TASK | AGENT_CONTINUE) => Some(ReviewKind::InstructsAgent),
+        // An answer to an agent's request, or a retry of its session, has
+        // the agent run what it asked for (a shell command, for one).
+        (
+            AGENT_CONTROL,
+            AGENT_NEW_TASK | AGENT_CONTINUE | AGENT_APPROVE | AGENT_REJECT | AGENT_RETRY,
+        ) => Some(ReviewKind::InstructsAgent),
         _ => {
             let privileged = env
                 .provider(provider)
@@ -269,7 +277,12 @@ fn review_text(kind: ReviewKind, assignment: &Assignment) -> String {
                 ),
             }
         }
-        ReviewKind::InstructsAgent => visible(instruction_of(args), true),
+        ReviewKind::InstructsAgent => match assignment.action.as_str() {
+            AGENT_APPROVE => "approves the agent's pending request".into(),
+            AGENT_REJECT => "rejects the agent's pending request".into(),
+            AGENT_RETRY => "retries the agent's failed or cancelled session".into(),
+            _ => visible(instruction_of(args), true),
+        },
     }
 }
 

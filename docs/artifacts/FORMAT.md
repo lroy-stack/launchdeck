@@ -434,7 +434,7 @@ Planning classifies every press and long press as the runtime would run it, afte
 | `runsCommand` | `shell.execute` | The command, in full. |
 | `sendsRequest` | `http.request`, and any other action of LaunchDeck itself (not of a plugin) marked privileged | The method, the address, where it goes (host and port; "on this computer" or "on your local network" when it is), and the body; for another privileged action, its id and all its arguments. |
 | `launchesProgram` | `system.launchApplication`, every one, on every system: a plain name without arguments too, since on Linux and Windows it runs any program of that name on `PATH` | The program and each argument as the runtime passes them. |
-| `instructsAgent` | `agent-control.newTask`, `agent-control.continue` | The instruction (and the folder of a new task). |
+| `instructsAgent` | `agent-control.newTask`, `agent-control.continue`, `agent-control.approve`, `agent-control.reject`, `agent-control.retry` | The instruction (and the folder of a new task); for an answer or a retry, the command in words: "approves the agent's pending request", "rejects the agent's pending request", "retries the agent's failed or cancelled session". |
 
 Every hidden character in a review text is shown as an escape. The first three kinds need the decision `runs`: `remove` (proposed) empties those slots and keeps each control's label, looks and feedback; `keep` imports them as the file has them. An instruction to an agent is shown, needs no decision and is always kept. Plugin actions are never review items: a plugin cannot be privileged, and its network access stays behind the grants the person gives, which an import never changes.
 

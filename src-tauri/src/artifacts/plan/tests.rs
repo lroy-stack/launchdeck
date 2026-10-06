@@ -1584,6 +1584,59 @@ fn pads_that_run_things_are_reviewed_and_kept_or_removed() {
     assert_eq!(quiet.suggested.runs, None);
 }
 
+/// Answering an agent's request or retrying its session is shown with the
+/// command named, like any instruction to an agent: no decision, kept.
+#[test]
+fn answers_to_an_agent_are_shown_and_kept() {
+    let file = pack_of(
+        manifest("1.0.0"),
+        vec![surface(
+            "desk",
+            "Desk",
+            vec![
+                pad(0, "Yes", Some(a("agent-control", "approve", json!({})))),
+                pad(1, "No", Some(a("agent-control", "reject", json!({})))),
+                pad(2, "Again", Some(a("agent-control", "retry", json!({})))),
+            ],
+        )],
+        vec![],
+    );
+    let remove = ImportDecisions {
+        runs: Some(Runs::Remove),
+        ..ImportDecisions::default()
+    };
+    let p = plan_of(&file, &workspace(vec![]), &remove);
+    let shown: Vec<(ReviewKind, &str, &str)> = p
+        .review
+        .iter()
+        .map(|r| (r.kind, r.label.as_str(), r.text.as_str()))
+        .collect();
+    assert_eq!(
+        shown,
+        [
+            (
+                ReviewKind::InstructsAgent,
+                "Yes",
+                "approves the agent's pending request"
+            ),
+            (
+                ReviewKind::InstructsAgent,
+                "No",
+                "rejects the agent's pending request"
+            ),
+            (
+                ReviewKind::InstructsAgent,
+                "Again",
+                "retries the agent's failed or cancelled session"
+            ),
+        ]
+    );
+    assert!(p.ready, "{:?}", p.blockers);
+    assert!(p.effects.removed_slots.is_empty());
+    let default = plan_of(&file, &workspace(vec![]), &ImportDecisions::default());
+    assert_eq!(default.suggested.runs, None);
+}
+
 // Dependencies.
 
 #[test]
