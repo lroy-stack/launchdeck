@@ -1,233 +1,95 @@
 # LaunchDeck
 
-**LaunchDeck turns MIDI grid controllers into programmable physical interfaces for your computer. Control apps. Automate workflows. Build accessible interfaces. Monitor and orchestrate AI agents.**
+LaunchDeck turns a Novation Launchpad into a programmable control surface for your computer. Pads open applications, press shortcuts, send requests and switch pages. They light up to show the state of things, on your computer or outside it through plugins you allow. The surface can follow the application in front, and Agent Control puts AI agents on the pads, so you can see what each one is doing and approve or reject a request with one press. A simulated Launchpad is built in, so all of it works without hardware.
 
-It is a runtime, not a music toy: pads that open apps, run actions, switch contexts and show live state, including the state of things outside your computer through plugins you grant network access to, starting with the Novation Launchpad X. A virtual Launchpad is built in, so everything works without hardware.
+**Status: 0.3.0, the first external alpha.** Built and tested on macOS 15.4.1 (Apple M2). Nobody has yet walked through the app window, a real Launchpad, Windows, a Linux desktop or a real Home Assistant for this release: see [Verified where](#verified-where) and the [known limitations](#known-limitations). License: [MIT](LICENSE).
 
-> Status: **v0.2 prototype.** The runtime, editor, virtual device, Launchpad X adapter, Agent Control, the plugin platform and Auto Context work and are tested, **on Linux**. On macOS it is built, and the Rust (715 passed, 0 failed, 2 ignored) and TypeScript (309) tests pass on macOS 15.4.1, Apple M2, Rust 1.97.0; the Auto Context observer, Keychain, CoreMIDI and `enigo` compile there but have not been seen running, and the app window has not been checked by hand. Windows has never been built, and the Launchpad X path has **not** been exercised on real hardware (see [verified where](#verified-where) and [known limitations](#known-limitations)). What remains to check by hand on a Mac is in [section 4 of NEXT_PHASE.md](NEXT_PHASE.md#4-check-by-hand-on-the-mac).
+## Install
 
-## Flagship: Agent Control
-
-**A physical human control surface for autonomous and semi-autonomous agents.**
-
-Agents run for minutes or hours and stop to ask permission at moments you do not control. Agent Control puts that on a pad you can see across the room and press without finding a window.
-
-| | |
-| --- | --- |
-| **Observe** | One pad per session, coloured and animated by status. Four agents at once, at a glance, on the Launchpad and in the app. |
-| **Intervene** | A flashing APPROVE pad when an agent needs you, with REJECT next to it. Pause, Resume, Retry and Stop light up only when they can work. |
-| **Orchestrate** | Start a task on an agent: which agent, what to do, optionally where. |
-
-It is provider-neutral. The core knows about agents, sessions, approvals and commands, not about brands. Tool-specific code lives in adapters, and adapters never touch MIDI, pads or colours. One state in the Rust runtime feeds the desktop app, the virtual Launchpad and a physical Launchpad, so they cannot disagree. A permission request is never approved automatically: a person presses a pad or a button.
-
-Try it in two minutes, no hardware and no agent needed: start the app, open **Agents** and press **Run Agent Demo**. The five demo flows (observe, approve, intervene, fail and retry, connect your own program) are in [docs/agent-control/overview.md](docs/agent-control/overview.md#try-it-in-two-minutes).
-
-| Way to connect an agent | For | Controls |
-| --- | --- | --- |
-| Built-in demo agents | Trying it out | Everything, simulated |
-| Hooks (Claude Code verified, Codex written from its docs and not run) | Tools that call a hook URL at lifecycle points | Observe, approve and reject. Nothing else is possible through hooks. |
-| Agent Bridge (`ws://127.0.0.1:47821`) | Any local program | Whatever the program declares. [Example client](examples/generic-agent/) |
-
-Agents you connect start read-only. You grant control per agent, in the app. See [what is built and what is not](docs/agent-control/overview.md#known-limitations).
-
-## What works today
-
-| Area | State |
-| --- | --- |
-| Virtual Launchpad X (simulator, no hardware needed) | Working. Same interface as real hardware. |
-| Launchpad X over USB (discovery, Programmer mode, press/release, RGB LEDs, clear) | Implemented and byte-tested. Untested on a physical unit. |
-| Surfaces, pages, controls, spans, per-state looks | Working, persisted as versioned JSON. |
-| Live / Edit modes, inspector | Working. |
-| Feedback editor: make a pad follow a state or react to an event from the inspector, with one searchable picker for every provider, numbered rules you can reorder, looks you can create in place, and a live explanation of why the pad looks as it does | Working. Tested against the real Counter plugin and in the real desktop app. [Guide](docs/feedback-editor.md) |
-| Action Library: every built-in, Agent Control and installed-plugin action in one searchable panel, assigned by selecting or dragging, configured in a form generated from a declared schema, with availability, replacement warnings and test runs | Working. Tested end to end with a real compiled plugin. [Guide](docs/actions/overview.md) |
-| Agent Control: agents, sessions, approvals, commands, surface, Agents section in the app | Working. Demo agents, Agent Bridge, hook adapters. |
-| Starter surfaces: Agent Control, Development, Productivity, Accessibility, Smart Home | Included. |
-| System plugin, Demo plugin, Agent Control plugin | Working. |
-| Plugin SDK: external plugins in a WebAssembly sandbox, discovered from a folder, with typed actions, events on the existing bus, states, settings, logs, enable and disable | Working. AssemblyScript SDK and examples (Hello, Counter, Channels, a C one) in this repository. [Guide](docs/plugin-sdk/README.md) |
-| Plugin capabilities: a plugin asks for network access to exact addresses, you allow or deny each one on the Plugins screen, and LaunchDeck sends the requests itself. Secrets are kept in the system credential store, never in a file and never handed to the plugin. Actions show as pending while a request is out | Working. Tested with a real local server, and in the real desktop app. [Permissions](docs/plugins/permissions.md), [capabilities](docs/plugin-sdk/capabilities.md) |
-| Home Assistant example plugin: toggle a light from a pad and see on the pad whether it is on | Working against a stand-in server that implements the documented REST endpoints. **Not run against a real Home Assistant.** [Guide](examples/plugins/home-assistant/README.md) |
-| Local WebSocket for external events and the Agent Bridge (`127.0.0.1` only) | Working. |
-| Hook endpoint for Claude Code and Codex (`127.0.0.1` only, token, off by default) | Working for Claude Code (verified live). Codex untested. |
-| System tray | Working where the OS supports it. |
-| Auto Context: the surface follows the application in front, by ordered rules (application to surface and page), with an explicit fallback, a manual override that is never fought, and a panel that says which rule matched and why | Working on Linux/X11, tested on Linux in an earlier milestone in the real desktop app with real windows. The macOS observer compiles on macOS but has **not been seen running** (NOT VERIFIED). The Windows observer is written and **has never been compiled**. Not available on Wayland. [Guide](docs/context-engine.md) |
-| Marketplace, MCP | Documented as roadmap only. |
-
-## Verified where
-
-Everything in the table above was built and tested in one Linux environment, in earlier milestones. On macOS it has since been built and its tests run; that record is [VERIFICATION.md](VERIFICATION.md). This is what that does and does not cover:
-
-| | Linux | macOS | Windows |
-| --- | --- | --- | --- |
-| Builds, unit and integration tests (Rust and TypeScript) | Yes | Yes: built, and the Rust (715 passed, 0 failed, 2 ignored) and TypeScript (309) tests pass on macOS 15.4.1, Apple M2, Rust 1.97.0 | **Never built** |
-| The real desktop app, driven through its window ([tools/desktop-e2e](tools/desktop-e2e/README.md)) | Yes, 218 checks | No (the harness is Linux only); the app window has not been checked by hand | No |
-| Secrets in the system credential store | Yes, a real Secret Service keyring | Keychain: compiled, not run | Credential Manager: not run |
-| Auto Context observer | Yes, X11 with a window manager, in an earlier milestone. Wayland: not available | Compiled; running **NOT VERIFIED** | Written, **never compiled** |
-| Keyboard shortcuts and media keys (`enigo`) | Behind a fake in tests; not run against a real desktop | Compiled; behind a fake in tests; not run | Not run |
-| Launchpad X over USB | Byte-tested, **no physical unit** | Byte-tested; CoreMIDI compiled, **no physical unit** | Not run |
-| Home Assistant example | Against a stand-in server, **not a real installation** | Same | Not run |
-
-A workflow for Linux, macOS and Windows exists (`.github/workflows/ci.yml`); it has not run yet: GitHub Actions did not start for account billing reasons. What remains to check by hand on a Mac (the app itself, Auto Context, the Keychain, keyboard shortcuts, a Launchpad X, a Home Assistant) is in [section 4 of NEXT_PHASE.md](NEXT_PHASE.md#4-check-by-hand-on-the-mac).
-
-## Run it
-
-Requirements: Node ^20.19, ^22.13 or 24+; Rust 1.97.0, pinned by `rust-toolchain.toml`; and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS. On Linux this means WebKitGTK 4.1, GTK 3, `libayatana-appindicator3` and ALSA headers (`libasound2-dev`).
+There is no installer for 0.3.0 yet; it is added when the release is validated. Until then, build it from source. You need Node ^20.19, ^22.13 or 24+, Rust 1.97.0 (pinned by `rust-toolchain.toml`) and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your system (on macOS, the Xcode Command Line Tools are enough).
 
 ```bash
 npm install
-npm run tauri dev        # desktop app with the full Rust runtime
+npm run tauri dev                                              # the app, with the simulator
+LAUNCHDECK_PLUGINS="$PWD/examples/plugins" npm run tauri dev   # the same, with the example plugins
 ```
 
-Other useful commands:
+On macOS LaunchDeck keeps its data in `~/Library/Application Support/dev.launchdeck.app/`.
 
-```bash
-npm run dev              # UI only in a browser, with a simulated runtime (for UI work)
-npm run typecheck
-npm run lint
-npm test                 # vitest: schemas, contract with Rust, actions, store selectors
-npm run build            # type check + production frontend build
-npm run rust:fmt         # cargo fmt --check
-npm run rust:check       # cargo check
-npm run rust:test        # cargo test
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-npm run tauri build      # production bundle
-cargo run --manifest-path src-tauri/Cargo.toml --example foreground   # print which application is in front, as Auto Context sees it
-npm run plugins:build    # rebuild the example plugin modules (Hello, Counter, Channels, Home Assistant, C Ping)
-python3 tools/desktop-e2e/run.py   # drive the real built app (Linux, slow; see tools/desktop-e2e/README.md)
-sh scripts/test-secret-service.sh  # the secret store against a real, private Secret Service keyring (Linux)
-LAUNCHDECK_PLUGINS="$PWD/examples/plugins" npm run tauri dev   # run with the example plugins
-```
+## Try it in two minutes, without a Launchpad
 
-The files under `examples/*.json` are contract fixtures: Rust generates them, a Rust test fails when one is stale, and the TypeScript tests parse them. After changing what Rust sends to the interface, regenerate the one concerned from `src-tauri/` with `cargo run --example dump_workspace` (or `dump_agents`, `dump_plugins`, `dump_catalog`, `dump_observables`, `dump_context`) redirected to the matching file; each test's failure message names the command.
+1. Start LaunchDeck. The first-run screen shows the simulator as your Launchpad and asks what the pads are for. Choose **Development** and press **Start with Development**.
+2. Click the pads on screen. They take the same path a press on a physical Launchpad takes, and light up the same way.
+3. Switch the surface to **Edit**, select an empty pad and give it an action from the **Action Library**. Back in **Live**, press it.
+4. Open **Agents** and press **Run Agent Demo**. Four simulated agents start; when APPROVE flashes, press it.
 
-### Simulator mode (no hardware)
+## What works
 
-The app always starts with a **Virtual Launchpad X** connected. Open **Agent Control** (or any other surface), stay in **Live** mode and click or hold the pads. They go through exactly the same input path as a physical device: virtual pad press, `DeviceInput`, surface runtime, action engine, state engine, renderer, frame. Press **Run Agent Demo** to start four simulated agents and watch their pads move through running, tool use, waiting for approval, paused, failed and completed. When APPROVE flashes, press it.
+| Capability | In this release | Guide |
+| --- | --- | --- |
+| Surfaces, pages and pads; Live and Edit; an inspector for each pad; rename and delete surfaces and pages | Built and tested | [Surfaces and the editor](docs/user/surfaces-and-editor.md) |
+| Simulator (a virtual Launchpad X) | Built and tested; always connected | [Surfaces and the editor](docs/user/surfaces-and-editor.md) |
+| Launchpad X and Launchpad Mini MK3 over USB, with brightness, sleep and a scrolling test text in **Settings, Devices** | Supported in code and tested against simulated units; **NOT HARDWARE VERIFIED** (b) | [Launchpad X](docs/user/launchpad-x.md), [Launchpad Mini MK3](docs/user/launchpad-mini-mk3.md) |
+| Action Library: every built-in, Agent Control and plugin action in one searchable list, set up in a form | Built and tested | [Action Library](docs/user/action-library.md) |
+| Feedback editor: a pad follows a state or reacts to an event, with looks made in place | Built and tested | [Feedback editor](docs/user/feedback-editor.md) |
+| Auto Context: the surface follows the application in front, by your rules, with a manual override | Built and tested; the macOS observer seen reporting applications outside the app; in the app window **NOT VERIFIED** (f) | [Auto Context](docs/user/context-engine.md) |
+| Agent Control: demo agents, Claude Code and Codex hooks, and the Agent Bridge for any local program | Built and tested; Claude Code hooks verified live in an earlier milestone; Codex hooks written, not run | [Agent Control](docs/user/agent-control.md) |
+| Plugins: sandboxed WebAssembly, examples installed from the Plugins screen, network access only where you allow it, secrets in the system credential store | Built and tested; the Keychain itself **NOT VERIFIED** (f) | [Plugins](docs/user/plugins.md), [Plugin SDK](docs/plugin-sdk/README.md) |
+| Home Assistant example plugin and the Home starter | Tested against a stand-in server only; a real Home Assistant **NOT VERIFIED** (c) | [Home Assistant](examples/plugins/home-assistant/README.md) |
+| Sharing: export a surface or a Pack to a file, import one with a preview of everything it would add | Built and tested | [Sharing surfaces](docs/user/sharing.md) |
+| First run, Settings in sections, About with every version | Built and tested | [Versions](docs/architecture/versions.md) |
 
-`npm run dev` (browser only) uses a small in-memory stand-in for the runtime so the interface can be developed without Tauri. It shows a banner and does not run real actions.
+"Built and tested" means built and run in automated tests on macOS in this milestone, as recorded below. It does not mean a person has used it in the window yet.
 
-### Connect a Launchpad X
+## Verified where
 
-1. Plug the Launchpad X in over USB. No driver is needed on macOS, Windows 10+ or Linux (class compliant).
-2. Open **Settings** and click **Rescan**. A `Launchpad X` entry appears.
-3. Click **Connect**. LaunchDeck switches the device to Programmer mode and mirrors the active page onto the pads. The sidebar shows **Launchpad X / Connected**.
-4. Close other software that holds the Launchpad's MIDI ports (a DAW, Novation Components).
+From the [macOS verification record](docs/verification/macos-2026-10-05.md) and what the packages of this milestone recorded as run. Letters give the reason, listed under the table.
 
-Disconnecting, or unplugging, returns the app to the simulator and the UI keeps working. Details and the exact messages sent are in [docs/devices/launchpad-x.md](docs/devices/launchpad-x.md).
+| | macOS 15.4.1, Apple M2 | Linux | Windows |
+| --- | --- | --- | --- |
+| Rust build, fmt, clippy `-D warnings` (Rust 1.97.0) | Run here, clean, at 0.3.0 | Not built for 0.3.0 (a, d); clean in an earlier milestone | NOT VERIFIED (e): never built |
+| Rust tests | Whole suite last recorded green on 2026-10-05: 961 passed, 0 failed, 4 ignored (commit `e24e4f3`, before the Mini MK3 and acceptance work merged); the contract tests run here at 0.3.0 | 712 passed in an earlier milestone ([record](docs/history/next-phase-2026-10.md#0-where-things-stand)); not run for 0.3.0 (a, d) | NOT VERIFIED (e) |
+| TypeScript typecheck, lint, tests | Run here at 0.3.0: 594 tests passed | 309 tests in an earlier milestone; not run for 0.3.0 (a, d) | NOT VERIFIED (e) |
+| Release acceptance scenario, headless (`src-tauri/tests/release_acceptance.rs`) | Run here, 20 times green | NOT VERIFIED (a, d) | NOT VERIFIED (a, e) |
+| App window, tray, Auto Context in the app, Keychain, keys pressed for you (Accessibility) | NOT VERIFIED (f): the window was started once and seen by the owner, nothing checked | Desktop suite 218 of 218 in an earlier milestone; the new acceptance suite written, not run (a, d) | NOT VERIFIED (e) |
+| Auto Context observer on its own | Seen reporting applications by bundle id ([record](docs/verification/macos-2026-10-05.md#productization-macos-observer-evidence)) | X11 in an earlier milestone; Wayland not supported | NOT VERIFIED (e): never compiled |
+| Launchpad X, Launchpad Mini MK3 | NOT HARDWARE VERIFIED (b) | NOT HARDWARE VERIFIED (b) | NOT HARDWARE VERIFIED (b) |
+| Home Assistant | Stand-in server only; a real one NOT VERIFIED (c) | Stand-in server only, earlier milestone | NOT VERIFIED (e) |
+| CI (`.github/workflows`) | NOT VERIFIED (a) | NOT VERIFIED (a) | NOT VERIFIED (a) |
 
-## Connect your own agent
+(a) GitHub Actions does not start: account billing. (b) No Novation Launchpad (X or Mini MK3) attached; the [hardware test](docs/contributing/hardware-testing.md) has never run on a unit. (c) No Home Assistant reachable. (d) No Linux desktop here. (e) No Windows machine. (f) The [checks a person does on the Mac](docs/history/next-phase-2026-10.md#4-check-by-hand-on-the-mac) (sections 4.1 to 4.6) have not been done, and no agent drove the app window.
 
-Any program that can open a WebSocket can appear in Agent Control. The example client registers, creates a session, reports progress, asks for approval, receives your decision and finishes:
+## Security in short
 
-```bash
-node examples/generic-agent/agent.ts      # Node 22.18+, nothing to install
-```
-
-It appears read-only. Open **Agents**, allow control for it, and press APPROVE when it asks. The protocol is versioned and documented in [docs/agent-control/bridge-protocol.md](docs/agent-control/bridge-protocol.md), and the same model is available to Rust adapters through the [Adapter SDK](docs/agent-control/adapter-sdk.md).
-
-## Send plain events from other tools
-
-The same socket also takes generic events that change how pads look:
-
-```json
-{"type":"event","source":"build","event":"run.started"}
-{"type":"event","source":"build","event":"run.failed","payload":{"code":2}}
-```
-
-Make a control react to an event with an event rule: **Feedback, Add feedback, An event** in the inspector (see [docs/feedback-editor.md](docs/feedback-editor.md)), or by writing it in the `feedback` list of the surface file, as described in [docs/surfaces.md](docs/surfaces.md) and [docs/state-and-feedback.md](docs/state-and-feedback.md). Try it with **Settings, Developer, Send test event**, or with any WebSocket client:
-
-```bash
-npx wscat -c ws://127.0.0.1:47821 -x '{"type":"event","source":"build","event":"run.started"}'
-```
-
-Events can change how pads look. They cannot execute anything. The sources `runtime`, `device` and `agent-control`, and the id of every installed plugin, are reserved and cannot be used by clients.
-
-## Security model in short
-
-* **Shell commands and HTTP requests are privileged.** They are always shown verbatim in the inspector, carry a *Privileged* badge, and only run from a control the user configured in this app.
-* **Nothing arriving over the network can start an action.** The WebSocket accepts `event`, `ping` and the `agent.*` bridge messages only, binds to `127.0.0.1`, checks the `Origin` header, bounds message size, rate and connection count, and does not let clients impersonate the runtime, devices or Agent Control.
-* **Agents are read-only until you say otherwise.** Registering never grants control, and control is granted per agent.
-* **A permission request is never approved automatically.** Timeouts, hang-ups and errors all end with no decision. Only a person presses APPROVE.
-* **Prompts and sensitive payloads are not logged.** The audit log records what happened and who decided, not what the agent was asked to do.
-* **No silent installs, no telemetry, no cloud.** Nothing is downloaded. A plugin is a folder you put in the plugins folder.
-* **Installed plugins are sandboxed.** They run as WebAssembly with no filesystem, shell, sockets, MIDI or WASI, a handful of host functions only, and limits on CPU time, memory and message size. They can publish only the events their manifest declares, never as someone else, and a crash stops only that plugin. They never see MIDI notes or pad positions. See [docs/plugin-sdk/security.md](docs/plugin-sdk/security.md), including what this does not protect against.
-* **A plugin reaches the network only through LaunchDeck, and only where you allowed.** It asks for exact addresses (scheme, host, port); nothing is granted by installing or updating; a redirect or a DNS answer cannot lead somewhere you did not approve; and local addresses are shown as local. Tokens are kept in the system credential store and nowhere else (without one, secrets are unavailable rather than written to a file), sent to one address only, and never given to the plugin. Decisions are in a file outside the workspace, so a shared surface carries none. See [docs/plugins/permissions.md](docs/plugins/permissions.md).
-* Built-in plugins declare permissions (`network`, `filesystem`, `shell`, `automation`, `accessibility`, `midi`) that the Plugins screen displays; they are trusted first-party code, not gated. See [docs/plugins.md](docs/plugins.md) and [docs/agent-control/security.md](docs/agent-control/security.md).
-
-## Project map
-
-```
-src/                  React + TypeScript editor (Zustand for UI state only, Zod at the IPC boundary)
-  features/           one folder per part of the interface: surfaces, editor (inspector), library (Action Library),
-                      feedback (feedback editor), plugins, agents, context (Auto Context), devices
-  lib/                schema.ts (Zod, every payload), ipc.ts (commands and events), preview.ts (the browser-only stand-in)
-src-tauri/src/
-  core/               model, runtime (surface runtime, state engine, event routing), validation
-  state/              State Hub: the current value of every state, the rule evaluator and its index
-  devices/            SurfaceDevice trait, capabilities, virtual device, Launchpad X (the only MIDI code)
-  renderer/           semantic visual state to capability-aware frames
-  actions/            Action Library: unified registry, definitions, parameter schema, action engine, Navigation, Shell and HTTP providers
-  plugins/            plugin runtime, System plugin, Demo plugin
-  plugins/external/   Plugin SDK host: manifest, discovery, WebAssembly sandbox, lifecycle,
-                      capabilities (requests and grants), network broker, secret stores
-  agents/             Agent Control: model, service, adapters, bridge, audit
-  context/            Auto Context: foreground observers (one per system), application identity, ordered rules, the Auto / Manual Override engine
-  events/             event bus, localhost WebSocket
-  surfaces/           starter surfaces, including Agent Control
-  persistence/        versioned JSON store (workspace schema 4), migrations from schema 2 and 3
-src-tauri/tests/      integration tests: real plugins, the network broker, the secret store, Agent Control, Auto Context, contracts
-src-tauri/examples/   dump_* (regenerate the contract fixtures), foreground (which application is in front), headless, adapter_sdk
-sdk/assemblyscript/   the plugin SDK for AssemblyScript
-docs/                 product, architecture, surfaces, state and feedback, context engine, actions, plugins, plugin-sdk,
-                      security, device notes, roadmap, agent-control
-scripts/              build-example-plugins.sh, test-secret-service.sh
-tools/desktop-e2e/    checks that drive the real desktop app through WebDriver (Linux, run on request)
-examples/             default-workspace.json, agents-snapshot.json, plugins-overview.json, plugin-examples.json, action-catalog.json,
-                      observables.json and context-status.json (generated by Rust and parsed by the TypeScript tests), feedback-editor-*.json
-                      (controls exactly as the feedback editor saves them), generic-agent/ (bridge client),
-                      plugins/ (Hello, Counter, Channels, Home Assistant and a C plugin, built outside the core)
-NEXT_PHASE.md         what to do next and how to continue on a Mac
-```
-
-## Documentation
-
-* [Next phase](NEXT_PHASE.md): the macOS phase, with what remains to check by hand in [section 4](NEXT_PHASE.md#4-check-by-hand-on-the-mac), and the milestone after that; what was built and tested on macOS is in [VERIFICATION.md](VERIFICATION.md)
-* [Product](docs/product.md)
-* [Architecture](docs/architecture/overview.md)
-* [Surfaces](docs/surfaces.md)
-* State and feedback: [the model](docs/state-and-feedback.md), [observables and the catalog](docs/observables.md), [the feedback editor](docs/feedback-editor.md)
-* [Context Engine](docs/context-engine.md): the surface follows the application in front
-* [Plugins](docs/plugins.md) and [plugin permissions](docs/plugins/permissions.md)
-* Security: [where secrets are kept](docs/security/secrets.md)
-* Actions: [overview](docs/actions/overview.md), [definitions](docs/actions/definitions.md), [parameters](docs/actions/parameters.md), [providers](docs/actions/providers.md), [availability](docs/actions/availability.md), [Action Library](docs/actions/action-library.md)
-* Plugin SDK: [overview](docs/plugin-sdk/README.md), [getting started](docs/plugin-sdk/getting-started.md), [manifest](docs/plugin-sdk/manifest.md), [capabilities](docs/plugin-sdk/capabilities.md), [network](docs/plugin-sdk/network.md), [secrets](docs/plugin-sdk/secrets.md), [AssemblyScript SDK](docs/plugin-sdk/assemblyscript.md), [protocol](docs/plugin-sdk/protocol.md), [security](docs/plugin-sdk/security.md), [packaging](docs/plugin-sdk/packaging.md), [testing](docs/plugin-sdk/testing.md), [versioning](docs/plugin-sdk/versioning.md)
-* [Launchpad X notes](docs/devices/launchpad-x.md)
-* Agent Control: [overview](docs/agent-control/overview.md), [domain model](docs/agent-control/domain-model.md), [adapter SDK](docs/agent-control/adapter-sdk.md), [bridge protocol](docs/agent-control/bridge-protocol.md), [surfaces](docs/agent-control/surfaces.md), [security](docs/agent-control/security.md), [MCP (optional, design only)](docs/agent-control/mcp.md)
-* [Marketplace (roadmap)](docs/roadmap/marketplace.md)
-* [MCP at platform level (roadmap)](docs/roadmap/mcp.md)
-* [Desktop end-to-end checks](tools/desktop-e2e/README.md)
-* Plans, kept as the record of the research and decisions behind each milestone, in the order they were built: [implementation](IMPLEMENTATION_PLAN.md), [Agent Control](AGENT_CONTROL_PLAN.md), [Plugin SDK](PLUGIN_SDK_PLAN.md), [Action Library](ACTION_LIBRARY_PLAN.md), [state and feedback](STATE_FEEDBACK_PLAN.md), [feedback editor](FEEDBACK_EDITOR_PLAN.md), [plugin capabilities](PLUGIN_CAPABILITIES_PLAN.md) and [Context Engine](CONTEXT_ENGINE_PLAN.md). The `docs/` pages describe what is built; where a plan and a page disagree, the page is right.
+* **Nothing arriving over the network can start an action.** The local WebSocket binds to `127.0.0.1` and accepts events and the Agent Bridge only; events change how pads look, never what runs.
+* **A permission request is never approved automatically.** Only a person presses APPROVE, and agents are read-only until you allow control.
+* **Plugins are sandboxed** WebAssembly with no files, shell, sockets or MIDI. A plugin reaches the network only through LaunchDeck, only where you allowed, and never sees a secret's value ([plugin security](docs/plugin-sdk/security.md), [where secrets are kept](docs/architecture/secrets.md)).
+* **A shared file is reviewed before anything is added**, and importing it runs nothing ([artifact security](docs/artifacts/security.md)).
+* **No telemetry, no cloud, no silent installs.**
 
 ## Known limitations
 
-* **Built and tested on Linux and macOS, never built on Windows, and CI has not run.** On macOS it is built, and the Rust (715 passed, 0 failed, 2 ignored) and TypeScript (309) tests pass on macOS 15.4.1, Apple M2, Rust 1.97.0; the Auto Context observer, Keychain, CoreMIDI and `enigo` compile there but have not been seen running, and the app window has not been checked by hand. Windows has never compiled this code, and one file exists only for it and has never been through a compiler (`src-tauri/src/context/observer/windows.rs`). A workflow for Linux, macOS and Windows exists (`.github/workflows/ci.yml`); it has not run yet: GitHub Actions did not start for account billing reasons. See [verified where](#verified-where) and [section 4 of NEXT_PHASE.md](NEXT_PHASE.md#4-check-by-hand-on-the-mac).
-* **Not tested on a physical Launchpad X.** The environment this prototype was built in had no MIDI hardware. SysEx and note mappings follow Novation's Programmer's Reference Manual and are covered by byte-level tests, but real-world behaviour (port names on your OS, timing) is unconfirmed. Agent Control sends the same frames to the virtual and the physical device and is tested on the virtual one.
-* **Auxiliary buttons are experimental.** The manual shows the top row, side column and logo in diagrams only. The controller numbers used (top CC 91 to 98, side CC 89 down to 19, logo 99) follow the layout commonly documented for the Launchpad MK3 family and are unverified.
-* **Pulse and flash are software animations on the Launchpad X.** Colour palette indices are not invented, so static colours use RGB and animations are rendered by LaunchDeck at 25 Hz. Hardware pulse/flash encoders exist and are tested but unused. Urgent agent states rely on this animation, so it is the first thing to check on a real unit.
-* **Hook adapters can only approve and reject.** Claude Code and Codex hooks cannot pause, resume, cancel, retry or instruct a session, so those controls stay unavailable for them. Codex has not been run. More in [docs/agent-control/overview.md](docs/agent-control/overview.md#known-limitations).
-* **The Agent Bridge is not authenticated.** Any local process can register an agent, read-only. Control still needs your explicit grant.
-* **Agent state is not persisted.** Agents and sessions are rebuilt as adapters reconnect. Settings, control grants and the audit trail are kept.
-* Keyboard shortcuts and volume keys use OS automation (`enigo`). On macOS this needs Accessibility permission, and on Linux Wayland sessions may block synthetic input.
-* **Auto Context is verified on Linux/X11 only**, in an earlier milestone. The macOS observer compiles on macOS but has not been seen running (NOT VERIFIED); the Windows observer is written and has never been compiled; on Wayland it is not available at all (no standard way to learn the focused application), and LaunchDeck says so and works by hand. Rules match the application only: no window titles, projects or conditions. See [docs/context-engine.md](docs/context-engine.md#platform-support).
-* **The only plugin capability is HTTP.** A plugin can make HTTP and HTTPS requests to addresses you granted, with text bodies, one at a time. There are no files, no shell, no WebSocket or other long-lived connection, no MQTT, no OAuth flow and no proxy support. State from an outside system is therefore **polled** (the Home Assistant example every 5 seconds), not pushed.
-* **The Home Assistant example was checked against a stand-in, not a real installation**, and switches lights and switches on and off only.
-* **Secrets need a system credential store.** Keychain on macOS, Credential Manager on Windows, a Secret Service keyring on Linux. Without one, a plugin's secrets are unavailable and the app says why; there is no file fallback. Only the Linux path has been run here. A secret is not removed when its plugin's folder is deleted. See [docs/security/secrets.md](docs/security/secrets.md).
-* **Plugins are not signed.** There is no signature, checksum check or revocation, and no marketplace. Install only plugins you trust; the sandbox protects LaunchDeck from the plugin, not you from a misleading one.
-* **Action settings use a closed set of field kinds.** Text, number, on/off, choice, and a surface or page. There is no list, colour or file picker kind, and a plugin cannot ship its own form. Anything else is a text field until the schema grows.
-* **A feedback rule is one comparison on one state, or one event.** There is no AND / OR, no timer that marks a state stale, no scripting and no aggregate state ("anything needs me"). The editor reports a rule that can never be reached only when it can prove it. See [docs/feedback-editor.md](docs/feedback-editor.md#not-built).
-* **Library search is word-and-typo matching.** It covers names, keywords, categories, sources and descriptions. It does not understand meaning ("make it louder" will not find Volume up unless a keyword says so).
-* **Only AssemblyScript has an SDK.** Any language that emits a core WebAssembly module with the documented exports can write a plugin (a C one is included), but a Rust SDK is not built, and Rust-built plugins have not been tested here.
-* Changing the WebSocket port or turning it off takes effect on the next launch.
-* The app is unsigned. First-run OS warnings are expected.
+* **Alpha, macOS first.** Windows has never been built, and nothing in 0.3.0 has been built on Linux. CI exists but has not run (a).
+* **No Launchpad has been attached.** Both models follow Novation's manuals and are byte-tested against simulated units; the port names each system gives a unit are derived from documents, not observed.
+* **Hook adapters can only approve and reject.** Codex has never been run. The Agent Bridge is not authenticated: any local program can register an agent, read-only until you allow control.
+* **Plugins are not signed**, and their one capability is HTTP to addresses you allowed. Outside state is polled, not pushed. Install only plugins you trust.
+* **Secrets need a system credential store**; without one they are unavailable, never written to a file.
+* **Auto Context matches applications only** (no window titles), and Wayland is not supported.
+* **Keys pressed for you** need Accessibility permission on macOS.
+
+## Documentation
+
+* **Using LaunchDeck**: the user guides in [docs/user/](docs/user/), starting with [surfaces and the editor](docs/user/surfaces-and-editor.md).
+* **Writing plugins**: the [Plugin SDK](docs/plugin-sdk/README.md) and the [example plugins](examples/plugins/README.md).
+* **Connecting agents**: the [bridge protocol](docs/agent-control/bridge-protocol.md), the [adapter SDK](docs/agent-control/adapter-sdk.md) and the [example client](examples/generic-agent/README.md).
+* **Sharing files**: the [Surface and Pack format](docs/artifacts/README.md).
+* **How it is built**: the [architecture overview](docs/architecture/overview.md), the [codebase map](docs/architecture/CODEBASE_MAP.md), the [engineering rules](docs/architecture/ENGINEERING_RULES.md) and the [versions](docs/architecture/versions.md).
+* **What was run, and where**: the [verification records](docs/verification/) and the [changes in each release](CHANGELOG.md).
+* **History**: the plans and records of earlier milestones in [docs/history/](docs/history/).
+
+## Contributing
+
+Run `npm run check` before you send a change: types, lint, the architecture rules, versions and license, documentation links, the TypeScript tests, and the Rust format and lints. `npm run check:full` adds every Rust test and the build. [AGENTS.md](AGENTS.md) says where code goes.
 
 ## License
 
