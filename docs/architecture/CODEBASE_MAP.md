@@ -158,8 +158,6 @@ The contract fixtures today. Each `dump_*` fixture is written from the real runt
 
 `src/lib/preview.ts` (the browser-only stand-in for the runtime) also reads `default-workspace.json`, `agents-snapshot.json`, `action-catalog.json`, `observables.json` and `app-info.json`. Rust-only goldens, not shared with TypeScript: `src-tauri/tests/fixtures/agent-control-golden.json` (`tests/agent_control_golden.rs`) and the migration inputs `src-tauri/tests/fixtures/workspace-v2.json`, `workspace-v3.json`.
 
-Planned: `examples/param-cases.json` from `dump_param_cases`, guarding the `normalizeArgs` mirror (E1).
-
 ## 7. Known exceptions and their planned fix
 
 | Exception | Where | Fix |
