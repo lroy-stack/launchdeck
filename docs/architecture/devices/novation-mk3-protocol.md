@@ -1,6 +1,6 @@
 # The shared Novation MK3 layer
 
-LaunchDeck drives the Launchpad Mini MK3 and the Launchpad X with one device layer, `src-tauri/src/devices/novation/`. This file says what the two models share and why, which messages LaunchDeck sends and reads (with the manual pages they come from), where Novation's documents are wrong, and how a model is described as data. The models themselves are in [launchpad-mini-mk3.md](../../user/launchpad-mini-mk3.md) and [launchpad-x.md](../../user/launchpad-x.md).
+LaunchDeck drives the Launchpad Mini MK3 and the Launchpad X with one device layer, `src-tauri/src/devices/novation/`. This file says what the two models share and why, which messages LaunchDeck sends and reads (with the manual pages they come from), where Novation's documents are wrong, and how a model is described as data. The models themselves are in [launchpad-mini-mk3.md](launchpad-mini-mk3.md) and [launchpad-x.md](launchpad-x.md).
 
 **Hardware status: NOT HARDWARE VERIFIED (b).** Every byte here is from Novation's manuals and is tested against them and against a simulated unit; none was sent to a real Launchpad (no Novation device attached, 2026-10-06).
 
@@ -72,7 +72,7 @@ The text command's speed is in pads per second; a value of `40h` or more is nega
 
 **What LaunchDeck never sends:** DAW mode (`10h`), MIDI clock, anything to the DAW interface, the bootloader or firmware commands, and the X-only commands.
 
-The order in which the session sends these (the probe, Programmer Mode, configuration, heartbeat, release) is in [launchpad-mini-mk3.md](../../user/launchpad-mini-mk3.md#taking-the-unit-and-giving-it-back).
+The order in which the session sends these (the probe, Programmer Mode, configuration, heartbeat, release) is in [launchpad-mini-mk3.md](launchpad-mini-mk3.md#taking-the-unit-and-giving-it-back).
 
 ## The palette
 
