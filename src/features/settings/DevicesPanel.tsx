@@ -16,7 +16,7 @@ export function DevicesPanel() {
       <div className="panel-head">
         <div>
           <h2 id="devices-title">Devices</h2>
-          <p className="hint">Plug in a Launchpad X and LaunchDeck connects it within a few seconds. If it does not show up, press Look again.</p>
+          <p className="hint">Plug in a Launchpad and LaunchDeck connects it within a few seconds. If it does not show up, press Look again.</p>
         </div>
         <button
           type="button"
@@ -42,7 +42,10 @@ export function DevicesPanel() {
       {!devices.some((d) => d.identity.kind === "hardware") && <p className="hint">No Launchpad found. The simulator works the same way.</p>}
       <details className="tech-details">
         <summary>Technical details</summary>
-        <p className="hint">A Launchpad X is switched to its Programmer mode while connected, and back when disconnected. LaunchDeck looks for its LPX MIDI port.</p>
+        <p className="hint">
+          A Launchpad is switched to its Programmer Mode while connected, and back when disconnected. LaunchDeck looks for its MIDI port: LPX MIDI on a
+          Launchpad X, LPMiniMK3 MIDI on a Launchpad Mini MK3.
+        </p>
         <ul className="plain">
           {devices.map((d) => (
             <li key={d.identity.id}>

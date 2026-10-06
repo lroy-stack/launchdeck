@@ -83,7 +83,7 @@ export function SurfaceTab() {
           </div>
           <p className="hint">
             Four simulated agents run side by side. One asks for approval, one can be paused, one fails so you can retry it. The virtual Launchpad and a connected
-            Launchpad X show the same thing as this window.
+            Launchpad show the same thing as this window.
           </p>
         </section>
 

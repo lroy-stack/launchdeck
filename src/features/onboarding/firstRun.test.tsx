@@ -94,6 +94,11 @@ describe("the first run", () => {
     expect(screen.getByRole("radio", { name: "Development" })).toHaveProperty("disabled", false);
   });
 
+  it("names no single Launchpad model when none is there", async () => {
+    await renderApp();
+    expect(screen.getByText("No Launchpad? The simulator on screen works the same way, and a Launchpad can be connected any time.")).toBeTruthy();
+  });
+
   it("looks for the Launchpad again on request", async () => {
     const user = userEvent.setup();
     const rescan = vi.spyOn(api, "rescanDevices");

@@ -28,7 +28,7 @@ describe("statusText", () => {
     expect(statusText(device("a", "connected"))).toBe("Connected");
     expect(statusText(device("a", "available"))).toBe("Found, not connected");
     expect(statusText(device("a", "unplugged"))).toBe("Unplugged: plug it in again and it reconnects");
-    expect(statusText(device("a", "unsupported"))).toBe("Not supported yet: LaunchDeck works with the Launchpad X");
+    expect(statusText(device("a", "unsupported"))).toBe("Not supported yet: LaunchDeck works with the Launchpad X and the Launchpad Mini MK3");
     expect(statusText(device("a", "failed", "hardware", "Another program may be using it."))).toBe("Could not connect");
   });
 
@@ -61,11 +61,13 @@ describe("primaryDevice", () => {
     expect(primaryDevice([simulator, device("launchpad-x:0", "available"), lpx])).toBe(lpx);
   });
 
-  it("then any Launchpad X, connected or not", () => {
+  it("then any Launchpad it drives, connected or not", () => {
     const unplugged = device("launchpad-x:1", "unplugged");
     expect(primaryDevice([simulator, unplugged])).toBe(unplugged);
     const failed = device("launchpad-x:2", "failed");
     expect(primaryDevice([simulator, failed])).toBe(failed);
+    const mini = { ...device("launchpad-mini-mk3:1", "available"), identity: { id: "launchpad-mini-mk3:1", name: "Launchpad Mini MK3", model: "launchpad-mini-mk3", kind: "hardware" as const } };
+    expect(primaryDevice([simulator, mini])).toBe(mini);
   });
 
   it("then the simulator; a model LaunchDeck does not drive is never primary", () => {

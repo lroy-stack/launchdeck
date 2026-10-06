@@ -12,7 +12,7 @@ export function DeviceStatusLine({ device }: { device: DeviceInfo | null }) {
         <span className="status-dot" aria-hidden />
         <span className="device-text">
           <b>No device</b>
-          <small>Plug in a Launchpad X</small>
+          <small>Plug in a Launchpad</small>
         </span>
       </>
     );

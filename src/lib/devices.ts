@@ -8,7 +8,7 @@ const HARDWARE: Record<DeviceStatus, string> = {
   connected: "Connected",
   available: "Found, not connected",
   unplugged: "Unplugged: plug it in again and it reconnects",
-  unsupported: "Not supported yet: LaunchDeck works with the Launchpad X",
+  unsupported: "Not supported yet: LaunchDeck works with the Launchpad X and the Launchpad Mini MK3",
   failed: "Could not connect",
 };
 
@@ -33,7 +33,8 @@ export const statusTone = (info: DeviceInfo): StatusTone => TONE[info.status];
 
 /**
  * The device the app shows and lays pads out for: connected hardware, then
- * any Launchpad X (unplugged, failed or not connected), then the simulator.
+ * any Launchpad LaunchDeck drives (unplugged, failed or not connected), then
+ * the simulator.
  * A model LaunchDeck does not drive is listed but never primary.
  */
 export function primaryDevice(devices: readonly DeviceInfo[]): DeviceInfo | null {

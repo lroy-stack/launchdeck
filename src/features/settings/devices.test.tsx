@@ -69,7 +69,7 @@ const WORDS: Record<DeviceStatus, string> = {
   connected: "Connected",
   available: "Found, not connected",
   unplugged: "Unplugged: plug it in again and it reconnects",
-  unsupported: "Not supported yet: LaunchDeck works with the Launchpad X",
+  unsupported: "Not supported yet: LaunchDeck works with the Launchpad X and the Launchpad Mini MK3",
   failed: "Could not connect",
 };
 
@@ -112,12 +112,20 @@ describe("Settings > Devices", () => {
     expect(rescan).toHaveBeenCalledOnce();
   });
 
+  it("asks for any Launchpad, and names each model's port only under Technical details", async () => {
+    const { container } = await show([simulator], "settings");
+    expect(screen.getByText("Plug in a Launchpad and LaunchDeck connects it within a few seconds. If it does not show up, press Look again.")).toBeTruthy();
+    const details = container.querySelector("details")!;
+    expect(details.textContent).toMatch(/LPX MIDI on a Launchpad X/);
+    expect(details.textContent).toMatch(/LPMiniMK3 MIDI on a Launchpad Mini MK3/);
+  });
+
   it("keeps capabilities and port words under Technical details", async () => {
     const { container } = await show([simulator, hardware("connected")], "settings");
     const details = container.querySelector("details")!;
     expect(within(details).getByText("Technical details")).toBeTruthy();
     expect(details.open).toBe(false);
-    expect(details.textContent).toMatch(/Programmer mode/);
+    expect(details.textContent).toMatch(/Programmer Mode/);
     expect(details.textContent).toMatch(/8×8 grid/);
     expect(normalText(container)).not.toMatch(/grid|RGB/);
   });
@@ -125,6 +133,12 @@ describe("Settings > Devices", () => {
 
 describe("the sidebar's device card", () => {
   const card = () => screen.getByRole("button", { name: /Launchpad|No device/ });
+
+  it("asks for a Launchpad, of either model, when there is no device", async () => {
+    await show([], "sidebar");
+    expect(within(card()).getByText("No device")).toBeTruthy();
+    expect(within(card()).getByText("Plug in a Launchpad")).toBeTruthy();
+  });
 
   it("shows connected hardware by its own name", async () => {
     await show([simulator, { ...hardware("connected"), identity: { ...hardware("connected").identity, name: "Launchpad X (2)" } }], "sidebar");

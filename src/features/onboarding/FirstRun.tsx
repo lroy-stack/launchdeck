@@ -95,7 +95,7 @@ export function FirstRun() {
             Look again
           </button>
         </div>
-        <p className="hint">No Launchpad X? The simulator on screen works the same way, and a Launchpad can be connected any time.</p>
+        <p className="hint">No Launchpad? The simulator on screen works the same way, and a Launchpad can be connected any time.</p>
       </section>
 
       <section>
