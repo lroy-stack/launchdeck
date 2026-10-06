@@ -5,15 +5,16 @@
 // computes no id, conflict, dependency or validity itself: Rust does (R9).
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, errorMessage } from "../../lib/ipc";
+import { Disclosure, ProblemText } from "../../components/Problem";
+import { api, toProblem, type Problem } from "../../lib/ipc";
 import type { ArtifactLimits, ExampleInfo, ImportDecisions, ImportPlan, ImportReport, Rejection } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
-import { Disclosure, PlanSections } from "./PlanSections";
+import { PlanSections } from "./PlanSections";
 import { EXPIRED, NOTHING_CHANGED, reportText, SHARE_NOTE, STALE, tooLarge } from "./text";
 import { TYPING_PAUSE_MS, useAsk } from "./useAsk";
 
 type Stage =
-  | { kind: "choose"; note?: string }
+  | { kind: "choose"; note?: Problem }
   | { kind: "reading"; fileName: string }
   | { kind: "rejected"; rejection: Rejection }
   | { kind: "plan"; plan: ImportPlan }
@@ -30,13 +31,13 @@ export function ImportView() {
   }, [attempt]);
 
   const read = async (file: File) => {
-    if (limits && file.size > limits.fileBytes) return setStage({ kind: "choose", note: tooLarge(limits.fileBytes) });
+    if (limits && file.size > limits.fileBytes) return setStage({ kind: "choose", note: { message: tooLarge(limits.fileBytes) } });
     setStage({ kind: "reading", fileName: file.name });
     try {
       const outcome = await api.artifacts.inspect(new Uint8Array(await file.arrayBuffer()), file.name);
       setStage(outcome.status === "plan" ? { kind: "plan", plan: outcome.plan } : { kind: "rejected", rejection: outcome.rejection });
     } catch (e) {
-      setStage({ kind: "choose", note: errorMessage(e) });
+      setStage({ kind: "choose", note: toProblem(e) });
     }
   };
 
@@ -69,7 +70,7 @@ export function ImportView() {
           initial={stage.plan}
           limits={limits}
           applied={(report, plan) => setStage({ kind: "applied", report, plan })}
-          expired={() => setStage({ kind: "choose", note: EXPIRED })}
+          expired={() => setStage({ kind: "choose", note: { message: EXPIRED } })}
           cancelled={() => setStage({ kind: "choose" })}
         />
       )}
@@ -78,10 +79,10 @@ export function ImportView() {
   );
 }
 
-function Choose({ note, choose }: { note?: string; choose: () => void }) {
+function Choose({ note, choose }: { note?: Problem; choose: () => void }) {
   return (
     <section className="panel">
-      {note && <p className="warning">{note}</p>}
+      {note && <ProblemText problem={note} className="warning" />}
       <p className="hint">{SHARE_NOTE}</p>
       <div className="row">
         <button type="button" className="btn primary" onClick={choose}>
@@ -138,7 +139,7 @@ function PlanStage({ initial, limits, applied, expired, cancelled }: PlanStagePr
   const refreshPlugins = useStore((s) => s.refreshPlugins);
   const { plan, decisions, pending, change, again, replacePlan } = usePlan(initial, expired);
   const [notice, setNotice] = useState<string | null>(null);
-  const [failure, setFailure] = useState<{ message: string; detail?: string } | null>(null);
+  const [failure, setFailure] = useState<Problem | null>(null);
   const [applying, setApplying] = useState(false);
   const [examples, setExamples] = useState<ExampleInfo[]>([]);
 
@@ -174,7 +175,7 @@ function PlanStage({ initial, limits, applied, expired, cancelled }: PlanStagePr
           return expired();
       }
     } catch (e) {
-      setFailure({ message: errorMessage(e) });
+      setFailure(toProblem(e));
     } finally {
       setApplying(false);
     }
@@ -191,12 +192,7 @@ function PlanStage({ initial, limits, applied, expired, cancelled }: PlanStagePr
       <PlanSections plan={plan} decisions={decisions} change={change} examples={examples} install={(id) => void install(id)} limits={limits} />
       {failure && (
         <div className="import-failure" role="alert">
-          <p className="field-error">{failure.message}</p>
-          {failure.detail && (
-            <Disclosure>
-              <p className="hint">{failure.detail}</p>
-            </Disclosure>
-          )}
+          <ProblemText problem={failure} />
         </div>
       )}
       <footer className="import-actions">

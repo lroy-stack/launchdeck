@@ -117,7 +117,7 @@ async function call<T>(cmd: string, schema: z.ZodType<T> | null, args?: InvokeAr
   const raw = await t.invoke(cmd, args, options);
   if (!schema) return raw as T;
   const parsed = schema.safeParse(raw);
-  if (!parsed.success) throw new Error(`Unexpected reply from ${cmd}: ${parsed.error.message}`);
+  if (!parsed.success) throw replyMismatch(cmd, parsed.error.message);
   return parsed.data;
 }
 
@@ -156,7 +156,11 @@ function shown(value: unknown): string {
   }
 }
 
-export const errorMessage = (e: unknown): string => toProblem(e).message;
+/** The one failure the window words itself: a reply its schema refuses, so the two builds disagree. */
+const replyMismatch = (cmd: string, zodText: string): Problem => ({
+  message: `LaunchDeck's window and runtime disagree about ${cmd}. Restart LaunchDeck.`,
+  detail: zodText,
+});
 
 /** Which track an Agent Control command is aimed at. */
 export type AgentTarget = { kind: "focus" } | { kind: "session"; id: string } | { kind: "agent"; id: string };

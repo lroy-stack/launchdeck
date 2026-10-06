@@ -9,6 +9,7 @@ import { HomeView } from "../features/home/HomeView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { PluginsView } from "../features/plugins/PluginsView";
 import { SurfaceView } from "../features/surfaces/SurfaceView";
+import { ProblemText } from "../components/Problem";
 import { useStore } from "../stores/runtime";
 
 export function App() {
@@ -41,7 +42,7 @@ export function App() {
     return (
       <div className="splash error">
         <h1>LaunchDeck could not start</h1>
-        <pre>{fatal}</pre>
+        <ProblemText problem={fatal} className="" />
       </div>
     );
   }
@@ -69,11 +70,14 @@ export function App() {
           </>
         )}
       </div>
-      <div className="toasts" role="status" aria-live="polite">
+      <div className="toasts" role="status" aria-live="polite" aria-label="Notifications">
         {toasts.map((t) => (
-          <button key={t.id} type="button" className={`toast ${t.tone}`} onClick={() => dismiss(t.id)}>
-            {t.text}
-          </button>
+          <div key={t.id} className={`toast ${t.tone}`}>
+            <ProblemText problem={t} className="" />
+            <button type="button" className="toast-dismiss" aria-label="Dismiss" onClick={() => dismiss(t.id)}>
+              ×
+            </button>
+          </div>
         ))}
       </div>
     </div>

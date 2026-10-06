@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, errorMessage } from "../../lib/ipc";
+import { ProblemText } from "../../components/Problem";
+import { api, toProblem, type Problem } from "../../lib/ipc";
 import { plural } from "../../lib/format";
 import type { SecretStoreStatus } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
@@ -11,14 +12,14 @@ export function PluginsPanel() {
   const setView = useStore((s) => s.setView);
   const requests = useStore((s) => s.permissionRequests);
   const [store, setStore] = useState<SecretStoreStatus | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
+  const [problem, setProblem] = useState<Problem | null>(null);
 
   useEffect(() => {
     let live = true;
     api.plugins
       .list()
       .then((overview) => live && setStore(overview.secretStore))
-      .catch((e: unknown) => live && setProblem(errorMessage(e)));
+      .catch((e: unknown) => live && setProblem(toProblem(e)));
     return () => {
       live = false;
     };
@@ -36,7 +37,7 @@ export function PluginsPanel() {
         </button>
       </div>
       {store && <p>{secretStoreSentence(store)}</p>}
-      {problem && <p className="field-error">{problem}</p>}
+      {problem && <ProblemText problem={problem} />}
       {requests > 0 && <p className="hint">{plural(requests, "address waits", "addresses wait")} for your decision.</p>}
       <div className="row">
         <button type="button" className="btn" onClick={() => void attempt(() => api.plugins.revealFolder())}>

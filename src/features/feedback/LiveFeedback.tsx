@@ -4,6 +4,7 @@
 // the temporary look an event put on top. Nothing here is worked out again.
 
 import { useMemo } from "react";
+import { ProblemText } from "../../components/Problem";
 import { lookLabel, secondsText, viewExplanation } from "../../lib/feedbackEdit";
 import type { Control, ObservableCatalog } from "../../lib/schema";
 import { StatusTag, Swatch, visualOfLook } from "./parts";
@@ -38,11 +39,7 @@ export function LiveFeedback({ state, control, catalog, saved, dirty }: Props) {
         {draft && <span className="tag unsaved">Draft</span>}
       </header>
 
-      {!view && unavailable && (
-        <p className="hint" role="status">
-          LaunchDeck could not explain this pad right now. {unavailable}
-        </p>
-      )}
+      {!view && unavailable && <ProblemText problem={unavailable} lead="LaunchDeck could not explain this pad right now." className="hint" role="status" />}
       {!view && !unavailable && (
         <p className="hint" role="status">
           Asking LaunchDeck…

@@ -730,11 +730,19 @@ describe("the export request", () => {
 describe("saving an export", () => {
   it("says why the file could not be saved", async () => {
     const { save } = exporter();
-    save.mockRejectedValue("LaunchDeck may not write in Downloads. Allow it in System Settings, Privacy & Security, Files and Folders.");
+    // FileError {message, detail}, as commands::error sends it.
+    save.mockRejectedValue({
+      message: "LaunchDeck may not write in Downloads. Allow it in System Settings, Privacy & Security, Files and Folders.",
+      detail: "Operation not permitted (os error 1)",
+    });
     const user = await openExport("development");
     await waitFor(() => expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false));
     await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(await screen.findByText(/may not write in Downloads/)).toBeTruthy();
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText(/may not write in Downloads/)).toBeTruthy();
+    expect(within(alert).queryByText("Operation not permitted (os error 1)")).toBeNull();
+    await user.click(within(alert).getByText("Details"));
+    expect(within(alert).getByText("Operation not permitted (os error 1)")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Show" })).toBeNull();
   });
 });

@@ -3,7 +3,7 @@
 // mirrors what Rust pushes and keeps purely visual choices (view, selection).
 
 import { create } from "zustand";
-import { api, errorMessage, isPreview, subscribe } from "../lib/ipc";
+import { api, isPreview, subscribe, toProblem, type Problem } from "../lib/ipc";
 import { emptyAgents, newer, type AgentNotification, type AgentsSnapshot } from "../lib/agents";
 import { emptyIndex, indexCatalog, type CatalogIndex } from "../lib/actions";
 import type { Slot } from "../lib/assign";
@@ -17,10 +17,12 @@ export type AgentsTab = "overview" | "sessions" | "adapters" | "surface";
 
 const MAX_EVENTS = 120;
 
-interface Toast {
+export interface Toast {
   id: number;
   tone: "info" | "error";
-  text: string;
+  message: string;
+  /** What Rust kept for a bug report; shown under Details. An error toast with one stays until dismissed. */
+  detail?: string;
 }
 
 /** A request to put an action on a pad: made in the Library or by a drop, carried out by the Inspector's draft. */
@@ -34,7 +36,8 @@ export interface AssignIntent {
 interface Store {
   ready: boolean;
   preview: boolean;
-  fatal: string | null;
+  /** Why the runtime could not start, as a sentence and a detail. */
+  fatal: Problem | null;
   workspace: Workspace | null;
   state: RuntimeState | null;
   plugins: PluginManifest[];
@@ -83,7 +86,9 @@ interface Store {
   startExport: (surfaceId?: string) => void;
   select: (pos: ControlPos | null) => void;
   toggleLabels: () => void;
-  toast: (text: string, tone?: Toast["tone"]) => void;
+  toast: (message: string, tone?: Toast["tone"], detail?: string) => void;
+  /** A failure as an error toast: its sentence, and its detail under Details. */
+  toastProblem: (e: unknown) => void;
   dismissToast: (id: number) => void;
   /** Runs an IPC call and turns a failure into a toast. Returns true on success. */
   attempt: (fn: () => Promise<unknown>) => Promise<boolean>;
@@ -231,7 +236,7 @@ export const useStore = create<Store>((set, get) => ({
       void countPermissionRequests().then((permissionRequests) => set({ permissionRequests }));
       return off;
     } catch (e) {
-      set({ fatal: errorMessage(e) });
+      set({ fatal: toProblem(e) });
       return () => undefined;
     }
   },
@@ -243,10 +248,17 @@ export const useStore = create<Store>((set, get) => ({
   select: (selected) => set({ selected }),
   toggleLabels: () => set((s) => ({ showLabels: !s.showLabels })),
 
-  toast: (text, tone = "info") => {
+  toast: (message, tone = "info", detail) => {
     const id = ++toastId;
-    set((s) => ({ toasts: [...s.toasts, { id, tone, text }].slice(-4) }));
+    const toast: Toast = detail === undefined ? { id, tone, message } : { id, tone, message, detail };
+    set((s) => ({ toasts: [...s.toasts, toast].slice(-4) }));
+    // An error with details may be read and copied into a bug report: it waits for the person.
+    if (tone === "error" && detail !== undefined) return;
     setTimeout(() => get().dismissToast(id), tone === "error" ? 7000 : 3500);
+  },
+  toastProblem: (e) => {
+    const { message, detail } = toProblem(e);
+    get().toast(message, "error", detail);
   },
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 
@@ -262,7 +274,7 @@ export const useStore = create<Store>((set, get) => ({
       await fn();
       return true;
     } catch (e) {
-      get().toast(errorMessage(e), "error");
+      get().toastProblem(e);
       return false;
     }
   },
@@ -272,7 +284,7 @@ export const useStore = create<Store>((set, get) => ({
       const snap = await api.snapshot();
       set({ plugins: snap.plugins, catalog: indexCatalog(snap.catalog), observables: snap.observables, permissionRequests: await countPermissionRequests() });
     } catch (e) {
-      get().toast(errorMessage(e), "error");
+      get().toastProblem(e);
     }
   },
 
@@ -280,7 +292,7 @@ export const useStore = create<Store>((set, get) => ({
     try {
       get().setCatalog(await api.actions.catalog());
     } catch (e) {
-      get().toast(errorMessage(e), "error");
+      get().toastProblem(e);
     }
   },
   setCatalog: (c) => set({ catalog: indexCatalog(c) }),
@@ -308,7 +320,7 @@ export const useStore = create<Store>((set, get) => ({
         set({ observables: await api.observables.catalog() });
       } while (observablesAskedAgain);
     } catch (e) {
-      get().toast(errorMessage(e), "error");
+      get().toastProblem(e);
     } finally {
       observablesFetching = false;
     }

@@ -4,7 +4,8 @@
 // (no demo, no Auto Context rule, no surface removed).
 
 import { useId, useRef, useState } from "react";
-import { api, errorMessage } from "../../lib/ipc";
+import { ProblemText } from "../../components/Problem";
+import { api, toProblem, type Problem } from "../../lib/ipc";
 import type { Surface } from "../../lib/schema";
 import { primaryDeviceOf, useStore } from "../../stores/runtime";
 import { DeviceStatusLine } from "../../components/DeviceStatusLine";
@@ -35,7 +36,7 @@ export function FirstRun() {
   const attempt = useStore((s) => s.attempt);
   const [choice, setChoice] = useState<Purpose | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Problem | null>(null);
   // A surface Build my own already made, so trying again after a failure does not make another.
   const created = useRef<string | null>(null);
   const purposeId = useId();
@@ -53,7 +54,7 @@ export function FirstRun() {
       await steps();
       await api.setOnboardingDone(true);
     } catch (e) {
-      setError(errorMessage(e));
+      setError(toProblem(e));
       setBusy(false);
     }
   };
@@ -131,11 +132,7 @@ export function FirstRun() {
         </div>
       </section>
 
-      {error && (
-        <p className="first-run-error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ProblemText problem={error} className="first-run-error" role="alert" />}
 
       <div className="row">
         <button type="button" className="btn primary large" disabled={!choice || busy} onClick={start}>

@@ -6,6 +6,7 @@
 // and sends the person's answer.
 
 import { useState } from "react";
+import { ProblemText } from "../../components/Problem";
 import { api } from "../../lib/ipc";
 import type { GrantStatus, LegacySecrets, NetworkHost, PluginInfo, PluginSecret, PluginsOverview, Reach, SecretStoreStatus } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
@@ -133,9 +134,7 @@ export function NetworkAccess({ info, change }: { info: PluginInfo; change: Chan
       )}
 
       {failure && (
-        <p className="field-error" role="status">
-          <b>Last request did not go through.</b> {sentence(failure.message)} <span className="hint">({failure.code})</span>
-        </p>
+        <ProblemText problem={{ message: sentence(failure.message), detail: failure.code }} lead={<b>Last request did not go through.</b>} role="status" />
       )}
     </section>
   );

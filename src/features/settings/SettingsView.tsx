@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, errorMessage } from "../../lib/ipc";
+import { api, toProblem, type Problem } from "../../lib/ipc";
 import type { AppInfo } from "../../lib/schema";
 import { ContextPanel } from "../context/ContextPanel";
 import { AboutPanel } from "./AboutPanel";
@@ -26,7 +26,7 @@ type SectionId = (typeof SECTIONS)[number]["id"];
 
 export function SettingsView() {
   const [info, setInfo] = useState<AppInfo | null>(null);
-  const [infoProblem, setInfoProblem] = useState<string | null>(null);
+  const [infoProblem, setInfoProblem] = useState<Problem | null>(null);
 
   // One read for About and Developer: the versions and the data folder do not change while the app runs.
   useEffect(() => {
@@ -34,7 +34,7 @@ export function SettingsView() {
     api
       .appInfo()
       .then((i) => live && setInfo(i))
-      .catch((e: unknown) => live && setInfoProblem(errorMessage(e)));
+      .catch((e: unknown) => live && setInfoProblem(toProblem(e)));
     return () => {
       live = false;
     };

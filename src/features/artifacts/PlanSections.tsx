@@ -3,7 +3,7 @@
 // that run things, warnings, and the ids and digests under Details. Each
 // renders what the plan says; a choice goes back as the whole set of decisions.
 
-import { useState, type ReactNode } from "react";
+import { Disclosure } from "../../components/Problem";
 import { plural } from "../../lib/format";
 import type { ArtifactLimits, ExampleInfo, ImportDecisions, ImportPlan } from "../../lib/schema";
 import { Questions } from "./Questions";
@@ -45,17 +45,6 @@ export function PlanSections({ plan, decisions, change, examples, install, limit
       )}
       <PlanDetails plan={plan} />
     </>
-  );
-}
-
-/** A Details disclosure whose content is in the page only while it is open. */
-export function Disclosure({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <details onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary>Details</summary>
-      {open && children}
-    </details>
   );
 }
 

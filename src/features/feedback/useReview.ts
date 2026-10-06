@@ -12,7 +12,7 @@
 // reads changes, never on every unrelated update of the catalog.
 
 import { useEffect, useState } from "react";
-import { api, errorMessage } from "../../lib/ipc";
+import { api, toProblem, type Problem } from "../../lib/ipc";
 import { isSendable, readingsKey } from "../../lib/feedbackEdit";
 import type { Control, ControlExplanation, FeedbackReview } from "../../lib/schema";
 import { controlState, useStore } from "../../stores/runtime";
@@ -25,7 +25,7 @@ export interface ReviewState {
   /** The explanation is of the saved control, so it includes the temporary look. */
   live: boolean;
   /** Why no explanation could be had (a browser preview has no runtime). */
-  unavailable: string | null;
+  unavailable: Problem | null;
 }
 
 const NOTHING: ReviewState = { review: null, explanation: null, live: false, unavailable: null };
@@ -56,18 +56,18 @@ export function useFeedbackReview(surfaceId: string, pageId: string, draft: Cont
           const review = await api.reviewFeedback(surfaceId, pageId, draft);
           let explanation: ControlExplanation | null = review.preview ?? null;
           let live = false;
-          let unavailable: string | null = null;
+          let unavailable: Problem | null = null;
           if (!explanation && saved) {
             try {
               explanation = await api.explainControl(surfaceId, pageId, draft.id);
               live = true;
             } catch (e) {
-              unavailable = errorMessage(e);
+              unavailable = toProblem(e);
             }
           }
           if (current) setState({ review, explanation, live, unavailable });
         } catch (e) {
-          if (current) setState({ review: null, explanation: null, live: false, unavailable: errorMessage(e) });
+          if (current) setState({ review: null, explanation: null, live: false, unavailable: toProblem(e) });
         }
       })();
     }, DEBOUNCE_MS);

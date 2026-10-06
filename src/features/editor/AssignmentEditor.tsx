@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { errorMessage } from "../../lib/ipc";
-import { api } from "../../lib/ipc";
+import { ProblemText } from "../../components/Problem";
+import { api, toProblem, type Problem } from "../../lib/ipc";
 import { issuesByParam, resolveAssignment, unavailableNote, type Args } from "../../lib/actions";
 import { DRAG_TYPE, SLOT_LABEL, type Slot } from "../../lib/assign";
 import type { ActionDefinition, Assignment, ExampleInfo, Issue, Surface } from "../../lib/schema";
@@ -25,7 +25,7 @@ interface Props {
   currentSurface: Surface;
 }
 
-type Run = { state: "idle" } | { state: "running" } | { state: "done"; text: string } | { state: "failed"; text: string };
+type Run = { state: "idle" } | { state: "running" } | { state: "done"; text: string } | { state: "failed"; problem: Problem };
 
 const hasAction = (e: React.DragEvent): boolean => Array.from(e.dataTransfer.types).includes(DRAG_TYPE);
 
@@ -60,7 +60,7 @@ export function AssignmentEditor({ slot, value, onChange, pending, replaceWarnin
       const shown = result === null || result === undefined ? "" : JSON.stringify(result);
       setRun({ state: "done", text: shown && shown !== "{}" ? `Done. It returned ${shown.length > 90 ? `${shown.slice(0, 89)}…` : shown}` : "Done." });
     } catch (e) {
-      setRun({ state: "failed", text: errorMessage(e) });
+      setRun({ state: "failed", problem: toProblem(e) });
     }
   };
 
@@ -175,12 +175,12 @@ export function AssignmentEditor({ slot, value, onChange, pending, replaceWarnin
           <button type="button" className="btn small" disabled={blocked || run.state === "running"} onClick={() => void test()}>
             {run.state === "running" ? "Running…" : "Test run"}
           </button>
-          <span className={`run-note ${run.state}`} role="status">
+          <div className={`run-note ${run.state}`} role="status">
             {run.state === "idle" && (blocked ? "Fix the settings above to test." : "Runs it now, as if the pad were pressed. Nothing is saved.")}
             {run.state === "running" && "Running…"}
             {run.state === "done" && run.text}
-            {run.state === "failed" && `Failed: ${run.text}`}
-          </span>
+            {run.state === "failed" && <ProblemText problem={run.problem} lead="Failed:" className="" />}
+          </div>
         </div>
       )}
     </section>

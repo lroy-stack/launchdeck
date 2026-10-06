@@ -89,7 +89,7 @@ A `notice` (only with `connected`, from `details.notice`) says the device works 
 * "The Launchpad Mini MK3 stopped answering."
 * "Firmware version 0531 does not support brightness. Novation Components can update it." (or "sleep", or "brightness or sleep")
 
-The model's name in these sentences is the device's. An unsupported device's own sentence is "Not supported yet: LaunchDeck works with the Launchpad X and the Launchpad Mini MK3." The operating system's text is never in a sentence; it goes to the log, through `DeviceError::detail`.
+The model's name in these sentences is the device's. An unsupported device's own sentence is "Not supported yet: LaunchDeck works with the Launchpad X and the Launchpad Mini MK3." The operating system's text is never in a sentence; through `DeviceError::detail` it goes to the log and, when a command the person gave fails, to the error's detail, which the window keeps under Details.
 
 A `DeviceInfo` in JSON:
 

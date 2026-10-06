@@ -305,3 +305,26 @@ describe("a pad whose action cannot run", () => {
     expect(install).toHaveBeenCalledWith("example.home-assistant");
   });
 });
+
+describe("a test run that fails", () => {
+  it("says Failed with Rust's sentence and keeps the detail under Details", async () => {
+    const run = vi.spyOn(api, "runAction").mockRejectedValue({ message: "The page could not be opened.", detail: "os error 2: No such file or directory" });
+    const user = userEvent.setup();
+    const ws = useStore.getState().workspace!;
+    const surface = ws.surfaces.find((s) => s.id === "development")!;
+    const page = surface.pages[0]!;
+    const press: Assignment = { provider: "system", action: "openUrl", args: { url: "https://example.com" } };
+    const opener: Control = { ...page.controls[0]!, id: "opener", label: "Opener pad", pos: pad(4, 6), press };
+    useStore.setState({ workspace: { ...ws, surfaces: ws.surfaces.map((s) => (s.id === surface.id ? { ...s, pages: s.pages.map((p, i) => (i === 0 ? { ...p, controls: [...p.controls, opener] } : p)) } : s)) } });
+    render(<SurfaceView />);
+    await user.click(screen.getByRole("button", { name: /^Opener pad/ }));
+
+    await user.click(screen.getByRole("button", { name: "Test run" }));
+    expect(run).toHaveBeenCalledOnce();
+    const note = (await screen.findByText(/The page could not be opened\./)).closest(".run-note") as HTMLElement;
+    expect(note.textContent).toContain("Failed: The page could not be opened.");
+    expect(outsideDetails(note)).not.toContain("os error 2");
+    await user.click(within(note).getByText("Details"));
+    expect(within(note).getByText("os error 2: No such file or directory")).toBeTruthy();
+  });
+});

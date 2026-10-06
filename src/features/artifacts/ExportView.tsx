@@ -5,7 +5,8 @@
 // folder. The webview never sends a path.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, errorMessage } from "../../lib/ipc";
+import { ProblemText } from "../../components/Problem";
+import { api, toProblem, type Problem } from "../../lib/ipc";
 import type { ArtifactLimits, ExportPreview, ExportSaved } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
 import { ExportSummary, MetadataFields, RuleChoices, SurfaceChoice, ValueChoices } from "./ExportParts";
@@ -20,7 +21,7 @@ export function ExportView() {
   const [limits, setLimits] = useState<ArtifactLimits | null>(null);
   const [preview, setPreview] = useState<ExportPreview | null>(null);
   const [saved, setSaved] = useState<ExportSaved | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<Problem | null>(null);
   const [saving, setSaving] = useState(false);
   const { send, pending } = useAsk(api.artifacts.exportPreview, setPreview);
   const request = useMemo(() => buildRequest(form), [form]);
@@ -45,7 +46,7 @@ export function ExportView() {
     try {
       setSaved(await api.artifacts.exportSave(request));
     } catch (e) {
-      setSaveError(errorMessage(e));
+      setSaveError(toProblem(e));
     } finally {
       setSaving(false);
     }
@@ -77,11 +78,7 @@ export function ExportView() {
             </button>
           </p>
         )}
-        {saveError && (
-          <p className="field-error" role="alert">
-            {saveError}
-          </p>
-        )}
+        {saveError && <ProblemText problem={saveError} role="alert" />}
         <div className="row">
           <span className="hint grow">It goes in your Downloads folder, under another name if that one is taken. Nothing is overwritten.</span>
           <button type="button" className="btn primary" disabled={blocked} onClick={() => void save()}>

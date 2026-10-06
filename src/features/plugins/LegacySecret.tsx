@@ -4,7 +4,8 @@
 // way to keep using it as it is.
 
 import { useState } from "react";
-import { api, errorMessage } from "../../lib/ipc";
+import { ProblemText } from "../../components/Problem";
+import { api, toProblem, type Problem } from "../../lib/ipc";
 import type { PluginInfo, SecretStoreStatus } from "../../lib/schema";
 
 type Change = (fn: () => Promise<unknown>) => Promise<boolean>;
@@ -25,7 +26,7 @@ export const LEGACY_BODY =
   "This plugin stores a credential using an obsolete plaintext format. LaunchDeck will no longer use this value. Move it to secure storage to continue using this plugin.";
 
 export function LegacySecret({ info, store, change }: LegacySecretProps) {
-  const [failure, setFailure] = useState<string | null>(null);
+  const [failure, setFailure] = useState<Problem | null>(null);
   const [confirming, setConfirming] = useState(false);
   const migration = info.secretMigration;
   if (!migration) return null;
@@ -40,7 +41,7 @@ export function LegacySecret({ info, store, change }: LegacySecretProps) {
         await api.plugins.migratePluginLegacySecrets(id);
         setFailure(null);
       } catch (e) {
-        setFailure(errorMessage(e));
+        setFailure(toProblem(e));
       }
     });
   const remove = () =>
@@ -67,11 +68,7 @@ export function LegacySecret({ info, store, change }: LegacySecretProps) {
               It cannot be moved, because this computer has no secure credential store. {store.reason}
             </p>
           )}
-          {failure && (
-            <p className="field-error" role="alert">
-              {failure}
-            </p>
-          )}
+          {failure && <ProblemText problem={failure} role="alert" />}
           <div className="row wrap">
             <button type="button" className="btn small primary" disabled={!store.available} title={store.available ? undefined : store.reason} onClick={migrate}>
               Migrate to secure storage

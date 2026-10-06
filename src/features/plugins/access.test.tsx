@@ -151,7 +151,9 @@ describe("asking for network access", () => {
     expect(within(region).queryByRole("button", { name: /^Allow/ })).toBeNull();
     const failure = within(region).getByRole("status");
     expect(failure.textContent).toContain("Last request did not go through.");
-    expect(failure.textContent).toContain("(invalid_request)");
+    expect(failure.textContent).not.toContain("invalid_request");
+    await userEvent.setup().click(within(failure).getByText("Details"));
+    expect(within(failure).getByText("invalid_request")).toBeTruthy();
   });
 
   it("shows no network section for a plugin that asks for nothing", async () => {
@@ -307,7 +309,7 @@ describe("secrets an earlier version kept in plain text", () => {
     await user.click(within(notice()).getByRole("button", { name: "Move to Keychain" }));
     expect(move).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.queryByRole("region", { name: "Secrets kept in plain text" })).toBeNull());
-    expect(useStore.getState().toasts.at(-1)?.text).toBe("2 secrets were moved into Keychain. The plain file was overwritten and removed.");
+    expect(useStore.getState().toasts.at(-1)?.message).toBe("2 secrets were moved into Keychain. The plain file was overwritten and removed.");
   });
 
   it("says which ones could not be moved, and that they are still there", async () => {
@@ -321,7 +323,7 @@ describe("secrets an earlier version kept in plain text", () => {
     });
     await user.click(within(notice()).getByRole("button", { name: "Move to Keychain" }));
     await waitFor(() => expect(useStore.getState().toasts.at(-1)?.tone).toBe("error"));
-    expect(useStore.getState().toasts.at(-1)?.text).toBe(
+    expect(useStore.getState().toasts.at(-1)?.message).toBe(
       "1 secret was moved into Keychain. 1 secret could not be moved and is still where it was: the value is longer than 4096 bytes.",
     );
     expect(notice()).toBeTruthy();
@@ -351,7 +353,7 @@ describe("secrets an earlier version kept in plain text", () => {
     await user.click(within(notice()).getByRole("button", { name: "Yes, delete" }));
     expect(discard).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.queryByRole("region", { name: "Secrets kept in plain text" })).toBeNull());
-    expect(useStore.getState().toasts.at(-1)?.text).toBe("2 plain secrets were deleted.");
+    expect(useStore.getState().toasts.at(-1)?.message).toBe("2 plain secrets were deleted.");
   });
 
   it("offers no field for a secret setting of an older plugin and never says it is handed over", async () => {

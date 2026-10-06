@@ -245,7 +245,7 @@ describe("the rules", () => {
     update.mockRejectedValueOnce("rule 1: it names a surface that does not exist (`gone`)");
     await user.selectOptions(screen.getByRole("combobox", { name: "Rule 1 surface" }), "productivity");
     await waitFor(() => expect(useStore.getState().toasts.at(-1)?.tone).toBe("error"));
-    expect(useStore.getState().toasts.at(-1)?.text).toContain("rule 1: it names a surface that does not exist");
+    expect(useStore.getState().toasts.at(-1)?.message).toContain("rule 1: it names a surface that does not exist");
     expect((screen.getByRole("combobox", { name: "Rule 1 surface" }) as HTMLSelectElement).value).toBe("development");
   });
 });
