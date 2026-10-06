@@ -10,7 +10,7 @@
 //! was missed corrects itself.
 //!
 //! Compiled and clippy-clean on macOS 15.4.1 arm64 with Rust 1.97.0; not yet
-//! seen running in the app (manual check NEXT_PHASE 4.2). It is written
+//! seen running in the app (manual check 4.2 of docs/history/next-phase-2026-10.md). It is written
 //! against objc2-app-kit 0.3.2, objc2-foundation 0.3.2 and block2 0.6.2.
 
 use std::ptr::NonNull;

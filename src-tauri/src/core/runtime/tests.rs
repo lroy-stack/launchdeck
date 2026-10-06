@@ -862,7 +862,7 @@ async fn external_websocket_events_reach_pads_end_to_end() {
 
 /// What saving the workspace costs when Auto Context activates a surface, and
 /// what the activation costs: a measurement, not a check. It prints the
-/// numbers VERIFICATION.md records:
+/// numbers docs/verification/macos-2026-10-05.md records:
 /// `cargo test --lib -- --ignored --nocapture save_on_context_activation`
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "a measurement: run it by name with --ignored --nocapture"]

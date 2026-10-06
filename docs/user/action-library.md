@@ -55,7 +55,7 @@ Even after Replace, nothing is saved until **Save**, and **Revert** returns to t
 
 ## Configuring
 
-The inspector shows one section per slot with the action's name, source and description, a **Privileged** warning where it applies, any unavailable reason, and the form drawn from the action's [parameters](parameters.md). Errors appear under the field, and the slot cannot be saved while any is open. Help text sits under each field.
+The inspector shows one section per slot with the action's name, source and description, a **Privileged** warning where it applies, any unavailable reason, and the form drawn from the action's [parameters](../architecture/actions/parameters.md). Errors appear under the field, and the slot cannot be saved while any is open. Help text sits under each field.
 
 **Test run** executes the draft through the real engine, as if the pad were pressed, and shows *Running…*, *Done* (with the returned value, shortened) or *Failed: the message* beside the button. It saves nothing and is disabled while the settings have issues. Shell and HTTP run here only because a person pressed the button for a pad they are editing.
 

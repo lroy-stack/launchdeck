@@ -133,7 +133,7 @@ A plugin is its folder, and LaunchDeck reads only `plugin.json` and the `.wasm` 
 
   The variable is a list of folders (`:` separated, `;` on Windows), each holding plugin folders. They are searched after the plugins folder. If two folders carry the same id, the first one found wins and the other is listed as skipped.
 
-A plugin found this way is *on*. Nothing is granted to it: a plugin that asks for network access waits for the person's **Allow** ([permissions](../plugins/permissions.md)).
+A plugin found this way is *on*. Nothing is granted to it: a plugin that asks for network access waits for the person's **Allow** ([permissions](../user/plugins.md)).
 
 ## 5. Test
 
@@ -141,7 +141,7 @@ On **Plugins**, your plugin's card shows its status, actions, events and setting
 
 To run an action, switch to **Edit**, select a pad, search for your action in the **Action Library** (it is listed as *Plugin: Notes*) and assign it, by pressing **Assign** or dragging the row onto the pad. Fill in the form the manifest's `params` drew and press **Test run**: the action runs at once, without a device, and the result or the plugin's error message is shown. Press **Save** to keep the assignment. You never type an id or any JSON.
 
-To make the pad react to what the plugin publishes, give it a feedback rule: **Feedback, Add feedback, An event**, pick the plugin's event, and choose the look it shows and for how long ([the feedback editor](../feedback-editor.md)). In Live mode, pressing the pad runs the plugin, the event reaches the rule, and the pad changes on the simulator and on a Launchpad. A plugin whose fact is true until it changes ("the counter is high", "the light is on") reports a *state* instead, so the pad is right as soon as it appears ([states](states.md)).
+To make the pad react to what the plugin publishes, give it a feedback rule: **Feedback, Add feedback, An event**, pick the plugin's event, and choose the look it shows and for how long ([the feedback editor](../user/feedback-editor.md)). In Live mode, pressing the pad runs the plugin, the event reaches the rule, and the pad changes on the simulator and on a Launchpad. A plugin whose fact is true until it changes ("the counter is high", "the light is on") reports a *state* instead, so the pad is right as soon as it appears ([states](states.md)).
 
 ## 6. Read the logs
 

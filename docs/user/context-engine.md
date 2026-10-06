@@ -125,7 +125,7 @@ Going back to **Live** applies the current application's rule once (unless a man
 | Linux, Wayland (any compositor) | **Not available** | Wayland gives applications no way to learn which application has focus. Per compositor: wlroots (Sway, Hyprland) has a protocol that is not implemented here; GNOME needs a Shell extension; KDE needs a KWin script. | The refusal and its message: yes |
 | Linux, X11 without an EWMH window manager | **Not available** | Nothing reports the active window | Yes |
 
-On macOS LaunchDeck is built, and the Rust (715 passed, 0 failed, 2 ignored) and TypeScript (309) tests pass on macOS 15.4.1, Apple M2, Rust 1.97.0; the macOS adapter compiled there as written and passed clippy, but the Auto Context observer has not been seen running and the app window has not been checked by hand (the check is [4.2 in NEXT_PHASE.md](../NEXT_PHASE.md#42-auto-context); the record is [VERIFICATION.md](../VERIFICATION.md)). The Windows adapter could not be built in the environment it was written in (the Rust standard library for that target could not be downloaded) and has never been compiled. Both are small, written against the exact signatures of the binding crates already in the dependency tree, and share the identity code that *is* tested. Treat them as unverified until someone runs them.
+On macOS LaunchDeck is built, and the Rust (715 passed, 0 failed, 2 ignored) and TypeScript (309) tests pass on macOS 15.4.1, Apple M2, Rust 1.97.0; the macOS adapter compiled there as written and passed clippy, but the Auto Context observer has not been seen running and the app window has not been checked by hand (the check is [4.2 in NEXT_PHASE.md](../history/next-phase-2026-10.md#42-auto-context); the record is [VERIFICATION.md](../verification/macos-2026-10-05.md)). The Windows adapter could not be built in the environment it was written in (the Rust standard library for that target could not be downloaded) and has never been compiled. Both are small, written against the exact signatures of the binding crates already in the dependency tree, and share the identity code that *is* tested. Treat them as unverified until someone runs them.
 
 **Known limits where it does work**
 
@@ -166,7 +166,7 @@ Tests: the engine as a state machine (`cargo test --lib context::`), the runtime
 
 Measured on Linux/X11: the surface is on screen about 210 ms after the window manager is asked to activate a window (release build; 215 to 275 ms in a debug build), of which 150 ms is the stability wait. The observer uses no CPU while nothing changes (0 clock ticks in 10 s) and about 0.4 ms of CPU per change of application; evaluating a full list of 64 rules takes about 1.5 microseconds (both in a debug build).
 
-The research and the decisions behind this are in [CONTEXT_ENGINE_PLAN.md](../CONTEXT_ENGINE_PLAN.md).
+The research and the decisions behind this are in [CONTEXT_ENGINE_PLAN.md](../history/plans/CONTEXT_ENGINE_PLAN.md).
 
 ## Not built
 

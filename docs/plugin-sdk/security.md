@@ -19,12 +19,12 @@ A plugin whose manifest declares `capabilities.network` gets two more imports, `
 | Headers | `Host`, `Content-Length`, `Connection`, `Transfer-Encoding`, `Upgrade`, `Accept-Encoding`, `User-Agent` and `Proxy-…` belong to the host. A value with a control character is refused. |
 | Size and time | Request body 256 KiB, response 1 MiB after decompression, 10 s per request (30 s at most), 24 requests and 30 s of network per call, 600 requests a minute per plugin, one request in flight per plugin. |
 | Proxies | None is used, including one from the environment, because the checks are about where the connection goes. |
-| Secrets | Kept by the host in the system's credential store and nowhere else: without one, secrets are unavailable and a request that needs one is not sent. Bound to one origin in the manifest, added by the host as `Authorization: Bearer`, and never copied into the module's memory. See [secrets](secrets.md) and [where secrets are kept](../security/secrets.md). |
+| Secrets | Kept by the host in the system's credential store and nowhere else: without one, secrets are unavailable and a request that needs one is not sent. Bound to one origin in the manifest, added by the host as `Authorization: Bearer`, and never copied into the module's memory. See [secrets](secrets.md) and [where secrets are kept](../architecture/secrets.md). |
 | While starting | The network is closed during `init`. |
 | Audit | `permission.requested`, `.granted`, `.denied` and `.revoked` are written to `audit.jsonl` with the plugin and the origin. |
 | Logs | A request is logged as its method, origin and path. Never the query, the headers, a body or a secret. |
 
-Details and the exact order of the checks: [network](network.md). The person's view: [plugin permissions](../plugins/permissions.md).
+Details and the exact order of the checks: [network](network.md). The person's view: [plugin permissions](../user/plugins.md).
 
 ## What is enforced
 
@@ -41,7 +41,7 @@ Details and the exact order of the checks: [network](network.md). The person's v
 | Files and paths | `main` must be a plain file name in the plugin folder. Symlinks are refused. Plugin ids use a strict grammar and cannot collide with built-in ids. |
 | Spoofing from outside | The localhost WebSocket refuses events that claim to come from an installed plugin, as it does for `runtime`, `device` and `agent-control`. |
 | Settings | Stored in `plugins.json` (atomic write, owner-only on Unix), never in a workspace or surface file. Only keys declared in the manifest are accepted. |
-| The old `secret` setting flag | In manifests of schemas 1 to 3, a setting marked `"secret": true` is **never handed to the module**: it reads as not set, and it cannot be given a value. A value an earlier version kept in clear in `plugins.json` is never used, is listed by name on the plugin's card as a *Legacy insecure secret*, and is moved into the credential store or removed only on the person's choice. Schema 4 refuses the flag; use [`secrets`](secrets.md), which the module never receives. See [secrets of older plugins](../security/secrets.md#secrets-of-older-plugins). |
+| The old `secret` setting flag | In manifests of schemas 1 to 3, a setting marked `"secret": true` is **never handed to the module**: it reads as not set, and it cannot be given a value. A value an earlier version kept in clear in `plugins.json` is never used, is listed by name on the plugin's card as a *Legacy insecure secret*, and is moved into the credential store or removed only on the person's choice. Schema 4 refuses the flag; use [`secrets`](secrets.md), which the module never receives. See [secrets of older plugins](../architecture/secrets.md#secrets-of-older-plugins). |
 | Capabilities | Only `network` exists. A manifest that asks for anything else, in the array of schemas 1 to 3 or as an unknown key in schema 4, is refused, so a host that cannot provide a capability never runs a plugin that needs it. Grants live in `permissions.json`, outside the workspace and outside plugin folders. |
 
 Shell commands are still a **core action** that only a person can attach to a pad, and so is the built-in *HTTP request* action. A plugin cannot run a command, and the only requests it can cause are the ones described above. There is no API that takes a string to execute.

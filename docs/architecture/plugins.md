@@ -9,7 +9,7 @@ There are two kinds, behind the same `Plugin` trait, registry and Action Engine:
 | Kind | Where it runs | Who writes it | Documentation |
 | --- | --- | --- | --- |
 | **Built in** | Native Rust, inside LaunchDeck | The LaunchDeck team (System, Demo, Agent Control) | This page |
-| **Installed** | A WebAssembly sandbox, from a folder on disk | Anyone, in any language that compiles to WebAssembly | [plugin-sdk](plugin-sdk/README.md) |
+| **Installed** | A WebAssembly sandbox, from a folder on disk | Anyone, in any language that compiles to WebAssembly | [plugin-sdk](../plugin-sdk/README.md) |
 
 Installed plugins need no recompiling of LaunchDeck and no Node, Rust or compiler on the machine that runs them. They are discovered, validated, loaded and registered at startup and on **Rescan**, and what they publish travels the same Event Bus and feedback rules as everything else. They can be enabled, disabled, configured and reloaded from the Plugins screen. The rest of this page covers the native contract and the built-in plugins.
 
@@ -54,7 +54,7 @@ Keyboard and media keys use `enigo` behind a `Keyboard` trait, so tests use a re
 
 ### Demo (`demo`)
 
-The smallest possible plugin, kept as the reference for plugin authors and for custom pads. It simulates three generic tasks named `alpha`, `beta` and `gamma`, with no network and no processes. It is not Agent Control: the flagship demo is the richer simulation in [agent-control](agent-control/overview.md).
+The smallest possible plugin, kept as the reference for plugin authors and for custom pads. It simulates three generic tasks named `alpha`, `beta` and `gamma`, with no network and no processes. It is not Agent Control: the flagship demo is the richer simulation in [agent-control](../user/agent-control.md).
 
 | Action | Args | Effect |
 | --- | --- | --- |
@@ -86,7 +86,7 @@ Lets any surface observe, intervene in and orchestrate agents. It acts on the fo
 | `runDemo`, `resetDemo` | none | Start or clear the four simulated agents. |
 | `openApp` | none | Ask the desktop app to show the Agents section. |
 
-State published: the projection events `slot.changed`, `focus.changed` and `command.state` with `source: "agent-control"`. Surfaces bind to those. See [agent-control/surfaces.md](agent-control/surfaces.md).
+State published: the projection events `slot.changed`, `focus.changed` and `command.state` with `source: "agent-control"`. Surfaces bind to those. See [agent-control/surfaces.md](../agent-control/surfaces.md).
 
 Permissions declared: none. It starts nothing outside LaunchDeck by itself; commands reach an agent only through the adapter that owns it, only if the person granted control.
 
@@ -104,17 +104,17 @@ Built-in providers with their own ids, so the library lists them with everything
 
 **Built-in plugins** declare permissions (`automation`, `network`, `filesystem`, `shell`, `accessibility`, `midi`) for the Plugins screen. They are trusted first-party code, so the declaration is documentation, not a gate.
 
-**Installed plugins** run in a sandbox that has nothing to give: no filesystem, shell, sockets, MIDI, process, clock or secrets, and no WASI. By themselves they can only call the three host functions of the [protocol](plugin-sdk/protocol.md) (log, publish an event, reply).
+**Installed plugins** run in a sandbox that has nothing to give: no filesystem, shell, sockets, MIDI, process, clock or secrets, and no WASI. By themselves they can only call the three host functions of the [protocol](../plugin-sdk/protocol.md) (log, publish an event, reply).
 
-One capability exists: **`network`**. A plugin's manifest asks for exact addresses and says why; the person allows or denies each one on the Plugins screen and can revoke it; and every request is made by LaunchDeck, which checks the address, the grant, where the name resolves and every redirect before anything is sent. A token is a *secret* that LaunchDeck keeps and adds to the request, and the plugin never sees it. The example is [Home Assistant](../examples/plugins/home-assistant/README.md).
+One capability exists: **`network`**. A plugin's manifest asks for exact addresses and says why; the person allows or denies each one on the Plugins screen and can revoke it; and every request is made by LaunchDeck, which checks the address, the grant, where the name resolves and every redirect before anything is sent. A token is a *secret* that LaunchDeck keeps and adds to the request, and the plugin never sees it. The example is [Home Assistant](../../examples/plugins/home-assistant/README.md).
 
 | Read | For |
 | --- | --- |
-| [plugins/permissions.md](plugins/permissions.md) | What the person sees and decides. |
-| [plugin-sdk/capabilities.md](plugin-sdk/capabilities.md) | Requests, grants and uses. |
-| [plugin-sdk/network.md](plugin-sdk/network.md) | The request API, the checks, the limits. |
-| [plugin-sdk/secrets.md](plugin-sdk/secrets.md) | Secrets and where they are kept. |
-| [plugin-sdk/security.md](plugin-sdk/security.md) | The whole security model. |
+| [plugins/permissions.md](../user/plugins.md) | What the person sees and decides. |
+| [plugin-sdk/capabilities.md](../plugin-sdk/capabilities.md) | Requests, grants and uses. |
+| [plugin-sdk/network.md](../plugin-sdk/network.md) | The request API, the checks, the limits. |
+| [plugin-sdk/secrets.md](../plugin-sdk/secrets.md) | Secrets and where they are kept. |
+| [plugin-sdk/security.md](../plugin-sdk/security.md) | The whole security model. |
 
 The rules, all enforced: nothing is granted by installing or updating; an update that asks for more needs a new approval for the new address only; grants live outside the workspace and the plugin folder; every capability call goes through the host, so it is checked and the decision is logged; and events a plugin publishes always carry its id as `source`, so it cannot publish as `runtime` or `device`.
 
@@ -127,4 +127,4 @@ Not built, and not prepared for: `filesystem` (read or write inside folders the 
 3. Add tests that call `invoke` with a `PluginContext` built on a test `EventBus` and assert on published events, and that check `availability` and the catalog entries for the actions it declares.
 4. Reference its actions from controls and what it publishes from feedback rules. Its actions appear in the Action Library automatically, with the form its parameters describe.
 
-To write a plugin anyone can install instead, follow [plugin-sdk/getting-started.md](plugin-sdk/getting-started.md).
+To write a plugin anyone can install instead, follow [plugin-sdk/getting-started.md](../plugin-sdk/getting-started.md).

@@ -62,7 +62,7 @@ impl AgentsSink for UiAgentsSink {
 }
 
 impl Runtime {
-    /// Start order (STATE_FEEDBACK_PLAN.md, section 8.3):
+    /// Start order (docs/history/plans/STATE_FEEDBACK_PLAN.md, section 8.3):
     ///
     /// 1. providers declare their states and report what they know (Agent
     ///    Control writes its whole projection, the plugin host registers every

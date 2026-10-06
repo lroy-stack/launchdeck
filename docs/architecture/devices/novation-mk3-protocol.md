@@ -1,6 +1,6 @@
 # The shared Novation MK3 layer
 
-LaunchDeck drives the Launchpad Mini MK3 and the Launchpad X with one device layer, `src-tauri/src/devices/novation/`. This file says what the two models share and why, which messages LaunchDeck sends and reads (with the manual pages they come from), where Novation's documents are wrong, and how a model is described as data. The models themselves are in [launchpad-mini-mk3.md](launchpad-mini-mk3.md) and [launchpad-x.md](launchpad-x.md).
+LaunchDeck drives the Launchpad Mini MK3 and the Launchpad X with one device layer, `src-tauri/src/devices/novation/`. This file says what the two models share and why, which messages LaunchDeck sends and reads (with the manual pages they come from), where Novation's documents are wrong, and how a model is described as data. The models themselves are in [launchpad-mini-mk3.md](../../user/launchpad-mini-mk3.md) and [launchpad-x.md](../../user/launchpad-x.md).
 
 **Hardware status: NOT HARDWARE VERIFIED (b).** Every byte here is from Novation's manuals and is tested against them and against a simulated unit; none was sent to a real Launchpad (no Novation device attached, 2026-10-06).
 
@@ -62,7 +62,7 @@ Colourspecs (Mini PRM p14, X PRM p15), as LaunchDeck uses them:
 | `01` flash | `01 <index> <colour B> <colour A>` | native flash (the Mini), with A = 0: between the colour and off |
 | `00` static palette | `00 <index> <palette>` | encoded and tested; not sent |
 
-All the changes of one render go in one lighting message, chunked at 81 colourspecs (one per LED). Lighting by notes on channels 1, 2 and 3 (static, flashing, pulsing; Mini PRM p12-13, X PRM p13-14) is encoded and tested but not sent: `NOTE_LIGHTING_MAX_CHANGES` in `leds.rs` is 0 until a measurement on hardware says otherwise ([hardware-testing.md](hardware-testing.md#the-batching-rule)).
+All the changes of one render go in one lighting message, chunked at 81 colourspecs (one per LED). Lighting by notes on channels 1, 2 and 3 (static, flashing, pulsing; Mini PRM p12-13, X PRM p13-14) is encoded and tested but not sent: `NOTE_LIGHTING_MAX_CHANGES` in `leds.rs` is 0 until a measurement on hardware says otherwise ([hardware-testing.md](../../contributing/hardware-testing.md#the-batching-rule)).
 
 The text command's speed is in pads per second; a value of `40h` or more is negative (the value minus `80h`) and scrolls left to right. LaunchDeck sends the colour as RGB (`01 r g b`), never the palette form.
 
@@ -72,7 +72,7 @@ The text command's speed is in pads per second; a value of `40h` or more is nega
 
 **What LaunchDeck never sends:** DAW mode (`10h`), MIDI clock, anything to the DAW interface, the bootloader or firmware commands, and the X-only commands.
 
-The order in which the session sends these (the probe, Programmer Mode, configuration, heartbeat, release) is in [launchpad-mini-mk3.md](launchpad-mini-mk3.md#taking-the-unit-and-giving-it-back).
+The order in which the session sends these (the probe, Programmer Mode, configuration, heartbeat, release) is in [launchpad-mini-mk3.md](../../user/launchpad-mini-mk3.md#taking-the-unit-and-giving-it-back).
 
 ## The palette
 
@@ -88,7 +88,7 @@ LaunchDeck and its tests follow the evidence, not these lines:
 4. **"Velocity, aftertouch and fader" Setup pages** in Mini UG p18, copied from the X guide: the Mini's pads are not velocity-sensitive.
 5. **The decimal line of the text example** (Mini PRM p20, X PRM p23) prints 104 for `6Ch`. The tests use the hex line.
 
-Also not documented anywhere, and so not assumed: the values a Mini pad and button send on press, the output channel of device-to-host messages, how the four firmware digits map to Novation's version names, the longest text, whether a scroll reports its end, what the device ID changes, and what a unit does when its host crashes. [hardware-testing.md](hardware-testing.md#open-questions) lists them with the step of the acceptance suite that answers each.
+Also not documented anywhere, and so not assumed: the values a Mini pad and button send on press, the output channel of device-to-host messages, how the four firmware digits map to Novation's version names, the longest text, whether a scroll reports its end, what the device ID changes, and what a unit does when its host crashes. [hardware-testing.md](../../contributing/hardware-testing.md#open-questions) lists them with the step of the acceptance suite that answers each.
 
 ## Model profiles
 

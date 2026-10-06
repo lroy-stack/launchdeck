@@ -2,7 +2,7 @@
 
 **Status: not built.** Nothing in this repository speaks the Model Context Protocol, nothing depends on it, and no MCP client has been run against LaunchDeck. This page describes where an MCP bridge would sit, what it could honestly do, and what it must never do, so that the current design does not have to change if it is built later.
 
-Agent Control works without MCP. The integration surface is the [Agent Bridge](bridge-protocol.md) (a localhost WebSocket that any language can use) and the [hook endpoint](security.md#the-hook-endpoint). MCP would be a third, optional way in for agents that already speak it. It would be a translator and nothing more.
+Agent Control works without MCP. The integration surface is the [Agent Bridge](../agent-control/bridge-protocol.md) (a localhost WebSocket that any language can use) and the [hook endpoint](../agent-control/security.md#the-hook-endpoint). MCP would be a third, optional way in for agents that already speak it. It would be a translator and nothing more.
 
 ## What the specification says today
 
@@ -30,7 +30,7 @@ launchdeck-mcp   (a separate small program, not part of the runtime)
 LaunchDeck runtime  ->  AgentControl  ->  pads, app, notifications
 ```
 
-* **The runtime gains nothing.** `launchdeck-mcp` is an Agent Bridge client. It registers an agent, sends the messages in [bridge-protocol.md](bridge-protocol.md) and receives commands. All validation, ownership, access, limits and audit stay where they are. There is one model, as in the [Adapter SDK](adapter-sdk.md#one-model-two-forms).
+* **The runtime gains nothing.** `launchdeck-mcp` is an Agent Bridge client. It registers an agent, sends the messages in [bridge-protocol.md](../agent-control/bridge-protocol.md) and receives commands. All validation, ownership, access, limits and audit stay where they are. There is one model, as in the [Adapter SDK](../agent-control/adapter-sdk.md#one-model-two-forms).
 * **stdio only.** The harness launches the program and talks to it over pipes. It opens no port and accepts no connection. A Streamable HTTP form is out of scope for a first version.
 * **Identity comes from configuration, not from the model.** The agent id, name, provider and harness are arguments or environment variables set by the person who configures the MCP server. A model cannot rename itself or register as another agent through a tool call.
 * **Monitor first.** Registration is read-only, as for every other bridge client. A person grants control in the Agents view, and LaunchDeck remembers it by agent id.
@@ -72,7 +72,7 @@ Three consequences are part of the design.
 2. **The pads say whose words they are.** For an MCP-connected agent, the card and the approval note show that the description was supplied by the agent. When the description comes from the harness itself (the tool name and input a harness reports through hooks), it is shown as such.
 3. **Real enforcement belongs to the harness.** When a harness can route its own permission prompts to an MCP tool, the question carries the harness's description of the action, which the model does not write. That is the only MCP path that would be an enforcement point rather than a courtesy. It is the case to build for first, and the case that needs the format check above.
 
-For Claude Code, the [hook adapter](adapter-sdk.md#claude-code-verified) already gives this: the permission request comes from the harness with the real tool name. MCP would add a path for harnesses that have no hooks. It would not replace the hook path where one exists.
+For Claude Code, the [hook adapter](../agent-control/adapter-sdk.md#claude-code-verified) already gives this: the permission request comes from the harness with the real tool name. MCP would add a path for harnesses that have no hooks. It would not replace the hook path where one exists.
 
 ## Rules it inherits
 
@@ -100,8 +100,8 @@ If built, it would be tested the way the rest of Agent Control is: a real `Agent
 
 ## Sharing a translator
 
-A translator is adapter code, so it would ship as a program that speaks the Agent Bridge. The [Pack file format](../artifacts/FORMAT.md) carries no adapters in its first version; adapters are a candidate for a later one (see [adapter-sdk.md](adapter-sdk.md#sharing-adapters-not-built)). This is a statement of where it would fit, not a feature.
+A translator is adapter code, so it would ship as a program that speaks the Agent Bridge. The [Pack file format](../artifacts/FORMAT.md) carries no adapters in its first version; adapters are a candidate for a later one (see [adapter-sdk.md](../agent-control/adapter-sdk.md#sharing-adapters-not-built)). This is a statement of where it would fit, not a feature.
 
 ## Platform ideas outside Agent Control
 
-[roadmap/mcp.md](../roadmap/mcp.md) keeps the older, platform-level thoughts: reading surfaces and proposing one for review. They are independent of agents and equally unbuilt.
+[roadmap/mcp.md](mcp.md) keeps the older, platform-level thoughts: reading surfaces and proposing one for review. They are independent of agents and equally unbuilt.

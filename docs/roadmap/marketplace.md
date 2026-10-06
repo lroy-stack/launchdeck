@@ -22,7 +22,7 @@
 
 A listing shows what a package asks for before anything is downloaded. The client fetches only the metadata.
 
-* For a plugin: the actions, and the manifest's `capabilities` summarized as permissions. Since manifest schema 4 one capability exists, `network`, with per-address grants the person gives on the Plugins screen (see [plugin permissions](../plugins/permissions.md)); a plugin that asks for any other is refused by a host that cannot provide it. A listing would add around the manifest something like:
+* For a plugin: the actions, and the manifest's `capabilities` summarized as permissions. Since manifest schema 4 one capability exists, `network`, with per-address grants the person gives on the Plugins screen (see [plugin permissions](../user/plugins.md)); a plugin that asks for any other is refused by a host that cannot provide it. A listing would add around the manifest something like:
 
   ```json
   {

@@ -1,4 +1,4 @@
-//! The nine probes of STATE_FEEDBACK_PLAN.md (section 1), as they behave now.
+//! The nine probes of docs/history/plans/STATE_FEEDBACK_PLAN.md (section 1), as they behave now.
 //!
 //! Phase 0 committed this file as the "before" half: it asserted what the
 //! schema 3 runtime did (events routed to `bindings`, the last event the only

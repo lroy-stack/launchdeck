@@ -1,6 +1,6 @@
 # Testing the Launchpads without and with hardware
 
-LaunchDeck drives the Launchpad Mini MK3 and the Launchpad X through one device layer (`src-tauri/src/devices/novation/`). This file says how that layer is tested without a unit, how to run the acceptance suite on one, which questions only a unit can answer, what the device layer was measured to cost on the host, and the rule that decides how LED changes are batched. "Plan" below is `LAUNCHPAD_MINI_MK3_PLAN.md`, the plan of the device lane; what LaunchDeck does with each model is in [launchpad-mini-mk3.md](launchpad-mini-mk3.md) and [launchpad-x.md](launchpad-x.md).
+LaunchDeck drives the Launchpad Mini MK3 and the Launchpad X through one device layer (`src-tauri/src/devices/novation/`). This file says how that layer is tested without a unit, how to run the acceptance suite on one, which questions only a unit can answer, what the device layer was measured to cost on the host, and the rule that decides how LED changes are batched. "Plan" below is `LAUNCHPAD_MINI_MK3_PLAN.md`, the plan of the device lane; what LaunchDeck does with each model is in [launchpad-mini-mk3.md](../user/launchpad-mini-mk3.md) and [launchpad-x.md](../user/launchpad-x.md).
 
 **Hardware status: NOT HARDWARE VERIFIED (b).** No Novation device was attached when anything here was written or run (2026-10-06, macOS 15.4.1, Apple M2). Every physical behaviour below is what Novation's manuals say and what a simulated unit does, not what a unit was seen to do.
 
@@ -86,7 +86,7 @@ What Novation's documents leave open (plan section 1, questions Q1 to Q17), what
 | Whether external LED feedback off also hides the lighting SysEx; what internal feedback does in Programmer Mode (Q13) | external feedback is switched on while LaunchDeck draws; internal is left alone | step 12 | the configuration in `novation/session.rs` |
 | Whether Programmer Mode leaves Legacy mode (Q13) | yes | not covered | handle Legacy mode |
 | What the unit shows after a replug; that release gives the person's layout back with Setup working (Q14) | Live mode after power-on; the saved layout restored | steps 13 and 14 | the release sequence |
-| What a unit does when its host crashes (Q14) | it stays in Programmer Mode until a host gives it back or it is replugged | not covered (the suite never crashes) | the limitation in [launchpad-mini-mk3.md](launchpad-mini-mk3.md#limitations) |
+| What a unit does when its host crashes (Q14) | it stays in Programmer Mode until a host gives it back or it is replugged | not covered (the suite never crashes) | the limitation in [launchpad-mini-mk3.md](../user/launchpad-mini-mk3.md#limitations) |
 | What the bootloader's USB device ID changes; how macOS lists two identical units (Q16) | nothing LaunchDeck reads; the k-th MIDI input pairs with the k-th MIDI output | not covered: needs two units | the pairing in `novation/ports.rs` |
 | How a DAW next to LaunchDeck takes the unit, and whether 2 s, 3 times and 30 s suit the heartbeat and the takeover guard (Q13, plan 9.1) | `HEARTBEAT` 2 s; `TAKEOVER_LIMIT` 3 within `TAKEOVER_WINDOW` 30 s | not covered: needs a DAW running | the constants in `novation/session.rs` |
 

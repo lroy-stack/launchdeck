@@ -12,7 +12,7 @@ An **observable** is anything a control can react to. There are two kinds, and t
 
 A state is never a replayed event, and an event is never stored as a state. A plugin that has both ("the counter changed" and "the counter is high") declares both, with different ids.
 
-The **Observable Catalog** is the one list of all of them, whoever offers them. The hub holds the values; the catalog describes them and says what each reads now. It is assembled in Rust and the interface displays it. The rest of this page describes the catalog. How state and feedback rules behave is in [state-and-feedback.md](state-and-feedback.md), and how a plugin offers states is in [plugin-sdk/states.md](plugin-sdk/states.md).
+The **Observable Catalog** is the one list of all of them, whoever offers them. The hub holds the values; the catalog describes them and says what each reads now. It is assembled in Rust and the interface displays it. The rest of this page describes the catalog. How state and feedback rules behave is in [state-and-feedback.md](state-and-feedback.md), and how a plugin offers states is in [plugin-sdk/states.md](../plugin-sdk/states.md).
 
 ```text
 plugin manifest ─┐
@@ -120,7 +120,7 @@ Messages are coalesced for 50 ms, so a burst is one message that holds each obse
 | `observables_catalog` | The complete catalog, as above. |
 | `observable_state(provider, id, args?)` | What one state reads at one address: `{ status, value, updatedAt }`. The arguments are checked against the definition first, so a wrong or missing argument is an error, not `unknown`. |
 | `explain_control(surfaceId, pageId, controlId)` | Why the control looks the way it does. See below. |
-| `review_feedback(surfaceId, pageId, control)` | What Rust says about an unsaved draft of a control: what saving would refuse, what it can prove about each rule, the limits, and the draft's own explanation. Read-only. See [feedback-editor.md](feedback-editor.md#what-rust-says-about-a-draft). |
+| `review_feedback(surfaceId, pageId, control)` | What Rust says about an unsaved draft of a control: what saving would refuse, what it can prove about each rule, the limits, and the draft's own explanation. Read-only. See [feedback-editor.md](../user/feedback-editor.md#what-rust-says-about-a-draft). |
 | `get_snapshot` | Now includes `observables`. |
 
 And one event, `observables-changed`, described above. There is nothing to poll.
@@ -160,7 +160,7 @@ An event rule is listed with the event it waits for. It is `decided` when it put
 
 ## Compatibility
 
-* Manifests of schema 1 and 2 keep loading; they declare no states, and their events appear in the catalog like any other. See [plugin-sdk/manifest.md](plugin-sdk/manifest.md).
+* Manifests of schema 1 and 2 keep loading; they declare no states, and their events appear in the catalog like any other. See [plugin-sdk/manifest.md](../plugin-sdk/manifest.md).
 * The module protocol is unchanged (ABI 1). Modules built before this milestone run as they are.
 * Workspace schema is unchanged (4). The catalog is never saved.
 * `actions_catalog` (the Action Library) no longer carries observables: they moved here so there is one authority. Each action definition gains `suggests`, the ids of observables a pad for the action usually shows.

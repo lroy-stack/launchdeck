@@ -10,7 +10,7 @@ A Launchpad becomes something like a keyboard for intent: a pad does not mean "n
 
 ## Flagship use case: Agent Control
 
-Agent Control is the first vertical built on the platform: **a physical human control surface for autonomous and semi-autonomous agents.** It observes (which agents are running, which need you), intervenes (approve, reject, pause, resume, retry, stop) and orchestrates (start a task on an agent). It is a module on the platform, not a change to it. The runtime, the device layer and the editor know nothing about AI, and the other surfaces work the same without it. See [agent-control/overview.md](agent-control/overview.md).
+Agent Control is the first vertical built on the platform: **a physical human control surface for autonomous and semi-autonomous agents.** It observes (which agents are running, which need you), intervenes (approve, reject, pause, resume, retry, stop) and orchestrates (start a task on an agent). It is a module on the platform, not a change to it. The runtime, the device layer and the editor know nothing about AI, and the other surfaces work the same without it. See [agent-control/overview.md](../user/agent-control.md).
 
 ## Who it is for
 
@@ -42,9 +42,9 @@ Agent Control is the first vertical built on the platform: **a physical human co
 | Event | Something that happened: a pad press, an action result, a plugin state change, an external message. |
 | Feedback rule | A rule on a control that picks its look: a state rule reads a provider's value, an event rule shows a look for a while. First true state rule wins. See [state-and-feedback](state-and-feedback.md). |
 | Plugin | Provides actions, publishes events and reports states. Never sees MIDI. Built in (native) or installed (a WebAssembly module in a sandbox). |
-| Capability | What a device can do (grid size, RGB, native animation), or what an installed plugin is allowed to do beyond its sandbox. The only plugin capability is network access to addresses the person granted. See [plugins/permissions.md](plugins/permissions.md). |
-| Secret | A value such as an API token that LaunchDeck keeps in the system credential store and adds to a plugin's request itself. The plugin never sees it. See [security/secrets.md](security/secrets.md). |
-| Context | Which application is in front. Auto Context switches the surface by ordered rules (application to surface and page) and never fights a surface picked by hand. See [context-engine.md](context-engine.md). |
+| Capability | What a device can do (grid size, RGB, native animation), or what an installed plugin is allowed to do beyond its sandbox. The only plugin capability is network access to addresses the person granted. See [plugins/permissions.md](../user/plugins.md). |
+| Secret | A value such as an API token that LaunchDeck keeps in the system credential store and adds to a plugin's request itself. The plugin never sees it. See [security/secrets.md](secrets.md). |
+| Context | Which application is in front. Auto Context switches the surface by ordered rules (application to surface and page) and never fights a surface picked by hand. See [context-engine.md](../user/context-engine.md). |
 
 ## What the prototype demonstrates
 
@@ -56,10 +56,10 @@ Agent Control is the first vertical built on the platform: **a physical human co
 * A surface that follows the application in front, with rules the person wrote.
 * The same runtime driving a real Launchpad X when one is plugged in.
 
-All of it was built and tested on Linux in earlier milestones. On macOS it is built, and the Rust (715 passed, 0 failed, 2 ignored) and TypeScript (309) tests pass on macOS 15.4.1, Apple M2, Rust 1.97.0; the Auto Context observer, Keychain, CoreMIDI and `enigo` compile there but have not been seen running, and the app window has not been checked by hand. Windows has never been built, and nothing has been run with a physical Launchpad. What has and has not been verified, per system, is in the [README](../README.md#verified-where).
+All of it was built and tested on Linux in earlier milestones. On macOS it is built, and the Rust (715 passed, 0 failed, 2 ignored) and TypeScript (309) tests pass on macOS 15.4.1, Apple M2, Rust 1.97.0; the Auto Context observer, Keychain, CoreMIDI and `enigo` compile there but have not been seen running, and the app window has not been checked by hand. Windows has never been built, and nothing has been run with a physical Launchpad. What has and has not been verified, per system, is in the [README](../../README.md#verified-where).
 
 ## Out of scope
 
 Accounts, cloud sync, a marketplace backend, plugin signing, telemetry, a full MCP server, other Launchpad models and other controllers, mobile, and a database. The roadmap documents describe how marketplace packages and an MCP adapter would fit.
 
-Agent Control adds its own boundaries: it does not host agents, run models, proxy LLM calls, schedule work, keep agent memory or build workflow graphs, and it never approves anything by itself. See [agent-control/overview.md](agent-control/overview.md#not-in-scope).
+Agent Control adds its own boundaries: it does not host agents, run models, proxy LLM calls, schedule work, keep agent memory or build workflow graphs, and it never approves anything by itself. See [agent-control/overview.md](../user/agent-control.md#not-in-scope).

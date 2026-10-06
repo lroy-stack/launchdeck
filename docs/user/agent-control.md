@@ -55,7 +55,7 @@ Agent Control adds a module and a surface. It does not fork the platform.
 | Intervene | Everything, simulated | Approve and reject permission requests | Whatever capabilities the client declares |
 | Trust | Control granted | Read-only until you grant control | Read-only until you grant control |
 
-Real adapters ship for two tools, and the Adapters tab states exactly what each one can and cannot do. Claude Code was verified against a live installation. Codex was written from its published documentation and has not been run, and says so. Details, with dates and sources, are in [adapter-sdk.md](adapter-sdk.md#real-adapters-what-is-observable-and-controllable).
+Real adapters ship for two tools, and the Adapters tab states exactly what each one can and cannot do. Claude Code was verified against a live installation. Codex was written from its published documentation and has not been run, and says so. Details, with dates and sources, are in [adapter-sdk.md](../agent-control/adapter-sdk.md#real-adapters-what-is-observable-and-controllable).
 
 Neither real adapter can pause, resume, cancel or retry a session, because the hook mechanisms do not allow it. Those controls stay visibly unavailable instead of being faked.
 
@@ -84,7 +84,7 @@ Honest edges of what is built, each also noted where it matters.
 * **Hook adapters cannot pause, resume, cancel, retry or instruct.** The harnesses' hook mechanisms only allow observing and answering permission requests. Real control of Codex would need `codex app-server`, which is not implemented.
 * **Codex has never been run.** The adapter follows OpenAI's published hook documentation and is marked untested in the app. Claude Code was verified live (version 2.1.289, 2026-10-04).
 * **A permission request that arrives while an agent is read-only cannot be answered from LaunchDeck later.** The harness is not held, so it asks you in its own prompt. Grant control before the work starts.
-* **The bridge is not authenticated.** Any local process can register an agent, read-only. See [security.md](security.md#known-gaps).
+* **The bridge is not authenticated.** Any local process can register an agent, read-only. See [security.md](../agent-control/security.md#known-gaps).
 * **Hook sessions started before the hooks were configured** appear at their next event, and `SessionStart` is not delivered over HTTP in non-interactive mode.
 * **Eight pads.** More than eight tracks stay fully visible in the app but only eight have a pad.
 * **The surface is designed for an 8x8 grid.** Smaller devices drop the pads they do not have.
@@ -110,9 +110,9 @@ Agent Control observes and steers agents that already exist. It is not, and will
 
 ## Documents
 
-* [domain-model.md](domain-model.md): entities, statuses, capabilities, commands, events.
-* [adapter-sdk.md](adapter-sdk.md): writing an adapter, in Rust or over the bridge, and the real adapters.
-* [bridge-protocol.md](bridge-protocol.md): the versioned wire protocol.
-* [surfaces.md](surfaces.md): how state becomes light, and how to build your own surface.
-* [security.md](security.md): the trust model and what is logged.
-* [mcp.md](mcp.md): the optional MCP bridge (design only).
+* [domain-model.md](../agent-control/domain-model.md): entities, statuses, capabilities, commands, events.
+* [adapter-sdk.md](../agent-control/adapter-sdk.md): writing an adapter, in Rust or over the bridge, and the real adapters.
+* [bridge-protocol.md](../agent-control/bridge-protocol.md): the versioned wire protocol.
+* [surfaces.md](../agent-control/surfaces.md): how state becomes light, and how to build your own surface.
+* [security.md](../agent-control/security.md): the trust model and what is logged.
+* [mcp.md](../roadmap/mcp-bridge.md): the optional MCP bridge (design only).

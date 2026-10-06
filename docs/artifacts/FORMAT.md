@@ -220,7 +220,7 @@ What a press or a long press does.
 
 ### Feedback rule
 
-A rule is exactly the workspace's feedback rule of schema 4 (`state::feedback::FeedbackRule`), held to its shape by a golden test: a state rule (`when.state` with a test `when.is`) or an event rule (`when.event` with up to 8 `where` conditions), showing `show` (a look of the control, or `idle`), or `showFromValue` (state rules) or `showFromField` (event rules), and for event rules a `hold` of `{ "ms": 200 }` to `{ "ms": 60000 }` or `"latch"`. Unknown members are refused, also inside `is` and `hold`. Each rule passes the checks that need no provider (`check_rule_shape`): one look to show, the hold, the payload conditions, the state address's grammar. The rules themselves are described in [state and feedback](../state-and-feedback.md#feedback-rules).
+A rule is exactly the workspace's feedback rule of schema 4 (`state::feedback::FeedbackRule`), held to its shape by a golden test: a state rule (`when.state` with a test `when.is`) or an event rule (`when.event` with up to 8 `where` conditions), showing `show` (a look of the control, or `idle`), or `showFromValue` (state rules) or `showFromField` (event rules), and for event rules a `hold` of `{ "ms": 200 }` to `{ "ms": 60000 }` or `"latch"`. Unknown members are refused, also inside `is` and `hold`. Each rule passes the checks that need no provider (`check_rule_shape`): one look to show, the hold, the payload conditions, the state address's grammar. The rules themselves are described in [state and feedback](../architecture/state-and-feedback.md#feedback-rules).
 
 ### Context rule (Pack only)
 

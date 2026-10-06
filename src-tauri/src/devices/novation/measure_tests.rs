@@ -4,7 +4,7 @@
 //! transport, how many renders a unit takes to be owned, and how long a
 //! press takes from the input callback to a `DeviceInput`. Host-side only,
 //! in whatever build the test runs: not device latency, which only a unit
-//! can show (the acceptance suite). docs/devices/hardware-testing.md
+//! can show (the acceptance suite). docs/contributing/hardware-testing.md
 //! records the numbers. Run by name:
 //! `cargo test --lib novation::measure_tests -- --ignored --nocapture`
 

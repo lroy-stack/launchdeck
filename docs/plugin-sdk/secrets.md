@@ -40,7 +40,7 @@ Schema 4. At most 8.
 | `description` | Optional, up to 280 characters. Say where the person gets the value. |
 | `host` | Required. One of the entries of `capabilities.network.hosts`, written the same way. The only address this secret is ever sent to. |
 
-A schema 4 manifest may not mark a `config` field `"secret": true`: that older flag kept the value in plain text in `plugins.json`. Manifests of schemas 1 to 3 that use it still load, but the module never receives such a setting: it reads as not set. A value an earlier version kept is moved into the credential store or removed on the person's choice ([secrets of older plugins](../security/secrets.md#secrets-of-older-plugins)); to use it, declare it here under the same key.
+A schema 4 manifest may not mark a `config` field `"secret": true`: that older flag kept the value in plain text in `plugins.json`. Manifests of schemas 1 to 3 that use it still load, but the module never receives such a setting: it reads as not set. A value an earlier version kept is moved into the credential store or removed on the person's choice ([secrets of older plugins](../architecture/secrets.md#secrets-of-older-plugins)); to use it, declare it here under the same key.
 
 ## What LaunchDeck does with it
 
@@ -66,7 +66,7 @@ In the operating system's credential store, or not at all:
 
 One entry per plugin and key, under the service name `LaunchDeck plugin <plugin id>`. A value is at most 4 KiB.
 
-There is **no file fallback**. On a system where no credential store answers, secrets are *unavailable*: the Plugins screen says so and why, a secret cannot be saved, and a request that names one is not sent. Everything about this, including what happens to the plain `secrets.json` an earlier version could write and to the `secret` settings of older manifests, is in [Where secrets are kept](../security/secrets.md).
+There is **no file fallback**. On a system where no credential store answers, secrets are *unavailable*: the Plugins screen says so and why, a secret cannot be saved, and a request that names one is not sent. Everything about this, including what happens to the plain `secrets.json` an earlier version could write and to the `secret` settings of older manifests, is in [Where secrets are kept](../architecture/secrets.md).
 
 ## On the Plugins screen
 

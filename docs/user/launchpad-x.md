@@ -4,7 +4,7 @@ Everything in this file concerns the Launchpad X: its profile `src-tauri/src/dev
 
 **Hardware status: NOT HARDWARE VERIFIED (b).** LaunchDeck was developed without a Launchpad X, and no Novation device was attached when this was last revised (2026-10-06). Encoders and decoders are covered by byte-level tests against the manual, and the device by tests against a simulated unit. "Verified" below means verified in Novation's documentation, not on a unit.
 
-Source: Novation, *Launchpad X Programmer's Reference Manual* (2019-11-08, "X-PRM"). The bytes the X shares with the Launchpad Mini MK3, and the errors in the manual, are in [novation-mk3-protocol.md](novation-mk3-protocol.md); what the X reports about itself is in [capabilities.md](capabilities.md); the acceptance suite for a unit is in [hardware-testing.md](hardware-testing.md).
+Source: Novation, *Launchpad X Programmer's Reference Manual* (2019-11-08, "X-PRM"). The bytes the X shares with the Launchpad Mini MK3, and the errors in the manual, are in [novation-mk3-protocol.md](../architecture/devices/novation-mk3-protocol.md); what the X reports about itself is in [capabilities.md](../architecture/devices/capabilities.md); the acceptance suite for a unit is in [hardware-testing.md](../contributing/hardware-testing.md).
 
 ## Ports
 
@@ -142,7 +142,7 @@ The X has the same three commands as the Mini MK3 (X-PRM p23 text, p24 sleep, p2
 2. Plug it in. Within 3 s **Settings › Devices** lists it as connected; press **Look again** otherwise.
 3. Open the Agent Control surface in Live mode and press **Run Agent Demo**. The grid should mirror the on-screen device, with the top row of pads changing colour as the four simulated agents move through their states.
 4. Check that pulse and flash look right. Agent Control relies on them (running pulses, approval and failure flash) and on this device they are synthesised from RGB frames at 25 per second, so a slow USB or MIDI path would show as stutter. Then check the edges: top row, side column and the logo. If they do not respond or light, the unverified numbers above are the cause.
-5. Run the acceptance suite, `sh scripts/launchpad-acceptance.sh` (it takes an X when no Mini MK3 is plugged in), and commit its report under `docs/verification/`; see [hardware-testing.md](hardware-testing.md).
+5. Run the acceptance suite, `sh scripts/launchpad-acceptance.sh` (it takes an X when no Mini MK3 is plugged in), and commit its report under `docs/verification/`; see [hardware-testing.md](../contributing/hardware-testing.md).
 
 ## Defects fixed in the device lane
 

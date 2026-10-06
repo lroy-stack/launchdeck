@@ -1,6 +1,6 @@
 # States
 
-A plugin can tell LaunchDeck **how something is now**. A pad can then show it for as long as it is true, without the plugin ever knowing there is a pad. This page is for plugin authors. The catalog that lists what you declare, and what the interface shows, is in [observables](../observables.md).
+A plugin can tell LaunchDeck **how something is now**. A pad can then show it for as long as it is true, without the plugin ever knowing there is a pad. This page is for plugin authors. The catalog that lists what you declare, and what the interface shows, is in [observables](../architecture/observables.md).
 
 ## Event or state
 
@@ -127,7 +127,7 @@ Whether it is the plugin's status that changed or a call that failed, the lifecy
 
 ## What the person sees
 
-Nothing about states needs UI from you. Everything you declare appears in LaunchDeck's [Observable Catalog](../observables.md), listed under your plugin with its name and description, with what it reads now, with the same treatment as the states of LaunchDeck and Agent Control. A rule on a pad can read it (`Counter level is High`), and LaunchDeck can explain it (`Counter Plugin is running but has not reported level yet`).
+Nothing about states needs UI from you. Everything you declare appears in LaunchDeck's [Observable Catalog](../architecture/observables.md), listed under your plugin with its name and description, with what it reads now, with the same treatment as the states of LaunchDeck and Agent Control. A rule on a pad can read it (`Counter level is High`), and LaunchDeck can explain it (`Counter Plugin is running but has not reported level yet`).
 
 ### Suggesting a state for an action
 

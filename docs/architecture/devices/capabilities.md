@@ -110,13 +110,13 @@ A `DeviceInfo` in JSON:
 
 ## Adding a device model
 
-Read [CODEBASE_MAP.md](../architecture/CODEBASE_MAP.md#1-where-does-it-belong) and [ENGINEERING_RULES.md](../architecture/ENGINEERING_RULES.md) first. The rules that matter most here: no MIDI byte outside `devices/` (R5), `midir` only in `devices/midi/system.rs`, no `cfg!(target_os)` under `devices/` (take a `Platform`), no model name in `manager.rs`, `source.rs`, `features.rs`, `midi/`, the renderer or the runtime, and no new field in `DeviceCapabilities`.
+Read [CODEBASE_MAP.md](../CODEBASE_MAP.md#1-where-does-it-belong) and [ENGINEERING_RULES.md](../ENGINEERING_RULES.md) first. The rules that matter most here: no MIDI byte outside `devices/` (R5), `midir` only in `devices/midi/system.rs`, no `cfg!(target_os)` under `devices/` (take a `Platform`), no model name in `manager.rs`, `source.rs`, `features.rs`, `midi/`, the renderer or the runtime, and no new field in `DeviceCapabilities`.
 
 **Another Novation MK3 model** whose manual defines the same commands with the same bytes (compare the manuals first, as [novation-mk3-protocol.md](novation-mk3-protocol.md#why-one-layer) did; a model that differs, like the Launchpad Pro MK3, is not one of these):
 
 1. Add its product byte to `Product` in `novation/protocol.rs`, with the manual page.
 2. Write its profile, `novation/<model>.rs`, after `launchpad_mini_mk3.rs`: model id, name, product, inquiry families, port-name tokens, interface order, Live layout, capabilities and features, each with the manual page it comes from.
 3. Add it to `KNOWN` in `novation/hardware.rs` (recognised on the ports; listed as not supported yet), with port fixtures for every system in `novation/ports_tests.rs`. Then to `DRIVEN`, with tests over the simulator in `novation/device_tests.rs` (`SimLaunchpad` has `mini()` and `x()`; the new model gets its own, with its product byte, family and power-on layout from its manual).
-4. Change the `Unsupported` sentence in `devices/mod.rs` and the user-facing wording, write its notes in `docs/devices/`, and update the map's `devices` row.
+4. Change the `Unsupported` sentence in `devices/mod.rs` and the user-facing wording, write its notes in `docs/user/` (what a person sees) and `docs/architecture/devices/` (the protocol), and update the map's `devices` row.
 
 **Another family** (not a Novation MK3): a module `devices/<family>/` with its own `SurfaceDevice` and a `HardwareSource` over the `devices::midi` transport, so that it is tested against `FakeMidi` like the Launchpads. The manager takes one `HardwareSource`; a second family needs a source that asks both, in `devices/`, without model names. Its capabilities say what the renderer may draw; anything more goes into `DeviceFeatures`, with defaults off so that the other devices do not change. A new top-level module gets its map row in the same commit (R1, R21).

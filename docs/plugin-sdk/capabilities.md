@@ -56,7 +56,7 @@ Schemas 1 to 3 keep their `capabilities` array, which must stay empty.
 * **Stays on this computer.** `permissions.json` is next to the workspace, not in it, and not in the plugin's folder. Exporting a surface or copying a plugin carries no grant.
 * **A plugin runs whatever its grants are.** Its actions appear and can be pressed; the ones that need the network fail with a sentence that says access is waiting for approval.
 
-The person's side of this is described in [Plugin permissions](../plugins/permissions.md).
+The person's side of this is described in [Plugin permissions](../user/plugins.md).
 
 ## What else schema 4 adds
 

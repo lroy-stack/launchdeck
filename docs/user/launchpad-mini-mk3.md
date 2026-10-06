@@ -1,8 +1,8 @@
 # Novation Launchpad Mini MK3
 
-What LaunchDeck does with a Launchpad Mini MK3. The Mini is a profile, `src-tauri/src/devices/novation/launchpad_mini_mk3.rs`, driven by `Mk3Device` (`novation/device.rs`), the same device that drives the Launchpad X. The bytes both models share, and why they share them, are in [novation-mk3-protocol.md](novation-mk3-protocol.md); what the Mini reports about itself is in [capabilities.md](capabilities.md); how all of it is tested, with and without a unit, is in [hardware-testing.md](hardware-testing.md).
+What LaunchDeck does with a Launchpad Mini MK3. The Mini is a profile, `src-tauri/src/devices/novation/launchpad_mini_mk3.rs`, driven by `Mk3Device` (`novation/device.rs`), the same device that drives the Launchpad X. The bytes both models share, and why they share them, are in [novation-mk3-protocol.md](../architecture/devices/novation-mk3-protocol.md); what the Mini reports about itself is in [capabilities.md](../architecture/devices/capabilities.md); how all of it is tested, with and without a unit, is in [hardware-testing.md](../contributing/hardware-testing.md).
 
-**Hardware status: NOT HARDWARE VERIFIED (b).** No Novation device was attached when this was written (2026-10-06, macOS 15.4.1, Apple M2), and there is no Windows machine and no Linux desktop here. Everything below is what Novation's documents say and what LaunchDeck does against a simulated Mini (`novation/testkit.rs`, written from the manuals), not what a unit was seen to do. The acceptance suite of [hardware-testing.md](hardware-testing.md) is how that changes.
+**Hardware status: NOT HARDWARE VERIFIED (b).** No Novation device was attached when this was written (2026-10-06, macOS 15.4.1, Apple M2), and there is no Windows machine and no Linux desktop here. Everything below is what Novation's documents say and what LaunchDeck does against a simulated Mini (`novation/testkit.rs`, written from the manuals), not what a unit was seen to do. The acceptance suite of [hardware-testing.md](../contributing/hardware-testing.md) is how that changes.
 
 Sources: Novation, *Launchpad Mini [MK3] Programmer's Reference Manual* (2019-11-08, "the Programmer's Reference" below) and *Launchpad Mini User Guide* v2.0 (English, 2024-02-09, "the User Guide"). Page numbers are the printed ones.
 
@@ -72,7 +72,7 @@ F0 00 20 29 02 0D 00 <layout> F7   the layout it showed before
 
 Live mode outside a DAW lands in Custom mode 2, Keys (`05`, p8), not in the layout the person had, so the layout read in step 1 is selected again unless it was Keys or Programmer Mode. What is given back is what the unit first reported: after a takeover, what the other program set is not the person's. LaunchDeck never sends DAW mode (`10h`), which belongs to a DAW (p15). A unit that was turned down, or not taken yet, is sent nothing. Quitting runs the same sequence through the app's exit handler (`RunEvent::Exit`; NOT VERIFIED in the app window (f)), and a device dropped without a disconnect runs it once too.
 
-**What the person sees.** The device list keeps E2's statuses: `connected`, `available`, `unplugged`, `unsupported` and `failed`. A connected Mini also has `details.mode` (`acquiring`, `confirmed` or `unconfirmed`), and a `notice` when it is connected with a limitation; a failed one has a `problem` in a sentence: a refusal above, or "Launchpad detected, but its control port is unavailable. Another program may be using it: close it and press Look again." Unplugged is listed until the unit returns, and a unit plugged in again is taken again, even one that was refused. See [capabilities.md](capabilities.md).
+**What the person sees.** The device list keeps E2's statuses: `connected`, `available`, `unplugged`, `unsupported` and `failed`. A connected Mini also has `details.mode` (`acquiring`, `confirmed` or `unconfirmed`), and a `notice` when it is connected with a limitation; a failed one has a `problem` in a sentence: a refusal above, or "Launchpad detected, but its control port is unavailable. Another program may be using it: close it and press Look again." Unplugged is listed until the unit returns, and a unit plugged in again is taken again, even one that was refused. See [capabilities.md](../architecture/devices/capabilities.md).
 
 ## Controls
 
@@ -102,7 +102,7 @@ The unit has 81 LEDs (64 pads, 8 top, 8 right, the logo), each lit on its own. L
 
 **The palette is approximate.** Novation publishes the 128 palette colours only as a picture (p11). LaunchDeck's table (`novation/palette.rs`) was read off that picture and agrees with the colours the manual names, but was not measured on LEDs. A pulsing or flashing pad in a colour the palette lacks shows the nearest entry; a static pad is always exact.
 
-**Batching.** Every change of one render goes into one lighting message (at most 81 LEDs per message), and only LEDs whose colour or animation changed are sent. After waking from sleep, a brightness change, the end of a scroll, or taking the unit again, the next frame is sent whole. Measurements and the rule that would change this are in [hardware-testing.md](hardware-testing.md#the-batching-rule).
+**Batching.** Every change of one render goes into one lighting message (at most 81 LEDs per message), and only LEDs whose colour or animation changed are sent. After waking from sleep, a brightness change, the end of a scroll, or taking the unit again, the next frame is sent whole. Measurements and the rule that would change this are in [hardware-testing.md](../contributing/hardware-testing.md#the-batching-rule).
 
 ## Brightness, sleep and scrolling text
 
@@ -149,4 +149,4 @@ The inquiry reply carries four digits, which LaunchDeck shows as the bootloader 
 
 1. Quit anything else using the Mini (Ableton Live, Novation Components).
 2. Plug it in. Within 3 s Settings › Devices lists "Launchpad Mini MK3" as connected (press Look again otherwise); the pads show the surface on screen.
-3. Run the acceptance suite, `sh scripts/launchpad-acceptance.sh`, and answer on the unit ([hardware-testing.md](hardware-testing.md#with-a-unit-the-acceptance-suite)). It writes a report; commit it under `docs/verification/` and the open questions get their answers.
+3. Run the acceptance suite, `sh scripts/launchpad-acceptance.sh`, and answer on the unit ([hardware-testing.md](../contributing/hardware-testing.md#with-a-unit-the-acceptance-suite)). It writes a report; commit it under `docs/verification/` and the open questions get their answers.

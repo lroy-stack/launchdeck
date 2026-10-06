@@ -48,7 +48,7 @@ A plugin's actions appear in the library automatically, from `plugin.json`. Ther
 * The manifest is the definition source. `label` is the display name, `id` is the stable part, and the library id is `<plugin id>.<action id>`, for example `example.counter.counter.increment`.
 * `category` defaults to the plugin's name, so a plugin without one still has a home. A person sees the source as *Plugin: Name*.
 * `params` use the schema in [parameters](parameters.md). The host validates and normalizes arguments **before** the module runs, so a module only ever receives well-typed input with defaults applied. This is the same function the editor mirrors.
-* Manifest schema 1 is still read: each `args` entry becomes a parameter whose label is its name, and `json` stays `json`. Schema 2 adds `category`, `keywords`, `appearance` and `params`. No `.wasm` module needs rebuilding, because the ABI and the wire protocol did not change. The [manifest reference](../plugin-sdk/manifest.md) has every field and limit.
+* Manifest schema 1 is still read: each `args` entry becomes a parameter whose label is its name, and `json` stays `json`. Schema 2 adds `category`, `keywords`, `appearance` and `params`. No `.wasm` module needs rebuilding, because the ABI and the wire protocol did not change. The [manifest reference](../../plugin-sdk/manifest.md) has every field and limit.
 * If a plugin is disabled or failed to load, its actions stay in the library as unavailable with the plugin's own reason. Assignments to them stay as saved. See [availability](availability.md).
 * A plugin cannot pick a built-in id, cannot shadow another provider's action (the first to claim an id keeps it), and cannot invoke another provider.
 
@@ -62,4 +62,4 @@ For a built-in provider in Rust:
 4. Register it in the `PluginRegistry` where the runtime starts. It shows up in the library with no other change, and the inspector draws its form.
 5. Test it: `invoke` with a `PluginContext` on a test event bus, `availability` for each state it distinguishes, and the catalog (`ActionRegistry::catalog`) for the definitions it declares.
 
-For a plugin anyone can install, follow the [plugin SDK](../plugin-sdk/getting-started.md) and write `plugin.json` with schema 2.
+For a plugin anyone can install, follow the [plugin SDK](../../plugin-sdk/getting-started.md) and write `plugin.json` with schema 2.

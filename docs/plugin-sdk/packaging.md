@@ -55,7 +55,7 @@ Two more things belong to an installed plugin and are kept apart from its settin
 
 | | Kept in | Travels with a surface or a plugin folder? |
 | --- | --- | --- |
-| Network grants | `permissions.json` in the app data folder (owner-only) | No. See [plugin permissions](../plugins/permissions.md). |
+| Network grants | `permissions.json` in the app data folder (owner-only) | No. See [plugin permissions](../user/plugins.md). |
 | Secrets | The system's credential store. Never a file: without a store they are unavailable | No. See [secrets](secrets.md). |
 
 Changing a setting that a network address comes from asks for the new address; the grant for the old one stays on file and allows nothing.
@@ -68,4 +68,4 @@ Replace the files in the plugin's folder and press **Rescan**: the plugin restar
 
 A plugin's actions appear in the **Action Library** in the Surface editor, listed as *Plugin: Notes*, as soon as the plugin is found. A person searches for one, assigns it to a pad and fills in its form; there is nothing to configure in the plugin or the host. The pad stores `{ "provider": "acme.notes", "action": "notes.add", "args": { "text": "hi" } }` and follows what the plugin publishes with an event rule on `provider: "acme.notes"`.
 
-While a plugin is disabled or failed to load, its actions stay in the library as *Unavailable* with the reason, and pads that use them keep their assignment and show a flag. A surface that names a plugin which is not installed at all still loads and can be edited; the assignment is shown as missing with its saved settings, and the pad reports the failure when pressed. That is deliberate, so sharing a surface never depends on every plugin being present. See [availability](../actions/availability.md).
+While a plugin is disabled or failed to load, its actions stay in the library as *Unavailable* with the reason, and pads that use them keep their assignment and show a flag. A surface that names a plugin which is not installed at all still loads and can be edited; the assignment is shown as missing with its saved settings, and the pad reports the failure when pressed. That is deliberate, so sharing a surface never depends on every plugin being present. See [availability](../architecture/actions/availability.md).

@@ -2,7 +2,7 @@
 
 A pad can follow something that changes: the Counter's level, the status of an agent's track, a channel that goes down, a build that finishes. You set that up in the Inspector, with the mouse or the keyboard, without writing JSON and without knowing how events travel inside LaunchDeck.
 
-This page describes what is built. How the rules behave at run time is in [state-and-feedback.md](state-and-feedback.md); what can be observed, and how, is in [observables.md](observables.md).
+This page describes what is built. How the rules behave at run time is in [state-and-feedback.md](../architecture/state-and-feedback.md); what can be observed, and how, is in [observables.md](../architecture/observables.md).
 
 ## Where it is
 
@@ -156,7 +156,7 @@ The workspace schema is unchanged (**4**). The editor writes the rules in `feedb
 * Pure model: `src/lib/feedbackEdit.test.ts`.
 * Components, on the preview transport with the catalog and workspace Rust emitted: the picker (`picker.test.tsx`), rules, order, events, missing providers and saving (`rules.test.tsx`), looks (`looks.test.tsx`), the live panel and when it asks again (`explain.test.tsx`).
 * Contract: `examples/observables.json` carries the real `review_feedback` replies and is checked from both sides.
-* **The real window.** `tools/desktop-e2e` drives the desktop app itself (the WebKitGTK window under a virtual display, through WebDriver) with the real Counter and Channels plugins: authoring from an empty pad, saving, pressing the virtual Launchpad, switching surface, turning a plugin off and on and taking its folder away, an event overlay, scoped states, reordering by button and by Alt+↑/↓, and a run done with the keyboard only. It is slow and needs a Linux desktop stack, so it is run on request (`python3 tools/desktop-e2e/run.py feedback`) and is not part of `cargo test` or `npm test`. See [tools/desktop-e2e/README.md](../tools/desktop-e2e/README.md).
+* **The real window.** `tools/desktop-e2e` drives the desktop app itself (the WebKitGTK window under a virtual display, through WebDriver) with the real Counter and Channels plugins: authoring from an empty pad, saving, pressing the virtual Launchpad, switching surface, turning a plugin off and on and taking its folder away, an event overlay, scoped states, reordering by button and by Alt+↑/↓, and a run done with the keyboard only. It is slow and needs a Linux desktop stack, so it is run on request (`python3 tools/desktop-e2e/run.py feedback`) and is not part of `cargo test` or `npm test`. See [tools/desktop-e2e/README.md](../../tools/desktop-e2e/README.md).
 * **Shared acceptance controls.** `examples/feedback-editor-counter.json` and `examples/feedback-editor-event.json` are the exact controls the editor produces for the Counter and event scenarios. A TypeScript test proves the editor's functions generate them, and `src-tauri/tests/feedback_editor.rs` runs them against the real Counter and Channels plugins and the virtual Launchpad: the pad changes as the counter goes up, survives switching surface and back, goes dim when the plugin is disabled, `unknown` when it comes back and correct once it reports; and an event overlays Error for 0.7 seconds and returns to the state's look with the state untouched.
 
 ## Not built

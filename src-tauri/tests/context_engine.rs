@@ -848,7 +848,7 @@ async fn rules_and_the_auto_choice_persist_and_nothing_about_the_foreground_does
 }
 
 /// Saving the whole workspace at every switch of application is not worth its
-/// cost (VERIFICATION.md): what Auto shows follows the application in front,
+/// cost (docs/verification/macos-2026-10-05.md): what Auto shows follows the application in front,
 /// which the next start observes again. What a person chooses is saved.
 #[tokio::test(flavor = "multi_thread")]
 async fn an_application_switch_is_not_saved_and_a_persons_choice_is() {

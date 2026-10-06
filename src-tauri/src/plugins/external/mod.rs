@@ -13,7 +13,7 @@
 //! * `install` copies an example plugin the app ships into the plugins
 //!   folder, on the person's click ([`PluginHost::install_example`]).
 //!
-//! The contract is described in `PLUGIN_SDK_PLAN.md` and `docs/plugin-sdk/`.
+//! The contract is described in `docs/history/plans/PLUGIN_SDK_PLAN.md` and `docs/plugin-sdk/`.
 
 pub mod capabilities;
 pub mod discovery;

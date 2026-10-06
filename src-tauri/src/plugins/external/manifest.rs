@@ -354,7 +354,7 @@ pub struct ExternalManifest {
     #[serde(default)]
     pub config: Vec<ConfigField>,
     /// What the plugin asks the host to do for it. An empty array in schemas 1
-    /// to 3; an object in schema 4. See PLUGIN_CAPABILITIES_PLAN.md.
+    /// to 3; an object in schema 4. See docs/history/plans/PLUGIN_CAPABILITIES_PLAN.md.
     #[serde(default)]
     pub capabilities: Capabilities,
     /// Schema 4.

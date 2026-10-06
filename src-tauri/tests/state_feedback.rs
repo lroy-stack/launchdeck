@@ -1,4 +1,4 @@
-//! What LaunchDeck must do with external state (STATE_FEEDBACK_PLAN.md,
+//! What LaunchDeck must do with external state (docs/history/plans/STATE_FEEDBACK_PLAN.md,
 //! sections 8, 9 and 18): the "after" half of `state_characterization.rs`.
 //!
 //! The mandatory acceptance test is the first one: a provider publishes its

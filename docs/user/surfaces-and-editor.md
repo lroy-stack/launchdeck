@@ -22,7 +22,7 @@ The workspace's `context` holds the [Auto Context](context-engine.md) settings: 
 | `visual` | Idle look: `{color:"#rrggbb", animation:"none"|"pulse"|"flash"}`. |
 | `states` | Map of state name to visual. The state picks the look. |
 | `press`, `longPress` | An [assignment](#actions): `{provider, action, args}`. Long press fires after 500 ms. |
-| `feedback` | Ordered rules that decide which look the pad shows: state rules read a provider's value, event rules show a look for a while (see [state-and-feedback](state-and-feedback.md)). |
+| `feedback` | Ordered rules that decide which look the pad shows: state rules read a provider's value, event rules show a look for a while (see [state-and-feedback](../architecture/state-and-feedback.md)). |
 | `legacyBindings` | Schema 3 bindings that could not be converted, kept as they were. Inert. |
 
 Validation (Rust, on every save): label 1 to 40 characters, no overlaps (spans included), positions in range, spans 1x1 to 8x8, and every slot that changed holds a well formed assignment (the provider and action exist, the arguments fit the action's parameters). A slot that did not change is not re-checked, so a surface whose plugin is missing can still be edited and saved.
@@ -35,7 +35,7 @@ A slot holds an **assignment**, the only thing saved about an action:
 { "provider": "system", "action": "openUrl", "args": { "url": "https://github.com" } }
 ```
 
-You rarely write one by hand. In Edit mode the [Action Library](actions/action-library.md) lists everything a pad can do, and the inspector draws the settings. The built-in providers are:
+You rarely write one by hand. In Edit mode the [Action Library](action-library.md) lists everything a pad can do, and the inspector draws the settings. The built-in providers are:
 
 | Provider | Actions | Notes |
 | --- | --- | --- |
@@ -43,16 +43,16 @@ You rarely write one by hand. In Edit mode the [Action Library](actions/action-l
 | `shell` | `execute` | **Privileged.** `command`. |
 | `http` | `request` | **Privileged.** `method` (GET, POST, PUT, PATCH, DELETE), `url`, `body`. |
 | `navigation` | `openSurface`, `openPage` | Handled by the runtime. `openSurface` takes `surfaceId` and an optional `pageId`. |
-| `agent-control`, `demo` | See [plugins](plugins.md) | |
-| An installed plugin's id | Whatever it declares | See [plugin-sdk](plugin-sdk/README.md). |
+| `agent-control`, `demo` | See [plugins](../architecture/plugins.md) | |
+| An installed plugin's id | Whatever it declares | See [plugin-sdk](../plugin-sdk/README.md). |
 
-A surface file that names a provider which is not installed still loads. The pad is flagged, the editor shows the saved assignment as missing and keeps its settings, and nothing is deleted. Workspaces written before schema 3 are converted on first load; see [actions/definitions.md](actions/definitions.md#persistence-and-migration).
+A surface file that names a provider which is not installed still loads. The pad is flagged, the editor shows the saved assignment as missing and keeps its settings, and nothing is deleted. Workspaces written before schema 3 are converted on first load; see [actions/definitions.md](../architecture/actions/definitions.md#persistence-and-migration).
 
 ## Starter surfaces
 
 | Surface | Purpose | Highlights |
 | --- | --- | --- |
-| **Agent Control** | Watch and steer agents. The flagship surface. | One pad per session coloured by status, large APPROVE and REJECT pads, Pause, Resume, Retry and Stop that light only when they can work, task pads, Run Agent Demo. Provider-neutral. See [agent-control/surfaces.md](agent-control/surfaces.md). |
+| **Agent Control** | Watch and steer agents. The flagship surface. | One pad per session coloured by status, large APPROVE and REJECT pads, Pause, Resume, Retry and Stop that light only when they can work, task pads, Run Agent Demo. Provider-neutral. See [agent-control/surfaces.md](../agent-control/surfaces.md). |
 | **Development** | Build, test, ship. | Terminal, editor, git page. Commands are harmless `echo` placeholders you replace. A "Failing" pad shows the error flash. |
 | **Productivity** | Everyday shortcuts. | Browser, mail, calendar and files; copy, paste, undo, redo and search; screenshot, play/pause. Which file manager and screenshot shortcut a pad uses depends on the system. |
 | **Accessibility** | Fewer, larger, high-contrast targets. | Twelve 2x2 pads in colour-coded groups (navigate, edit, scroll and zoom, volume), Help page. A usability aid, not a medical device. |
@@ -62,7 +62,7 @@ The top row on every surface switches surfaces, so a Launchpad works without the
 
 ### Pads that follow events
 
-The Agent Control surface shows how a surface follows outside state. Its track pads have a state rule on the states Agent Control keeps (`agent-control.slot.status`, `slot.focused`, `command.state`), and the colour of each of the eleven normalized statuses is defined once in `agents/visual.rs` (see [agent-control/surfaces.md](agent-control/surfaces.md#the-mapping-state-to-appearance)). A pad driven by state rules is right whenever it is shown, because it reads the value rather than waiting for an event. Controls *without* feedback rules (for example a Development build pad) use the automatic cycle instead: running while the action runs, then success for 2.5 s or error for 4 s, then idle.
+The Agent Control surface shows how a surface follows outside state. Its track pads have a state rule on the states Agent Control keeps (`agent-control.slot.status`, `slot.focused`, `command.state`), and the colour of each of the eleven normalized statuses is defined once in `agents/visual.rs` (see [agent-control/surfaces.md](../agent-control/surfaces.md#the-mapping-state-to-appearance)). A pad driven by state rules is right whenever it is shown, because it reads the value rather than waiting for an event. Controls *without* feedback rules (for example a Development build pad) use the automatic cycle instead: running while the action runs, then success for 2.5 s or error for 4 s, then idle.
 
 ## Authoring tips
 
@@ -71,8 +71,8 @@ The Agent Control surface shows how a surface follows outside state. Its track p
 * For accessibility surfaces prefer spans of 2x2 or larger, high-contrast colours and labels as well as icons.
 * To react to an outside tool, add an event rule for its `source` and event, name the look to show and how long it lasts, then give the control that look. In the inspector: **Feedback, Add feedback, An event** (see [feedback-editor.md](feedback-editor.md)); the same rule can be written by hand in the surface file. A provider that reports a *state* is better read with a state rule: it is right even for a pad created after the value was reported.
 * To have a surface appear when you switch to an application, add a rule under **Settings, Auto Context** rather than a pad. See [context-engine.md](context-engine.md).
-* To react to agents, read the `agent-control` states described in [agent-control/surfaces.md](agent-control/surfaces.md#make-your-own) and call the `agent-control` plugin actions on press. Never count or address sessions in a surface; the platform publishes what a pad needs.
+* To react to agents, read the `agent-control` states described in [agent-control/surfaces.md](../agent-control/surfaces.md#make-your-own) and call the `agent-control` plugin actions on press. Never count or address sessions in a surface; the platform publishes what a pad needs.
 
 ## Files
 
-Surfaces live in `workspace.json` (schema 4) in the app data folder. The shape matches `examples/default-workspace.json`, which is the authoritative example; it was generated on Linux, and a few starter pads differ by system (which terminal, file manager and screenshot shortcut they name). Sharing and packaging of surfaces is described in [roadmap/marketplace.md](roadmap/marketplace.md).
+Surfaces live in `workspace.json` (schema 4) in the app data folder. The shape matches `examples/default-workspace.json`, which is the authoritative example; it was generated on Linux, and a few starter pads differ by system (which terminal, file manager and screenshot shortcut they name). Sharing and packaging of surfaces is described in [roadmap/marketplace.md](../roadmap/marketplace.md).

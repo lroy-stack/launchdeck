@@ -41,7 +41,7 @@ Rust owns the catalog and the final validation. React keeps a copy of the catalo
 
 1. **Discover.** The catalog lists every action of every provider, with its source, category, keywords and whether it can run now. Unavailable actions are listed with their reason, never hidden. See [availability](availability.md).
 2. **Configure.** An action's settings are declared as a small schema. LaunchDeck draws the form and checks it before saving. See [parameters](parameters.md).
-3. **Assign.** Select a pad and press *Assign*, or drag the action onto a pad. Replacing an existing action asks first. See [action library](action-library.md).
+3. **Assign.** Select a pad and press *Assign*, or drag the action onto a pad. Replacing an existing action asks first. See [action library](../../user/action-library.md).
 4. **Execute.** Pressing the pad calls the registry's `prepare`, then the provider. `action.started`, `action.completed` and `action.failed` report it, and the pad's automatic or bound states follow. Nothing about execution is new.
 
 ## Pages
@@ -50,9 +50,9 @@ Rust owns the catalog and the final validation. React keeps a copy of the catalo
 * [Parameters](parameters.md): the settings schema, validation rules and defaults.
 * [Providers](providers.md): every provider and action that ships, and how a new one registers.
 * [Availability](availability.md): available, unavailable and missing, and what each one does on screen and on a press.
-* [Action Library](action-library.md): using the library, search, drag and drop, replacement, keyboard and accessibility.
+* [Action Library](../../user/action-library.md): using the library, search, drag and drop, replacement, keyboard and accessibility.
 
-The research behind the design and the decisions it led to are in [ACTION_LIBRARY_PLAN.md](../../ACTION_LIBRARY_PLAN.md).
+The research behind the design and the decisions it led to are in [ACTION_LIBRARY_PLAN.md](../../history/plans/ACTION_LIBRARY_PLAN.md).
 
 ## Not built
 

@@ -2,7 +2,7 @@
 //! it with the shared MK3 codec and the X's product byte; its golden
 //! transcript is in `device_tests.rs`. Static colours always use RGB
 //! colourspecs, which need no palette, and pulse and flash are synthesised
-//! by the renderer. See docs/devices/launchpad-x.md for what is verified
+//! by the renderer. See docs/user/launchpad-x.md for what is verified
 //! and what is not.
 
 use super::profile::{ModelProfile, Role};

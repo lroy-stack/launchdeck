@@ -8,7 +8,7 @@ Written 2026-10-05, at commit `6a9224e` plus the documentation update that added
 2. Check by hand what only a real machine can show: Auto Context, the Keychain, synthetic keys, a physical Launchpad X, a real Home Assistant (section 4).
 3. Add continuous integration on Linux, macOS and Windows, so that this never has to be done by hand again (section 5).
 
-No new features. The phase is done when the "Verified where" table in the [README](README.md#verified-where) can be rewritten from things that were run.
+No new features. The phase is done when the "Verified where" table in the [README](../../README.md#verified-where) can be rewritten from things that were run.
 
 Throughout this file, **"expected"** means predicted by reading the code, not observed. Treat every expectation as a hypothesis to confirm or correct.
 
@@ -27,9 +27,9 @@ The three most recent milestones and where each is described:
 
 | Milestone | Commit | Read |
 | --- | --- | --- |
-| Plugin capabilities: network through a broker, per-address grants | `4c64e1c`, `49e0f44` | [docs/plugins/permissions.md](docs/plugins/permissions.md), [docs/plugin-sdk/network.md](docs/plugin-sdk/network.md) |
-| Secrets: the system credential store or nothing | `35c5e01` | [docs/security/secrets.md](docs/security/secrets.md) |
-| Context Engine v1: the surface follows the application in front | `6a9224e` | [docs/context-engine.md](docs/context-engine.md) |
+| Plugin capabilities: network through a broker, per-address grants | `4c64e1c`, `49e0f44` | [docs/plugins/permissions.md](../user/plugins.md), [docs/plugin-sdk/network.md](../plugin-sdk/network.md) |
+| Secrets: the system credential store or nothing | `35c5e01` | [docs/security/secrets.md](../architecture/secrets.md) |
+| Context Engine v1: the surface follows the application in front | `6a9224e` | [docs/context-engine.md](../user/context-engine.md) |
 
 ## 1. Set up the Mac
 
@@ -81,7 +81,7 @@ How to read a failure:
 Rules for fixing it:
 
 * Change the adapter and its dependencies, not the engine. `context/engine.rs`, `rules.rs` and `identity.rs` are pure, tested and the same on every system.
-* Read the application's identity and nothing else. Do not reach for window lists, window titles or the Accessibility API to "make it work": they need Screen Recording or Accessibility permission and they read things this project has decided never to read ([privacy](docs/context-engine.md#privacy)).
+* Read the application's identity and nothing else. Do not reach for window lists, window titles or the Accessibility API to "make it work": they need Screen Recording or Accessibility permission and they read things this project has decided never to read ([privacy](../user/context-engine.md#privacy)).
 * When it compiles and has been seen working, change the header comment of `macos.rs` and the platform table in `docs/context-engine.md` to say so, with the macOS version it was run on.
 
 Then:
@@ -181,7 +181,7 @@ These go through `enigo` and need **System Settings, Privacy & Security, Accessi
 
 ### 4.5 A physical Launchpad X
 
-Follow [docs/devices/launchpad-x.md, "Trying it on real hardware"](docs/devices/launchpad-x.md#trying-it-on-real-hardware). What is unverified and needs an answer:
+Follow [docs/devices/launchpad-x.md, "Trying it on real hardware"](../user/launchpad-x.md#trying-it-on-real-hardware). What is unverified and needs an answer:
 
 - [ ] **Settings, Rescan** finds it, and under which port names macOS lists it (the adapter expects something containing `LPX MIDI`).
 - [ ] **Connect** switches it to Programmer mode and the grid mirrors the virtual Launchpad, pad for pad, with the right colours.
@@ -195,7 +195,7 @@ Record the firmware version and the numbers you saw. With that, the "unverified"
 
 ### 4.6 A real Home Assistant
 
-Follow [examples/plugins/home-assistant/README.md](examples/plugins/home-assistant/README.md#set-it-up): address, **Allow**, token, a pad with **Toggle** and feedback from **Entity state**.
+Follow [examples/plugins/home-assistant/README.md](../../examples/plugins/home-assistant/README.md#set-it-up): address, **Allow**, token, a pad with **Toggle** and feedback from **Entity state**.
 
 - [ ] The request under **Network access** shows the exact address and, for an address on your LAN, *Your local network*.
 - [ ] The pad shows the light's real state, goes Pending on a press, and ends On or Off as the light does.

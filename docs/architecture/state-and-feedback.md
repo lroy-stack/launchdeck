@@ -7,7 +7,7 @@ providers ──► StateHub (current values only) ──► feedback rules ─�
 events    ──► temporary look (with an expiry) ───────────────────────┘
 ```
 
-The design and its reasons are in [STATE_FEEDBACK_PLAN.md](../STATE_FEEDBACK_PLAN.md). This page describes what is built. Everything that can be observed, states and events from every provider, is listed in the [Observable Catalog](observables.md); installed plugins declare states in their manifest, see [plugin-sdk/states.md](plugin-sdk/states.md).
+The design and its reasons are in [STATE_FEEDBACK_PLAN.md](../history/plans/STATE_FEEDBACK_PLAN.md). This page describes what is built. Everything that can be observed, states and events from every provider, is listed in the [Observable Catalog](observables.md); installed plugins declare states in their manifest, see [plugin-sdk/states.md](../plugin-sdk/states.md).
 
 ## State addresses
 
@@ -91,7 +91,7 @@ An index maps each state, provider and event to the controls that read it, and i
 | Provider | States |
 | --- | --- |
 | `agent-control` | `slot.status {slot}`, `slot.focused {slot}`, `command.state {command}`. The agent domain stays authoritative; its projection is written to the hub on every change, and the track, marker and command pads read it. Nothing is replayed to repaint a surface. |
-| `runtime` (LaunchDeck) | `surface.active`, `page.active`: the surface and page on screen. `context.mode`: one word about [Auto Context](context-engine.md). Which application is in front is deliberately not a state. |
+| `runtime` (LaunchDeck) | `surface.active`, `page.active`: the surface and page on screen. `context.mode`: one word about [Auto Context](../user/context-engine.md). Which application is in front is deliberately not a state. |
 | `demo` | One state per simulated agent (`alpha`, `beta`, `gamma`): `idle`, `running`, `waiting`, `approval-required`, `success`, `error`. |
 | Installed plugins | The `states` of their manifest (schema 3 and later), written with `setState`. The Counter reports `level`; Channels reports `status {channel}`; the Home Assistant example reports `entity {entity}`, read from an outside system. A plugin that declares `refresh` is asked every few seconds for the instances saved controls read, so its states follow changes made elsewhere; an instance no saved control reads is not asked for and stays `unknown`. A plugin that declares none keeps working: its events work as event rules. |
 
@@ -116,4 +116,4 @@ A schema 4 file holds rules only: never a value, a frame or a device.
 
 ## Not built yet
 
-Staleness timers, `and` / `or`, scripting and aggregate states ("anything needs me"). The rules are written and explained in the Inspector: see [feedback-editor.md](feedback-editor.md).
+Staleness timers, `and` / `or`, scripting and aggregate states ("anything needs me"). The rules are written and explained in the Inspector: see [feedback-editor.md](../user/feedback-editor.md).

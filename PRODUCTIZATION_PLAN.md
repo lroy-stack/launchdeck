@@ -582,7 +582,7 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 
 R3, R4 and R5 declare only A2 so that they still run if a feature package fails; they are last in the order and describe only what is in the tree.
 
-R4 names the Launchpad Mini MK3 in `README.md` beside the Launchpad X (supported since the device lane; [docs/devices/launchpad-mini-mk3.md](docs/devices/launchpad-mini-mk3.md)), with its hardware status NOT VERIFIED (b) unless a run of the acceptance suite on a unit has been recorded.
+R4 names the Launchpad Mini MK3 in `README.md` beside the Launchpad X (supported since the device lane; [docs/devices/launchpad-mini-mk3.md](docs/user/launchpad-mini-mk3.md)), with its hardware status NOT VERIFIED (b) unless a run of the acceptance suite on a unit has been recorded.
 
 ## 13. Risk register
 

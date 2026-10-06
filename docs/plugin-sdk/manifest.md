@@ -62,7 +62,7 @@
 
 ### Actions
 
-Every action you declare appears in the **Action Library**, with the plugin as its source (*Plugin: Notes*), with no other registration. The person finds it by name, keyword or category, assigns it to a pad and fills in a form drawn from `params`. See [the Action Library](../actions/action-library.md).
+Every action you declare appears in the **Action Library**, with the plugin as its source (*Plugin: Notes*), with no other registration. The person finds it by name, keyword or category, assigns it to a pad and fills in a form drawn from `params`. See [the Action Library](../user/action-library.md).
 
 | Field | Rule |
 | --- | --- |
@@ -95,7 +95,7 @@ Each parameter declares one setting. LaunchDeck draws the form and validates it,
 | `reference` | an id of a surface or page | `target` (`surface` or `page`), `scope` |
 | `json` | any JSON | for schema 1 compatibility only; prefer another type |
 
-Common fields: `name` (a plain identifier of up to 32 characters, unique in the action), `label` (1 to 40 characters, shown next to the field), `description` (help text, up to 280 characters), `required` (default `false`), `default` and `placeholder`. The full rules and messages are in [parameters](../actions/parameters.md).
+Common fields: `name` (a plain identifier of up to 32 characters, unique in the action), `label` (1 to 40 characters, shown next to the field), `description` (help text, up to 280 characters), `required` (default `false`), `default` and `placeholder`. The full rules and messages are in [parameters](../architecture/actions/parameters.md).
 
 Arguments are checked **before** your module runs, against exactly this declaration. Unknown names, wrong types, out-of-range numbers and missing required values fail the call with an invalid-arguments error. Blank text takes its `default`, and defaults are filled in, so the module only ever sees well-typed input. `null` counts as missing.
 
@@ -113,7 +113,7 @@ Each `args` entry becomes a parameter whose label is its name, so the action is 
 
 ### States
 
-Schema 3. A state is how something is **now**; see [States](states.md) for when to use one rather than an event, how scoped states work and how a plugin writes them. A plugin's states appear in the [Observable Catalog](../observables.md) with no other registration.
+Schema 3. A state is how something is **now**; see [States](states.md) for when to use one rather than an event, how scoped states work and how a plugin writes them. A plugin's states appear in the [Observable Catalog](../architecture/observables.md) with no other registration.
 
 | Field | Rule |
 | --- | --- |
@@ -140,7 +140,7 @@ Settings the person can change on the Plugins screen. `key` is a plain identifie
 
 A setting named by `capabilities.network.hosts` as `{ "setting": key }` must be a `string`, and its `default`, if it has one, must be a URL with a usable origin.
 
-**`"secret": true` (schemas 1 to 3 only).** Such a setting cannot have a default and cannot be given a value. **The module never receives it**: at `init` it reads as not set, whatever `plugins.json` holds, because LaunchDeck never hands a plaintext secret to a plugin. A value an earlier version kept there in plain text is listed on the plugin's card as a *Legacy insecure secret*, never shown or logged, and moved into the credential store or removed only when the person chooses; see [secrets of older plugins](../security/secrets.md#secrets-of-older-plugins). Even once moved, a module of schema 1 to 3 does not get it. Schema 4 refuses the flag: declare the value under [`secrets`](secrets.md), with the same key, and LaunchDeck applies it to requests to its one address; the module never sees it.
+**`"secret": true` (schemas 1 to 3 only).** Such a setting cannot have a default and cannot be given a value. **The module never receives it**: at `init` it reads as not set, whatever `plugins.json` holds, because LaunchDeck never hands a plaintext secret to a plugin. A value an earlier version kept there in plain text is listed on the plugin's card as a *Legacy insecure secret*, never shown or logged, and moved into the credential store or removed only when the person chooses; see [secrets of older plugins](../architecture/secrets.md#secrets-of-older-plugins). Even once moved, a module of schema 1 to 3 does not get it. Schema 4 refuses the flag: declare the value under [`secrets`](secrets.md), with the same key, and LaunchDeck applies it to requests to its one address; the module never sees it.
 
 ## What each schema adds
 

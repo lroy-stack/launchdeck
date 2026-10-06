@@ -1,7 +1,7 @@
 #!/bin/sh
 # Runs the physical acceptance suite on a Launchpad Mini MK3, or else a
 # Launchpad X, plugged into this computer (LAUNCHPAD_MINI_MK3_PLAN.md
-# section 15; docs/devices/hardware-testing.md).
+# section 15; docs/contributing/hardware-testing.md).
 #
 # Close Ableton Live, Novation Components and anything else that uses the
 # Launchpad first. You answer on the unit: the top right > button is yes, the

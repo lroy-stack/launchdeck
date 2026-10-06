@@ -118,7 +118,7 @@ Copy the surface in the editor, or write one as a surface file. A control reads 
 
 **A pad that reacts to a moment.** Add an event rule for a [semantic event](domain-model.md#events) such as `session.failed` or `approval.created` with a look and a hold, for example `{ "ms": 5000 }`; the pad returns to what its state rules say when the hold ends. Pressing can run `plugin: "agent-control"`, action `openApp`. Keep these for a single known agent: with several sessions, one session finishing would end a light another still needs.
 
-An aggregate "anything needs me" light is not published yet. Surfaces should not count sessions themselves, and the states (`slot.status`, `slot.focused`, `command.state`) describe tracks and the selected command state, not totals. See [Known limitations](overview.md#known-limitations).
+An aggregate "anything needs me" light is not published yet. Surfaces should not count sessions themselves, and the states (`slot.status`, `slot.focused`, `command.state`) describe tracks and the selected command state, not totals. See [Known limitations](../user/agent-control.md#known-limitations).
 
 ## Editing and accessibility
 
