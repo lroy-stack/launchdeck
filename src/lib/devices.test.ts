@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import devicesJson from "../../examples/devices.json";
 import { capabilityList, noticeOf, primaryDevice, statusText, statusTone, summaryText } from "./devices";
-import type { DeviceInfo, DeviceStatus } from "./schema";
+import { deviceInfoSchema, type DeviceInfo, type DeviceStatus } from "./schema";
 
 const caps: DeviceInfo["capabilities"] = {
   grid: { width: 8, height: 8 },
@@ -158,5 +160,27 @@ describe("capabilityList", () => {
 
   it("uses no MIDI words", () => {
     expect(capabilityList(mini()).join(" ")).not.toMatch(/midi|note|cc|sysex|palette|grid|rgb/i);
+  });
+});
+
+// Written by Rust (`cargo run --example dump_devices`, examples/devices.json) and
+// guarded by tests/devices_contract.rs: the list as RuntimeState.devices carries it.
+describe("the device list Rust emits", () => {
+  const [simulatorOut, miniOut, unsupportedOut] = z.array(deviceInfoSchema).parse(devicesJson);
+
+  it("parses with the schema, details, features and notice included", () => {
+    expect(simulatorOut!.identity.kind).toBe("virtual");
+    expect(miniOut!.details).toMatchObject({ firmware: "0531", mode: "confirmed" });
+    expect(miniOut!.features).toMatchObject({ brightness: true, sleep: true, scrollingText: true, flashPeriodMs: 500 });
+    expect(unsupportedOut!.status).toBe("unsupported");
+  });
+
+  it("reads in words as Settings shows it", () => {
+    expect(summaryText(miniOut!)).toBe("Launchpad Mini MK3 · Connected · Firmware 0531 · Programmer Mode (confirmed)");
+    expect(noticeOf(miniOut!)).toBe("Firmware version 0531 does not support brightness. Novation Components can update it.");
+    expect(capabilityList(miniOut!)).toContain("Scrolls text across its pads");
+    expect(capabilityList(simulatorOut!)).not.toContain("Brightness can be set");
+    expect(statusText(unsupportedOut!)).toBe("Not supported yet: LaunchDeck works with the Launchpad X and the Launchpad Mini MK3");
+    expect(primaryDevice([simulatorOut!, miniOut!, unsupportedOut!])).toBe(miniOut);
   });
 });

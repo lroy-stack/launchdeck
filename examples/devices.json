@@ -1,0 +1,141 @@
+[
+  {
+    "capabilities": {
+      "animations": {
+        "flash": true,
+        "pulse": true
+      },
+      "aux": {
+        "logo": true,
+        "side": 8,
+        "top": 8
+      },
+      "grid": {
+        "height": 8,
+        "width": 8
+      },
+      "pressure": false,
+      "rgb": true,
+      "velocity": true
+    },
+    "connected": true,
+    "details": {
+      "asleep": false,
+      "brightness": null,
+      "firmware": null,
+      "mode": "none",
+      "notice": null,
+      "scrolling": false
+    },
+    "features": {
+      "batchedLighting": false,
+      "brightness": false,
+      "firmwareVersion": false,
+      "flashPeriodMs": null,
+      "hostMode": false,
+      "palette": false,
+      "pulsePeriodMs": null,
+      "scrollingText": false,
+      "sleep": false
+    },
+    "identity": {
+      "id": "virtual-launchpad-x",
+      "kind": "virtual",
+      "model": "launchpad-x",
+      "name": "Virtual Launchpad X"
+    },
+    "status": "connected"
+  },
+  {
+    "capabilities": {
+      "animations": {
+        "flash": true,
+        "pulse": true
+      },
+      "aux": {
+        "logo": true,
+        "side": 8,
+        "top": 8
+      },
+      "grid": {
+        "height": 8,
+        "width": 8
+      },
+      "pressure": false,
+      "rgb": true,
+      "velocity": false
+    },
+    "connected": true,
+    "details": {
+      "asleep": false,
+      "brightness": null,
+      "firmware": "0531",
+      "mode": "confirmed",
+      "notice": "Firmware version 0531 does not support brightness. Novation Components can update it.",
+      "scrolling": false
+    },
+    "features": {
+      "batchedLighting": true,
+      "brightness": true,
+      "firmwareVersion": true,
+      "flashPeriodMs": 500,
+      "hostMode": true,
+      "palette": true,
+      "pulsePeriodMs": 1000,
+      "scrollingText": true,
+      "sleep": true
+    },
+    "identity": {
+      "id": "launchpad-mini-mk3:1",
+      "kind": "hardware",
+      "model": "launchpad-mini-mk3",
+      "name": "Launchpad Mini MK3"
+    },
+    "notice": "Firmware version 0531 does not support brightness. Novation Components can update it.",
+    "status": "connected"
+  },
+  {
+    "capabilities": {
+      "animations": {
+        "flash": false,
+        "pulse": false
+      },
+      "aux": {
+        "logo": false,
+        "side": 0,
+        "top": 0
+      },
+      "grid": null,
+      "pressure": false,
+      "rgb": false,
+      "velocity": false
+    },
+    "connected": false,
+    "details": {
+      "asleep": false,
+      "brightness": null,
+      "firmware": null,
+      "mode": "none",
+      "notice": null,
+      "scrolling": false
+    },
+    "features": {
+      "batchedLighting": false,
+      "brightness": false,
+      "firmwareVersion": false,
+      "flashPeriodMs": null,
+      "hostMode": false,
+      "palette": false,
+      "pulsePeriodMs": null,
+      "scrollingText": false,
+      "sleep": false
+    },
+    "identity": {
+      "id": "unsupported:launchpad-pro-mk3",
+      "kind": "hardware",
+      "model": "unsupported",
+      "name": "Launchpad Pro MK3"
+    },
+    "status": "unsupported"
+  }
+]

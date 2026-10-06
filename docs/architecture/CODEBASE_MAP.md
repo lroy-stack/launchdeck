@@ -152,11 +152,12 @@ The contract fixtures today. Each `dump_*` fixture is written from the real runt
 | `context-status.json` | `dump_context` (`tests/support/context_scenario.rs`) | `tests/context_contract.rs` | `src/features/context/context.test.tsx` |
 | `artifacts/development.ldpack`, `artifacts/export-preview.json`, `artifacts/import-plan.json`, `artifacts/import-plan-missing.json`, `artifacts/inspect-rejected.json` | `dump_artifacts` (`tests/support/artifacts_scenario.rs`: the artifact service on the real runtime, the starter workspace as on Linux, X11 identities, app version 9.9.9, a fixed plan id; the example writes the files itself) | `tests/artifacts_contract.rs` (exact equality, and no other file in the folder) | none yet: C6 adds the Zod schemas and the Vitest test that parse them |
 | `app-info.json` | `dump_app_info` (`tests/support/app_info_scenario.rs`: `AppInfo` with a placeholder data folder; `os` and `arch` of the machine that wrote it) | `tests/app_info_contract.rs` | `src/features/settings/settings.test.tsx` |
+| `devices.json` | `dump_devices` (`tests/support/devices_scenario.rs`: the simulator as the device manager lists it once connected; by hand, since no unit is attached, a connected Launchpad Mini MK3 with details, features and a notice, and an unsupported model) | `tests/devices_contract.rs` (exact equality) | `src/lib/devices.test.ts` |
 | `feedback-editor-counter.json`, `feedback-editor-event.json` | none: they are the controls the feedback editor produces, and `src/lib/feedbackEdit.test.ts` proves its functions produce them | `tests/feedback_editor.rs` runs them on the real runtime | `src/lib/feedbackEdit.test.ts`, `src/features/feedback/rules.test.tsx` |
 
 `src/lib/preview.ts` (the browser-only stand-in for the runtime) also reads `default-workspace.json`, `agents-snapshot.json`, `action-catalog.json`, `observables.json` and `app-info.json`. Rust-only goldens, not shared with TypeScript: `src-tauri/tests/fixtures/agent-control-golden.json` (`tests/agent_control_golden.rs`) and the migration inputs `src-tauri/tests/fixtures/workspace-v2.json`, `workspace-v3.json`.
 
-Planned: `examples/param-cases.json` from `dump_param_cases`, guarding the `normalizeArgs` mirror (E1); `examples/devices.json` from `dump_devices`, the device list with features, details and notices (M13 of the device lane, `LAUNCHPAD_MINI_MK3_PLAN.md`).
+Planned: `examples/param-cases.json` from `dump_param_cases`, guarding the `normalizeArgs` mirror (E1).
 
 ## 7. Known exceptions and their planned fix
 
