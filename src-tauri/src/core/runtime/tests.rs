@@ -1124,3 +1124,106 @@ async fn the_snapshot_carries_the_notices_of_the_start() {
     let json = serde_json::to_value(rt.snapshot()).unwrap();
     assert_eq!(json["notices"][0]["kind"], "workspaceDamaged");
 }
+
+/// An emitter that is slow at the worst moment: it holds the first `event`
+/// it is sent, once armed, until another one has been delivered (or for a
+/// second at most), then delivers it.
+struct SlowFirst {
+    event: &'static str,
+    armed: AtomicBool,
+    entered: std::sync::Mutex<Option<std::sync::mpsc::Sender<()>>>,
+    overtaken: std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
+    overtaking: std::sync::Mutex<std::sync::mpsc::Sender<()>>,
+    sent: std::sync::Mutex<Vec<Value>>,
+}
+
+impl SlowFirst {
+    /// A runtime that emits through a slow emitter of `event`, and that
+    /// emitter, armed; `entering` says when the first `event` is held.
+    async fn runtime(event: &'static str) -> (Arc<Runtime>, Arc<SlowFirst>, Entering) {
+        let (entered, entering) = std::sync::mpsc::channel();
+        let (overtaking, overtaken) = std::sync::mpsc::channel();
+        let emitter = Arc::new(SlowFirst {
+            event,
+            armed: AtomicBool::new(false),
+            entered: std::sync::Mutex::new(Some(entered)),
+            overtaken: std::sync::Mutex::new(overtaken),
+            overtaking: std::sync::Mutex::new(overtaking),
+            sent: std::sync::Mutex::new(Vec::new()),
+        });
+        let rt = Runtime::start(RuntimeConfig {
+            emitter: emitter.clone(),
+            ..config(default_workspace(), None)
+        })
+        .await;
+        emitter.armed.store(true, Ordering::SeqCst);
+        (rt, emitter, entering)
+    }
+
+    fn last(&self, member: &str) -> Value {
+        let sent = self.sent.lock().unwrap();
+        sent.last().map_or(Value::Null, |p| p[member].clone())
+    }
+}
+
+type Entering = std::sync::mpsc::Receiver<()>;
+
+impl UiEmitter for SlowFirst {
+    fn emit(&self, event: &str, payload: Value) {
+        if event != self.event || !self.armed.load(Ordering::SeqCst) {
+            return;
+        }
+        let first = self.entered.lock().unwrap().take();
+        match first {
+            Some(entered) => {
+                entered.send(()).unwrap();
+                let overtaken = self.overtaken.lock().unwrap();
+                let _ = overtaken.recv_timeout(Duration::from_secs(1));
+            }
+            None => {
+                let _ = self.overtaking.lock().unwrap().send(());
+            }
+        }
+        self.sent.lock().unwrap().push(payload);
+    }
+}
+
+/// Two emissions at the same time, the first slow to send: what is sent
+/// in between does not overtake it.
+fn race(rt: &Arc<Runtime>, entering: &Entering, emit: fn(&Runtime), change: impl FnOnce()) {
+    let older = {
+        let rt = rt.clone();
+        std::thread::spawn(move || emit(&rt))
+    };
+    entering.recv().unwrap();
+    change();
+    let newer = {
+        let rt = rt.clone();
+        std::thread::spawn(move || emit(&rt))
+    };
+    older.join().unwrap();
+    newer.join().unwrap();
+}
+
+/// Two emissions of the runtime state at the same time deliver the newer
+/// state last: reading the state and sending it is one step, never
+/// overtaken (the intermittent "told" order of tests/home_assistant.rs).
+#[tokio::test(flavor = "multi_thread")]
+async fn the_state_sent_last_is_the_newest() {
+    let (rt, emitter, entering) = SlowFirst::runtime(ui::STATE).await;
+    race(&rt, &entering, Runtime::emit_state, || {
+        rt.lock().mode = Mode::Edit;
+    });
+    assert_eq!(emitter.last("mode"), json!("edit"));
+}
+
+/// The same for Auto Context's status, under the same emission lock.
+#[tokio::test(flavor = "multi_thread")]
+async fn the_context_sent_last_is_the_newest() {
+    let (rt, emitter, entering) = SlowFirst::runtime(ui::CONTEXT).await;
+    rt.lock().workspace.context.auto = true;
+    race(&rt, &entering, Runtime::emit_context, || {
+        rt.lock().workspace.context.auto = false;
+    });
+    assert_eq!(emitter.last("settings")["auto"], json!(false));
+}

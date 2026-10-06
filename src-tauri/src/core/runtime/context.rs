@@ -124,6 +124,7 @@ impl Runtime {
 
     /// Tell the UI and the hub, if anything about context changed.
     pub(super) fn emit_context(&self) {
+        let _turn = self.emitting();
         let status = self.context();
         {
             let mut sent = self.context_sent.lock().unwrap_or_else(|e| e.into_inner());

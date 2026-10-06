@@ -275,6 +275,10 @@ pub struct Runtime {
     handle: tokio::runtime::Handle,
     /// The context status the UI was last sent, so it is only told of changes.
     context_sent: Mutex<Option<ContextStatus>>,
+    /// Held while the runtime state, the workspace or the context status is
+    /// read and sent, so that two emissions never cross: the UI always gets
+    /// the newest last.
+    emitting: Mutex<()>,
     /// Said at start and never changed (`Snapshot::notices`).
     notices: Vec<StartupNotice>,
 }
@@ -368,7 +372,19 @@ impl Runtime {
         }
     }
 
+    /// The emission lock: one emission at a time, each reading what it sends
+    /// under it. Never taken with `inner` held.
+    fn emitting(&self) -> MutexGuard<'_, ()> {
+        self.emitting.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
     fn emit_state(&self) {
+        let _turn = self.emitting();
+        self.send_state();
+    }
+
+    /// Reads the state and sends it; the caller holds the emission lock.
+    fn send_state(&self) {
         let state = self.state();
         // Every change of surface or page ends here, so the hub never lags it.
         self.publish_navigation(&state.active_surface_id, &state.active_page_id);
@@ -379,12 +395,13 @@ impl Runtime {
     }
 
     fn emit_workspace(&self) {
+        let _turn = self.emitting();
         let ws = self.lock().workspace.clone();
         self.emitter.emit(
             ui::WORKSPACE,
             serde_json::to_value(ws).unwrap_or(Value::Null),
         );
-        self.emit_state();
+        self.send_state();
     }
 
     fn persist(&self, inner: &Inner) {
