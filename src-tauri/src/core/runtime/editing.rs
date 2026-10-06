@@ -70,11 +70,7 @@ impl Runtime {
             let mut guard = self.lock();
             let inner: &mut Inner = &mut guard;
             let mut candidate = build(&inner.workspace).map_err(CommitError::Build)?;
-            if candidate.surface(&inner.active_surface).is_none() {
-                // Saved as it will be shown, so the next start opens it too.
-                candidate.last_active_surface = candidate.surfaces.first().map(|s| s.id.clone());
-            }
-            keep_last_active_valid(&mut candidate);
+            keep_opening_valid(&mut candidate, &inner.active_surface);
             if let Some(store) = &self.store {
                 store
                     .save(&candidate)
@@ -363,13 +359,15 @@ fn controls_by_key(ws: &Workspace) -> HashMap<String, &Control> {
         .collect()
 }
 
-/// The surface the next start opens on must exist.
-fn keep_last_active_valid(workspace: &mut Workspace) {
-    let gone = workspace
+/// The surface the next start opens on: the first one when the surface on
+/// screen is gone (saved as it will be shown, see `replacement_on_screen`)
+/// or when the saved one is missing, so it always exists.
+fn keep_opening_valid(workspace: &mut Workspace, on_screen: &str) {
+    let saved_gone = workspace
         .last_active_surface
         .as_deref()
         .is_some_and(|id| workspace.surface(id).is_none());
-    if gone {
+    if saved_gone || workspace.surface(on_screen).is_none() {
         workspace.last_active_surface = workspace.surfaces.first().map(|s| s.id.clone());
     }
 }
