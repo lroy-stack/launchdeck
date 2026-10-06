@@ -254,8 +254,20 @@ fn refuse_credentials(exported: &AssignmentV1, place: &Place<'_>, found: &mut Co
 /// one that names a home folder inside a longer text is pointed out. An
 /// argument naming an exported surface is neither: the import renames it.
 /// A bound argument is listed as asked of the importer, without a value.
+/// An object or a list is no parameter, and is pointed out instead.
 fn offer_arguments(exported: &AssignmentV1, place: &Place<'_>, found: &mut Collected) {
     for (arg, value) in &exported.args {
+        if matches!(value, Value::Object(_) | Value::Array(_)) {
+            found.warn(
+                ExportCode::NonTextArgument,
+                format!(
+                    "The pad \"{}\" has, in \"{arg}\", a value that is not text, which the \
+                     parameters do not show: check what it holds before sharing.",
+                    place.label
+                ),
+                Some(format!("{}/args/{}", place.pointer, segment(arg))),
+            );
+        }
         let Value::String(text) = value else {
             continue;
         };

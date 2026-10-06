@@ -291,6 +291,7 @@ Export (`artifacts::export`) is a pure function of the workspace, what the app k
 | `externalSurfaceReference` | warning | A pad opens a surface that is not in the file. |
 | `notInstalled` | warning | A plugin the content uses is not installed here (or its version cannot be read). |
 | `localPath` | warning | A text argument looks like a path on this computer (`/…`, `~/…`, `C:\…`); the preview suggests asking the importer for it. It never does so on its own. Also, without a suggestion, a longer text (a command, arguments, an instruction) that names a folder in a home folder (`/Users/<name>/`, `/home/<name>/`, `C:\Users\<name>\`), which shows a user name. |
+| `nonTextArgument` | warning | A pad's argument is an object or a list, which the preview's parameters (text arguments with their values) do not show; the warning names the pad and the argument, so nothing is exported unseen. |
 | `ruleTargetMissing` | warning | A context rule shows a page that no longer exists, and is left out. |
 
 Before any bytes are produced, the file goes through the importer's own checks of the manifest, the content and both together; what they refuse is an error here.

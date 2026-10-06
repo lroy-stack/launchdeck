@@ -1559,6 +1559,62 @@ fn pads_that_run_things_are_listed_for_review() {
     );
 }
 
+/// An argument that is not text (an object or a list) is not among the
+/// parameters the preview lists, so each one is a warning that names the
+/// pad and the argument: nothing is exported unseen.
+#[test]
+fn an_argument_that_is_not_text_is_pointed_out() {
+    let ws = workspace(vec![surface(
+        "work",
+        vec![pad(
+            0,
+            "Notes",
+            a(
+                "acme.notes",
+                "mark",
+                json!({
+                    "list": ["a", "b"],
+                    "options": { "x": 1 },
+                    "count": 3,
+                    "on": true,
+                    "folder": "notes"
+                }),
+            ),
+        )],
+    )]);
+    let result = export(&ws, &hand_env(), &pack(&["work"]));
+    let pointed: Vec<(&str, Option<&str>)> = result
+        .preview
+        .warnings
+        .iter()
+        .filter(|w| w.code == E::NonTextArgument)
+        .map(|w| (w.message.as_str(), w.at.as_deref()))
+        .collect();
+    assert_eq!(
+        pointed,
+        [
+            (
+                "The pad \"Notes\" has, in \"list\", a value that is not text, which the \
+                 parameters do not show: check what it holds before sharing.",
+                Some("/content/surfaces/0/pages/0/controls/0/press/args/list")
+            ),
+            (
+                "The pad \"Notes\" has, in \"options\", a value that is not text, which the \
+                 parameters do not show: check what it holds before sharing.",
+                Some("/content/surfaces/0/pages/0/controls/0/press/args/options")
+            ),
+        ]
+    );
+    let listed: Vec<&str> = result
+        .preview
+        .parameters
+        .iter()
+        .map(|p| p.arg.as_str())
+        .collect();
+    assert_eq!(listed, ["folder"]);
+    written(&result);
+}
+
 #[test]
 fn text_arguments_are_offered_and_paths_suggested() {
     let ws = workspace(vec![surface(

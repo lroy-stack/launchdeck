@@ -147,6 +147,9 @@ pub enum ExportCode {
     NotInstalled,
     /// A text argument that looks like a path on this computer.
     LocalPath,
+    /// An argument that is not text (an object or a list), which the
+    /// parameters do not list.
+    NonTextArgument,
     /// A context rule whose page no longer exists, left out.
     RuleTargetMissing,
 }

@@ -571,6 +571,14 @@ describe("exporting surfaces", () => {
     expect(show).toHaveBeenCalledTimes(1);
   });
 
+  it("points out a pad whose argument is not text, which the values on this computer do not list", async () => {
+    const message = 'The pad "Notes" has, in "list", a value that is not text, which the parameters do not show: check what it holds before sharing.';
+    const pointed = exportPreviewSchema.parse({ ...EXPORT, warnings: [{ code: "nonTextArgument", message, at: "/content/surfaces/0/pages/0/controls/0/press/args/list" }] });
+    exporter(() => pointed);
+    await openExport("development");
+    expect(await within(await waitFor(() => section("Warnings"))).findByText(message)).toBeTruthy();
+  });
+
   it("sends the name, version and author typed, and Rust's errors stop the file from being saved", async () => {
     const refused: ExportPreview = { ...EXPORT, errors: [{ code: "invalidMetadata", message: "The version \"one\" is not a version such as 1.2.0.", at: "/manifest/version" }] };
     const { preview, save } = exporter((r) => (r.metadata.version === "one" ? refused : EXPORT));
