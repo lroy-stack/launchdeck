@@ -113,8 +113,9 @@ pub struct LaunchSpec {
 /// blank, and `args`, either a text with one argument per line (each line
 /// trimmed, empty lines left out) or a list of texts passed as they are,
 /// empty ones included. Any other `args` is refused, and so is a NUL or a
-/// line break anywhere, and on Windows any character its command
-/// interpreter reads (`& | < > ^ % "`). The runtime starts what this
+/// line break anywhere, an application name a launcher would read as an
+/// option, and on Windows any character its command interpreter reads
+/// (`& | < > ^ % "`). The runtime starts what this
 /// returns, and an artifact's review shows it, so the two can never read
 /// one assignment differently.
 pub fn launch_spec(args: &Value, platform: Platform) -> Result<LaunchSpec, ActionError> {
@@ -136,10 +137,32 @@ pub fn launch_spec(args: &Value, platform: Platform) -> Result<LaunchSpec, Actio
         Some(_) => return Err(refused()),
     };
     passable(&app, "This application name", platform)?;
+    not_an_option(&app, platform)?;
     for arg in &args {
         passable(arg, "This argument", platform)?;
     }
     Ok(LaunchSpec { app, args })
+}
+
+/// An application name a launcher would read as one of its own options: a
+/// leading `-` anywhere, and on Windows a leading `/`, which `start` reads
+/// as `/D`, `/B`, `/MIN`... and then starts the next word instead.
+fn not_an_option(app: &str, platform: Platform) -> Result<(), ActionError> {
+    let app = app.trim_start();
+    if app.starts_with('-') {
+        return Err(ActionError::InvalidArgs(
+            "This application name starts with a hyphen, which a launcher reads as an option."
+                .into(),
+        ));
+    }
+    if platform == Platform::Windows && app.starts_with('/') {
+        return Err(ActionError::InvalidArgs(
+            "This application name starts with a character the Windows start command reads as \
+             an option."
+                .into(),
+        ));
+    }
+    Ok(())
 }
 
 /// Characters `cmd.exe` reads as more than text: they chain, redirect,
@@ -506,6 +529,35 @@ mod tests {
             plugin.invoke(&ctx(), LAUNCH_APPLICATION, &json!({ "app": "calc\0x" })),
             Err(ActionError::InvalidArgs(_))
         ));
+    }
+
+    /// `cmd /C start "" /D C:\x evil.exe` reads /D as start's own option and
+    /// starts evil.exe, so on Windows an application never starts with `/`;
+    /// on no system does one start with `-`, which a launcher would read as
+    /// an option. Not run on Windows: tested by passing the platform.
+    #[test]
+    fn an_application_is_never_read_as_an_option() {
+        let start_option = json!({ "app": "/D", "args": ["C:\\x", "evil.exe"] });
+        let refused = launch_spec(&start_option, Platform::Windows).unwrap_err();
+        assert_eq!(
+            refused.message(),
+            "This application name starts with a character the Windows start command reads \
+             as an option."
+        );
+        for other in [Platform::Linux, Platform::MacOs] {
+            assert!(launch_spec(&start_option, other).is_ok(), "{other:?}");
+        }
+        for platform in [Platform::Linux, Platform::MacOs, Platform::Windows] {
+            let refused = launch_spec(&json!({ "app": "-x" }), platform).unwrap_err();
+            assert_eq!(
+                refused.message(),
+                "This application name starts with a hyphen, which a launcher reads as an \
+                 option.",
+                "{platform:?}"
+            );
+            // Further in, or in an argument, both are text.
+            assert!(launch_spec(&json!({ "app": "a-b", "args": ["-x", "/y"] }), platform).is_ok());
+        }
     }
 
     #[test]
