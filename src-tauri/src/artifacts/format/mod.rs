@@ -44,3 +44,4 @@ pub use manifest::{
 pub(in crate::artifacts) use rejection::is_bidi;
 pub(in crate::artifacts) use rejection::{echo, plain_message};
 pub use rejection::{Rejection, RejectionCode};
+pub(in crate::artifacts) use text::numbered_surface_id;

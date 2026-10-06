@@ -487,6 +487,26 @@ fn a_surface_id_taken_here_gets_the_next_free_one() {
     }
 }
 
+/// A file's id may be 64 characters, the most a surface id has: the next
+/// free one is shortened so it stays a surface id, and stays exportable.
+#[test]
+fn the_next_free_id_of_a_long_id_stays_within_64_characters() {
+    let long = "a".repeat(64);
+    let taken = format!("{}-2", "a".repeat(62));
+    let ws = workspace(vec![local(&long, "Here"), local(&taken, "Here")]);
+    let file = pack_of(
+        manifest("1.0.0"),
+        vec![surface(&long, "There", vec![])],
+        vec![],
+    );
+    let p = plan_of(&file, &ws, &ImportDecisions::default());
+    assert_eq!(local_ids(&p), [format!("{}-3", "a".repeat(62))]);
+    let ws = workspace(vec![local(&long, "Here")]);
+    let p = plan_of(&file, &ws, &ImportDecisions::default());
+    assert_eq!(local_ids(&p), [taken]);
+    assert!(p.ready, "{:?}", p.blockers);
+}
+
 // Conflict B: the same display name is kept, and said.
 
 #[test]

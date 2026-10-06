@@ -482,6 +482,18 @@ fn surfaces_get_the_id_they_prefer_once() {
     // An id another surface prefers is not given away.
     assert_eq!(artifact_ids(&["a", "a", "a-2"]), ["a", "a-3", "a-2"]);
     assert!(artifact_ids(&[]).is_empty());
+    // A 64-character id, the most a file's surface id has, is shortened
+    // before its number so the file can be written.
+    let long = "a".repeat(64);
+    let ids = artifact_ids(&[&long, &long, &long]);
+    assert_eq!(
+        ids,
+        [
+            long.clone(),
+            format!("{}-2", "a".repeat(62)),
+            format!("{}-3", "a".repeat(62))
+        ]
+    );
 }
 
 fn imported(mut s: Surface, source_id: &str, instance: u32) -> Surface {

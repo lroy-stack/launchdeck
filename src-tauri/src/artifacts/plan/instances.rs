@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use super::decisions::{ImportDecisions, Resolution};
 use super::types::{ExistingInstance, ExistingSurface, PlannedSurface, Relation, SurfaceAction};
 use crate::artifacts::env::Environment;
-use crate::artifacts::format::SurfaceV1;
+use crate::artifacts::format::{numbered_surface_id, SurfaceV1};
 use crate::artifacts::inspect::{ParsedArtifact, KNOWN_CATEGORIES};
 use crate::artifacts::json::{content_digest, to_canonical};
 use crate::core::model::{ImportOrigin, Surface, Workspace};
@@ -215,7 +215,7 @@ fn free_id(id: &str, taken: &HashSet<String>) -> String {
         return id.to_string();
     }
     (2u32..)
-        .map(|n| format!("{id}-{n}"))
+        .map(|n| numbered_surface_id(id, n))
         .find(|candidate| !taken.contains(candidate))
         .unwrap_or_default()
 }

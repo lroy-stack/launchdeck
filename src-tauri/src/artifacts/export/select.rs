@@ -4,6 +4,7 @@
 use std::collections::{BTreeMap, HashSet};
 
 use super::preview::{Collected, ExportCode};
+use crate::artifacts::format::numbered_surface_id;
 use crate::core::model::{Surface, Workspace};
 
 /// A chosen surface and the id the file gives it.
@@ -88,7 +89,7 @@ pub(super) fn artifact_ids(preferred: &[&str]) -> Vec<String> {
         .map(|&id| {
             let id = if taken.contains(id) {
                 (2..)
-                    .map(|n| format!("{id}-{n}"))
+                    .map(|n| numbered_surface_id(id, n))
                     .find(|c| !taken.contains(c) && !wanted.contains(c.as_str()))
                     .unwrap_or_default()
             } else {

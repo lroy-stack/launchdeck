@@ -119,6 +119,15 @@ pub(super) fn surface_id(s: &str) -> bool {
         && s.chars().all(|c| lower_or_digit(c) || c == '-')
 }
 
+/// The `n`th variant of a surface id that is taken, by the rule of a new
+/// surface (`<id>-2`, `-3`...), the id cut short so that the variant is at
+/// most 64 characters, like every surface id.
+pub(in crate::artifacts) fn numbered_surface_id(id: &str, n: u32) -> String {
+    let number = format!("-{n}");
+    let stem: String = id.chars().take(64 - number.len()).collect();
+    format!("{stem}{number}")
+}
+
 /// A page or control id: `[A-Za-z0-9._:-]{1,64}`, the characters of the
 /// event identifier rule (`events::valid_ident`, which this module may not
 /// import).
