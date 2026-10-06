@@ -1037,6 +1037,49 @@ async fn the_last_page_cannot_be_deleted_and_the_page_on_screen_moves_home() {
     assert_eq!(rt.state().active_surface_id, "development");
     assert_eq!(rt.state().active_page_id, "home");
 }
+/// What a commit puts back on screen is announced as any surface or page
+/// shown: surface.changed and page.changed when the surface on screen goes,
+/// page.changed alone when only its page goes, nothing when the screen
+/// stays as it was.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_commit_announces_the_surface_and_page_it_puts_on_screen() {
+    let rt = start(default_workspace(), None).await;
+    rt.activate_surface("development", Some("git")).unwrap();
+    let mut rx = rt.bus().subscribe();
+    let mut navigation = move || {
+        let mut seen = Vec::new();
+        while let Ok(e) = rx.try_recv() {
+            if e.kind == types::SURFACE_CHANGED || e.kind == types::PAGE_CHANGED {
+                seen.push((e.kind, e.payload));
+            }
+        }
+        seen
+    };
+    let shown = |surface: &str, page: &str| json!({ "surfaceId": surface, "pageId": page });
+
+    rt.rename_page("development", "home", "Start").unwrap();
+    assert_eq!(navigation(), []);
+
+    rt.remove_page("development", "git").unwrap();
+    assert_eq!(
+        navigation(),
+        [(
+            types::PAGE_CHANGED.to_string(),
+            shown("development", "home")
+        )]
+    );
+
+    rt.remove_surface("development").unwrap();
+    let first = rt.snapshot().workspace.surfaces[0].id.clone();
+    assert_eq!(
+        navigation(),
+        [
+            (types::SURFACE_CHANGED.to_string(), shown(&first, "home")),
+            (types::PAGE_CHANGED.to_string(), shown(&first, "home")),
+        ]
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn the_onboarding_flag_changes_alone_and_persists() {
     let dir = tempfile::tempdir().unwrap();
