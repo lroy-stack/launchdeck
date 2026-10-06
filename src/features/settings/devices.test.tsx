@@ -234,6 +234,19 @@ describe("Settings > Devices, for a Launchpad with settings of its own", () => {
     expect(scroll).toHaveBeenLastCalledWith(MINI_ID, null);
   });
 
+  it("shows a refusal as Rust's sentence, with the system's text kept for Details", async () => {
+    const failure = { message: "The Launchpad could not be reached.", detail: "MIDI output LPMiniMK3 MIDI closed" };
+    vi.spyOn(api, "setDeviceSleep").mockRejectedValue(failure);
+    vi.spyOn(api, "scrollDeviceText").mockRejectedValue(failure);
+    useStore.setState({ toasts: [] });
+    await show([simulator, mini()], "settings");
+    const region = within(settingsOf("Launchpad Mini MK3"));
+    await userEvent.click(region.getByRole("button", { name: "Sleep" }));
+    await userEvent.click(region.getByRole("button", { name: "Scroll a test text" }));
+    await waitFor(() => expect(useStore.getState().toasts).toHaveLength(2));
+    for (const toast of useStore.getState().toasts) expect(toast).toMatchObject({ tone: "error", ...failure });
+  });
+
   it("keeps notes, CCs, SysEx and port names under Technical details", async () => {
     const { container } = await show([simulator, mini()], "settings");
     expect(normalText(container)).not.toMatch(/midi|sysex|\bcc\b|\bnotes?\b|LPMiniMK3|palette/i);
