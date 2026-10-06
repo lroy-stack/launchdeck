@@ -48,7 +48,7 @@ npm run check:web      # the same without cargo
 npm run check:full     # check, then every Rust test and the production web build
 ```
 
-The run stops at the first step that fails and names it. `npm run hooks:install` turns on a pre-commit hook with the fast checks on what is staged.
+The run stops at the first step that fails and names it. `npm run hooks:install` turns on a pre-commit hook with the fast checks on what is staged. More on the test suites: [testing](../contributing/testing.md).
 
 Every cargo command goes through `scripts/cargo.mjs`, which points cargo at `src-tauri/Cargo.toml` from anywhere in the repository. Set `LAUNCHDECK_CARGO` to a cargo binary or wrapper script to use another one.
 
@@ -60,7 +60,7 @@ npx tauri build --bundles deb,rpm     # Linux
 npx tauri build --bundles nsis        # Windows
 ```
 
-The results are under `src-tauri/target/release/bundle/`. A release build needs several GB of free disk. None of these has been built here for 0.3.0 (NOT VERIFIED); the Bundle workflow that builds all three is written and has not run.
+The results are under `src-tauri/target/release/bundle/`. A release build needs several GB of free disk. None of these has been built here for 0.3.0 (NOT VERIFIED); the Bundle workflow that builds all three is written and has not run. How a release is made: [releasing](../contributing/releasing.md).
 
 ## Where things are
 
