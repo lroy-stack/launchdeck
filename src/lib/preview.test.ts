@@ -38,7 +38,7 @@ describe("preview transport", () => {
     expect(await t.invoke("create_surface", { name: "Ünï" })).toBe("n");
     const created = snapshotSchema.parse(await t.invoke("get_snapshot")).workspace.surfaces.find((s) => s.id === "my-surface");
     expect(created).toMatchObject({ name: "My surface", description: "A blank surface. Select a pad and give it an action.", icon: "＋", category: "custom" });
-    await expect(t.invoke("create_surface", { name: "  " })).rejects.toBe("name must be 1-40 characters");
+    await expect(t.invoke("create_surface", { name: "  " })).rejects.toBe("A surface name needs 1 to 40 characters.");
   });
 
   it("rejects unknown surfaces", async () => {

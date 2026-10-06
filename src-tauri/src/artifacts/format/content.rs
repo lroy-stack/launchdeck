@@ -395,14 +395,14 @@ fn check_page(at: &str, p: &PageV1) -> Result<(), Rejection> {
         let placed = validate_control(&page, control).and_then(|()| {
             within_grid(dto)
                 .then_some(())
-                .ok_or_else(|| "it reaches past the 16 by 16 grid".to_string())
+                .ok_or_else(|| "It reaches past the 16 by 16 grid.".to_string())
         });
         placed.map_err(|why| {
             Rejection::at(
                 C,
                 format!("{controls}/{i}"),
                 format!(
-                    "The control \"{}\" cannot be placed: {}.",
+                    "The control \"{}\" cannot be placed. {}",
                     echo(&control.label),
                     plain_message(&why)
                 ),

@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
+use super::editing::{missing_control, missing_page, missing_surface};
 use super::{control_key, ui, FeedbackStats, Inner, Origin, Runtime};
 use crate::agents::service::is_projection;
 use crate::core::explain::{self, ControlExplanation, OverlayExplanation, OverlaySource};
@@ -202,7 +203,7 @@ impl Runtime {
             .surface(surface_id)
             .and_then(|s| s.page(page_id))
             .and_then(|p| p.controls.iter().find(|c| c.id == control_id))
-            .ok_or_else(|| format!("unknown control `{surface_id}/{page_id}/{control_id}`"))?;
+            .ok_or_else(missing_control)?;
         let key = control_key(surface_id, page_id, control_id);
         let now = Instant::now();
         let overlay = inner.overlay.get(&key).map(|e| OverlayExplanation {
@@ -239,10 +240,8 @@ impl Runtime {
             let surface = inner
                 .workspace
                 .surface(surface_id)
-                .ok_or_else(|| format!("unknown surface `{surface_id}`"))?;
-            let page = surface
-                .page(page_id)
-                .ok_or_else(|| format!("unknown page `{page_id}`"))?;
+                .ok_or_else(missing_surface)?;
+            let page = surface.page(page_id).ok_or_else(missing_page)?;
             page.controls.iter().find(|c| c.id == control.id).cloned()
         };
         Ok(review::review(

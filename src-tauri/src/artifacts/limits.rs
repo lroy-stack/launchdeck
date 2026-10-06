@@ -298,7 +298,7 @@ mod tests {
         assert!(validate_control(&full(MAX_CONTROLS_PER_PAGE - 1), &one_more).is_ok());
         assert_eq!(
             validate_control(&full(MAX_CONTROLS_PER_PAGE), &one_more).unwrap_err(),
-            "too many controls on this page"
+            "A page can hold at most 128 pads."
         );
 
         let empty = full(0);

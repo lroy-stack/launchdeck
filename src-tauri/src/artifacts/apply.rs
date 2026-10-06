@@ -50,7 +50,7 @@ impl fmt::Display for ApplyError {
                 reason,
             } => write!(
                 f,
-                "The pad \"{}\" on the page \"{}\" of \"{}\" cannot be saved: {}.",
+                "The pad \"{}\" on the page \"{}\" of \"{}\" cannot be saved. {}",
                 echo(control),
                 echo(page),
                 echo(surface),

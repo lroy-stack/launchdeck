@@ -718,16 +718,18 @@ async fn reviewing_changes_nothing() {
             review(&env, pad);
         }
     }
-    assert!(env
-        .rt
-        .review_feedback("nowhere", PAGE, &counter)
-        .unwrap_err()
-        .contains("unknown surface"));
-    assert!(env
-        .rt
-        .review_feedback(SURFACE, "nowhere", &counter)
-        .unwrap_err()
-        .contains("unknown page"));
+    assert_eq!(
+        env.rt
+            .review_feedback("nowhere", PAGE, &counter)
+            .unwrap_err(),
+        "That surface no longer exists."
+    );
+    assert_eq!(
+        env.rt
+            .review_feedback(SURFACE, "nowhere", &counter)
+            .unwrap_err(),
+        "That page no longer exists."
+    );
     tokio::time::sleep(Duration::from_millis(200)).await;
 
     let after = observe();

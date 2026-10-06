@@ -188,8 +188,19 @@ async fn surface_and_page_switching_including_navigation_pads() {
     let rt = start(default_workspace(), None).await;
     rt.activate_surface("development", None).unwrap();
     assert_eq!(rt.state().active_surface_id, "development");
-    assert!(rt.activate_surface("nope", None).is_err());
-    assert!(rt.activate_page("nope").is_err());
+    assert_eq!(
+        rt.activate_surface("nope", None).unwrap_err(),
+        "That surface no longer exists."
+    );
+    assert_eq!(
+        rt.activate_surface("development", Some("nope"))
+            .unwrap_err(),
+        "That page no longer exists."
+    );
+    assert_eq!(
+        rt.activate_page("nope").unwrap_err(),
+        "That page no longer exists."
+    );
     // The Git pad is a page navigation action.
     tap(&rt, 0, 2);
     wait_until("git page", || rt.state().active_page_id == "git").await;
@@ -515,7 +526,26 @@ async fn invalid_edits_are_rejected_and_do_not_change_anything() {
     let before = rt.snapshot().workspace;
     let mut clash = Control::new(ControlPos::grid(1, 0), "Clash", Rgb::new(1, 1, 1));
     clash.id = "clash".into();
-    assert!(rt.update_control("development", "home", clash).is_err());
+    let taken = before.surface("development").unwrap().pages[0]
+        .controls
+        .iter()
+        .find(|c| c.pos == ControlPos::grid(1, 0))
+        .map(|c| c.label.clone())
+        .unwrap();
+    assert_eq!(
+        rt.update_control("development", "home", clash.clone())
+            .unwrap_err(),
+        format!("This pad would overlap “{taken}”.")
+    );
+    assert_eq!(
+        rt.update_control("nope", "home", clash.clone())
+            .unwrap_err(),
+        "That surface no longer exists."
+    );
+    assert_eq!(
+        rt.update_control("development", "nope", clash).unwrap_err(),
+        "That page no longer exists."
+    );
     let mut bad = Control::new(ControlPos::grid(7, 7), "Bad", Rgb::new(1, 1, 1));
     bad.press = Some(Assignment::new(
         "system",
@@ -559,8 +589,30 @@ async fn new_controls_surfaces_and_pages_can_be_created_and_removed() {
         1
     );
     rt.remove_control(&id, &page, "g.3.3").unwrap();
-    assert!(rt.remove_control(&id, &page, "g.3.3").is_err());
-    assert!(rt.create_surface("   ").is_err());
+    assert_eq!(
+        rt.remove_control(&id, &page, "g.3.3").unwrap_err(),
+        "That pad no longer exists."
+    );
+    assert_eq!(
+        rt.remove_control("nope", &page, "g.3.3").unwrap_err(),
+        "That surface no longer exists."
+    );
+    assert_eq!(
+        rt.remove_control(&id, "nope", "g.3.3").unwrap_err(),
+        "That page no longer exists."
+    );
+    assert_eq!(
+        rt.create_surface("   ").unwrap_err(),
+        "A surface name needs 1 to 40 characters."
+    );
+    assert_eq!(
+        rt.add_page(&id, &"p".repeat(41)).unwrap_err(),
+        "A page name needs 1 to 40 characters."
+    );
+    assert_eq!(
+        rt.add_page("nope", "Second").unwrap_err(),
+        "That surface no longer exists."
+    );
 }
 
 /// The names of the UI events a runtime emitted.

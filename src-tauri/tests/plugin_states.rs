@@ -820,7 +820,10 @@ async fn explain_covers_a_missing_provider_a_missing_state_and_a_missing_look() 
         "the resting look is shown"
     );
 
-    assert!(rt.explain_control("states", "home", "nope").is_err());
+    assert_eq!(
+        rt.explain_control("states", "home", "nope").unwrap_err(),
+        "That pad no longer exists."
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

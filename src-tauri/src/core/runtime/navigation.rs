@@ -3,6 +3,7 @@
 
 use serde_json::{json, Value};
 
+use super::editing::{missing_page, missing_surface};
 use super::{By, Inner, Mode, Runtime};
 use crate::actions::builtin::{OPEN_PAGE, OPEN_SURFACE};
 use crate::core::model::Assignment;
@@ -55,12 +56,12 @@ impl Runtime {
         let surface = inner
             .workspace
             .surface(surface_id)
-            .ok_or_else(|| format!("unknown surface `{surface_id}`"))?;
+            .ok_or_else(missing_surface)?;
         let page = match page_id {
-            Some(p) => surface
-                .page(p)
-                .ok_or_else(|| format!("unknown page `{p}`"))?,
-            None => surface.home_page().ok_or("surface has no pages")?,
+            Some(p) => surface.page(p).ok_or_else(missing_page)?,
+            None => surface
+                .home_page()
+                .ok_or("That surface has no pages. Add a page to it first.")?,
         }
         .id
         .clone();
@@ -100,9 +101,9 @@ impl Runtime {
             let surface = inner
                 .workspace
                 .surface(&inner.active_surface)
-                .ok_or("no active surface")?;
+                .ok_or("No surface is on screen.")?;
             if surface.page(page_id).is_none() {
-                return Err(format!("unknown page `{page_id}`"));
+                return Err(missing_page());
             }
             let changed = inner.active_page != page_id;
             inner.active_page = page_id.to_string();

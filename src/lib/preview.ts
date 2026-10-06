@@ -144,7 +144,7 @@ export async function createPreviewTransport() {
 
   const activate = (surfaceId: string, pageId?: string) => {
     const s = workspace.surfaces.find((x) => x.id === surfaceId);
-    if (!s) throw `unknown surface \`${surfaceId}\``;
+    if (!s) throw "That surface no longer exists.";
     state.activeSurfaceId = s.id;
     state.activePageId = pageId ?? s.pages[0]!.id;
     publish("surface.changed", { surfaceId, pageId: state.activePageId });
@@ -250,7 +250,7 @@ export async function createPreviewTransport() {
       case "update_control": {
         const s = workspace.surfaces.find((x) => x.id === args.surfaceId);
         const p = s?.pages.find((x) => x.id === args.pageId);
-        if (!p) throw "unknown page";
+        if (!p) throw "That page no longer exists.";
         const c = args.control as Control;
         const i = p.controls.findIndex((x) => x.id === c.id);
         for (const slot of ["press", "longPress"] as const) {
@@ -270,8 +270,7 @@ export async function createPreviewTransport() {
       }
       case "create_surface": {
         // As `Runtime::create_surface` and `surfaces::blank_surface`, without the surface switchers.
-        const name = String(args.name).trim();
-        if (name.length === 0 || [...name].length > 40) throw "name must be 1-40 characters";
+        const name = checkedName(args.name, "surface");
         const base = [...name].map((c) => (/^[A-Za-z0-9]$/.test(c) ? c.toLowerCase() : "-")).join("").replace(/^-+|-+$/g, "") || "surface";
         let id = base;
         for (let n = 2; workspace.surfaces.some((s) => s.id === id); n++) id = `${base}-${n}`;

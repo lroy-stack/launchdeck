@@ -118,12 +118,12 @@ impl Runtime {
             let surface = inner
                 .workspace
                 .surface_mut(surface_id)
-                .ok_or_else(|| format!("unknown surface `{surface_id}`"))?;
+                .ok_or_else(missing_surface)?;
             let page = surface
                 .pages
                 .iter_mut()
                 .find(|p| p.id == page_id)
-                .ok_or_else(|| format!("unknown page `{page_id}`"))?;
+                .ok_or_else(missing_page)?;
             validate_control(page, &control)?;
             let mut control = control;
             let stored = page.controls.iter().find(|c| c.id == control.id);
@@ -196,16 +196,16 @@ impl Runtime {
             let surface = inner
                 .workspace
                 .surface_mut(surface_id)
-                .ok_or_else(|| format!("unknown surface `{surface_id}`"))?;
+                .ok_or_else(missing_surface)?;
             let page = surface
                 .pages
                 .iter_mut()
                 .find(|p| p.id == page_id)
-                .ok_or_else(|| format!("unknown page `{page_id}`"))?;
+                .ok_or_else(missing_page)?;
             let before = page.controls.len();
             page.controls.retain(|c| c.id != control_id);
             if page.controls.len() == before {
-                return Err(format!("unknown control `{control_id}`"));
+                return Err(missing_control());
             }
             let key = control_key(surface_id, page_id, control_id);
             inner.overlay.remove(&key);
@@ -218,10 +218,8 @@ impl Runtime {
     }
 
     pub fn create_surface(&self, name: &str) -> Result<String, String> {
-        let name = name.trim();
-        if name.is_empty() || name.chars().count() > 40 {
-            return Err("name must be 1-40 characters".into());
-        }
+        let name = checked_name(name, "surface")?;
+        let name = name.as_str();
         let id = {
             let mut inner = self.lock();
             let base: String = name
@@ -251,16 +249,14 @@ impl Runtime {
     }
 
     pub fn add_page(&self, surface_id: &str, name: &str) -> Result<String, String> {
-        let name = name.trim();
-        if name.is_empty() || name.chars().count() > 40 {
-            return Err("name must be 1-40 characters".into());
-        }
+        let name = checked_name(name, "page")?;
+        let name = name.as_str();
         let id = {
             let mut inner = self.lock();
             let surface = inner
                 .workspace
                 .surface_mut(surface_id)
-                .ok_or_else(|| format!("unknown surface `{surface_id}`"))?;
+                .ok_or_else(missing_surface)?;
             let base: String = name
                 .to_ascii_lowercase()
                 .chars()
@@ -507,12 +503,16 @@ fn not_saved(error: &impl fmt::Display) -> String {
     format!("The change could not be saved, so nothing changed ({error}).")
 }
 
-fn missing_surface() -> String {
+pub(super) fn missing_surface() -> String {
     "That surface no longer exists.".into()
 }
 
-fn missing_page() -> String {
+pub(super) fn missing_page() -> String {
     "That page no longer exists.".into()
+}
+
+pub(super) fn missing_control() -> String {
+    "That pad no longer exists.".into()
 }
 
 /// `what` names the thing the name is for, in the sentence.
