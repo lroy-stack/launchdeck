@@ -1290,6 +1290,10 @@ fn a_credential_is_refused_unless_bound() {
         json!({ "url": "https://hooks.slack.com/services/T0/B0/LEAK" }),
         json!({ "url": "https://discord.com/api/webhooks/1/LEAK" }),
         json!({ "url": "http://ha.local:8123/api/%77ebhook/LEAK" }),
+        // A request body or a command holding one.
+        json!({ "url": "{\"api_key\": \"LEAK\"}" }),
+        json!({ "url": "token=LEAK&x=1" }),
+        json!({ "url": "psql postgresql://admin:LEAK@db/app" }),
     ];
     for args in shapes {
         let ws = workspace(vec![surface(

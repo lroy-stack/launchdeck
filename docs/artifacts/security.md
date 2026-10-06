@@ -71,7 +71,7 @@ Export reads the workspace and what the app knows about its providers and device
 
 * **Bound arguments (SF-2).** An argument the person chose to ask the importer for is written as the input's default, or empty: its value on the exporter's computer never leaves it, and the preview lists it without its value.
 * **Credentials.** A value shaped like a credential (an address with a user name or password, a token-like parameter in an address's query or fragment, an argument or a JSON member named like a password, token, secret or API key, an authorization, cookie or API-key header, a Home Assistant webhook id, the secret part of a Slack, Discord, Zapier, IFTTT or Telegram address) blocks the file unless the argument is asked of the importer. It is named, never repeated. The exact list is in [FORMAT.md](FORMAT.md).
-* **Pads that run things** are listed before sharing, each with the warning to check it holds no password or token. The check above catches known shapes only; a password written into a shell command in another form would still be exported, which is why the warning is there.
+* **Pads that run things** are listed before sharing, each with the warning to check it holds no password or token. The check above catches known shapes only, in request bodies and commands too (JSON, `name=value` pairs, headers, addresses of any scheme); a password written in another form (`curl -u user:pw`, prose) would still be exported, which is why the warning is there.
 * **The file.** It is written into Downloads under a new name, atomically, and never replaces an existing file; a name whose temporary file already exists, as a file or a link, is skipped, so the write never goes through a link. The webview never sends a path.
 
 ## Integrity is not trust

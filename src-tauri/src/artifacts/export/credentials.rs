@@ -55,9 +55,19 @@ pub(super) fn credential_in(value: &Value) -> Option<String> {
     match value {
         Value::String(text) => credential_in_text(text),
         Value::Array(items) => items.iter().find_map(credential_in),
-        Value::Object(map) => map
-            .iter()
-            .find_map(|(name, v)| credential_named(name, v).or_else(|| credential_in(v))),
+        Value::Object(map) => header_pair(map).or_else(|| {
+            map.iter()
+                .find_map(|(name, v)| credential_named(name, v).or_else(|| credential_in(v)))
+        }),
+        _ => None,
+    }
+}
+
+/// A header written as a name and a value:
+/// `{ "name": "Authorization", "value": "…" }`.
+fn header_pair(map: &serde_json::Map<String, Value>) -> Option<String> {
+    match (map.get("name"), map.get("value")) {
+        (Some(Value::String(name)), Some(value)) => credential_named(name, value),
         _ => None,
     }
 }
@@ -116,23 +126,51 @@ fn secret_parameter(name: &str) -> bool {
 }
 
 fn credential_in_text(text: &str) -> Option<String> {
+    if let Some(found) = as_json(text).as_ref().and_then(credential_in) {
+        return Some(found);
+    }
     let lower = text.to_ascii_lowercase();
     if let Some(found) = addresses(text).find_map(|url| credential_in_address(&url)) {
         return Some(found);
     }
-    if let Some(header) = SECRET_HEADERS.iter().find(|h| header_line(&lower, h)) {
+    if let Some(header) = header_in(&lower) {
         return Some(format!("the header \"{header}\""));
+    }
+    if let Some(name) = assignment_in(text) {
+        return Some(format!("the value of \"{name}\""));
     }
     webhook_id(&lower).then(|| "the id of a webhook".to_string())
 }
 
+/// A text that is a JSON object or array, such as a request body, read as
+/// JSON.
+fn as_json(text: &str) -> Option<Value> {
+    let text = text.trim();
+    if text.starts_with('{') || text.starts_with('[') {
+        serde_json::from_str(text).ok()
+    } else {
+        None
+    }
+}
+
+/// Where the run of characters that `part_of` accepts and that ends at
+/// byte `end` of `text` starts.
+fn run_start(text: &str, end: usize, part_of: impl Fn(char) -> bool) -> usize {
+    text[..end]
+        .char_indices()
+        .rev()
+        .find(|&(_, c)| !part_of(c))
+        .map_or(0, |(i, c)| i + c.len_utf8())
+}
+
 /// The addresses in a text: the whole text when it is one (any scheme), and
-/// every http or https address inside it, up to a space or a quote.
+/// every address of any scheme inside it (`https://`, `postgresql://`), up
+/// to a space or a quote.
 fn addresses(text: &str) -> impl Iterator<Item = url::Url> + '_ {
-    let lower = text.to_ascii_lowercase();
-    let starts: Vec<usize> = ["http://", "https://"]
-        .iter()
-        .flat_map(|scheme| lower.match_indices(scheme).map(|(i, _)| i))
+    let scheme_char = |c: char| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.');
+    let starts: Vec<usize> = text
+        .match_indices("://")
+        .map(|(i, _)| run_start(text, i, scheme_char))
         .collect();
     let whole = url::Url::parse(text.trim()).ok();
     let inside = starts.into_iter().filter_map(move |start| {
@@ -206,19 +244,34 @@ fn percent_decoded(text: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// `name:` followed by a value on the same line, as a header is written.
-fn header_line(lower: &str, name: &str) -> bool {
-    let pattern = format!("{name}:");
-    lower.match_indices(&pattern).any(|(i, _)| {
-        let starts_word = lower[..i]
-            .chars()
-            .next_back()
-            .is_none_or(|c| !(c.is_ascii_alphanumeric() || c == '-'));
-        let value = lower[i + pattern.len()..]
-            .lines()
-            .next()
-            .unwrap_or_default();
-        starts_word && !value.trim().is_empty()
+/// A header written as `Name: value` on one line, also right after curl's
+/// `-H`, whose name is one of [`SECRET_HEADERS`] or a hyphenated
+/// [`secret_name`] (`X-Auth-Token`, `Private-Token`): the name, in lower
+/// case. A single word before a colon is prose ("the password: …").
+fn header_in(lower: &str) -> Option<&str> {
+    let name_char = |c: char| c.is_ascii_alphanumeric() || c == '-';
+    lower.match_indices(':').find_map(|(i, _)| {
+        let run = &lower[run_start(lower, i, name_char)..i];
+        let name = match run.strip_prefix("-h") {
+            Some(after_option) if !run.starts_with("--") => after_option,
+            _ => run.trim_start_matches('-'),
+        };
+        let value = lower[i + 1..].lines().next().unwrap_or_default();
+        let secret = SECRET_HEADERS.contains(&name) || (name.contains('-') && secret_name(name));
+        (secret && !value.trim().is_empty()).then_some(name)
+    })
+}
+
+/// A `name=value` word whose name says it holds a secret, as a form body,
+/// an environment variable or an option writes it (`password=…`,
+/// `GITHUB_TOKEN=…`, `--api-key=…`): the name.
+fn assignment_in(text: &str) -> Option<&str> {
+    let separator =
+        |c: char| c.is_whitespace() || matches!(c, '&' | ';' | '"' | '\'' | '`' | '?' | '#');
+    text.split(separator).find_map(|word| {
+        let (name, value) = word.split_once('=')?;
+        let name = name.trim_start_matches('-');
+        (!value.is_empty() && secret_name(name)).then_some(name)
     })
 }
 
@@ -362,6 +415,50 @@ mod tests {
                 json!("http://ha.local:8123/api/%77ebhook/x"),
                 "the id of a webhook",
             ),
+            // In a request body or a command: JSON in a text, form pairs,
+            // assignments and options, hyphenated header names, curl's
+            // -H without a space, a header as a name and a value, a user
+            // name and password in an address of any scheme.
+            (json!("{\"api_key\":\"x\"}"), "the value of \"api_key\""),
+            (
+                json!("{\"Authorization\": \"Bearer x\"}"),
+                "the header \"Authorization\"",
+            ),
+            (json!("token=x&a=1"), "the value of \"token\""),
+            (json!("password=x"), "the value of \"password\""),
+            (
+                json!("GITHUB_TOKEN=x make release"),
+                "the value of \"GITHUB_TOKEN\"",
+            ),
+            (
+                json!("wget --password=x https://e.com/f"),
+                "the value of \"password\"",
+            ),
+            (
+                json!("curl -H 'X-Auth-Token: x' https://e.com"),
+                "the header \"x-auth-token\"",
+            ),
+            (json!("Private-Token: x"), "the header \"private-token\""),
+            (
+                json!("curl -HAuthorization:Bearer_x https://e.com"),
+                "the header \"authorization\"",
+            ),
+            (
+                json!({ "headers": [{ "name": "Authorization", "value": "Bearer x" }] }),
+                "the header \"Authorization\"",
+            ),
+            (
+                json!("psql postgresql://admin:x@db/app"),
+                "an address with a user name or password",
+            ),
+            (
+                json!("redis-cli -u redis://:x@host:6379"),
+                "an address with a user name or password",
+            ),
+            (
+                json!("wscat -c wss://u:x@e.com/ws"),
+                "an address with a user name or password",
+            ),
         ] {
             assert_eq!(credential_in(&value).as_deref(), Some(said), "{value}");
         }
@@ -385,6 +482,11 @@ mod tests {
             json!("https://discord.com/api/webhooks/"),
             json!("https://api.telegram.org/"),
             json!("https://e.com/bot1:x/services/a"),
+            json!("Check the password: it must be long"),
+            json!("echo token: $X; FOO=bar make --tokens=3 a=1&b=2"),
+            json!("{\"page\": 2, \"keys\": [\"a\"]}"),
+            json!({ "headers": [{ "name": "Accept", "value": "text/plain" }] }),
+            json!("see ftp://files.example.com/pub and née://x"),
         ] {
             assert_eq!(credential_in(&plain), None, "{plain}");
         }
