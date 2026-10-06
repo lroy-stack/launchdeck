@@ -241,13 +241,18 @@ function Runs({ plan, decisions, change }: { plan: ImportPlan; decisions: Import
       <h3>Pads that run things</h3>
       <p className="hint">These pads run something on this computer or over the network when pressed. Read what each one runs.</p>
       <ul className="plain review">
-        {plan.review.map((r) => (
-          <li key={`${r.at.surfaceSourceId}/${r.at.pageId}/${r.at.controlId}/${r.at.slot}`}>
-            <b>{r.label}</b>
-            <span className="pill warn">{REVIEW_KIND[r.kind]}</span>
-            <pre className="command-preview">{r.text}</pre>
-          </li>
-        ))}
+        {plan.review.map((r) => {
+          // Rust writes a long run of blank lines as one line that counts them.
+          const lines = r.text.split("\n").length;
+          return (
+            <li key={`${r.at.surfaceSourceId}/${r.at.pageId}/${r.at.controlId}/${r.at.slot}`}>
+              <b>{r.label}</b>
+              <span className="pill warn">{REVIEW_KIND[r.kind]}</span>
+              {lines > 1 && <span className="hint">{plural(lines, "line")}</span>}
+              <pre className="command-preview">{r.text}</pre>
+            </li>
+          );
+        })}
       </ul>
       {plan.suggested.runs ? (
         <div className="choices" role="radiogroup" aria-label="Pads that run things">

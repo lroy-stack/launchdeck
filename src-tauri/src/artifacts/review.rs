@@ -180,13 +180,48 @@ fn word(w: &str) -> String {
 /// The one escaping of every review text (SF-3): each [`hidden`] character
 /// is written as an escape (`\r`, `\u001b`, `\u202e`), so nothing in a text
 /// hides or reorders what a person reads. A multi-line text keeps its line
-/// breaks and tabs; a one-line text escapes them too.
+/// breaks and tabs, with long runs of blank lines [`counted`]; a one-line
+/// text escapes them too.
 fn visible(text: &str, multi_line: bool) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
         push_visible(&mut out, c, multi_line);
     }
-    out
+    if multi_line {
+        counted(&out)
+    } else {
+        out
+    }
+}
+
+/// Blank lines a review text shows as they are, one after another.
+const SHOWN_BLANK_LINES: usize = 2;
+
+/// `text` with each run of more than [`SHOWN_BLANK_LINES`] blank lines
+/// (nothing but spaces and tabs) written as one line that says how many,
+/// `[1899 blank lines]`: line breaks cannot push the rest of a command or
+/// an instruction out of view below its first line.
+fn counted(text: &str) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    let mut blank: Vec<&str> = Vec::new();
+    for line in text.split('\n') {
+        if line.trim().is_empty() {
+            blank.push(line);
+            continue;
+        }
+        lines.extend(shown_blank(std::mem::take(&mut blank)));
+        lines.push(line.to_string());
+    }
+    lines.extend(shown_blank(blank));
+    lines.join("\n")
+}
+
+fn shown_blank(run: Vec<&str>) -> Vec<String> {
+    if run.len() > SHOWN_BLANK_LINES {
+        vec![format!("[{} blank lines]", run.len())]
+    } else {
+        run.into_iter().map(str::to_string).collect()
+    }
 }
 
 fn push_visible(out: &mut String, c: char, multi_line: bool) {
