@@ -8,7 +8,7 @@
 
 use serde_json::Value;
 
-use super::credentials::credential_in;
+use super::credentials::{credential_in, credential_named};
 use super::preview::{Collected, ExportCode, Parameter, SuggestedType, Suggestion};
 use super::select::{Chosen, IdTable};
 use crate::actions::definition::Assignment;
@@ -204,15 +204,16 @@ fn review_warning(kind: ReviewKind, label: &str) -> String {
     format!("The pad \"{label}\" {what}: check it holds no password or token before sharing.")
 }
 
-/// A text shaped like a credential blocks the file, unless the person asks
-/// the importer for the argument (a bound argument carries the input's
+/// A text shaped like a credential, or a value under a name that says it
+/// is one, blocks the file, unless the person asks the importer for the
+/// argument (a bound argument carries the input's
 /// default, checked on its own): whoever receives the file would receive it.
 fn refuse_credentials(exported: &AssignmentV1, place: &Place<'_>, found: &mut Collected) {
     for (name, value) in &exported.args {
         if exported.inputs.contains_key(name) {
             continue;
         }
-        if let Some(what) = credential_in(value) {
+        if let Some(what) = credential_named(name, value).or_else(|| credential_in(value)) {
             found.error(
                 ExportCode::Credential,
                 format!(

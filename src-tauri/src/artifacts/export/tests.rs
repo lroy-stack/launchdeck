@@ -1279,6 +1279,17 @@ fn a_credential_is_refused_unless_bound() {
         json!({ "url": "X-Api-Key: LEAK" }),
         json!({ "url": { "headers": { "Authorization": "Bearer LEAK" } } }),
         json!({ "url": ["x", { "x-api-key": "LEAK" }] }),
+        // A plugin's JSON argument, which the preview does not list.
+        json!({ "url": { "password": "LEAK" } }),
+        json!({ "url": { "token": "LEAK" } }),
+        json!({ "url": { "auth": { "user": "a", "pass": "LEAK" } } }),
+        json!({ "url": [{ "api_key": "LEAK" }] }),
+        // Secrets as services name them in an address.
+        json!({ "url": "https://example.com/x?client_secret=LEAK" }),
+        json!({ "url": "https://example.com/cb#access_token=LEAK" }),
+        json!({ "url": "https://hooks.slack.com/services/T0/B0/LEAK" }),
+        json!({ "url": "https://discord.com/api/webhooks/1/LEAK" }),
+        json!({ "url": "http://ha.local:8123/api/%77ebhook/LEAK" }),
     ];
     for args in shapes {
         let ws = workspace(vec![surface(
@@ -1323,6 +1334,7 @@ fn a_credential_is_refused_unless_bound() {
         json!({ "url": "mailto:me@example.com" }),
         json!({ "url": "Authorization is needed" }),
         json!({ "url": { "headers": { "Accept": "text/plain" } } }),
+        json!({ "url": { "key": "Enter", "keys": "mod+c", "token": "" } }),
     ] {
         let ws = workspace(vec![surface(
             "home",
@@ -1330,6 +1342,22 @@ fn a_credential_is_refused_unless_bound() {
         )]);
         written(&export(&ws, &hand_env(), &pack(&["home"])));
     }
+    // An argument itself named for a secret.
+    let ws = workspace(vec![surface(
+        "home",
+        vec![pad(
+            0,
+            "Hook",
+            a("acme.notes", "mark", json!({ "password": "LEAK" })),
+        )],
+    )]);
+    let errors = refused(&ws, &pack(&["home"]));
+    assert_eq!(codes(&errors), [E::Credential]);
+    assert_eq!(
+        errors[0].at.as_deref(),
+        Some("/content/surfaces/0/pages/0/controls/0/press/args/password")
+    );
+    assert!(!errors[0].message.contains("LEAK"));
 }
 
 /// SF-2: an input's default may not carry a credential either.
