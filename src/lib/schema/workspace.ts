@@ -74,6 +74,11 @@ export const preferencesSchema = z.object({
   onboardingDone: z.boolean().default(false),
   externalEventsPort: z.number().int().default(47821),
   externalEventsEnabled: z.boolean().default(true),
+  /**
+   * LED brightness in percent for every device that has it; absent: each device's own level. Kept here so that
+   * saving the other preferences keeps it; changed only through `setDeviceBrightness`.
+   */
+  deviceBrightness: z.number().int().min(0).max(100).optional(),
 });
 export type Preferences = z.infer<typeof preferencesSchema>;
 

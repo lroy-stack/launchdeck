@@ -51,7 +51,12 @@ describe("the artifact contract with Rust", () => {
     expect(plan.artifact).toMatchObject({ kind: "pack", name: "Development", version: "1.0.0" });
     expect(plan.surfaces[0]).toMatchObject({ sourceId: "development", localId: "development-2", idChanged: true, sameNameAs: "development" });
     expect(plan.contextRules[0]!.outcome).toEqual({ kind: "notSelected" });
-    expect(plan.review.every((r) => r.kind === "runsCommand")).toBe(true);
+    // Every launch is reviewed, by a plain name too, then the commands.
+    expect(plan.review.slice(0, 2).map((r) => [r.label, r.kind])).toEqual([
+      ["Terminal", "launchesProgram"],
+      ["VS Code", "launchesProgram"],
+    ]);
+    expect(plan.review.slice(2).every((r) => r.kind === "runsCommand")).toBe(true);
     expect(plan.suggested).toEqual({ runs: "remove", inputs: {}, contextRules: [], confirmOverwriteEdits: false });
     expect(plan.ready).toBe(true);
   });

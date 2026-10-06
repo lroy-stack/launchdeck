@@ -7,6 +7,7 @@ import { catalogSchema } from "./actions";
 import { contextStatusSchema } from "./context";
 import { observableCatalogSchema } from "./observables";
 import { pluginManifestSchema } from "./plugins";
+import { hexColor } from "./actions";
 import { controlPosSchema, visualSchema, workspaceSchema } from "./workspace";
 
 const deviceCapabilitiesSchema = z.object({
@@ -17,6 +18,47 @@ const deviceCapabilitiesSchema = z.object({
   pressure: z.boolean(),
   animations: z.object({ pulse: z.boolean(), flash: z.boolean() }),
 });
+
+/** `devices::DeviceFeatures`: what a device can do beyond drawing frames. */
+const deviceFeaturesSchema = z.object({
+  /** LaunchDeck switches it into a mode it owns (Programmer Mode) and back. */
+  hostMode: z.boolean(),
+  palette: z.boolean(),
+  batchedLighting: z.boolean(),
+  flashPeriodMs: z.number().int().nullish(),
+  pulsePeriodMs: z.number().int().nullish(),
+  brightness: z.boolean(),
+  sleep: z.boolean(),
+  scrollingText: z.boolean(),
+  firmwareVersion: z.boolean(),
+});
+
+/** `devices::ModeState`: whether LaunchDeck holds the mode it needs on the device. */
+export const modeStateSchema = z.enum(["none", "acquiring", "confirmed", "unconfirmed"]);
+export type ModeState = z.infer<typeof modeStateSchema>;
+
+/** `devices::DeviceDetails`: what LaunchDeck observed on a connected device. */
+const deviceDetailsSchema = z.object({
+  /** As the device shows it, such as "0531". */
+  firmware: z.string().nullish(),
+  mode: modeStateSchema,
+  /** Percent, when LaunchDeck set or read it. */
+  brightness: z.number().int().nullish(),
+  asleep: z.boolean(),
+  scrolling: z.boolean(),
+  notice: z.string().nullish(),
+});
+
+/** `devices::TextScroll`: text a device scrolls across its pads by itself; Rust checks the limits. */
+export const textScrollSchema = z.object({
+  text: z.string(),
+  color: hexColor,
+  /** Pads per second. */
+  speed: z.number().int(),
+  direction: z.enum(["left", "right"]),
+  looping: z.boolean(),
+});
+export type TextScroll = z.infer<typeof textScrollSchema>;
 
 export const deviceStatusSchema = z.enum(["connected", "available", "unplugged", "unsupported", "failed"]);
 export type DeviceStatus = z.infer<typeof deviceStatusSchema>;
@@ -35,6 +77,11 @@ export const deviceInfoSchema = z.object({
   status: deviceStatusSchema,
   /** A sentence from Rust when something went wrong (a failed connect). */
   problem: z.string().nullish(),
+  /** Connected, with a limitation, in a sentence from Rust. */
+  notice: z.string().nullish(),
+  /** Always sent by Rust; optional so that a device written without them still reads. */
+  details: deviceDetailsSchema.optional(),
+  features: deviceFeaturesSchema.optional(),
 });
 export type DeviceInfo = z.infer<typeof deviceInfoSchema>;
 

@@ -1,5 +1,6 @@
 // The first run: one screen, shown instead of the shell while the onboarding flag is off.
-// It says which device is there, offers a starter and sets the flag last. Starting goes through
+// It says which device is there, offers a starter or a Pack to import (the import view, which the app shows
+// in its place and which sets the flag once the import is applied), and sets the flag last. Starting goes through
 // the same activation as a click in the sidebar; nothing else is configured on the person's behalf
 // (no demo, no Auto Context rule, no surface removed).
 
@@ -96,7 +97,7 @@ export function FirstRun() {
             Look again
           </button>
         </div>
-        <p className="hint">No Launchpad X? The simulator on screen works the same way, and a Launchpad can be connected any time.</p>
+        <p className="hint">No Launchpad? The simulator on screen works the same way, and a Launchpad can be connected any time.</p>
       </section>
 
       <section>
@@ -140,6 +141,9 @@ export function FirstRun() {
         </button>
         <button type="button" className="btn large" disabled={busy} onClick={() => void finish(async () => undefined)}>
           Skip
+        </button>
+        <button type="button" className="btn large" disabled={busy} onClick={() => useStore.getState().setView("import")}>
+          Import a Pack instead
         </button>
       </div>
     </div>

@@ -43,7 +43,7 @@ export function HomeView() {
         <h1>Turn a pad controller into a programmable surface for your digital life.</h1>
         <p>
           LaunchDeck turns a Launchpad into a programmable physical interface for your computer. Control apps. Automate workflows. Build accessible interfaces.
-          Monitor and orchestrate AI agents. No hardware needed to try it: the virtual Launchpad X behaves like the real thing.
+          Monitor and orchestrate AI agents. No hardware needed to try it: the simulator behaves like a real Launchpad.
         </p>
         <div className="row wrap">
           <button type="button" className="btn primary large" onClick={() => void tryAgents()}>
@@ -53,7 +53,7 @@ export function HomeView() {
             Open Agent Control
           </button>
           <button type="button" className="btn large" onClick={() => setView("settings")}>
-            {device?.identity.kind === "hardware" ? "Device settings" : "Connect a Launchpad X"}
+            {device?.identity.kind === "hardware" ? "Device settings" : "Connect a Launchpad"}
           </button>
         </div>
         {preview && <p className="hint">Browser preview: the Rust runtime is not running, so actions are simulated.</p>}

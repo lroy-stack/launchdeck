@@ -5,10 +5,11 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
+import planJson from "../../../examples/artifacts/import-plan.json";
 import fixtureJson from "../../../examples/default-workspace.json";
 import { App } from "../../app/App";
 import { api } from "../../lib/ipc";
-import { workspaceSchema } from "../../lib/schema";
+import { inspectOutcomeSchema, workspaceSchema, type ArtifactLimits, type ImportPlan } from "../../lib/schema";
 import { useStore } from "../../stores/runtime";
 
 const fixture = workspaceSchema.parse(fixtureJson);
@@ -92,6 +93,11 @@ describe("the first run", () => {
     await renderApp();
     expect(screen.getByRole("radio", { name: "Accessibility" })).toHaveProperty("disabled", true);
     expect(screen.getByRole("radio", { name: "Development" })).toHaveProperty("disabled", false);
+  });
+
+  it("names no single Launchpad model when none is there", async () => {
+    await renderApp();
+    expect(screen.getByText("No Launchpad? The simulator on screen works the same way, and a Launchpad can be connected any time.")).toBeTruthy();
   });
 
   it("looks for the Launchpad again on request", async () => {
@@ -216,6 +222,53 @@ describe("the first run", () => {
     await waitFor(() => expect(shell()).not.toBeNull());
     expect(create).toHaveBeenCalledOnce();
     expect(flag).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("importing a Pack instead", () => {
+  const outcome = inspectOutcomeSchema.parse(planJson);
+  const plan = (outcome.status === "plan" ? outcome.plan : null) as ImportPlan;
+
+  /** Stand in for Rust's import: a plan for any file, and an apply that adds one surface. */
+  function importHost() {
+    vi.spyOn(api.artifacts, "limits").mockResolvedValue({ fileBytes: 2 * 1024 * 1024 } as ArtifactLimits);
+    vi.spyOn(api.plugins, "examples").mockResolvedValue([]);
+    vi.spyOn(api.artifacts, "inspect").mockResolvedValue(outcome);
+    vi.spyOn(api.artifacts, "discard").mockResolvedValue(undefined);
+    return vi.spyOn(api.artifacts, "apply").mockResolvedValue({
+      status: "applied",
+      report: { surfacesAdded: ["development-2"], surfacesReplaced: [], rulesAdded: 0, rulesSkipped: 0, slotsRemoved: 0, missingDependencies: [], autoContext: false },
+    });
+  }
+
+  it("opens the import view, and sets the flag only once the import is applied", async () => {
+    const user = userEvent.setup();
+    const apply = importHost();
+    const flag = vi.spyOn(api, "setOnboardingDone");
+    await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Import a Pack instead" }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Import");
+    expect(shell()).toBeNull();
+    await user.upload(screen.getByLabelText("Pack or Surface file"), new File(["{}"], "development.ldpack"));
+    await user.click(await screen.findByRole("button", { name: "Import" }));
+    await waitFor(() => expect(flag).toHaveBeenCalledExactlyOnceWith(true));
+    expect(apply.mock.invocationCallOrder[0]).toBeLessThan(flag.mock.invocationCallOrder[0]!);
+    await waitFor(() => expect(shell()).not.toBeNull());
+    expect(screen.getByRole("heading", { name: `Imported ${plan.artifact.name}` })).toBeTruthy();
+  });
+
+  it("goes back to the welcome with the flag still off", async () => {
+    const user = userEvent.setup();
+    importHost();
+    const flag = vi.spyOn(api, "setOnboardingDone");
+    await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Import a Pack instead" }));
+    await user.click(screen.getByRole("button", { name: "Back to the welcome" }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Welcome to LaunchDeck");
+    expect(flag).not.toHaveBeenCalled();
+    expect(useStore.getState().workspace?.preferences.onboardingDone).toBe(false);
   });
 });
 

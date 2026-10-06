@@ -359,6 +359,16 @@ export async function createPreviewTransport() {
         publish("action.completed", { action: def.id });
         return null;
       }
+      case "set_device_brightness": {
+        const percent = args.percent as number | null;
+        if (percent !== null && !(Number.isInteger(percent) && percent >= 0 && percent <= 100)) throw "Brightness goes from 0 to 100 percent.";
+        workspace.preferences = { ...workspace.preferences, deviceBrightness: percent ?? undefined };
+        return pushWorkspace();
+      }
+      case "set_device_sleep":
+      case "scroll_device_text":
+        // The preview's only device is the simulator, which has neither, as in the desktop app.
+        throw "This device cannot do that.";
       case "connect_device":
       case "disconnect_device":
       case "rescan_devices":

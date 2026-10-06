@@ -17,10 +17,10 @@ use super::types::*;
 use super::walk::{self, Pressed};
 use crate::actions::definition::Assignment;
 use crate::artifacts::env::Environment;
-use crate::artifacts::format::{echo, InputDef, InputValue};
+use crate::artifacts::format::{echo, Author, InputDef, InputOption, InputValue};
 use crate::artifacts::inspect::{InspectWarningCode, ParsedArtifact};
 use crate::artifacts::json::{content_digest, to_canonical};
-use crate::artifacts::review::{classify, Location, ReviewItem, ReviewKind};
+use crate::artifacts::review::{classify, visible, Location, ReviewItem, ReviewKind};
 use crate::core::model::Workspace;
 use crate::platform::Platform;
 
@@ -358,12 +358,30 @@ fn planned_inputs(
         .inputs
         .iter()
         .map(|def| PlannedInput {
-            def: def.clone(),
+            def: shown(def),
             value: decisions.inputs.get(&def.id).cloned(),
             issues: answers.issues.get(&def.id).cloned().unwrap_or_default(),
             used_by: used_by.remove(def.id.as_str()).unwrap_or_default(),
         })
         .collect()
+}
+
+/// An input as the person reads it: its label, description and options'
+/// labels escaped as review text is.
+fn shown(def: &InputDef) -> InputDef {
+    InputDef {
+        label: visible(&def.label, false),
+        description: visible(&def.description, true),
+        options: def
+            .options
+            .iter()
+            .map(|o| InputOption {
+                value: o.value.clone(),
+                label: visible(&o.label, false),
+            })
+            .collect(),
+        ..def.clone()
+    }
 }
 
 /// The inputs' defaults that are valid answers here.
@@ -378,16 +396,20 @@ fn defaults(defs: &[InputDef], namespace: Option<&str>) -> BTreeMap<String, Inpu
         .collect()
 }
 
+/// What the manifest says, its texts escaped as review text is.
 fn summary(parsed: &ParsedArtifact) -> ArtifactSummary {
     let m = &parsed.manifest;
     ArtifactSummary {
         kind: parsed.kind,
         id: m.id.clone(),
-        name: m.name.clone(),
+        name: visible(&m.name, false),
         version: m.version.clone(),
-        description: m.description.clone(),
-        author: m.author.clone(),
-        license: m.license.clone(),
+        description: visible(&m.description, true),
+        author: m.author.as_ref().map(|a| Author {
+            name: visible(&a.name, false),
+            url: a.url.as_deref().map(|url| visible(url, false)),
+        }),
+        license: visible(&m.license, false),
         created_with: m.created_with.clone(),
         tested_with: m.tested_with.clone(),
     }

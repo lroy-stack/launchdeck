@@ -3,7 +3,7 @@
 // Rust reports (`DeviceStatus` in devices/manager.rs). The words come from
 // src/lib/devices.ts; MIDI and Programmer mode appear only under Technical details.
 
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../../app/Sidebar";
@@ -69,7 +69,7 @@ const WORDS: Record<DeviceStatus, string> = {
   connected: "Connected",
   available: "Found, not connected",
   unplugged: "Unplugged: plug it in again and it reconnects",
-  unsupported: "Not supported yet: LaunchDeck works with the Launchpad X",
+  unsupported: "Not supported yet: LaunchDeck works with the Launchpad X and the Launchpad Mini MK3",
   failed: "Could not connect",
 };
 
@@ -112,19 +112,158 @@ describe("Settings > Devices", () => {
     expect(rescan).toHaveBeenCalledOnce();
   });
 
+  it("asks for any Launchpad, and names each model's port only under Technical details", async () => {
+    const { container } = await show([simulator], "settings");
+    expect(screen.getByText("Plug in a Launchpad and LaunchDeck connects it within a few seconds. If it does not show up, press Look again.")).toBeTruthy();
+    const details = container.querySelector("details")!;
+    expect(details.textContent).toMatch(/LPX MIDI on a Launchpad X/);
+    expect(details.textContent).toMatch(/LPMiniMK3 MIDI on a Launchpad Mini MK3/);
+  });
+
   it("keeps capabilities and port words under Technical details", async () => {
     const { container } = await show([simulator, hardware("connected")], "settings");
     const details = container.querySelector("details")!;
     expect(within(details).getByText("Technical details")).toBeTruthy();
     expect(details.open).toBe(false);
-    expect(details.textContent).toMatch(/Programmer mode/);
+    expect(details.textContent).toMatch(/Programmer Mode/);
     expect(details.textContent).toMatch(/8×8 grid/);
     expect(normalText(container)).not.toMatch(/grid|RGB/);
   });
 });
 
+const NOTICE = "Firmware version 0531 does not support brightness. Novation Components can update it.";
+const MINI_ID = "launchpad-mini-mk3:lpminimk3-midi";
+
+function mini(details: Partial<NonNullable<DeviceInfo["details"]>> = {}, notice?: string): DeviceInfo {
+  return {
+    identity: { id: MINI_ID, name: "Launchpad Mini MK3", model: "launchpad-mini-mk3", kind: "hardware" },
+    capabilities: { ...caps(true), velocity: false, animations: { pulse: true, flash: true } },
+    connected: true,
+    status: "connected",
+    notice,
+    details: { firmware: "0531", mode: "confirmed", brightness: null, asleep: false, scrolling: false, notice: notice ?? null, ...details },
+    features: {
+      hostMode: true,
+      palette: true,
+      batchedLighting: true,
+      flashPeriodMs: 500,
+      pulsePeriodMs: 1000,
+      brightness: true,
+      sleep: true,
+      scrollingText: true,
+      firmwareVersion: true,
+    },
+  };
+}
+
+function withBrightness(percent: number | undefined) {
+  const workspace = useStore.getState().workspace!;
+  useStore.setState({ workspace: { ...workspace, preferences: { ...workspace.preferences, deviceBrightness: percent } } });
+}
+
+const settingsOf = (name: string) => screen.getByRole("region", { name: `${name} settings` });
+
+describe("Settings > Devices, for a Launchpad with settings of its own", () => {
+  it("sums the device up in one line: model, status, firmware and Programmer Mode", async () => {
+    await show([simulator, mini()], "settings");
+    expect(within(settingsOf("Launchpad Mini MK3")).getByText("Launchpad Mini MK3 · Connected · Firmware 0531 · Programmer Mode (confirmed)")).toBeTruthy();
+  });
+
+  it("shows the notice Rust gives a connected device", async () => {
+    await show([simulator, mini({}, NOTICE)], "settings");
+    expect(within(rowOf("Launchpad Mini MK3")).getByText(NOTICE)).toBeTruthy();
+  });
+
+  it("lists what the device can do, in words", async () => {
+    await show([simulator, mini()], "settings");
+    const list = within(settingsOf("Launchpad Mini MK3")).getByRole("list", { name: "What the Launchpad Mini MK3 can do" });
+    expect(within(list).getByText("Scrolls text across its pads")).toBeTruthy();
+    expect(within(list).getByText("Flashes and pulses by itself (a flash every 0.5 s, a pulse every 1 s)")).toBeTruthy();
+  });
+
+  it("starts at the device's own level, and sets a brightness through its own command", async () => {
+    const set = vi.spyOn(api, "setDeviceBrightness").mockResolvedValue(undefined);
+    const prefs = vi.spyOn(api, "updatePreferences");
+    await show([simulator, mini()], "settings");
+    const own = screen.getByRole("checkbox", { name: "Device's own level" });
+    const slider = screen.getByRole("slider", { name: "Brightness" });
+    expect(own).toHaveProperty("checked", true);
+    expect(slider).toHaveProperty("disabled", true);
+
+    await userEvent.click(own);
+    expect(set).toHaveBeenLastCalledWith(100);
+    withBrightness(100);
+    fireEvent.change(screen.getByRole("slider", { name: "Brightness" }), { target: { value: "40" } });
+    await waitFor(() => expect(set).toHaveBeenLastCalledWith(40));
+    expect(prefs).not.toHaveBeenCalled();
+  });
+
+  it("gives the device its own level back", async () => {
+    const set = vi.spyOn(api, "setDeviceBrightness").mockResolvedValue(undefined);
+    await show([simulator, mini({ brightness: 40 })], "settings");
+    withBrightness(40);
+    const own = await screen.findByRole("checkbox", { name: "Device's own level" });
+    expect(own).toHaveProperty("checked", false);
+    expect(screen.getByRole("slider", { name: "Brightness" })).toHaveProperty("value", "40");
+    await userEvent.click(own);
+    expect(set).toHaveBeenLastCalledWith(null);
+  });
+
+  it("puts the device to sleep and wakes it", async () => {
+    const sleep = vi.spyOn(api, "setDeviceSleep").mockResolvedValue(undefined);
+    await show([simulator, mini()], "settings");
+    await userEvent.click(within(settingsOf("Launchpad Mini MK3")).getByRole("button", { name: "Sleep" }));
+    expect(sleep).toHaveBeenLastCalledWith(MINI_ID, true);
+    cleanup();
+    off();
+    await show([simulator, mini({ asleep: true })], "settings");
+    expect(within(settingsOf("Launchpad Mini MK3")).getByText(/· Asleep$/)).toBeTruthy();
+    await userEvent.click(within(settingsOf("Launchpad Mini MK3")).getByRole("button", { name: "Wake" }));
+    expect(sleep).toHaveBeenLastCalledWith(MINI_ID, false);
+  });
+
+  it("scrolls a test text, and stops it", async () => {
+    const scroll = vi.spyOn(api, "scrollDeviceText").mockResolvedValue(undefined);
+    await show([simulator, mini()], "settings");
+    await userEvent.click(within(settingsOf("Launchpad Mini MK3")).getByRole("button", { name: "Scroll a test text" }));
+    expect(scroll).toHaveBeenLastCalledWith(MINI_ID, { text: "LaunchDeck", color: "#ffffff", speed: 10, direction: "left", looping: false });
+    cleanup();
+    off();
+    await show([simulator, mini({ scrolling: true })], "settings");
+    await userEvent.click(within(settingsOf("Launchpad Mini MK3")).getByRole("button", { name: "Stop the text" }));
+    expect(scroll).toHaveBeenLastCalledWith(MINI_ID, null);
+  });
+
+  it("keeps notes, CCs, SysEx and port names under Technical details", async () => {
+    const { container } = await show([simulator, mini()], "settings");
+    expect(normalText(container)).not.toMatch(/midi|sysex|\bcc\b|\bnotes?\b|LPMiniMK3|palette/i);
+    expect(container.querySelector("details")!.textContent).toMatch(/LPMiniMK3 MIDI/);
+  });
+
+  it("offers no setting a device does not have", async () => {
+    await show([simulator, hardware("connected")], "settings");
+    expect(screen.queryByRole("slider", { name: "Brightness" })).toBeNull();
+    const region = settingsOf("Launchpad X");
+    expect(within(region).queryByRole("button", { name: "Sleep" })).toBeNull();
+    expect(within(region).queryByRole("button", { name: "Scroll a test text" })).toBeNull();
+    expect(within(region).getByText("Feels how hard a pad is pressed")).toBeTruthy();
+  });
+
+  it("shows settings only for a connected Launchpad", async () => {
+    await show([simulator, { ...mini(), status: "unplugged", connected: false }], "settings");
+    expect(screen.queryByRole("region", { name: "Launchpad Mini MK3 settings" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Virtual Launchpad X settings" })).toBeNull();
+  });
+});
+
 describe("the sidebar's device card", () => {
   const card = () => screen.getByRole("button", { name: /Launchpad|No device/ });
+
+  it("asks for a Launchpad, of either model, when there is no device", async () => {
+    await show([], "sidebar");
+    expect(within(card()).getByText("No device")).toBeTruthy();
+    expect(within(card()).getByText("Plug in a Launchpad")).toBeTruthy();
+  });
 
   it("shows connected hardware by its own name", async () => {
     await show([simulator, { ...hardware("connected"), identity: { ...hardware("connected").identity, name: "Launchpad X (2)" } }], "sidebar");

@@ -1376,6 +1376,34 @@ fn a_credential_is_refused_unless_bound() {
     assert!(!errors[0].message.contains("LEAK"));
 }
 
+/// SF-2b: an address that the runtime's HTTP client and a browser read
+/// apart is refused on its own sentence: what it carries cannot be told.
+#[test]
+fn an_address_read_two_ways_is_refused() {
+    for url in [
+        "https://ex%61mple.com/hook",
+        "https://hooks.example\\@evil.example/",
+    ] {
+        let ws = workspace(vec![surface(
+            "home",
+            vec![pad(
+                0,
+                "Hook",
+                a("system", "openUrl", json!({ "url": url })),
+            )],
+        )]);
+        let errors = refused(&ws, &pack(&["home"]));
+        assert_eq!(codes(&errors), [E::Credential], "{url}");
+        assert_eq!(
+            errors[0].message,
+            "The pad \"Hook\" holds in \"url\" an address that LaunchDeck's HTTP client and \
+             a browser read differently, so a password or token in it cannot be ruled out. \
+             Bind \"url\" to an input so the importer gives their own, or remove it.",
+            "{url}"
+        );
+    }
+}
+
 /// A feedback rule is written as it is: a credential in a state's
 /// arguments or in an event's condition blocks the file too, at the rule.
 #[test]
@@ -1449,9 +1477,16 @@ fn pads_that_run_things_are_listed_for_review() {
     );
     let (_, artifact) = written(&result);
     let review = &result.preview.review;
-    // Every shell command, and no launch by name without arguments.
-    assert_eq!(review.len(), 10);
-    assert!(review.iter().all(|r| r.kind == ReviewKind::RunsCommand));
+    // Every shell command, and every launch, by name without arguments too.
+    let count = |kind: ReviewKind| review.iter().filter(|r| r.kind == kind).count();
+    assert_eq!(count(ReviewKind::RunsCommand), 10);
+    let launches: Vec<&str> = review
+        .iter()
+        .filter(|r| r.kind == ReviewKind::LaunchesProgram)
+        .map(|r| r.text.as_str())
+        .collect();
+    assert_eq!(launches, ["x-terminal-emulator", "code"]);
+    assert_eq!(review.len(), 12);
     let tests = review.iter().find(|r| r.label == "Tests").unwrap();
     assert_eq!(tests.text, "sleep 2 && echo 'tests passed'");
     assert_eq!(tests.at, location("development", "g.0.1", Slot::Press));
@@ -1522,6 +1557,62 @@ fn pads_that_run_things_are_listed_for_review() {
         warning.at.as_deref(),
         Some("/content/surfaces/0/pages/0/controls/0/press")
     );
+}
+
+/// An argument that is not text (an object or a list) is not among the
+/// parameters the preview lists, so each one is a warning that names the
+/// pad and the argument: nothing is exported unseen.
+#[test]
+fn an_argument_that_is_not_text_is_pointed_out() {
+    let ws = workspace(vec![surface(
+        "work",
+        vec![pad(
+            0,
+            "Notes",
+            a(
+                "acme.notes",
+                "mark",
+                json!({
+                    "list": ["a", "b"],
+                    "options": { "x": 1 },
+                    "count": 3,
+                    "on": true,
+                    "folder": "notes"
+                }),
+            ),
+        )],
+    )]);
+    let result = export(&ws, &hand_env(), &pack(&["work"]));
+    let pointed: Vec<(&str, Option<&str>)> = result
+        .preview
+        .warnings
+        .iter()
+        .filter(|w| w.code == E::NonTextArgument)
+        .map(|w| (w.message.as_str(), w.at.as_deref()))
+        .collect();
+    assert_eq!(
+        pointed,
+        [
+            (
+                "The pad \"Notes\" has, in \"list\", a value that is not text, which the \
+                 parameters do not show: check what it holds before sharing.",
+                Some("/content/surfaces/0/pages/0/controls/0/press/args/list")
+            ),
+            (
+                "The pad \"Notes\" has, in \"options\", a value that is not text, which the \
+                 parameters do not show: check what it holds before sharing.",
+                Some("/content/surfaces/0/pages/0/controls/0/press/args/options")
+            ),
+        ]
+    );
+    let listed: Vec<&str> = result
+        .preview
+        .parameters
+        .iter()
+        .map(|p| p.arg.as_str())
+        .collect();
+    assert_eq!(listed, ["folder"]);
+    written(&result);
 }
 
 #[test]

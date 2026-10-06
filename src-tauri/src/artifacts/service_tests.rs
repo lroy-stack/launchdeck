@@ -4,11 +4,15 @@
 //! `tests/artifacts_security.rs` and `tests/artifacts_roundtrip.rs`.
 
 use std::fs;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 
 use serde_json::json;
 
 use super::*;
 use crate::artifacts::testkit;
+use crate::core::model::Workspace;
 
 fn request(surface: &str) -> ExportRequest {
     serde_json::from_value(json!({
@@ -96,6 +100,78 @@ async fn a_new_file_replaces_the_pending_import_and_discard_forgets_it() {
         artifacts.preview(&second.plan_id, &decisions),
         PreviewOutcome::Expired
     );
+}
+
+/// A long inspect holds no lock another command waits for: the pending
+/// import is taken only to forget it, and again to store what was planned.
+/// Here the inspect waits for the runtime, which someone else holds.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_long_inspect_blocks_no_other_command() {
+    let dir = tempfile::tempdir().unwrap();
+    let artifacts = Arc::new(service(dir.path()).await);
+    let saved = artifacts.export_save(&request("development")).unwrap();
+    let bytes = fs::read(dir.path().join(&saved.file_name)).unwrap();
+
+    let (held, holding) = mpsc::channel();
+    let (release, released) = mpsc::channel::<()>();
+    let runtime = artifacts.runtime.clone();
+    let holder = thread::spawn(move || {
+        let _ = runtime.commit_workspace(|_| {
+            held.send(()).unwrap();
+            released.recv().ok();
+            Err::<Workspace, ()>(())
+        });
+    });
+    holding.recv().unwrap();
+    let reading = {
+        let artifacts = artifacts.clone();
+        thread::spawn(move || artifacts.inspect(&bytes, "a.ldpack"))
+    };
+    thread::sleep(Duration::from_millis(200));
+    let (done, answered) = mpsc::channel();
+    let other = {
+        let artifacts = artifacts.clone();
+        thread::spawn(move || {
+            artifacts.discard("another");
+            done.send(()).unwrap();
+        })
+    };
+    let answered = answered.recv_timeout(Duration::from_secs(2)).is_ok();
+    release.send(()).unwrap();
+    holder.join().unwrap();
+    let plan = planned(reading.join().unwrap());
+    other.join().unwrap();
+    assert!(answered, "another command waited for the inspect");
+    assert!(
+        matches!(
+            artifacts.preview(&plan.plan_id, &plan.decisions),
+            PreviewOutcome::Plan { .. }
+        ),
+        "the inspect stored what it planned"
+    );
+}
+
+/// Of two files opened one after the other, the later one is pending,
+/// whichever is planned first.
+#[tokio::test]
+async fn the_file_opened_last_is_the_pending_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let artifacts = service(dir.path()).await;
+    let saved = artifacts.export_save(&request("development")).unwrap();
+    let bytes = fs::read(dir.path().join(&saved.file_name)).unwrap();
+    let first = artifacts.opening();
+    let second = planned(artifacts.inspect(&bytes, "b.ldpack"));
+    let late = planned(artifacts.inspect_opened(first, &bytes, "a.ldpack"));
+    let decisions = ImportDecisions::default();
+    assert_eq!(
+        artifacts.preview(&late.plan_id, &decisions),
+        PreviewOutcome::Expired,
+        "a file opened earlier never replaces a later one"
+    );
+    assert!(matches!(
+        artifacts.preview(&second.plan_id, &decisions),
+        PreviewOutcome::Plan { .. }
+    ));
 }
 
 #[tokio::test]

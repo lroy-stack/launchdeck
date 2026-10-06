@@ -49,14 +49,15 @@ export function App() {
   if (!ready) return <div className="splash">Starting runtime…</div>;
 
   // The first run takes the place of the sidebar and the views; the notices stay where they are, so a
-  // banner dismissed there does not come back with the shell.
+  // banner dismissed there does not come back with the shell. Its "Import a Pack instead" opens the import
+  // view in the same place the shell shows it, so the report stays up when the import sets the flag.
   return (
     <div className={firstRun ? "shell first-run-shell" : "shell"}>
       {!firstRun && <Sidebar />}
       <div className="content">
         {preview && <div className="preview-bar">Browser preview · simulated runtime. Run the desktop app for the real thing.</div>}
         <StartupNotices />
-        {firstRun ? (
+        {firstRun && view !== "import" ? (
           <FirstRun />
         ) : (
           <>
@@ -65,7 +66,7 @@ export function App() {
             {view === "surface" && <SurfaceView />}
             {view === "plugins" && <PluginsView />}
             {view === "settings" && <SettingsView />}
-            {view === "import" && <ImportView />}
+            {view === "import" && <ImportView firstRun={firstRun} />}
             {view === "export" && <ExportView key={exportSeq} />}
           </>
         )}

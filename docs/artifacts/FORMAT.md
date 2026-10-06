@@ -266,7 +266,7 @@ Export (`artifacts::export`) is a pure function of the workspace, what the app k
 
 **What is never written:** the workspace's `schemaVersion`, preferences, last active surface, Auto Context's switch and fallback, rules for surfaces left out, a surface's context hint and `importedFrom`, a control's legacy bindings, actions of the `legacy` provider (their slot is left empty), any runtime state (values, held or temporary looks, pending actions, provider status, availability), agent sessions, settings, the audit trail, the hook token, plugin settings, grants, secrets, logs, device ids, times and anything that identifies the machine or the person. The preview counts what was stripped: legacy bindings, legacy actions, context hints.
 
-**Bound arguments and credentials.** A bound argument is written as its input's default or empty. A value shaped like a credential in an argument that is not bound, at any depth, in a feedback rule (a state's arguments, an event's conditions), or in an input's default, blocks the file (`credential`): the person binds the argument to an input, or removes the value (a feedback rule has no input to stand in). The shapes: an address with a user name or password; an address parameter, in the query or the fragment, named `key`, `auth`, `sig`, `pass` or `pwd`, or ending in `token`, `secret`, `password`, `passwd`, `apikey`, `signature` or `credential` (compared without case, `-` and `_`), or ending in a separate word `key` (`api_key`, `accessKey`); the same names, except `key`, `auth` and `sig`, for an argument or a member of a JSON argument; an `Authorization`, `Proxy-Authorization`, `Cookie` or `X-API-Key` header; a Home Assistant webhook id (also written with escapes such as `%77ebhook`); and the secret part of a Slack, Discord, Zapier or IFTTT webhook address or of a Telegram bot address. Inside a text (a request body, a command, an instruction) it also finds a text that is JSON, read as JSON; an address of any scheme with a user name or password (`postgresql://user:pw@…`); a `name=value` word with such a name (`password=…`, `GITHUB_TOKEN=…`, `--api-key=…`); a header written `Name: value` with one of the header names above or a hyphenated secret name (`X-Auth-Token`, `Private-Token`), also right after curl's `-H`; and a header given as `{ "name": …, "value": … }`. The check knows these shapes only: `curl -u user:pw`, a user name and password without a scheme, or a password in prose are not found.
+**Bound arguments and credentials.** A bound argument is written as its input's default or empty. A value shaped like a credential in an argument that is not bound, at any depth, in a feedback rule (a state's arguments, an event's conditions), or in an input's default, blocks the file (`credential`): the person binds the argument to an input, or removes the value (a feedback rule has no input to stand in). The shapes: an address with a user name or password; an address parameter, in the query or the fragment, named `key`, `auth`, `sig`, `pass` or `pwd`, or ending in `token`, `secret`, `password`, `passwd`, `apikey`, `signature` or `credential` (compared without case, `-` and `_`), or ending in a separate word `key` (`api_key`, `accessKey`); the same names, except `key`, `auth` and `sig`, for an argument or a member of a JSON argument; an `Authorization`, `Proxy-Authorization`, `Cookie` or `X-API-Key` header; a Home Assistant webhook id (also written with escapes such as `%77ebhook`); and the secret part of a Slack, Discord, Zapier or IFTTT webhook address or of a Telegram bot address. Inside a text (a request body, a command, an instruction) it also finds a text that is JSON, read as JSON; an address of any scheme with a user name or password (`postgresql://user:pw@…`); a `name=value` word with such a name (`password=…`, `GITHUB_TOKEN=…`, `--api-key=…`); a header written `Name: value` with one of the header names above or a hyphenated secret name (`X-Auth-Token`, `Private-Token`), also right after curl's `-H`; and a header given as `{ "name": …, "value": … }`. Every address is read twice, as the HTTP client that sends `http.request` reads it and as a browser does, and each reading is checked for these shapes; an address only one of them reads, or that they read with different hosts (`https://ex%61mple.com`, `https://e.com\x`, a host outside ASCII, `http://0x7f.1`), blocks the file too, with its own sentence, since what it carries cannot be told; and a `@` between `://` and the host's end counts as a user name whatever either reader makes of it. The check knows these shapes only: `curl -u user:pw`, a user name and password without a scheme, or a password in prose are not found.
 
 **Dependencies.** A plugin used by a press or long press is `required: true` with `^` and its installed version; one only feedback reads is `required: false`. A plugin of two or more parts that is not installed here, or whose version cannot be read, is declared for `*` with a warning (`notInstalled`). An event source that is not an installed plugin is not a dependency. Host providers never are.
 
@@ -283,7 +283,7 @@ Export (`artifacts::export`) is a pure function of the workspace, what the app k
 | `invalidInput` | error | An input breaks a rule. |
 | `invalidBinding` | error | A binding, rule input or extra identity names nothing exported, or the wrong kind of input or argument. |
 | `invalidIdentity` | error | An identity added for another system is not valid. |
-| `credential` | error | A value shaped like a credential, as above. |
+| `credential` | error | A value shaped like a credential, or an address read two ways, as above. |
 | `tooMany` | error | A count over a limit. |
 | `tooLarge` | error | The file would be over 2 MiB. |
 | `invalidContent` | error | Anything else the importer would refuse, such as a hidden character in what an action runs. |
@@ -291,6 +291,7 @@ Export (`artifacts::export`) is a pure function of the workspace, what the app k
 | `externalSurfaceReference` | warning | A pad opens a surface that is not in the file. |
 | `notInstalled` | warning | A plugin the content uses is not installed here (or its version cannot be read). |
 | `localPath` | warning | A text argument looks like a path on this computer (`/…`, `~/…`, `C:\…`); the preview suggests asking the importer for it. It never does so on its own. Also, without a suggestion, a longer text (a command, arguments, an instruction) that names a folder in a home folder (`/Users/<name>/`, `/home/<name>/`, `C:\Users\<name>\`), which shows a user name. |
+| `nonTextArgument` | warning | A pad's argument is an object or a list, which the preview's parameters (text arguments with their values) do not show; the warning names the pad and the argument, so nothing is exported unseen. |
 | `ruleTargetMissing` | warning | A context rule shows a page that no longer exists, and is left out. |
 
 Before any bytes are produced, the file goes through the importer's own checks of the manifest, the content and both together; what they refuse is an error here.
@@ -333,6 +334,8 @@ The plan is computed in Rust. Whatever shows it computes no id, conflict, depend
 | `artifacts_preview(planId, decisions)` | The plan again with other decisions: `{ status: "plan", plan }` or `{ status: "expired" }`. |
 | `artifacts_apply(planId, decisions, planDigest)` | `applied`, `stale`, `blocked`, `failed` or `expired` (below). |
 | `artifacts_discard(planId)` | Forget the pending import. |
+
+One import is pending at a time: the file opened last. Opening a file forgets the pending import at once, also when the file is then refused; reading and planning it hold nothing another command waits for, and a file opened earlier but planned later never replaces it.
 | `artifacts_export_preview(request)` | The export preview, without writing. |
 | `artifacts_export_save(request)` | Save the file: `{ fileName, folder, sizeBytes, contentDigest }`. |
 | `artifacts_show_export()` | Show the folder of the last saved file in the system's file manager. |
@@ -358,6 +361,8 @@ One import is pending at a time. Inspecting another file replaces it, also when 
 | `decisions`, `suggested` | The decisions this plan was made with, and those the screen proposes. |
 | `blockers`, `ready` | What stops the import; `ready` when nothing does. |
 | `effects` | Exactly what applying writes, and the only part the digest covers: the instance, the surfaces added (`sourceId`, `localId`, `name`), the surfaces replaced, the rules added, the slots emptied, the valid answers. |
+
+The texts a person reads in the plan are display-safe: the file's name, description, author and license, each surface's name (and the names of earlier imports), the labels of the controls that use a plugin, each rule's application name, each dependency's name, and each input's label, description and option labels have every character a person cannot see written as an escape, as review text has (right-to-left letters stay as they are). `effects` and what applying writes keep the file's own text.
 
 ### Decisions
 
@@ -433,8 +438,8 @@ Planning classifies every press and long press as the runtime would run it, afte
 | --- | --- | --- |
 | `runsCommand` | `shell.execute` | The command, in full. |
 | `sendsRequest` | `http.request`, and any other action of LaunchDeck itself (not of a plugin) marked privileged | The method, the address, where it goes (host and port; "on this computer" or "on your local network" when it is), and the body; for another privileged action, its id and all its arguments. |
-| `launchesProgram` | `system.launchApplication`, unless it is a plain application name (ASCII letters, digits, space, `.`, `_`, `-`, parentheses, not starting with a dot) with no argument | The program and each argument as the runtime passes them. |
-| `instructsAgent` | `agent-control.newTask`, `agent-control.continue` | The instruction (and the folder of a new task). |
+| `launchesProgram` | `system.launchApplication`, every one, on every system: a plain name without arguments too, since on Linux and Windows it runs any program of that name on `PATH` | The program and each argument as the runtime passes them. |
+| `instructsAgent` | `agent-control.newTask`, `agent-control.continue`, `agent-control.approve`, `agent-control.reject`, `agent-control.retry` | The instruction (and the folder of a new task); for an answer or a retry, the command in words: "approves the agent's pending request", "rejects the agent's pending request", "retries the agent's failed or cancelled session". |
 
 Every hidden character in a review text is shown as an escape. The first three kinds need the decision `runs`: `remove` (proposed) empties those slots and keeps each control's label, looks and feedback; `keep` imports them as the file has them. An instruction to an agent is shown, needs no decision and is always kept. Plugin actions are never review items: a plugin cannot be privileged, and its network access stays behind the grants the person gives, which an import never changes.
 
@@ -529,7 +534,7 @@ Where the editor or another part of LaunchDeck already has a limit (feedback rul
 
 A Pack written by LaunchDeck, **trimmed**: it is `examples/artifacts/development.ldpack` (the Development starter surface with a rule for Visual Studio Code, written by a test runtime with app version 9.9.9) with its second page (Git) and 11 of the 15 controls of its first page left out. The digest is the whole file's, so this excerpt, saved as a file, is refused with `integrity`.
 
-The four pads show three cases: **Terminal** launches an application by a plain name, which is not reviewed; **Docker** runs a command, which is reviewed and needs the `runs` decision; **Agents** opens a surface that is not in the file (`externalSurfaceReference`), while **Dev** opens the file's own surface and lists the argument in `surfaceRefs`, so it is renamed if the surface's id changes on import.
+The four pads show three cases: **Terminal** launches an application by a plain name and **Docker** runs a command, which are both reviewed and need the `runs` decision; **Agents** opens a surface that is not in the file (`externalSurfaceReference`), while **Dev** opens the file's own surface and lists the argument in `surfaceRefs`, so it is renamed if the surface's id changes on import.
 
 ```json
 {

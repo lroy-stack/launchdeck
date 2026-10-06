@@ -20,8 +20,13 @@ type Stage =
   | { kind: "plan"; plan: ImportPlan }
   | { kind: "applied"; report: ImportReport; plan: ImportPlan };
 
-export function ImportView() {
+/**
+ * `firstRun`: opened from the first run instead of a starter. It offers the way back to the welcome, and an applied
+ * import sets the onboarding flag, which brings up the shell around this view.
+ */
+export function ImportView({ firstRun = false }: { firstRun?: boolean }) {
   const attempt = useStore((s) => s.attempt);
+  const setView = useStore((s) => s.setView);
   const [stage, setStage] = useState<Stage>({ kind: "choose" });
   const [limits, setLimits] = useState<ArtifactLimits | null>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -48,6 +53,11 @@ export function ImportView() {
       <header className="page-head">
         <h1>Import</h1>
         <p>Add the surfaces of a Pack or a Surface file someone shared. You see what it holds and what it would change before anything is added.</p>
+        {firstRun && (
+          <button type="button" className="btn" onClick={() => setView("overview")}>
+            Back to the welcome
+          </button>
+        )}
       </header>
       <input
         ref={picker}
@@ -69,7 +79,10 @@ export function ImportView() {
           key={stage.plan.planId}
           initial={stage.plan}
           limits={limits}
-          applied={(report, plan) => setStage({ kind: "applied", report, plan })}
+          applied={(report, plan) => {
+            setStage({ kind: "applied", report, plan });
+            if (firstRun) void attempt(() => api.setOnboardingDone(true));
+          }}
           expired={() => setStage({ kind: "choose", note: { message: EXPIRED } })}
           cancelled={() => setStage({ kind: "choose" })}
         />

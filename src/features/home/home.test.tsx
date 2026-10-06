@@ -31,4 +31,11 @@ describe("the Overview", () => {
     render(<HomeView />);
     expect(screen.getByText("No description yet.")).toBeTruthy();
   });
+
+  it("names no single Launchpad model in its own words", async () => {
+    off = await useStore.getState().init();
+    render(<HomeView />);
+    expect(screen.getByRole("button", { name: "Connect a Launchpad" })).toBeTruthy();
+    expect(screen.getByText(/the simulator behaves like a real Launchpad/)).toBeTruthy();
+  });
 });

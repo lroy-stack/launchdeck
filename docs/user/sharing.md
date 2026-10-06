@@ -11,7 +11,7 @@ Status: export and import have not yet been used in the app's window by a person
 
 ## Export a surface or a Pack
 
-1. Press **Export…** in the header of a surface (that surface is then chosen), or next to **Surfaces** in the sidebar.
+1. Press **Export…** in the header of a surface (that surface is then chosen), next to **Surfaces** in the sidebar, or in **Settings**, **Workspace**.
 2. Under **Surfaces**, tick the surfaces to share. One surface and nothing else makes a Surface file; more surfaces, context rules or questions make a Pack.
 3. Under **About the file**, give a **Name**, **Version**, **Id**, **Author**, **Author's web address**, **License** and **Description**, or leave them empty: LaunchDeck proposes a name (the first surface's), version 1.0.0 and an id, and shows the proposals in grey.
 4. Under **Context rules**, tick **Include Auto Context rules** to add your rules that show the chosen surfaces. A rule names its application as this computer knows it. For each rule you can:
@@ -25,7 +25,7 @@ On macOS the system may ask once whether LaunchDeck may use your Downloads folde
 
 ## Import a file
 
-1. Press **Import…** next to **Surfaces** in the sidebar, then **Choose a file…** and pick a `.ldpack` or `.ldsurface` file.
+1. Press **Import…** next to **Surfaces** in the sidebar (or **Import a Surface or Pack…** in **Settings**, **Workspace**), then **Choose a file…** and pick a `.ldpack` or `.ldsurface` file. On the welcome screen of the first start, **Import a Pack instead** opens the same screen, with **Back to the welcome** to return; once the import is done, the welcome is not shown again.
 2. If LaunchDeck cannot use the file, it says **This file cannot be imported**, why, and **Nothing was changed.** The code and the place in the file, for a developer, are under **Details**.
 3. Otherwise you see what importing would do, before anything changes. Each choice you make updates the preview.
 
@@ -40,7 +40,7 @@ The sections appear in this order; a section with nothing to say is left out.
 * **Context rules**: the rules the Pack offers, each **unchecked**. A rule is added only if you tick it. Each shows the application's id it matches on this computer: the name beside it comes from the file and is only for reading. Under each, what would happen: added, or not added because one of your own rules already names that application (yours stays), because the file does not name the application for your kind of computer, or because you already have as many rules as LaunchDeck keeps. An import never turns Auto Context on, and never changes your own rules.
 * **Plugins needed**: each plugin the pads use, with its id, named as installed here (a missing plugin is named as the file names it), marked **Compatible**, **Disabled** (installed but off, or failed to start), **Incompatible** (another version) or **Missing**. None of them stops the import (see [Missing plugins](#missing-plugins)).
 * **Questions**: what the Pack asks you, such as a folder (a full path), an address, a choice from a list, a text, or an application (chosen from the applications LaunchDeck has seen in front since it started). A problem with an answer is shown under it.
-* **Pads that run things**: every pad that runs a command, sends a request or starts a program, with exactly what it runs, and every pad that gives an agent an instruction. For the first three, choose **Remove what they run** (proposed: the pads stay, with their labels and looks, and do nothing when pressed) or **Keep them** (they run when pressed). Instructions to an agent are listed apart, under **Instructions to an agent**, and are kept whichever you choose: read them before you import.
+* **Pads that run things**: every pad that runs a command, sends a request or starts a program, with exactly what it runs, and every pad that gives an agent an instruction (a task, a message, or approving, rejecting or retrying what the agent asked). For the first three, choose **Remove what they run** (proposed: the pads stay, with their labels and looks, and do nothing when pressed) or **Keep them** (they run when pressed). Instructions to an agent are listed apart, under **Instructions to an agent**, and are kept whichever you choose: read them before you import.
 * **Warnings**, such as a pad that opens a surface the file does not include (it opens a surface of that id on your computer, if you have one).
 * **Details**: the ids and digests of the file, and how its surface ids become ids here.
 

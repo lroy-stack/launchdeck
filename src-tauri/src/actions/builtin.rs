@@ -16,7 +16,11 @@ use tokio::process::Command;
 use super::definition::{Issue, ProviderKind};
 use super::params::{hidden_char, ParamDef, RefTarget, MAX_TEXT_VALUE};
 use crate::core::model::Rgb;
+use ureq::unversioned::resolver::{DefaultResolver, Resolver};
+use ureq::unversioned::transport::DefaultConnector;
+
 use crate::plugins::external::capabilities::{Origin, Reach};
+use crate::plugins::external::network::{out_of_reach, OutOfReach, ReachResolver};
 use crate::plugins::{ActionDef, ActionError, Plugin, PluginContext, PluginManifest};
 
 pub const NAVIGATION: &str = "navigation";
@@ -357,18 +361,23 @@ pub(crate) struct Destination {
     /// Lowercase; an IPv6 address in brackets.
     pub host: String,
     pub port: u16,
-    /// As the plugin network broker classifies the host.
-    reach: Reach,
+    /// Its reach as the plugin network broker classifies the host by name.
+    origin: Origin,
 }
 
 impl Destination {
     /// Where a destination that is not on the internet is, in words.
     pub(crate) fn nearby(&self) -> Option<&'static str> {
-        match self.reach {
-            Reach::Loopback => Some("on this computer"),
-            Reach::Local => Some("on your local network"),
-            Reach::Internet => None,
-        }
+        let reach = self.origin.reach();
+        (reach != Reach::Internet).then(|| whereabouts(reach))
+    }
+}
+
+fn whereabouts(reach: Reach) -> &'static str {
+    match reach {
+        Reach::Loopback => "on this computer",
+        Reach::Local => "on your local network",
+        Reach::Internet => "on the internet",
     }
 }
 
@@ -423,11 +432,48 @@ pub(crate) fn request_destination(url: &str) -> Result<Destination, ActionError>
         scheme,
         host,
         port,
-        reach: origin.reach(),
+        origin,
+    })
+}
+
+/// An address as the HTTP client that sends `http.request` reads it, of
+/// any scheme.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ClientReading {
+    /// A user name or a password is written before the host.
+    pub user: bool,
+    /// Lowercase; an IPv6 address in brackets.
+    pub host: String,
+    pub path: String,
+    /// The client drops a fragment.
+    pub query: Option<String>,
+}
+
+/// How the HTTP client (`http::Uri`) reads `address`, for an artifact's
+/// credential check, which reads every address the client's way and a
+/// browser's (security finding SF-2b). `None` when the client does not
+/// read it as an address with a scheme and a host part.
+pub(crate) fn as_the_client_reads(address: &str) -> Option<ClientReading> {
+    let uri = address.parse::<ureq::http::Uri>().ok()?;
+    uri.scheme_str()?;
+    let authority = uri.authority()?;
+    Some(ClientReading {
+        user: authority.as_str().contains('@'),
+        host: authority.host().to_ascii_lowercase(),
+        path: uri.path().to_string(),
+        query: uri.query().map(str::to_string),
     })
 }
 
 fn http_request(request: HttpRequest) -> Result<Value, ActionError> {
+    send(request, DefaultResolver::default())
+}
+
+/// Sends `request`, looking its host up with `lookup` through the plugin
+/// network broker's check (DNS rebinding): every address the name resolves
+/// to must be where the name says it is, the one a review labels; a public
+/// name that resolves to this computer or the local network is not sent to.
+fn send(request: HttpRequest, lookup: impl Resolver) -> Result<Value, ActionError> {
     let HttpRequest { method, url, body } = request;
     let url = url.as_str();
     if !HTTP_METHODS.contains(&method.as_str()) {
@@ -435,14 +481,18 @@ fn http_request(request: HttpRequest) -> Result<Value, ActionError> {
             "unsupported HTTP method `{method}`"
         )));
     }
-    request_destination(url)?;
-    let agent: ureq::Agent = ureq::Agent::config_builder()
+    let to = request_destination(url)?;
+    let config = ureq::Agent::config_builder()
         .timeout_global(Some(HTTP_TIMEOUT))
         .http_status_as_error(false)
         // A redirect would send the request where no one reviewed (SF-5).
         .max_redirects(0)
-        .build()
-        .into();
+        // Straight to the destination, as the broker sends: the check is
+        // about where the connection goes, which a proxy would decide.
+        .proxy(None)
+        .build();
+    let lookup = ReachResolver::over(to.origin.clone(), lookup);
+    let agent = ureq::Agent::with_parts(config, DefaultConnector::default(), lookup);
     let req = ureq::http::Request::builder()
         .method(method.as_str())
         .uri(url);
@@ -456,7 +506,10 @@ fn http_request(request: HttpRequest) -> Result<Value, ActionError> {
                 .map_err(|e| ActionError::Failed(e.to_string()))?,
         ),
     }
-    .map_err(|e| ActionError::Failed(format!("request failed: {e}")))?;
+    .map_err(|e| match out_of_reach(&e) {
+        Some(out) => ActionError::Failed(resolved_elsewhere(&to, out)),
+        None => ActionError::Failed(format!("request failed: {e}")),
+    })?;
     let status = resp.status().as_u16();
     if (300..400).contains(&status) {
         return Err(ActionError::Failed(redirect_refused(
@@ -469,6 +522,31 @@ fn http_request(request: HttpRequest) -> Result<Value, ActionError> {
     } else {
         Ok(json!({ "status": status }))
     }
+}
+
+/// Why a request whose host resolved where its address does not say is not
+/// sent.
+fn resolved_elsewhere(to: &Destination, out: &OutOfReach) -> String {
+    let (host, ip) = (&to.host, out.ip);
+    let Some(found) = out.found else {
+        return format!(
+            "{host} resolved to {ip}, which nothing may connect to; LaunchDeck did not send \
+             the request."
+        );
+    };
+    let said = to.origin.reach();
+    let advice = if said == Reach::Internet {
+        " To reach a device of your own, write its local address (an IP address, or a name \
+         ending in .local)."
+    } else {
+        ""
+    };
+    format!(
+        "{host} resolved to {ip}, which is {}, not {} as its address says; LaunchDeck did not \
+         send the request.{advice}",
+        whereabouts(found),
+        whereabouts(said)
+    )
 }
 
 /// Why a 3xx answer fails (SF-5): its status and where it pointed, as text,
@@ -601,6 +679,36 @@ mod tests {
         assert_eq!(issue.param.as_deref(), Some("url"));
     }
 
+    /// SF-2b: the client's reading of any address, for the credential
+    /// check: userinfo, host, path and query as it sends them, never a
+    /// fragment.
+    #[test]
+    fn the_client_reads_any_address_with_a_scheme_and_a_host() {
+        let read = |a: &str| as_the_client_reads(a);
+        assert_eq!(
+            read("postgresql://admin:x@DB:5432/app?sslmode=1#f"),
+            Some(ClientReading {
+                user: true,
+                host: "db".into(),
+                path: "/app".into(),
+                query: Some("sslmode=1".into()),
+            })
+        );
+        assert_eq!(read("http://[::1]:8/").unwrap().host, "[::1]");
+        assert_eq!(read("https://e.com").map(|r| r.path), Some("/".into()));
+        for unread in [
+            "https://ex%61mple.com/",
+            "https://e.com\\x/",
+            "https://b\u{fc}cher.example/",
+            "example.com",
+            "mailto:me@e.com",
+            "/home/me",
+            "",
+        ] {
+            assert_eq!(read(unread), None, "{unread}");
+        }
+    }
+
     /// SF-5: the built-in request follows no redirect. A 3xx is a failure
     /// that names where it pointed, and nothing is sent there.
     #[test]
@@ -638,6 +746,101 @@ mod tests {
         );
         elsewhere.set_nonblocking(true).unwrap();
         assert!(elsewhere.accept().is_err(), "the redirect was followed");
+    }
+
+    /// Answers every name with one address, as a name pointed elsewhere
+    /// (DNS rebinding) answers.
+    #[derive(Debug)]
+    struct Answers(std::net::IpAddr);
+
+    impl Resolver for Answers {
+        fn resolve(
+            &self,
+            uri: &ureq::http::Uri,
+            _: &ureq::config::Config,
+            _: ureq::unversioned::transport::NextTimeout,
+        ) -> Result<ureq::unversioned::resolver::ResolvedSocketAddrs, ureq::Error> {
+            let mut found = self.empty();
+            found.push(std::net::SocketAddr::new(
+                self.0,
+                uri.port_u16().unwrap_or(80),
+            ));
+            Ok(found)
+        }
+    }
+
+    /// DNS rebinding: a host whose name is not local is not sent to when it
+    /// resolves to this computer or the local network, by the plugin
+    /// broker's own check, made on the addresses connected to. The review
+    /// labels a destination by its name; this is the check at send time.
+    #[test]
+    fn a_name_that_resolves_closer_than_it_says_is_not_sent_to() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        let quiet = TcpListener::bind("127.0.0.1:0").unwrap();
+        quiet.set_nonblocking(true).unwrap();
+        let port = quiet.local_addr().unwrap().port();
+        let post = |url: &str| http_request_of(&json!({ "method": "POST", "url": url }));
+        let at = |ip: &str| Answers(ip.parse().unwrap());
+        let refused = |url: &str, ip: &str| send(post(url), at(ip)).unwrap_err().message();
+
+        assert_eq!(
+            refused(&format!("http://rebind.example:{port}/hook"), "127.0.0.1"),
+            "rebind.example resolved to 127.0.0.1, which is on this computer, not on the \
+             internet as its address says; LaunchDeck did not send the request. To reach a \
+             device of your own, write its local address (an IP address, or a name ending \
+             in .local)."
+        );
+        assert!(quiet.accept().is_err(), "the request reached the address");
+        for (url, ip, place) in [
+            (
+                "https://192-168-1-1.nip.io/",
+                "192.168.1.1",
+                "on your local network",
+            ),
+            (
+                "http://metadata.example/",
+                "169.254.169.254",
+                "on your local network",
+            ),
+            ("http://v6.example/", "fd00::1", "on your local network"),
+            ("http://v6.example/", "::1", "on this computer"),
+            ("http://printer/", "93.184.216.34", "on the internet"),
+            ("http://localhost/", "192.168.1.1", "on your local network"),
+        ] {
+            let why = refused(url, ip);
+            assert!(
+                why.contains(&format!("resolved to {ip}, which is {place}, not ")),
+                "{url} at {ip}: {why}"
+            );
+        }
+        assert_eq!(
+            refused("http://zero.example/", "0.0.0.0"),
+            "zero.example resolved to 0.0.0.0, which nothing may connect to; LaunchDeck did \
+             not send the request."
+        );
+
+        // A name that says it is here or nearby is sent to.
+        let server = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = server.local_addr().unwrap().port();
+        let served = std::thread::spawn(move || {
+            for _ in 0..2 {
+                let (mut stream, _) = server.accept().unwrap();
+                let mut request = [0u8; 2048];
+                let _ = stream.read(&mut request).unwrap();
+                let ok = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+                stream.write_all(ok.as_bytes()).unwrap();
+            }
+        });
+        for host in ["localhost", "homeassistant.local"] {
+            let url = format!("http://{host}:{port}/hook");
+            assert_eq!(
+                send(post(&url), at("127.0.0.1")),
+                Ok(json!({ "status": 200 })),
+                "{url}"
+            );
+        }
+        served.join().unwrap();
     }
 
     /// The location a redirect names is shown escaped and short, never

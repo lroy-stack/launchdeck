@@ -27,7 +27,7 @@ sys.path.insert(0, HERE)
 from lib.desk import Desk  # noqa: E402
 from lib.webdriver import DriverError, DriverGone  # noqa: E402
 
-SUITES = ["feedback", "home_assistant", "secrets", "context"]
+SUITES = ["feedback", "home_assistant", "secrets", "context", "acceptance"]
 # The password of the throwaway keyring a suite may ask for. It protects nothing.
 KEYRING_PASSWORD = "launchdeck-desktop-e2e"
 DEV_URL = "http://127.0.0.1:1420/"

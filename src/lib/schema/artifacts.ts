@@ -414,6 +414,7 @@ export const exportIssueSchema = z.object({
     "externalSurfaceReference",
     "notInstalled",
     "localPath",
+    "nonTextArgument",
     "ruleTargetMissing",
   ]),
   message: z.string(),

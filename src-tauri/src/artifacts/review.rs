@@ -3,11 +3,12 @@
 //!
 //! Three kinds run something on the computer or the network: a shell
 //! command, a request (`http.request`, and any other host definition marked
-//! privileged), and any launch but one of a plain application name without
-//! arguments, read with the runtime's own parser. The fourth,
-//! an instruction to an agent, is shown and never needs a decision. Plugin
-//! actions are never review items: a plugin cannot be privileged, and its
-//! network access stays behind the grants a person gives.
+//! privileged), and every launch, read with the runtime's own parser. The
+//! fourth, an instruction to an agent (a task, a message, or an answer to
+//! its request or a retry of its session, each named), is shown and never
+//! needs a decision.
+//! Plugin actions are never review items: a plugin cannot be privileged,
+//! and its network access stays behind the grants a person gives.
 
 use std::fmt::Write as _;
 
@@ -24,8 +25,9 @@ use crate::actions::builtin::{
 use crate::actions::definition::{Assignment, ProviderKind};
 use crate::actions::params::hidden_char as hidden;
 use crate::agents::plugin::{
-    instruction_of, new_task_of, CONTINUE as AGENT_CONTINUE, NEW_TASK as AGENT_NEW_TASK,
-    PLUGIN_ID as AGENT_CONTROL,
+    instruction_of, new_task_of, APPROVE as AGENT_APPROVE, CONTINUE as AGENT_CONTINUE,
+    NEW_TASK as AGENT_NEW_TASK, PLUGIN_ID as AGENT_CONTROL, REJECT as AGENT_REJECT,
+    RETRY as AGENT_RETRY,
 };
 use crate::platform::Platform;
 use crate::plugins::system;
@@ -96,11 +98,15 @@ pub fn classify(assignment: &Assignment, env: &Environment) -> Option<ReviewKind
     match (provider, action) {
         (SHELL, SHELL_EXECUTE) => Some(ReviewKind::RunsCommand),
         (HTTP, HTTP_REQUEST) => Some(ReviewKind::SendsRequest),
-        (system::ID, system::LAUNCH_APPLICATION) => {
-            launches_program(&assignment.args, Platform::current())
-                .then_some(ReviewKind::LaunchesProgram)
-        }
-        (AGENT_CONTROL, AGENT_NEW_TASK | AGENT_CONTINUE) => Some(ReviewKind::InstructsAgent),
+        // Every launch, on every system: on Linux and Windows a plain name
+        // runs any program of that name on `PATH`.
+        (system::ID, system::LAUNCH_APPLICATION) => Some(ReviewKind::LaunchesProgram),
+        // An answer to an agent's request, or a retry of its session, has
+        // the agent run what it asked for (a shell command, for one).
+        (
+            AGENT_CONTROL,
+            AGENT_NEW_TASK | AGENT_CONTINUE | AGENT_APPROVE | AGENT_REJECT | AGENT_RETRY,
+        ) => Some(ReviewKind::InstructsAgent),
         _ => {
             let privileged = env
                 .provider(provider)
@@ -110,29 +116,6 @@ pub fn classify(assignment: &Assignment, env: &Environment) -> Option<ReviewKind
             privileged.then_some(ReviewKind::SendsRequest)
         }
     }
-}
-
-/// Every launch but one of a plain application name with no argument, read
-/// by the runtime's own parser: what the review sees is what would start.
-/// A launch the runtime refuses is reviewed too. The answer is the same on
-/// every system: what Windows alone refuses is never a plain name without
-/// arguments.
-fn launches_program(args: &Value, platform: Platform) -> bool {
-    system::launch_spec(args, platform).map_or(true, |spec| {
-        !plain_application(&spec.app) || !spec.args.is_empty()
-    })
-}
-
-/// A name the system looks an application up by, never a path: ASCII
-/// letters and digits, space, dot, underscore, hyphen and parentheses, not
-/// starting with a dot. No separator of any system, no look-alike of one,
-/// no home directory, nothing a command interpreter reads.
-fn plain_application(app: &str) -> bool {
-    !app.is_empty()
-        && !app.starts_with('.')
-        && app
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, ' ' | '.' | '_' | '-' | '(' | ')'))
 }
 
 /// The application and each argument as the runtime passes them, one after
@@ -177,12 +160,12 @@ fn word(w: &str) -> String {
     out
 }
 
-/// The one escaping of every review text (SF-3): each [`hidden`] character
-/// is written as an escape (`\r`, `\u001b`, `\u202e`), so nothing in a text
-/// hides or reorders what a person reads. A multi-line text keeps its line
-/// breaks and tabs, with long runs of blank lines [`counted`]; a one-line
-/// text escapes them too.
-fn visible(text: &str, multi_line: bool) -> String {
+/// The one escaping of every review text (SF-3), and of the names an
+/// import plan shows: each [`hidden`] character is written as an escape
+/// (`\r`, `\u001b`, `\u202e`), so nothing in a text hides or reorders what
+/// a person reads. A multi-line text keeps its line breaks and tabs, with
+/// long runs of blank lines [`counted`]; a one-line text escapes them too.
+pub(in crate::artifacts) fn visible(text: &str, multi_line: bool) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
         push_visible(&mut out, c, multi_line);
@@ -294,7 +277,12 @@ fn review_text(kind: ReviewKind, assignment: &Assignment) -> String {
                 ),
             }
         }
-        ReviewKind::InstructsAgent => visible(instruction_of(args), true),
+        ReviewKind::InstructsAgent => match assignment.action.as_str() {
+            AGENT_APPROVE => "approves the agent's pending request".into(),
+            AGENT_REJECT => "rejects the agent's pending request".into(),
+            AGENT_RETRY => "retries the agent's failed or cancelled session".into(),
+            _ => visible(instruction_of(args), true),
+        },
     }
 }
 

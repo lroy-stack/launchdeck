@@ -238,6 +238,7 @@ impl Runtime {
             counter: AtomicU64::new(1),
             handle: tokio::runtime::Handle::current(),
             context_sent: Mutex::new(None),
+            emitting: Mutex::new(()),
             notices,
         });
 

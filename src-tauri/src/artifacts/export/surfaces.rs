@@ -139,13 +139,13 @@ pub(super) fn look_over(surfaces: &[SurfaceV1], env: &Environment, found: &mut C
 fn refuse_feedback_credentials(control: &ControlV1, pointer: &str, found: &mut Collected) {
     for (k, rule) in control.feedback.iter().enumerate() {
         let value = serde_json::to_value(rule).unwrap_or(Value::Null);
-        if let Some(what) = credential_in(&value) {
+        if let Some(credential) = credential_in(&value) {
             found.error(
                 ExportCode::Credential,
                 format!(
-                    "The pad \"{}\" carries a password or token in a feedback rule: {what}. \
-                     Remove it from the rule.",
-                    control.label
+                    "The pad \"{}\" {}. Remove it from the rule.",
+                    control.label,
+                    credential.said(" in a feedback rule")
                 ),
                 Some(format!("{pointer}/feedback/{k}")),
             );
@@ -234,13 +234,14 @@ fn refuse_credentials(exported: &AssignmentV1, place: &Place<'_>, found: &mut Co
         if exported.inputs.contains_key(name) {
             continue;
         }
-        if let Some(what) = credential_named(name, value).or_else(|| credential_in(value)) {
+        if let Some(credential) = credential_named(name, value).or_else(|| credential_in(value)) {
             found.error(
                 ExportCode::Credential,
                 format!(
-                    "The pad \"{}\" carries a password or token in \"{name}\": {what}. \
-                     Bind \"{name}\" to an input so the importer gives their own, or remove it.",
-                    place.label
+                    "The pad \"{}\" {}. Bind \"{name}\" to an input so the importer gives \
+                     their own, or remove it.",
+                    place.label,
+                    credential.said(&format!(" in \"{name}\""))
                 ),
                 Some(format!("{}/args/{}", place.pointer, segment(name))),
             );
@@ -253,8 +254,20 @@ fn refuse_credentials(exported: &AssignmentV1, place: &Place<'_>, found: &mut Co
 /// one that names a home folder inside a longer text is pointed out. An
 /// argument naming an exported surface is neither: the import renames it.
 /// A bound argument is listed as asked of the importer, without a value.
+/// An object or a list is no parameter, and is pointed out instead.
 fn offer_arguments(exported: &AssignmentV1, place: &Place<'_>, found: &mut Collected) {
     for (arg, value) in &exported.args {
+        if matches!(value, Value::Object(_) | Value::Array(_)) {
+            found.warn(
+                ExportCode::NonTextArgument,
+                format!(
+                    "The pad \"{}\" has, in \"{arg}\", a value that is not text, which the \
+                     parameters do not show: check what it holds before sharing.",
+                    place.label
+                ),
+                Some(format!("{}/args/{}", place.pointer, segment(arg))),
+            );
+        }
         let Value::String(text) = value else {
             continue;
         };

@@ -132,6 +132,17 @@ describe("Settings", () => {
     expect(within(workspace).getByRole("button", { name: "Reset to starter surfaces" })).toBeTruthy();
   });
 
+  it("opens the import and export views from Workspace", async () => {
+    await showSettings();
+    const workspace = section("Workspace");
+    await userEvent.click(within(workspace).getByRole("button", { name: "Import a Surface or Pack…" }));
+    expect(useStore.getState().view).toBe("import");
+    const seq = useStore.getState().exportStart.seq;
+    await userEvent.click(within(workspace).getByRole("button", { name: "Export…" }));
+    expect(useStore.getState().view).toBe("export");
+    expect(useStore.getState().exportStart).toEqual({ seq: seq + 1, surfaceIds: [] });
+  });
+
   it("turns notifications off through Agent Control's settings", async () => {
     const update = vi.spyOn(api.agents, "updateSettings").mockResolvedValue(undefined);
     await showSettings();
