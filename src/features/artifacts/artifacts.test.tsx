@@ -252,6 +252,34 @@ describe("importing a file", () => {
     expect(within(runs).queryByText("1 line")).toBeNull();
   });
 
+  it("lists instructions to an agent apart from the choice, kept either way", async () => {
+    const command = PLAN.review[0]!;
+    const task = { ...command, at: { ...command.at, controlId: "g.4.0" }, label: "Agent", kind: "instructsAgent" as const, text: "Summarize the README" };
+    host({ status: "plan", plan: { ...PLAN, review: [command, task] } });
+    await chooseFile();
+    await screen.findByRole("heading", { name: "Pads that run things" });
+    const runs = section("Pads that run things");
+    expect(within(runs).getByRole("radio", { name: /Remove what they run/ })).toBeTruthy();
+    const heading = within(runs).getByRole("heading", { name: "Instructions to an agent" });
+    expect(within(runs).getByText(/kept either way/)).toBeTruthy();
+    const list = within(runs).getByText("Summarize the README").closest("ul")!;
+    expect(within(list).queryByText(command.text)).toBeNull();
+    expect(heading.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(runs).getByText(command.text).closest("ul")).not.toBe(list);
+  });
+
+  it("shows instructions to an agent with no choice when nothing else runs", async () => {
+    const task = { ...PLAN.review[0]!, label: "Agent", kind: "instructsAgent" as const, text: "Summarize the README" };
+    const decisions: ImportDecisions = { inputs: {}, contextRules: [], confirmOverwriteEdits: false };
+    host({ status: "plan", plan: { ...PLAN, review: [task], suggested: decisions, decisions } });
+    await chooseFile();
+    await screen.findByRole("heading", { name: "Pads that run things" });
+    const runs = section("Pads that run things");
+    expect(within(runs).queryByRole("radio")).toBeNull();
+    expect(within(runs).getByRole("heading", { name: "Instructions to an agent" })).toBeTruthy();
+    expect(within(runs).getByText(/kept either way/)).toBeTruthy();
+  });
+
   it("keeps Import disabled until the plan is ready", async () => {
     const undecided: ImportPlan = {
       ...PLAN,

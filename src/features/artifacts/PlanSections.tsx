@@ -234,27 +234,19 @@ function Plugins({ plan, examples, install }: { plan: ImportPlan; examples: Exam
   );
 }
 
-/** What runs when these pads are pressed, word for word, and whether to keep it. */
+/**
+ * What runs when these pads are pressed, word for word, and whether to keep it. Instructions to an
+ * agent are listed apart, after the choice: Rust keeps them whatever is chosen for the rest.
+ */
 function Runs({ plan, decisions, change }: { plan: ImportPlan; decisions: ImportDecisions; change: Change }) {
+  const decided = plan.review.filter((r) => r.kind !== "instructsAgent");
+  const instructions = plan.review.filter((r) => r.kind === "instructsAgent");
   return (
     <section className="panel">
       <h3>Pads that run things</h3>
       <p className="hint">These pads run something on this computer or over the network when pressed. Read what each one runs.</p>
-      <ul className="plain review">
-        {plan.review.map((r) => {
-          // Rust writes a long run of blank lines as one line that counts them.
-          const lines = r.text.split("\n").length;
-          return (
-            <li key={`${r.at.surfaceSourceId}/${r.at.pageId}/${r.at.controlId}/${r.at.slot}`}>
-              <b>{r.label}</b>
-              <span className="pill warn">{REVIEW_KIND[r.kind]}</span>
-              {lines > 1 && <span className="hint">{plural(lines, "line")}</span>}
-              <pre className="command-preview">{r.text}</pre>
-            </li>
-          );
-        })}
-      </ul>
-      {plan.suggested.runs ? (
+      {decided.length > 0 && <ReviewList items={decided} />}
+      {plan.suggested.runs && (
         <div className="choices" role="radiogroup" aria-label="Pads that run things">
           <label className="check">
             <input type="radio" name="runs" checked={decisions.runs === "remove"} onChange={() => change({ ...decisions, runs: "remove" })} />
@@ -265,10 +257,35 @@ function Runs({ plan, decisions, change }: { plan: ImportPlan; decisions: Import
             Keep them: they run when pressed
           </label>
         </div>
-      ) : (
-        <p className="hint">Instructions to an agent are always kept. Read them before you import.</p>
+      )}
+      {instructions.length > 0 && (
+        <>
+          <h4>Instructions to an agent</h4>
+          <p className="hint">These are kept either way: when one of these pads is pressed, the agent receives the whole text. Read them before you import.</p>
+          <ReviewList items={instructions} />
+        </>
       )}
     </section>
+  );
+}
+
+/** Review items, each with its label, its kind, its number of lines and its text. */
+function ReviewList({ items }: { items: ImportPlan["review"] }) {
+  return (
+    <ul className="plain review">
+      {items.map((r) => {
+        // Rust writes a long run of blank lines as one line that counts them.
+        const lines = r.text.split("\n").length;
+        return (
+          <li key={`${r.at.surfaceSourceId}/${r.at.pageId}/${r.at.controlId}/${r.at.slot}`}>
+            <b>{r.label}</b>
+            <span className="pill warn">{REVIEW_KIND[r.kind]}</span>
+            {lines > 1 && <span className="hint">{plural(lines, "line")}</span>}
+            <pre className="command-preview">{r.text}</pre>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
