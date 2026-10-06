@@ -5,6 +5,8 @@
 
 #[path = "support/catalog_scenario.rs"]
 mod catalog_scenario;
+#[path = "support/param_cases_scenario.rs"]
+mod param_cases_scenario;
 
 use std::collections::BTreeSet;
 
@@ -88,4 +90,19 @@ async fn every_first_party_provider_reports_the_app_version() {
     for (id, version) in first_party {
         assert_eq!(version, env!("CARGO_PKG_VERSION"), "{id}");
     }
+}
+
+/// `src/lib/actions.test.ts` replays `examples/param-cases.json` through the
+/// `normalizeArgs` mirror; the file must be exactly what `normalize` answers
+/// today, rejected inputs included.
+#[test]
+fn the_param_cases_fixture_is_what_normalize_answers() {
+    let fixture_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../examples/param-cases.json");
+    let text = std::fs::read_to_string(fixture_path).expect("examples/param-cases.json exists");
+    let fixture: Value = serde_json::from_str(&text).expect("fixture is JSON");
+    assert!(
+        fixture == param_cases_scenario::capture(),
+        "examples/param-cases.json is out of date.\n\
+         Refresh it: cargo run --example dump_param_cases > ../examples/param-cases.json"
+    );
 }

@@ -255,10 +255,16 @@ export function defaultArgs(def: ActionDefinition | undefined): Args {
 
 export const assignmentFor = (def: ActionDefinition, args?: Args): Assignment => ({ provider: def.provider, action: def.action, args: args ?? defaultArgs(def) });
 
+/** Only what Rust's `char::is_whitespace` calls white space; `String.trim` also drops U+FEFF and keeps U+0085. */
+const RUST_WHITE_SPACE = /^[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*$/;
+
 const isBlank = (p: ParamDef, v: unknown): boolean => {
   if (v === undefined || v === null) return true;
-  return typeof v === "string" && (p.type === "string" || p.type === "reference") && v.trim() === "";
+  return typeof v === "string" && (p.type === "string" || p.type === "reference") && RUST_WHITE_SPACE.test(v);
 };
+
+/** Rust measures a reference id in UTF-8 bytes. */
+const utf8Length = (text: string): number => new TextEncoder().encode(text).length;
 
 const bad = (p: ParamDef, message: string): Issue => ({ param: p.name, message, kind: "invalid" });
 
@@ -285,7 +291,7 @@ function checkValue(p: ParamDef, v: unknown): Issue | null {
     case "enum":
       return typeof v === "string" && p.options.some((o) => o.value === v) ? null : bad(p, `${p.label} must be one of the listed choices`);
     case "reference":
-      return typeof v === "string" && v.length > 0 && v.length <= 128 ? null : bad(p, `${p.label} must be chosen from the list`);
+      return typeof v === "string" && v.length > 0 && utf8Length(v) <= 128 ? null : bad(p, `${p.label} must be chosen from the list`);
     case "json":
       return v === null || v === undefined ? bad(p, `${p.label} must be a value`) : null;
   }
@@ -297,7 +303,10 @@ export interface Normalized {
   issues: Issue[];
 }
 
-/** The same rules Rust applies on save, so a form can show a mistake as it is made. */
+/**
+ * The same rules Rust applies on save (`actions::params::normalize`), so a form can show a mistake as it
+ * is made. `examples/param-cases.json`, written by Rust, pins it on accepted and rejected inputs.
+ */
 export function normalizeArgs(params: ParamDef[], args: Args): Normalized {
   const issues: Issue[] = [];
   for (const key of Object.keys(args)) {

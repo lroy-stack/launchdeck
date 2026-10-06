@@ -28,7 +28,7 @@ The first sentence of each rule is its text in `PRODUCTIZATION_PLAN.md` section 
 
 **R8.** Only providers write hub values; values never persisted; React never evaluates rules. The hub says how things are now, so a saved value would be wrong on the next start. A rule evaluated in React could disagree with what the pad shows; React asks Rust (`explain_control`, `review_feedback`) and renders the answer. *Review*.
 
-**R9.** No duplicated domain evaluation in React; an allowed mirror (`normalizeArgs`, `operatorsFor`, `problemsOf`) names its Rust counterpart and has a Rust-generated fixture with accepted and rejected cases. A mirror exists only so a form can react while the person types; Rust still decides on save. Two evaluators drift apart unless a shared fixture pins them (E1 adds `examples/param-cases.json` for `normalizeArgs`). *Review*.
+**R9.** No duplicated domain evaluation in React; an allowed mirror (`normalizeArgs`, `operatorsFor`, `problemsOf`) names its Rust counterpart and has a Rust-generated fixture with accepted and rejected cases. A mirror exists only so a form can react while the person types; Rust still decides on save. Two evaluators drift apart unless a shared fixture pins them (`examples/param-cases.json`, written by `dump_param_cases`, pins `normalizeArgs` on accepted and rejected inputs). *Review*.
 
 **R10.** IPC: Zod schema for every payload; only `src/lib/ipc.ts` imports `@tauri-apps`; every Rust-emitted shape has an `examples/*.json` fixture from a `dump_*` example guarded by a Rust test; fixtures are regenerated only for an intended change. The Rust types and the TypeScript types then cannot disagree silently: the Rust test fails when the runtime emits a field the fixture lacks, and Vitest parses the fixture with the schema. *Checked*: `@tauri-apps` outside `ipc.ts`, and `preview.ts` imported by anything but `ipc.ts`; the fixtures are guarded by their tests (CODEBASE_MAP section 6).
 
@@ -99,6 +99,7 @@ cargo run --manifest-path src-tauri/Cargo.toml --example dump_<name> > examples/
 | `dump_plugins` | `examples/plugins-overview.json` |
 | `dump_plugin_examples` | `examples/plugin-examples.json` |
 | `dump_catalog` | `examples/action-catalog.json` |
+| `dump_param_cases` | `examples/param-cases.json` |
 | `dump_observables` | `examples/observables.json` |
 | `dump_context` | `examples/context-status.json` |
 | `dump_app_info` | `examples/app-info.json` |

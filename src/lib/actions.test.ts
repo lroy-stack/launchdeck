@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import catalogJson from "../../examples/action-catalog.json";
 import workspaceJson from "../../examples/default-workspace.json";
+import paramCasesJson from "../../examples/param-cases.json";
 import {
   assignmentFor,
   categoriesOf,
@@ -18,7 +19,8 @@ import {
   tokensOf,
   withinOneEdit,
 } from "./actions";
-import { catalogSchema, workspaceSchema, type Assignment } from "./schema";
+import { z } from "zod";
+import { catalogSchema, issueKindSchema, paramDefSchema, workspaceSchema, type Assignment } from "./schema";
 
 // Both fixtures are what Rust emits (`dump_catalog`, `dump_workspace`) and are
 // guarded against drift by Rust tests, so these run against the real catalog.
@@ -258,5 +260,34 @@ describe("settings", () => {
     const hello = def("example.hello.hello.say").params;
     expect(normalizeArgs(hello, { name: "x".repeat(61) }).issues[0]?.message).toMatch(/longer than 60/);
     expect(normalizeArgs(hello, {}).issues).toEqual([]);
+  });
+});
+
+// Written by Rust (`dump_param_cases`) from what `actions::params::normalize` answers, and guarded by
+// `tests/catalog_contract.rs`: the mirror must accept and refuse exactly as Rust does.
+const paramCases = z
+  .object({
+    cases: z.array(
+      z.object({
+        name: z.string(),
+        params: z.array(paramDefSchema),
+        args: z.record(z.string(), z.unknown()),
+        expectedArgs: z.record(z.string(), z.unknown()).nullable(),
+        expectedIssues: z.array(z.object({ param: z.string().nullable(), kind: issueKindSchema, message: z.string() })),
+      }),
+    ),
+  })
+  .parse(paramCasesJson).cases;
+
+describe("the normalizeArgs mirror against Rust's own answers", () => {
+  it("has a table to replay", () => {
+    expect(paramCases.length).toBeGreaterThan(40);
+    expect(paramCases.some((c) => c.expectedArgs === null)).toBe(true);
+  });
+
+  it.each(paramCases.map((c) => [c.name, c] as const))("%s", (_, c) => {
+    const { args, issues } = normalizeArgs(c.params, c.args);
+    expect(issues.map((i) => ({ param: i.param ?? null, kind: i.kind, message: i.message }))).toEqual(c.expectedIssues);
+    if (c.expectedArgs !== null) expect(args).toEqual(c.expectedArgs);
   });
 });
