@@ -108,7 +108,8 @@ Status: these tests ran on macOS only, in this milestone. CI: NOT VERIFIED (GitH
 ## What is not claimed
 
 * **Only some pads are reviewed.** A pad that opens a web page or a `mailto:` address, presses a key combination or a media key, starts an installed application by its plain name, or switches surfaces is imported as the file has it, and does that when pressed. A command kept on purpose runs with the person's rights when pressed.
-* **Labels can lie.** A pad labelled "Build" may run anything; the review shows the real command, request or launch, not the label.
+* **Answers to an agent are not reviewed.** A pad that approves, rejects or retries an agent's session (`agent-control.approve`, `reject`, `retry`) is imported as the file has it, and is not listed for review. With the Claude Code and Codex hooks adapters, approve answers the focused session's pending permission request with "allow", and the agent then runs the tool call it asked for, a shell command for example. Only `newTask` and `continue`, which give an agent an instruction, are shown.
+* **Labels can lie.** A pad labelled "Build" may run anything, and one labelled "Volume up" may approve an agent's request; the review shows the real command, request or launch, not the label.
 * **A dependency is only an id.** If the person installs a plugin with the declared id from someone else, the pads use that plugin.
 * **Integrity is not authenticity**, as above.
 * **The app window.** The import and export screens, the file picker and the Downloads prompt have not been used in the app's window by a person: NOT VERIFIED.
