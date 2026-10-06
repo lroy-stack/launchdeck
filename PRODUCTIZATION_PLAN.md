@@ -17,6 +17,8 @@ Reasons that recur, referred to by letter:
 
 **Rule zero: no new product subsystem during productization.** If a missing subsystem is discovered, it is documented as post-alpha (section 4) unless it blocks the alpha acceptance scenario. Portable Surface/Pack artifacts are the one new subsystem this milestone asks for; everything else is consolidation, hardening, UX and documentation. This plan is the single architectural arbiter: implementers do not re-decide what it settles.
 
+Launchpad Mini MK3 support (the device lane, packages M1-M13 of `LAUNCHPAD_MINI_MK3_PLAN.md`, requested by the owner on 2026-10-05) is not a new subsystem under rule zero: it is a second device model behind the existing `SurfaceDevice` trait, with the Launchpad X moved onto the same shared Novation MK3 layer, and its Tier 3 ideas are deferred (section 4).
+
 Owner decisions taken on 2026-10-05: the license is **MIT**, everywhere (R-03, in R4); legacy plaintext `config[].secret` values of schema 1-3 manifests are **never used again and migrated only on the person's explicit choice** (R-04, new package D4). After D4, LaunchDeck never hands a plaintext secret stored in `plugins.json` to a plugin, whatever the manifest version: credential store or unavailable.
 
 | WP | Title | Depends on | Owner | Files / domains | Risk | Acceptance |
@@ -165,6 +167,7 @@ Kept as is (extend, never replace):
 | Bundle identifier ending in `.app` | changing it moves every user's data | record the CLI warning only |
 | Temp-file cleanup and directory fsync in `write_atomic` | correctness does not depend on it | separate fix |
 | Desktop E2E on macOS | `tauri-driver` has no macOS support | when it exists |
+| Launchpad Tier 3 (`LAUNCHPAD_MINI_MK3_PLAN.md` section 16.1): DAW-mode faders, Custom Mode coexistence (Lighting Custom Modes instead of Programmer Mode), musical coexistence (MIDI clock), a scrolling-text action in the Action Library, a virtual Mini MK3 in the app (a simulator model choice), native pulse and flash on the Launchpad X | research only; each needs a run on a unit or a multi-device UI first, and a DAW or clock integration would be a new subsystem (rule zero) | after the hardware acceptance suite has run on a unit (`docs/devices/hardware-testing.md`) |
 
 ## 5. Architecture and modularity plan
 
@@ -575,8 +578,11 @@ One shared tree, branch `productization`, no worktrees. Packages run in this ord
 | 28 | R3 | Documentation restructure and user docs | yes (comments) | A2 | | todo |
 | 29 | R4 | README, CHANGELOG, versions, 0.3.0 | yes | A2 | | todo |
 | 30 | R5 | Release validation and record | yes | A2 | | todo |
+| 31 | M1-M13 | Launchpad Mini MK3 and the shared Novation MK3 layer (device lane, worktree `launchdeck-ux`; `LAUNCHPAD_MINI_MK3_PLAN.md` section 16.4) | yes | E2 | E3-E5, C1-C7 (other lanes) | M1-M12 done; M13 (device settings UI) todo, after the lanes are merged. Byte, port-name, simulator, device and runtime tests run here; the acceptance suite written and run here once without a unit; everything physical on a Mini MK3 or an X NOT HARDWARE VERIFIED (b: no Novation device attached); Windows and Linux port names derived from documents, not observed (d, e); release on quit NOT VERIFIED in the app window (f). Docs in `docs/devices/` |
 
 R3, R4 and R5 declare only A2 so that they still run if a feature package fails; they are last in the order and describe only what is in the tree.
+
+R4 names the Launchpad Mini MK3 in `README.md` beside the Launchpad X (supported since the device lane; [docs/devices/launchpad-mini-mk3.md](docs/devices/launchpad-mini-mk3.md)), with its hardware status NOT VERIFIED (b) unless a run of the acceptance suite on a unit has been recorded.
 
 ## 13. Risk register
 
