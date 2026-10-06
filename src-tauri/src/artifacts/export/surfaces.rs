@@ -4,7 +4,7 @@
 //! renames references to exported surfaces. Once the input bindings are in
 //! (`bindings`), `look_over` reads each assignment as it will be written:
 //! what a person should look at before sharing, credentials, and the text
-//! arguments to offer as inputs.
+//! arguments to offer as inputs; and each feedback rule, for credentials.
 
 use serde_json::Value;
 
@@ -127,7 +127,28 @@ pub(super) fn look_over(surfaces: &[SurfaceV1], env: &Environment, found: &mut C
                         look_at(a, &place, env, found);
                     }
                 }
+                refuse_feedback_credentials(control, &pointer, found);
             }
+        }
+    }
+}
+
+/// A feedback rule is written as it is, its state's arguments and its
+/// event's conditions included: a credential there blocks the file too.
+/// No input can stand in for it, so the person removes it.
+fn refuse_feedback_credentials(control: &ControlV1, pointer: &str, found: &mut Collected) {
+    for (k, rule) in control.feedback.iter().enumerate() {
+        let value = serde_json::to_value(rule).unwrap_or(Value::Null);
+        if let Some(what) = credential_in(&value) {
+            found.error(
+                ExportCode::Credential,
+                format!(
+                    "The pad \"{}\" carries a password or token in a feedback rule: {what}. \
+                     Remove it from the rule.",
+                    control.label
+                ),
+                Some(format!("{pointer}/feedback/{k}")),
+            );
         }
     }
 }

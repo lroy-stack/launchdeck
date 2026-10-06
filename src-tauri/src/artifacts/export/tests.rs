@@ -1364,6 +1364,48 @@ fn a_credential_is_refused_unless_bound() {
     assert!(!errors[0].message.contains("LEAK"));
 }
 
+/// A feedback rule is written as it is: a credential in a state's
+/// arguments or in an event's condition blocks the file too, at the rule.
+#[test]
+fn a_feedback_rule_carries_no_credential() {
+    let mut address = StateAddress::new("acme.timer", "running");
+    address
+        .args
+        .insert("feed".into(), "https://e.com/x?token=LEAK".into());
+    let rules = [
+        FeedbackRule::state(address, Test::HasValue).show("busy"),
+        FeedbackRule::event("acme.ci", "done")
+            .where_field("hook", "http://ha.local:8123/api/webhook/LEAK")
+            .show("busy")
+            .hold(Hold::Latch),
+    ];
+    for rule in rules {
+        let mut watched = pad(
+            0,
+            "Watched",
+            a("acme.notes", "mark", json!({ "folder": "notes" })),
+        );
+        watched.states.insert(
+            "busy".into(),
+            crate::core::model::Visual::solid(Rgb::new(0, 0, 255)),
+        );
+        watched.feedback = vec![
+            FeedbackRule::state(StateAddress::new("acme.timer", "running"), Test::HasValue)
+                .show("busy"),
+            rule,
+        ];
+        let ws = workspace(vec![surface("work", vec![watched])]);
+        let errors = refused(&ws, &pack(&["work"]));
+        assert_eq!(codes(&errors), [E::Credential]);
+        assert_eq!(
+            errors[0].at.as_deref(),
+            Some("/content/surfaces/0/pages/0/controls/0/feedback/1")
+        );
+        assert!(errors[0].message.contains("\"Watched\""));
+        assert!(!errors[0].message.contains("LEAK"));
+    }
+}
+
 /// SF-2: an input's default may not carry a credential either.
 #[test]
 fn a_default_carries_no_credential() {
