@@ -81,7 +81,8 @@ impl Default for Settings {
 pub struct SettingsPatch {
     pub notifications: Option<bool>,
     pub hooks_enabled: Option<bool>,
-    pub hooks_port: Option<u16>,
+    /// Wider than a port so that any whole number reaches `validate`.
+    pub hooks_port: Option<u64>,
     pub hooks_harnesses: Option<BTreeMap<String, bool>>,
     pub hooks_hold_secs: Option<u64>,
 }
@@ -97,7 +98,7 @@ impl SettingsPatch {
 
     pub fn validate(&self) -> Result<(), String> {
         if let Some(port) = self.hooks_port {
-            if port < 1024 {
+            if !(1024..=u64::from(u16::MAX)).contains(&port) {
                 return Err("Use a port from 1024 to 65535.".into());
             }
         }
@@ -121,7 +122,7 @@ impl SettingsPatch {
         if let Some(v) = self.hooks_enabled {
             s.hooks.enabled = v;
         }
-        if let Some(v) = self.hooks_port {
+        if let Some(v) = self.hooks_port.and_then(|p| u16::try_from(p).ok()) {
             s.hooks.port = v;
         }
         if let Some(v) = self.hooks_harnesses {
@@ -195,6 +196,13 @@ mod tests {
             ..Default::default()
         };
         assert!(bad_port.validate().is_err());
+        // Any whole number the window sends reaches this check, so the
+        // person reads the same sentence for a port that is too high.
+        let too_high: SettingsPatch = serde_json::from_str(r#"{"hooksPort":70000}"#).unwrap();
+        assert_eq!(
+            too_high.validate().unwrap_err(),
+            "Use a port from 1024 to 65535."
+        );
         let bad_hold = SettingsPatch {
             hooks_hold_secs: Some(1),
             ..Default::default()

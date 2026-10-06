@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../../lib/ipc";
+import { ProblemText } from "../../components/Problem";
+import { api, toProblem, type Problem } from "../../lib/ipc";
 import { formatTime, plural } from "../../lib/format";
 import { providerLabel, type AdapterView, type AgentView, type HookSetup } from "../../lib/agents";
 import { useStore } from "../../stores/runtime";
@@ -102,6 +103,8 @@ function AdapterCard({ adapter, agents }: { adapter: AdapterView; agents: AgentV
   );
 }
 
+const WHOLE = /^\d+$/;
+
 /** The opt-in local endpoint harnesses with hooks talk to. Off until the person turns it on. */
 function HookEndpoint({ hooks }: { hooks: AdapterView[] }) {
   const settings = useStore((s) => s.agents.settings);
@@ -110,6 +113,7 @@ function HookEndpoint({ hooks }: { hooks: AdapterView[] }) {
   const [hold, setHold] = useState(String(settings.hooksHoldSecs));
   const [setup, setSetup] = useState<HookSetup | null>(null);
   const [showSetup, setShowSetup] = useState(false);
+  const [refused, setRefused] = useState<Problem | null>(null);
 
   useEffect(() => setPort(String(settings.hooksPort)), [settings.hooksPort]);
   useEffect(() => setHold(String(settings.hooksHoldSecs)), [settings.hooksHoldSecs]);
@@ -121,11 +125,20 @@ function HookEndpoint({ hooks }: { hooks: AdapterView[] }) {
     if (showSetup && settings.hooksEnabled) loadSetup();
   }, [showSetup, settings.hooksEnabled, settings.hooksPort, loadSetup]);
 
+  // Only whether each field holds a whole number; Rust says which values it takes.
+  const portOk = WHOLE.test(port.trim());
+  const holdOk = WHOLE.test(hold.trim());
   const portNum = Number(port);
   const holdNum = Number(hold);
-  const portOk = Number.isInteger(portNum) && portNum >= 1024 && portNum <= 65535;
-  const holdOk = Number.isInteger(holdNum) && holdNum >= 5 && holdNum <= 600;
   const dirty = portNum !== settings.hooksPort || holdNum !== settings.hooksHoldSecs;
+  const apply = async () => {
+    setRefused(null);
+    try {
+      await api.agents.updateSettings({ hooksPort: portNum, hooksHoldSecs: holdNum });
+    } catch (e) {
+      setRefused(toProblem(e));
+    }
+  };
 
   return (
     <section className="panel" aria-label="Hook endpoint">
@@ -150,21 +163,22 @@ function HookEndpoint({ hooks }: { hooks: AdapterView[] }) {
       <div className="row wrap">
         <label className="field narrow">
           <span>Port</span>
-          <input inputMode="numeric" value={port} onChange={(e) => setPort(e.target.value)} aria-invalid={!portOk} />
+          <input inputMode="numeric" value={port} onChange={(e) => setPort(e.target.value)} aria-invalid={!portOk || refused !== null} />
         </label>
         <label className="field narrow">
           <span>Hold (seconds)</span>
-          <input inputMode="numeric" value={hold} onChange={(e) => setHold(e.target.value)} aria-invalid={!holdOk} />
+          <input inputMode="numeric" value={hold} onChange={(e) => setHold(e.target.value)} aria-invalid={!holdOk || refused !== null} />
         </label>
         <button
           type="button"
           className="btn small"
           disabled={!dirty || !portOk || !holdOk}
-          onClick={() => void attempt(() => api.agents.updateSettings({ hooksPort: portNum, hooksHoldSecs: holdNum }))}
+          onClick={() => void apply()}
         >
           Apply
         </button>
       </div>
+      {refused && <ProblemText problem={refused} role="alert" />}
       <p className="hint">
         A permission request is held for the hold time so you can answer from the pads or here. If you do not, or if control is not granted, the tool shows its own
         prompt. LaunchDeck never answers for you.
