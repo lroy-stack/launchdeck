@@ -17,7 +17,7 @@
 //! There is one broker per running plugin. Nothing here knows any plugin by name.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -620,13 +620,28 @@ fn redirect_target(response: &HttpResponse) -> Option<String> {
 // Resolving: every address must be within the origin's reach
 // ---------------------------------------------------------------------------
 
-/// A name resolved to somewhere its origin's permission does not cover.
+/// A name resolved to somewhere its origin's reach does not cover.
 #[derive(Debug)]
-struct OutOfReach(String);
+pub(crate) struct OutOfReach {
+    origin: Origin,
+    /// The address it resolved to.
+    pub ip: IpAddr,
+    /// Where that address is; `None` when nothing may connect to it.
+    pub found: Option<Reach>,
+}
 
 impl std::fmt::Display for OutOfReach {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
+        let Self { origin, ip, found } = self;
+        match found {
+            None => write!(f, "{origin} resolved to {ip}, which nothing may connect to"),
+            Some(found) => write!(
+                f,
+                "{origin} resolved to {ip}, which is on {}; the permission for {origin} covers {} only",
+                reach_words(*found),
+                reach_words(origin.reach())
+            ),
+        }
     }
 }
 
@@ -642,33 +657,49 @@ fn reach_words(reach: Reach) -> &'static str {
 
 /// Checks the addresses a name resolved to. Pure, so it can be tested without DNS.
 pub fn check_addresses(origin: &Origin, addresses: &[SocketAddr]) -> Result<(), String> {
+    checked(origin, addresses).map_err(|out| out.to_string())
+}
+
+fn checked(origin: &Origin, addresses: &[SocketAddr]) -> Result<(), OutOfReach> {
     for address in addresses {
         let ip = address.ip();
-        match reach_of_ip(ip) {
-            None => return Err(format!("{origin} resolved to {ip}, which nothing may connect to")),
-            Some(found) if !reach_allows(origin.reach(), found) => {
-                return Err(format!(
-                    "{origin} resolved to {ip}, which is on {}; the permission for {origin} covers {} only",
-                    reach_words(found),
-                    reach_words(origin.reach())
-                ))
-            }
-            Some(_) => {}
+        let found = reach_of_ip(ip);
+        if !found.is_some_and(|found| reach_allows(origin.reach(), found)) {
+            return Err(OutOfReach {
+                origin: origin.clone(),
+                ip,
+                found,
+            });
         }
     }
     Ok(())
 }
 
-/// The standard resolver, with the check above between the answer and the connection.
-/// The connection is made to the addresses that were checked, so a second
-/// lookup cannot give a different answer.
+/// A resolver (the system's, by default), with the check above between the
+/// answer and the connection: the one way both the broker and the built-in
+/// `http.request` (`actions::builtin`) look a name up. The connection is
+/// made to the addresses that were checked, so a second lookup cannot give
+/// a different answer.
 #[derive(Debug)]
-struct ReachResolver {
+pub(crate) struct ReachResolver<R: Resolver = DefaultResolver> {
     origin: Origin,
-    inner: DefaultResolver,
+    inner: R,
 }
 
-impl Resolver for ReachResolver {
+impl ReachResolver {
+    pub(crate) fn new(origin: Origin) -> Self {
+        Self::over(origin, DefaultResolver::default())
+    }
+}
+
+impl<R: Resolver> ReachResolver<R> {
+    /// The check over `inner`, which tests give the answers they need.
+    pub(crate) fn over(origin: Origin, inner: R) -> Self {
+        Self { origin, inner }
+    }
+}
+
+impl<R: Resolver> Resolver for ReachResolver<R> {
     fn resolve(
         &self,
         uri: &Uri,
@@ -677,9 +708,16 @@ impl Resolver for ReachResolver {
     ) -> Result<ResolvedSocketAddrs, ureq::Error> {
         let addresses = self.inner.resolve(uri, config, timeout)?;
         let list: Vec<SocketAddr> = addresses.iter().copied().collect();
-        check_addresses(&self.origin, &list)
-            .map_err(|why| ureq::Error::Other(Box::new(OutOfReach(why))))?;
+        checked(&self.origin, &list).map_err(|out| ureq::Error::Other(Box::new(out)))?;
         Ok(addresses)
+    }
+}
+
+/// The check that stopped a request, when that is why `error` happened.
+pub(crate) fn out_of_reach(error: &ureq::Error) -> Option<&OutOfReach> {
+    match error {
+        ureq::Error::Other(inner) => inner.downcast_ref::<OutOfReach>(),
+        _ => None,
     }
 }
 
@@ -711,10 +749,7 @@ fn send(
     let agent = ureq::Agent::with_parts(
         config,
         DefaultConnector::default(),
-        ReachResolver {
-            origin: origin.clone(),
-            inner: DefaultResolver::default(),
-        },
+        ReachResolver::new(origin.clone()),
     );
     let mut builder = ureq::http::Request::builder()
         .method(method)
@@ -783,7 +818,7 @@ fn transport_error(e: ureq::Error, origin: &Origin) -> NetError {
     use ureq::Error as E;
     match e {
         E::Other(inner) => match inner.downcast_ref::<OutOfReach>() {
-            Some(out) => NetError::new(code::HOST_NOT_ALLOWED, out.0.clone()),
+            Some(out) => NetError::new(code::HOST_NOT_ALLOWED, out.to_string()),
             None => NetError::new(
                 code::NETWORK_ERROR,
                 format!("the request to {origin} failed"),
