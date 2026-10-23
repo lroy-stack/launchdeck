@@ -52,5 +52,5 @@ For programs that report agents to LaunchDeck: the [Agent Bridge protocol](agent
 
 * [Verification records](verification/README.md): what was run, where, and what was seen.
 * [History](history/README.md): the plans of earlier milestones, kept as written.
-* Roadmap, not built: [marketplace](roadmap/marketplace.md), [MCP](roadmap/mcp.md) and the [MCP bridge](roadmap/mcp-bridge.md) for agents.
+* Roadmap, not built: [agent-native LaunchDeck](roadmap/agent-native.md) (the study of 2026-10-23: a native MCP server, one-click connection, orchestration from the Launchpad), [marketplace](roadmap/marketplace.md), [MCP](roadmap/mcp.md) and the earlier [MCP bridge](roadmap/mcp-bridge.md) design.
 * The current milestone's plans stay at the root: [PRODUCTIZATION_PLAN.md](../PRODUCTIZATION_PLAN.md) and [LAUNCHPAD_MINI_MK3_PLAN.md](../LAUNCHPAD_MINI_MK3_PLAN.md).

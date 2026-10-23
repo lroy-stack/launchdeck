@@ -1,5 +1,7 @@
 # MCP bridge (optional, design only)
 
+> **Superseded on 2026-10-23** by [Agent-native LaunchDeck](agent-native.md), which re-reads MCP 2026-07-28 and proposes a native MCP server. This page is kept as the earlier design.
+
 **Status: not built.** Nothing in this repository speaks the Model Context Protocol, nothing depends on it, and no MCP client has been run against LaunchDeck. This page describes where an MCP bridge would sit, what it could honestly do, and what it must never do, so that the current design does not have to change if it is built later.
 
 Agent Control works without MCP. The integration surface is the [Agent Bridge](../agent-control/bridge-protocol.md) (a localhost WebSocket that any language can use) and the [hook endpoint](../agent-control/security.md#the-hook-endpoint). MCP would be a third, optional way in for agents that already speak it. It would be a translator and nothing more.
